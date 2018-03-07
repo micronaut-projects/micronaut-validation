@@ -13,11 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-package org.particleframework.validation;
+package io.micronaut.validation;
 
-import org.particleframework.aop.InterceptPhase;
-import org.particleframework.aop.MethodInterceptor;
-import org.particleframework.aop.MethodInvocationContext;
+import io.micronaut.aop.InterceptPhase;
+import io.micronaut.aop.MethodInterceptor;
+import io.micronaut.aop.MethodInvocationContext;
+import io.micronaut.core.order.Ordered;
+import io.micronaut.aop.InterceptPhase;
+import io.micronaut.aop.MethodInterceptor;
+import io.micronaut.aop.MethodInvocationContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,7 +46,7 @@ public class ValidatingInterceptor implements MethodInterceptor {
     private static final Logger LOG = LoggerFactory.getLogger(ValidatingInterceptor.class);
 
     /**
-     * The position of the interceptor. See {@link org.particleframework.core.order.Ordered}
+     * The position of the interceptor. See {@link Ordered}
      */
     public static final int POSITION = InterceptPhase.VALIDATE.getPosition();
 

@@ -13,28 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-package org.particleframework.validation;
+package io.micronaut.validation;
 
-import org.particleframework.aop.Around;
-import org.particleframework.context.annotation.Type;
-
-import java.lang.annotation.Documented;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.Target;
-
-import static java.lang.annotation.RetentionPolicy.RUNTIME;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
+import io.micronaut.http.annotation.Controller;
+import io.micronaut.http.annotation.Post;
+import javax.validation.constraints.Digits;
 
 /**
- * {@link Around} advice that ensures an objects methods are validated
- *
  * @author Graeme Rocher
  * @since 1.0
  */
-@Documented
-@Retention(RUNTIME)
-@Target({ElementType.TYPE, ElementType.METHOD})
-@Around
-@Type(ValidatingInterceptor.class)
-public @interface Validated {
+@Controller("/validated")
+@Validated
+public class ValidatedController {
+
+
+    @Post
+    public String args(@Digits(integer = 3, fraction = 2) String amount) {
+        return "$" + amount;
+    }
 }

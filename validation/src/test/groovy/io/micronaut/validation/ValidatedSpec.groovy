@@ -13,22 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License. 
  */
-package org.particleframework.validation
+package io.micronaut.validation
 
 import groovy.json.JsonSlurper
+import io.micronaut.context.ApplicationContext
+import io.micronaut.context.BeanContext
+import io.micronaut.core.order.OrderUtil
+import io.micronaut.http.HttpStatus
 import okhttp3.MediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody
-import org.particleframework.cache.AsyncCacheErrorHandler
-import org.particleframework.cache.CacheErrorHandler
-import org.particleframework.cache.CacheManager
-import org.particleframework.cache.interceptor.CacheInterceptor
-import org.particleframework.context.ApplicationContext
-import org.particleframework.context.BeanContext
-import org.particleframework.core.order.OrderUtil
-import org.particleframework.http.HttpStatus
-import org.particleframework.runtime.server.EmbeddedServer
+import io.micronaut.cache.AsyncCacheErrorHandler
+import io.micronaut.cache.CacheErrorHandler
+import io.micronaut.cache.CacheManager
+import io.micronaut.cache.interceptor.CacheInterceptor
+import io.micronaut.context.ApplicationContext
+import io.micronaut.context.BeanContext
+import io.micronaut.core.order.OrderUtil
+import io.micronaut.http.HttpStatus
+import io.micronaut.runtime.server.EmbeddedServer
 import spock.lang.Specification
 
 import javax.validation.ConstraintViolationException

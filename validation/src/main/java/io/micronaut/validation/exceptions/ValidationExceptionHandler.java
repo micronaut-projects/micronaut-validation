@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.particleframework.validation.exceptions;
+package io.micronaut.validation.exceptions;
 
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.hateos.Link;
+import io.micronaut.http.hateos.VndError;
+import io.micronaut.http.server.exceptions.ExceptionHandler;
 import org.grails.datastore.mapping.validation.ValidationException;
-import org.particleframework.context.annotation.Requires;
-import org.particleframework.http.HttpRequest;
-import org.particleframework.http.HttpResponse;
-import org.particleframework.http.hateos.Link;
-import org.particleframework.http.hateos.VndError;
-import org.particleframework.http.server.exceptions.ExceptionHandler;
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.http.HttpRequest;
+import io.micronaut.http.HttpResponse;
+import io.micronaut.http.hateos.Link;
+import io.micronaut.http.hateos.VndError;
+import io.micronaut.http.server.exceptions.ExceptionHandler;
 import org.springframework.validation.Errors;
 import org.springframework.validation.FieldError;
 
