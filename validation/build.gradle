@@ -15,6 +15,7 @@ dependencies {
     implementation libs.managed.reactor
 
     testImplementation libs.managed.spotbugs
+    testImplementation libs.junit.jupiter.api
     testAnnotationProcessor mn.micronaut.inject.java
     testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
@@ -23,6 +24,10 @@ dependencies {
     testImplementation mn.micronaut.http.server.netty
     testImplementation libs.managed.groovy.json
     testImplementation mn.micronaut.inject.java.test
+
+    if (!JavaVersion.current().isJava9Compatible()) {
+        testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)
+    }
 }
 //compileTestGroovy.groovyOptions.forkOptions.jvmArgs = ['-Xdebug', '-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005']
 

@@ -23,13 +23,12 @@ groovy = "3.0.10"
 spock = "2.1-groovy-3.0"
 
 #
-# Managed versions appear in the BOM
+# Managed versions appear in the BOM as <properties>
 #
-
-#managed-micronaut-reactor = "2.2.2"
 
 managed-gorm = "7.3.1"
 managed-groovy = "3.0.10"
+managed-junit5 = "5.7.2"
 # This should be kept aligned with https://github.com/micronaut-projects/micronaut-reactor/blob/master/gradle.properties from the BOM
 managed-reactor = "3.4.18"
 managed-spotbugs = "4.7.0"
@@ -55,10 +54,12 @@ managed-validation = { module = "javax.validation:validation-api", version.ref =
 # boms-somebom = { module = "com.foo:somebom", version.ref = "managed-somebom" }
 
 #
-# Other libraries used by the project but non managed
+# Other libraries that are used by the project but will not appear in the BOM
 #
 # micronaut-bom = { module = "io.micronaut:micronaut-bom", version.ref = "micronaut" }
 # jdoctor = { module = "me.champeau.jdoctor:jdoctor-core", version.ref="jdoctor" }
+
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "managed-junit5" }
 
 [bundles]
 
