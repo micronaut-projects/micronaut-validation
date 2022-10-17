@@ -1,36 +1,44 @@
 plugins {
-    id "io.micronaut.build.internal.convention-library"
+    id "io.micronaut.build.internal.validation-module"
 }
 
-micronautBuild {
-    core {
-        usesMicronautTestSpock()
-    }
+repositories {
+    mavenCentral()
+    maven { url "https://s01.oss.sonatype.org/content/repositories/snapshots/" }
 }
 
 dependencies {
-    annotationProcessor project(":inject-java")
+    annotationProcessor mn.micronaut.inject.java
 
-    api project(":inject")
-    api project(":core-reactive")
+    api mn.micronaut.inject
+    api mn.micronaut.core.reactive
+    api mn.micronaut.context
     api libs.managed.validation
 
     compileOnly(libs.managed.gorm) {
         exclude(module: 'groovy')
     }
-    compileOnly project(":http-server")
+    compileOnly libs.managed.gorm
+    compileOnly mn.micronaut.http
+    compileOnly mn.micronaut.http.server
+    compileOnly mn.micronaut.aop
 
     implementation libs.managed.reactor
 
     testImplementation libs.managed.spotbugs
-    testAnnotationProcessor project(":inject-java")
-    testCompileOnly project(":inject-groovy")
-    testImplementation project(":inject")
+    testAnnotationProcessor mn.micronaut.inject.java
+    testCompileOnly mn.micronaut.inject.groovy
+    testImplementation mn.micronaut.inject
 
-    testImplementation project(":http-client")
-    testImplementation project(":http-server-netty")
+    testImplementation mn.micronaut.http.client
+    testImplementation mn.micronaut.http.server.netty
     testImplementation libs.managed.groovy.json
-    testImplementation project(":inject-java-test")
+    testImplementation mn.micronaut.inject.java.test
+    testImplementation mn.micronaut.jackson.databind
+
+    if (!JavaVersion.current().isJava9Compatible()) {
+        testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)
+    }
 
 }
 //compileTestGroovy.groovyOptions.forkOptions.jvmArgs = ['-Xdebug', '-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005']

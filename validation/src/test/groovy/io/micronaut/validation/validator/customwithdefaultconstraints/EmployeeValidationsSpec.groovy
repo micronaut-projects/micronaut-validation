@@ -19,10 +19,6 @@ import javax.validation.constraints.NotEmpty
 import javax.validation.constraints.NotNull
 import java.util.stream.Collectors
 
-import static org.junit.jupiter.api.Assertions.assertEquals
-import static org.junit.jupiter.api.Assertions.assertIterableEquals
-import static org.junit.jupiter.api.Assertions.assertThrows
-
 @Issue("https://github.com/micronaut-projects/micronaut-core/issues/6519")
 class EmployeeValidationsSpec extends Specification {
 
@@ -48,7 +44,7 @@ class EmployeeValidationsSpec extends Specification {
 
         then:
         Set<String> violationMessages = constraintViolations.stream().map(ConstraintViolation::getMessage).collect(Collectors.toSet());
-        assertEquals(3, constraintViolations.size());
+        constraintViolations.size() == 3
         assertIterableEquals(messages, violationMessages);
     }
 
@@ -73,10 +69,9 @@ class EmployeeValidationsSpec extends Specification {
         String notBlankValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.name")).map(ConstraintViolation::getMessage).findFirst().get();
         String experienceValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp")).map(ConstraintViolation::getMessage).findFirst().get();
         String notNullValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.designation.name")).map(ConstraintViolation::getMessage).findFirst().get();
-        assertEquals("must not be blank", notBlankValidated);
-        assertEquals("Experience Ineligible", experienceValidated);
-        assertEquals("must not be empty", notNullValidated);
-
+        notBlankValidated == "must not be blank"
+        experienceValidated == "Experience Ineligible"
+        notNullValidated == "must not be empty"
     }
 
     void "test whether exceptions thrown when both custom message cascade constraint default validations fail"() {
