@@ -24,6 +24,7 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.exceptions.BeanInstantiationException
 import io.micronaut.core.annotation.Nullable
+import io.micronaut.core.beans.BeanIntrospection
 import io.micronaut.core.order.OrderUtil
 import io.micronaut.core.type.Argument
 import io.micronaut.http.HttpRequest
@@ -159,7 +160,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "List[0].prop: must not be null"
+        e.message == "List[0]<E Bar>.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -175,7 +176,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "Map[barObj].prop: must not be null"
+        e.message == "Map[barObj]<V Bar>.prop: must not be null"
 
         cleanup:
         beanContext.close()

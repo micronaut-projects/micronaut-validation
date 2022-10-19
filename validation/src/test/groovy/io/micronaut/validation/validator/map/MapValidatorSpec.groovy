@@ -20,8 +20,8 @@ class MapValidatorSpec extends Specification {
     void "test cascade validate to map"() {
         given:
         Author a = new Author(
-                name: "Stephen King",
-                books: [it:new Book(title: "")]
+                "Stephen King",
+                ["It": new Book("")]
         )
 
         when:
@@ -29,20 +29,8 @@ class MapValidatorSpec extends Specification {
 
         then:
         constraintViolations.size() == 1
-        constraintViolations.first().propertyPath.toString() == 'books[it].title'
+        constraintViolations.first().propertyPath.toString() == 'books[It]<V Book>.title'
     }
 }
 
-@Introspected
-class Author {
-    String name
 
-    @Valid
-    Map<String, Book> books
-}
-
-@Introspected
-class Book {
-    @NotBlank
-    String title
-}
