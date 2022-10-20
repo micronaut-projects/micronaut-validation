@@ -111,36 +111,34 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                     throw new ConstraintViolationException(constraintViolations);
                 }
             }
-            if (hasValidationAnnotation(context)) {
-                if (micronautValidator instanceof ReactiveValidator) {
-                    InterceptedMethod interceptedMethod = InterceptedMethod.of(context);
-                    try {
-                        switch (interceptedMethod.resultType()) {
-                            case PUBLISHER:
-                                return interceptedMethod.handleResult(
-                                        ((ReactiveValidator) micronautValidator).validatePublisher(
-                                                interceptedMethod.interceptResultAsPublisher(),
-                                                getValidationGroups(context))
-                                );
-                            case COMPLETION_STAGE:
-                                return interceptedMethod.handleResult(
-                                        ((ReactiveValidator) micronautValidator).validateCompletionStage(
-                                                interceptedMethod.interceptResultAsCompletionStage(),
-                                                getValidationGroups(context))
-                                );
-                            case SYNCHRONOUS:
-                                return validateReturnMicronautValidator(context, executableMethod);
-                            default:
-                                return interceptedMethod.unsupported();
-                        }
-                    } catch (Exception e) {
-                        return interceptedMethod.handleException(e);
+            if (micronautValidator instanceof ReactiveValidator) {
+                InterceptedMethod interceptedMethod = InterceptedMethod.of(context);
+                try {
+                    switch (interceptedMethod.resultType()) {
+                        case PUBLISHER:
+                            return interceptedMethod.handleResult(
+                                    ((ReactiveValidator) micronautValidator).validatePublisher(
+                                            context.getReturnType(),
+                                            interceptedMethod.interceptResultAsPublisher(),
+                                            getValidationGroups(context))
+                            );
+                        case COMPLETION_STAGE:
+                            return interceptedMethod.handleResult(
+                                    ((ReactiveValidator) micronautValidator).validateCompletionStage(
+                                            interceptedMethod.interceptResultAsCompletionStage(),
+                                            getValidationGroups(context))
+                            );
+                        case SYNCHRONOUS:
+                            return validateReturnMicronautValidator(context, executableMethod);
+                        default:
+                            return interceptedMethod.unsupported();
                     }
-                } else {
-                    return validateReturnMicronautValidator(context, executableMethod);
+                } catch (Exception e) {
+                    return interceptedMethod.handleException(e);
                 }
+            } else {
+                return validateReturnMicronautValidator(context, executableMethod);
             }
-            return context.proceed();
         }
         return context.proceed();
     }
@@ -160,22 +158,16 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
 
     private Object validateReturnExecutableValidator(MethodInvocationContext<Object, Object> context, Method targetMethod) {
         final Object result = context.proceed();
-        if (hasValidationAnnotation(context)) {
-            Set<ConstraintViolation<Object>> constraintViolations = executableValidator.validateReturnValue(
-                    context.getTarget(),
-                    targetMethod,
-                    result,
-                    getValidationGroups(context)
-            );
-            if (!constraintViolations.isEmpty()) {
-                throw new ConstraintViolationException(constraintViolations);
-            }
+        Set<ConstraintViolation<Object>> constraintViolations = executableValidator.validateReturnValue(
+                context.getTarget(),
+                targetMethod,
+                result,
+                getValidationGroups(context)
+        );
+        if (!constraintViolations.isEmpty()) {
+            throw new ConstraintViolationException(constraintViolations);
         }
         return result;
-    }
-
-    private boolean hasValidationAnnotation(MethodInvocationContext<Object, Object> context) {
-        return context.hasStereotype(Validator.ANN_VALID) || context.hasStereotype(Validator.ANN_CONSTRAINT);
     }
 
     private Class<?>[] getValidationGroups(MethodInvocationContext<Object, Object> context) {

@@ -88,6 +88,8 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
         StringBuilder message = new StringBuilder();
         Iterator<Path.Node> i = propertyPath.iterator();
 
+        boolean firstNode = true;
+
         while (i.hasNext()) {
             Path.Node node = i.next();
 
@@ -95,15 +97,24 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
                 continue;
             }
 
-            message.append(node.getName());
-
-            if (node.getIndex() != null) {
-                message.append(String.format("[%d]", node.getIndex()));
+            if (node.getKind() == ElementKind.CONTAINER_ELEMENT) {
+                if (node.isInIterable()) {
+                    message.append('[');
+                    if (node.getKey() != null) {
+                        message.append(node.getKey());
+                    } else if (node.getIndex() != null) {
+                        message.append(node.getIndex());
+                    }
+                    message.append(']');
+                }
+            } else {
+                if (!firstNode) {
+                    message.append('.');
+                }
+                message.append(node.getName());
             }
 
-            if (i.hasNext()) {
-                message.append('.');
-            }
+            firstNode = false;
         }
 
         message.append(": ").append(violation.getMessage());

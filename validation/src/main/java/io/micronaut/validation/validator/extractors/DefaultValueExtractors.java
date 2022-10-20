@@ -42,8 +42,17 @@ import java.util.*;
 @Introspected
 public class DefaultValueExtractors implements ValueExtractorRegistry {
 
+    /**
+     * Node name for an element of an iterable.
+     */
     public static final String ITERABLE_ELEMENT_NODE_NAME = "<iterable element>";
+    /**
+     * Node name for an element of an indexed iterable.
+     */
     public static final String LIST_ELEMENT_NODE_NAME = "<list element>";
+    /**
+     * Node name for an value element of a map.
+     */
     public static final String MAP_VALUE_NODE_NAME = "<map value>";
 
     private final UnwrapByDefaultValueExtractor<Optional> optionalValueExtractor =
