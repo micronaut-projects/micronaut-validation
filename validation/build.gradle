@@ -7,21 +7,18 @@ dependencies {
 
     api mn.micronaut.inject
     api mn.micronaut.core.reactive
-    api mn.micronaut.context
     api libs.managed.validation
 
     compileOnly(libs.managed.gorm) {
         exclude(module: 'groovy')
     }
-    compileOnly libs.managed.gorm
-    compileOnly mn.micronaut.http
     compileOnly mn.micronaut.http.server
-    compileOnly mn.micronaut.aop
 
     implementation libs.managed.reactor
 
-    testImplementation libs.managed.spotbugs
+    testAnnotationProcessor project(":validation-processor")
     testAnnotationProcessor mn.micronaut.inject.java
+    testImplementation libs.managed.spotbugs
     testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
 

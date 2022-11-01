@@ -1,0 +1,23 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+dependencies {
+    api mn.micronaut.core.processor
+
+    testImplementation mn.micronaut.core.reactive
+    testImplementation libs.managed.validation
+    testCompileOnly mn.micronaut.http
+
+    testImplementation libs.managed.spotbugs
+    testCompileOnly mn.micronaut.inject.groovy
+    testImplementation mn.micronaut.inject
+    testImplementation libs.managed.validation
+
+    testImplementation mn.micronaut.http.client
+    testImplementation mn.micronaut.inject.java.test
+
+    if (!JavaVersion.current().isJava9Compatible()) {
+        testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)
+    }
+}
