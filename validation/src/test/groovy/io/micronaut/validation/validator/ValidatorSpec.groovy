@@ -7,6 +7,7 @@ import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.resolver.CompositeTraversableResolver
 import jakarta.inject.Singleton
 import spock.lang.AutoCleanup
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -246,7 +247,7 @@ class ValidatorSpec extends Specification {
     void "validate property argument - with iterable constraints"() {
         given:
         var e = new ValidatorSpecClasses.Email(["me@oracle.com", "", "me2@oracle.com"])
-        var violations = validator.validate(e);
+        var violations = validator.validate(e)
         violations = violations.sort{it->it.getPropertyPath().toString()}
 
         expect:
@@ -776,6 +777,34 @@ class ValidatorSpec extends Specification {
         constraintViolations.size() == 2
         constraintViolations[0].toString() == 'DefaultConstraintViolation{rootBean=class io.micronaut.validation.validator.$BookService$Definition$Intercepted, invalidValue=50, path=saveBook.pages}'
         constraintViolations[1].toString() == 'DefaultConstraintViolation{rootBean=class io.micronaut.validation.validator.$BookService$Definition$Intercepted, invalidValue=, path=saveBook.title}'
+    }
+
+    void "test cascade to container"() {
+        given:
+        def salad = new ValidatorSpecClasses.Salad([
+                new ValidatorSpecClasses.Ingredient("carrot"),
+                new ValidatorSpecClasses.Ingredient("")
+        ])
+        def violations = validator.validate(salad)
+
+        expect:
+        violations.size() == 1
+        violations[0].invalidValue == ""
+    }
+
+    @Ignore("https://github.com/micronaut-projects/micronaut-core/issues/8301")
+    void "test cascade to container with setter"() {
+        given:
+        def salad = new ValidatorSpecClasses.SaladWithSetter()
+        salad.ingredients = [
+                new ValidatorSpecClasses.Ingredient("carrot"),
+                new ValidatorSpecClasses.Ingredient("")
+        ]
+        def violations = validator.validate(salad)
+
+        expect:
+        violations.size() == 1
+        violations[0].invalidValue == ""
     }
 }
 

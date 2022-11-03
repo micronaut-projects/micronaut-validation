@@ -114,9 +114,9 @@ public class ValidatorSpecClasses {
     // test validate property argument cascade
     @Introspected
     public static class Email {
-        final private @Size(max=2) List<@NotBlank String> recoveryEmails;
+        private @Size(max=2) List<@NotBlank String> recoveryEmails;
 
-        public Email(@Size(max=2) List<String> recoveryEmails) {
+        public Email(List<String> recoveryEmails) {
             this.recoveryEmails = recoveryEmails;
         }
 
@@ -290,4 +290,36 @@ public class ValidatorSpecClasses {
         PUBLISHED,
         DRAFT
     }
+
+    // test cascade to container
+    @Introspected
+    public static class Salad {
+        List<@Valid Ingredient> ingredients;
+
+        public Salad(List<Ingredient> ingredients) {
+            this.ingredients = ingredients;
+        }
+
+        public List<Ingredient> getIngredients() {
+            return ingredients;
+        }
+    }
+
+    @Introspected
+    public static class SaladWithSetter {
+        List<@Valid Ingredient> ingredients;
+
+        public List<Ingredient> getIngredients() {
+            return ingredients;
+        }
+
+        public void setIngredients(List<Ingredient> ingredients) {
+            this.ingredients = ingredients;
+        }
+    }
+
+    @Introspected
+    public record Ingredient(
+        @NotBlank String name
+    ) {}
 }

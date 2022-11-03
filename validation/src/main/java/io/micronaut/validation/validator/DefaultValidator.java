@@ -1025,7 +1025,6 @@ public class DefaultValidator implements
     ) {
         if (!context.elementRequireCascadeValidation.containsKey(annotatedElement)) {
             context.elementRequireCascadeValidation.put(annotatedElement, false);
-            AnnotationMetadata annotationMetadata = annotatedElement.getAnnotationMetadata();
 
             Argument<Object> annotatedElementAsArgument = null;
             if (annotatedElement instanceof Argument) {
