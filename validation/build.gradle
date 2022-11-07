@@ -40,3 +40,9 @@ spotless {
         targetExclude '**/io/micronaut/validation/validator/constraints/EmailValidator.java'
     }
 }
+
+micronautBuild {
+    binaryCompatibility {
+        enabled = false
+    }
+}
