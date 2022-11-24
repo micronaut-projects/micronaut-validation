@@ -120,6 +120,13 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean requiresValidation(TypedElement e, boolean requireOnConstraint) {
+        if (e.hasStereotype(ANN_VALID)) {
+            // Annotate the element with same annotation that we annotate classes with.
+            // This will ensure the correct behavior of io.micronaut.inject.ast.utils.AstBeanPropertiesUtils
+            // in certain cases, as it relies on the fact that usages of types inherit
+            // annotations from the type itself
+            e.annotate(RequiresValidation.class);
+        }
         return (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT)) ||
             e.hasStereotype(ANN_VALID) ||
             typeArgumentsRequireValidation(e, requireOnConstraint);
