@@ -4,11 +4,13 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.Validator
 import spock.lang.AutoCleanup
+import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
 import javax.validation.Valid
 
+@Ignore("Validation module needs to be removed from core first")
 class CustomConstraintsSpec extends Specification {
 
     @Shared

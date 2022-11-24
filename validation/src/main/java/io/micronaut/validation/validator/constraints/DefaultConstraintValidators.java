@@ -433,7 +433,7 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
         ArgumentUtils.requireNonNull("constraintType", constraintType);
         ArgumentUtils.requireNonNull("targetType", targetType);
         final ValidatorKey key = new ValidatorKey(constraintType, targetType);
-        targetType = ReflectionUtils.getWrapperType(targetType);
+        Class<?> targetWrapperType = ReflectionUtils.getWrapperType(targetType);
         ConstraintValidator constraintValidator = localValidators.get(key);
         if (constraintValidator != null) {
             return Optional.of(constraintValidator);
@@ -444,9 +444,9 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
             } else {
                 final Qualifier<ConstraintValidator> qualifier = Qualifiers.byTypeArguments(
                         constraintType,
-                        ReflectionUtils.getWrapperType(targetType)
+                        ReflectionUtils.getWrapperType(targetWrapperType)
                 );
-                Class<T> finalTargetType = targetType;
+                Class<?> finalTargetType = targetWrapperType;
                 final Class[] finalTypeArguments = {constraintType, finalTargetType};
                 final Optional<ConstraintValidator> local = localValidators.entrySet().stream().filter(entry -> {
                             final ValidatorKey k = entry.getKey();
@@ -469,7 +469,7 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
                     }
                 } else {
                     // last chance lookup
-                    final ConstraintValidator cv = findLocalConstraintValidator(constraintType, targetType)
+                    final ConstraintValidator cv = findLocalConstraintValidator(constraintType, targetWrapperType)
                                                         .orElse(ConstraintValidator.VALID);
                     validatorCache.put(key, cv);
                     if (cv != ConstraintValidator.VALID) {

@@ -15,8 +15,9 @@
  */
 package io.micronaut.validation;
 
-import groovy.lang.Singleton;
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.Introspected;
+import jakarta.inject.Singleton;
 
 import javax.validation.Valid;
 import javax.validation.constraints.Digits;
@@ -29,8 +30,8 @@ import java.util.Map;
  * @author Graeme Rocher
  * @since 1.0
  */
-@Singleton // Groovy @Singleton!!!
 @Validated
+@Singleton
 public class Foo {
 
     public String testMe(@Digits(integer = 3, fraction = 2) String number) {
@@ -52,13 +53,11 @@ public class Foo {
         return new Bar();
     }
 
-    @Valid
-    public List<Bar> validateReturnList() {
+    public List<@Valid Bar> validateReturnList() {
         return Collections.singletonList(new Bar());
     }
 
-    @Valid
-    public Map<String, Bar> validateMap() {
+    public Map<String, @Valid Bar> validateMap() {
         return Collections.singletonMap("barObj", new Bar());
     }
 }

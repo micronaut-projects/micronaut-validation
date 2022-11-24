@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.type.ReturnType;
 import org.reactivestreams.Publisher;
 
 import java.util.concurrent.CompletionStage;
@@ -32,12 +33,13 @@ public interface ReactiveValidator {
      * Validate the given publisher by returning a new Publisher that validates each emitted value. If a
      * constraint violation error occurs a {@link javax.validation.ConstraintViolationException} will be thrown.
      *
+     * @param returnType The required type of publisher
      * @param publisher The publisher
      * @param groups The groups
      * @param <T> The generic type
      * @return The publisher
      */
-    @NonNull <T> Publisher<T> validatePublisher(@NonNull Publisher<T> publisher, Class<?>... groups);
+    @NonNull <T> Publisher<T> validatePublisher(@NonNull ReturnType returnType, @NonNull Publisher<T> publisher, Class<?>... groups);
 
 
     /**

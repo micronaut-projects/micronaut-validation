@@ -87,7 +87,7 @@ public interface Validator extends javax.validation.Validator {
     /**
      * Constructs a new default instance. Note that the returned instance will not contain
      * managed {@link io.micronaut.validation.validator.constraints.ConstraintValidator} instances and using
-     * {@link javax.inject.Inject} should be preferred.
+     * {@link jakarta.inject.Inject} should be preferred.
      *
      * @return The validator.
      */

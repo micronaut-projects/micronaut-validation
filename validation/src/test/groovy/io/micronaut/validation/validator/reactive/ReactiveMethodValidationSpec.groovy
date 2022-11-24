@@ -1,22 +1,17 @@
 package io.micronaut.validation.validator.reactive
 
 import io.micronaut.context.ApplicationContext
-import io.micronaut.context.annotation.Executable
-import io.micronaut.core.annotation.Introspected
-import jakarta.inject.Singleton
-import org.reactivestreams.Publisher
+import io.micronaut.validation.validator.Validator
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
-import io.micronaut.core.async.annotation.SingleResult
 import javax.validation.ConstraintViolationException
-import javax.validation.Valid
-import javax.validation.constraints.NotBlank
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.CompletionStage
 import java.util.concurrent.ExecutionException
+import java.util.regex.Pattern
+import org.reactivestreams.Publisher
 
 class ReactiveMethodValidationSpec extends Specification {
 
@@ -29,25 +24,25 @@ class ReactiveMethodValidationSpec extends Specification {
         BookService bookService = applicationContext.getBean(BookService)
 
         when:
-        Mono.from(bookService.rxReturnInvalid(Mono.just(new Book(title: "It")))).block()
+        Mono<Book> mono = Mono.just(new Book("It"))
+        Mono.from(bookService.rxReturnInvalid(mono)).block()
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == 'title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'title'
+        e.message == 'Publisher[]<T Book>.title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == 'Publisher[]<T Book>.title'
     }
 
-    void "test reactive validation with invalid argument"() {
+    void "test reactive return type no validation"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)
 
         when:
-        Mono.from(bookService.rxValid(Mono.just(new Book(title: "")))).block()
+        Flux<Book> input = Flux.just(new Book("It"))
+        Mono.from(bookService.rxReturnInvalidWithoutValidation(input)).block()
 
         then:
-        ConstraintViolationException e = thrown()
-        e.message == 'rxValid.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'rxValid.title'
+        noExceptionThrown()
     }
 
     void "test reactive validation with invalid simple argument"() {
@@ -55,12 +50,74 @@ class ReactiveMethodValidationSpec extends Specification {
         BookService bookService = applicationContext.getBean(BookService)
 
         when:
+        var validator = applicationContext.getBean(Validator)
+        var violations = validator.forExecutables().validateParameters(
+                bookService,
+                BookService.class.getDeclaredMethod("rxSimple", Publisher<String>),
+                [Mono.just("")] as Object[]
+        )
+
         Mono.from(bookService.rxSimple(Mono.just(""))).block()
 
         then:
-        ConstraintViolationException e = thrown()
-        e.message == 'rxSimple.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'rxSimple.title'
+        def e = thrown(ConstraintViolationException)
+        Pattern.matches('rxSimple.title\\[]<T [^>]*String>: must not be blank', e.message)
+        def path = e.getConstraintViolations().first().propertyPath.iterator()
+        path.next().getName() == 'rxSimple'
+        path.next().getName() == 'title'
+        path.next().isInIterable()
+    }
+
+    void "test reactive validation with valid argument"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        def input = Flux.just(new Book("It"))
+        def book = Mono.from(bookService.rxValid(input)).block()
+
+        then:
+        book.title == 'It'
+    }
+
+    void "test reactive mono validation with valid argument"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        def input = Mono.just(new Book("It"))
+        def book = Mono.from(bookService.rxValidMono(input)).block()
+
+        then:
+        book.title == 'It'
+    }
+
+    void "test reactive validation with invalid argument"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        def input = Flux.just(new Book(""))
+        Mono.from(bookService.rxValid(input)).block()
+
+        then:
+        def e = thrown(ConstraintViolationException)
+        Pattern.matches('rxValid.book\\[]<T .*Book>.title: must not be blank', e.message)
+        e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValid.book')
+    }
+
+    void "test reactive validation with invalid argument type parameter"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        def input = Mono.just([new Book("It"), new Book("")])
+        Mono.from(bookService.rxValidWithTypeParameter(input)).block()
+
+        then:
+        def e = thrown(ConstraintViolationException)
+        Pattern.matches('rxValidWithTypeParameter.books\\[]<T List>\\[1]<E Book>.title: must not be blank', e.message)
+        e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 
     void "test future validation with invalid simple argument"() {
@@ -72,9 +129,10 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
 
-        e.cause.message == 'futureSimple.title: must not be blank'
-        e.cause.getConstraintViolations().first().propertyPath.toString() == 'futureSimple.title'
+        Pattern.matches('futureSimple.title\\[]<T .*String>: must not be blank', e.cause.message)
+        e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
     }
 
     void "test future validation with invalid argument"() {
@@ -82,67 +140,13 @@ class ReactiveMethodValidationSpec extends Specification {
         BookService bookService = applicationContext.getBean(BookService)
 
         when:
-        bookService.futureValid(CompletableFuture.completedFuture(new Book(title: ""))).get()
+        bookService.futureValid(CompletableFuture.completedFuture(new Book(""))).get()
 
         then:
         ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
 
-        e.cause.message == 'futureValid.title: must not be blank'
-        e.cause.getConstraintViolations().first().propertyPath.toString() == 'futureValid.title'
+        Pattern.matches('futureValid.book\\[]<T .*Book>.title: must not be blank', e.cause.message);
+        e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureValid.book')
     }
-
-    void "test reactive validation with valid argument"() {
-        given:
-        BookService bookService = applicationContext.getBean(BookService)
-
-        when:
-        Book book = Mono.from(bookService.rxValid(Mono.just(new Book(title: "It")))).block()
-
-        then:
-        book.title == 'It'
-    }
-}
-
-@Singleton
-class BookService {
-    @Executable
-    @Valid
-    CompletionStage<Book> futureSimple(@NotBlank CompletionStage<String> title) {
-        return title.thenApply({ String t -> new Book(title: t)})
-    }
-
-    @Executable
-    @Valid
-    CompletableFuture<Book> futureValid(@Valid CompletableFuture<Book> book) {
-        return book
-    }
-
-    @Executable
-    @Valid
-    @SingleResult
-    Publisher<Book> rxSimple(@NotBlank Publisher<String> title) {
-        return Flux.from(title).map({ String t -> new Book(title: t)})
-    }
-
-    @Executable
-    @Valid
-    @SingleResult
-    Publisher<Book> rxValid(@Valid Publisher<Book> book) {
-        return book
-    }
-
-    @Executable
-    @Valid
-    @SingleResult
-    Publisher<Book> rxReturnInvalid(@Valid Publisher<Book> book) {
-        return Flux.from(book).map({ b -> b.title =''; return b})
-    }
-
-
-}
-
-@Introspected
-class Book {
-    @NotBlank
-    String title
 }

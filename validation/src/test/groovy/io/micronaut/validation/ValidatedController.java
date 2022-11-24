@@ -46,7 +46,7 @@ public class ValidatedController {
     }
 
     @Post("/pojos")
-    public List<Pojo> pojos(@Body @Valid List<Pojo> pojos) {
+    public List<Pojo> pojos(@Body List<@Valid Pojo> pojos) {
         return pojos;
     }
 
@@ -56,12 +56,12 @@ public class ValidatedController {
     }
 
     @Get("/optional")
-    public boolean optional(@QueryValue @Min(1) Optional<Integer> limit) {
+    public boolean optional(@QueryValue Optional<@Min(1) Integer> limit) {
         return limit.map(l -> l >= 1).orElse(true);
     }
 
     @Get("/optional/notNull")
-    public boolean optionalNotNull(@QueryValue @NotNull Optional<Integer> limit) {
+    public boolean optionalNotNull(@QueryValue Optional<@NotNull Integer> limit) {
         return limit.map(l -> l >= 1).orElse(true);
     }
 }

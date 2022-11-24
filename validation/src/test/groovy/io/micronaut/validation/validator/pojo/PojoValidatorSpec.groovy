@@ -17,6 +17,7 @@
 package io.micronaut.validation.validator.pojo
 
 import io.micronaut.context.ApplicationContext
+import io.micronaut.context.annotation.Executable
 import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import io.micronaut.context.env.Environment
@@ -56,6 +57,21 @@ class PojoValidatorSpec extends Specification {
         constraintViolations.first().message == "Both name and lastName can't be null"
     }
 
+    void "test custom constraint validator on Pojo as method argument"() {
+        given:
+        SearchService service = applicationContext.getBean(SearchService)
+        var violations = validator.forExecutables().validateParameters(
+                service,
+                SearchService.getMethod("performSearch", Search),
+                [new Search()] as Object[]
+        )
+
+        expect:
+        violations.size() == 1
+        violations[0].getPropertyPath().toString() == "performSearch.search"
+        violations[0].message == "Both name and lastName can't be null"
+    }
+
     void "test custom constraint validator on a nested Pojo"() {
         given:
         SearchAny search = new SearchAny(new Search())
@@ -78,6 +94,14 @@ class PojoValidatorSpec extends Specification {
     }
 }
 
+@Singleton
+class SearchService {
+    @Executable
+    String performSearch(@Valid Search search) {
+        return "Not found"
+    }
+}
+
 @Introspected
 @NameAndLastNameValidator
 class Search {
@@ -96,7 +120,6 @@ class SearchAny {
 
 @Singleton
 class SearchAny2 {
-
     void validate(@NotNull @Valid Search search) {
 
     }
@@ -114,5 +137,6 @@ class NameAndLastNameValidatorFactory {
             value != null && (value.getName() != null || value.getLastName() != null)
         }
     }
+
 }
 

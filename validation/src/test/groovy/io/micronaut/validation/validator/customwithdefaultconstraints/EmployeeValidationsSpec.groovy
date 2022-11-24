@@ -19,6 +19,7 @@ import javax.validation.constraints.NotEmpty
 import javax.validation.constraints.NotNull
 import java.util.stream.Collectors
 
+
 @Issue("https://github.com/micronaut-projects/micronaut-core/issues/6519")
 class EmployeeValidationsSpec extends Specification {
 
@@ -30,45 +31,46 @@ class EmployeeValidationsSpec extends Specification {
     void "test validations where both custom message constraint default validations fail"() {
         given:
         Validator validator = applicationContext.getBean(Validator.class)
-        Employee emp = new Employee();
-        emp.setName("");
-        emp.setExperience(10);
+        Employee emp = new Employee()
+        emp.setName("")
+        emp.setExperience(10)
 
-        Set<String> messages = new HashSet<>();
-        messages.add("must not be blank");
-        messages.add("Experience Ineligible");
-        messages.add("must not be null");
+        Set<String> messages = new HashSet<>()
+        messages.add("must not be blank")
+        messages.add("Experience Ineligible")
+        messages.add("must not be null")
 
         when:
         final Set<ConstraintViolation<Employee>> constraintViolations = validator.validate(emp)
 
         then:
-        Set<String> violationMessages = constraintViolations.stream().map(ConstraintViolation::getMessage).collect(Collectors.toSet());
+        Set<String> violationMessages = constraintViolations.stream()
+                .map(ConstraintViolation::getMessage).collect(Collectors.toSet())
         constraintViolations.size() == 3
-        assertIterableEquals(messages, violationMessages);
+        violationMessages == messages
     }
 
     void "test whether exceptions thrown when both custom message constraint default validations fail"() {
         given:
         EmployeeService employeeService = applicationContext.getBean(EmployeeService.class)
 
-        Designation designation = new Designation();
-        designation.setName("");
+        Designation designation = new Designation()
+        designation.setName("")
 
         Employee emp = new Employee()
         emp.setName("")
         emp.setExperience(10)
-        emp.setDesignation(designation);
+        emp.setDesignation(designation)
 
         when:
-        final ConstraintViolationException exception =
-                assertThrows(ConstraintViolationException.class, () ->
-                        employeeService.startHoliday(emp)
-                )
+        employeeService.startHoliday(emp)
+
         then:
-        String notBlankValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.name")).map(ConstraintViolation::getMessage).findFirst().get();
-        String experienceValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp")).map(ConstraintViolation::getMessage).findFirst().get();
-        String notNullValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.designation.name")).map(ConstraintViolation::getMessage).findFirst().get();
+        final ConstraintViolationException exception = thrown(ConstraintViolationException.class)
+
+        String notBlankValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.name")).map(ConstraintViolation::getMessage).findFirst().get()
+        String experienceValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp")).map(ConstraintViolation::getMessage).findFirst().get()
+        String notNullValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.designation.name")).map(ConstraintViolation::getMessage).findFirst().get()
         notBlankValidated == "must not be blank"
         experienceValidated == "Experience Ineligible"
         notNullValidated == "must not be empty"
@@ -81,30 +83,34 @@ class EmployeeValidationsSpec extends Specification {
         Employee alternateRepresentativeToBeContacted = new Employee()
         alternateRepresentativeToBeContacted.setName("")
         alternateRepresentativeToBeContacted.setExperience(20)
-        alternateRepresentativeToBeContacted.setDesignation(null);
+        alternateRepresentativeToBeContacted.setDesignation(null)
 
-        Designation designation = new Designation();
-        designation.setName("Senior Manager");
+        Designation designation = new Designation()
+        designation.setName("Senior Manager")
 
         Employee emp = new Employee()
         emp.setName("")
         emp.setExperience(20)
-        emp.setDesignation(designation);
-        emp.setAlternateRepresentative(alternateRepresentativeToBeContacted);
+        emp.setDesignation(designation)
+        emp.setAlternateRepresentative(alternateRepresentativeToBeContacted)
 
         when:
-        final ConstraintViolationException exception =
-                assertThrows(ConstraintViolationException.class, () ->
-                        employeeService.startHoliday(emp)
-                )
-        then:
-        String notBlankValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.name")).map(ConstraintViolation::getMessage).findFirst().get();
-        String experienceValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp")).map(ConstraintViolation::getMessage).findFirst().get();
-        String alternateRepresentativeToBeContactedDesignationValidated = exception.getConstraintViolations().stream().filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.alternateRepresentative")).map(ConstraintViolation::getMessage).findFirst().get();
-        assertEquals("must not be blank", notBlankValidated);
-        assertEquals("Experience Ineligible", experienceValidated);
-        assertEquals("Experience Ineligible", alternateRepresentativeToBeContactedDesignationValidated);
+        employeeService.startHoliday(emp)
 
+        then:
+        final ConstraintViolationException exception = thrown(ConstraintViolationException.class)
+        String notBlankValidated = exception.getConstraintViolations().stream()
+                .filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.name"))
+                .map(ConstraintViolation::getMessage).findFirst().get()
+        String experienceValidated = exception.getConstraintViolations().stream()
+                .filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp"))
+                .map(ConstraintViolation::getMessage).findFirst().get()
+        String alternateRepresentativeToBeContactedDesignationValidated = exception.getConstraintViolations().stream()
+                .filter(constraintViolation -> Objects.equals(constraintViolation.getPropertyPath().toString(), "startHoliday.emp.alternateRepresentative"))
+                .map(ConstraintViolation::getMessage).findFirst().get()
+        notBlankValidated == "must not be blank"
+        experienceValidated == "Experience Ineligible"
+        alternateRepresentativeToBeContactedDesignationValidated == "Experience Ineligible"
     }
 
 }
@@ -118,7 +124,7 @@ class EmployeeService {
         +" is eligible for sabbatical holiday as the person is of " + emp.getExperience()
         +" years experienced. Please ensure his alternate representative contact "
         +emp.getAlternateRepresentative().getName()
-        +" of designation " + emp.getAlternateRepresentative().getDesignation().getName() + " is aware of it";
+        +" of designation " + emp.getAlternateRepresentative().getDesignation().getName() + " is aware of it"
     }
 }
 
@@ -126,15 +132,15 @@ class EmployeeService {
 @EmployeeExperienceConstraint
 class Employee {
 
-    private String name;
+    private String name
 
-    private int experience;
+    private int experience
 
-    private Employee alternateRepresentative;
+    private Employee alternateRepresentative
 
     @Valid
     @NotNull
-    private Designation designation;
+    private Designation designation
 
     @EmployeeExperienceConstraint
     @Nullable
@@ -147,20 +153,20 @@ class Employee {
     }
 
     int getExperience() {
-        return experience;
+        return experience
     }
 
     void setExperience(int experience) {
-        this.experience = experience;
+        this.experience = experience
     }
 
     @NotBlank
     String getName() {
-        return name;
+        return name
     }
 
     void setName(String name) {
-        this.name = name;
+        this.name = name
     }
 
     Designation getDesignation() {
@@ -176,7 +182,7 @@ class Employee {
 class Designation {
 
     @NotEmpty
-    private String name;
+    private String name
 
     String getName() {
         return name
