@@ -16,32 +16,48 @@
 # a managed version (a version which alias starts with "managed-"
 
 [versions]
-micronaut = "3.4.4"
+micronaut = "4.0.0-SNAPSHOT"
 micronaut-docs = "2.0.0"
-micronaut-test = "3.1.1"
-groovy = "3.0.10"
-spock = "2.1-groovy-3.0"
+micronaut-test = "3.7.0"
 
-# Managed versions appear in the BOM
-# managed-somelib = "1.0"
-# managed-somebom = "1.1"
+#
+# Managed versions appear in the BOM as <properties>
+#
+
+managed-gorm = "7.3.2"
+managed-groovy = "4.0.5"
+# This should be kept aligned with https://github.com/micronaut-projects/micronaut-reactor/blob/master/gradle.properties from the BOM
+managed-reactor = "3.4.23"
+managed-spock = "2.2-groovy-4.0"
+managed-spotbugs = "4.7.1"
+managed-validation = "2.0.1.Final"
 
 [libraries]
 
 #
-# Managed dependencies appear in the BOM
-#
-# managed-somelib = { module = "group:artifact", version.ref = "managed-somelib" }
-
-#
 # Imported BOMs, also appearing in the generated BOM
 #
-# boms-somebom = { module = "com.foo:somebom", version.ref = "managed-somebom" }
 
-# Other libraries used by the project but non managed
 
-# micronaut-bom = { module = "io.micronaut:micronaut-bom", version.ref = "micronaut" }
-# jdoctor = { module = "me.champeau.jdoctor:jdoctor-core", version.ref="jdoctor" }
+
+#
+# Managed dependencies appear in the BOM
+#
+
+managed-gorm = { module = "org.grails:grails-datastore-core", version.ref = "managed-gorm" }
+managed-groovy-json = { module = "org.apache.groovy:groovy-json", version.ref = "managed-groovy" }
+managed-reactor = { module = "io.projectreactor:reactor-core", version.ref = "managed-reactor" }
+managed-spock = { module = "org.spockframework:spock-core", version.ref = "managed-spock" }
+managed-spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "managed-spotbugs" }
+managed-validation = { module = "javax.validation:validation-api", version.ref = "managed-validation" }
+#boms-micronaut-reactor = { module = "io.micronaut.reactor:micronaut-reactor-bom", version.ref = "managed-micronaut-reactor" }
+
+#
+# Other libraries that are used by the project but will not appear in the BOM
+#
+
+boms-groovy = { module = "org.apache.groovy:groovy-bom", version.ref = "managed-groovy" }
+micronaut-docs = { module = "io.micronaut.docs:micronaut-docs-asciidoc-config-props", version.ref = "micronaut-docs" }
 
 [bundles]
 
