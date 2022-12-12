@@ -20,6 +20,7 @@ import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
+import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.ast.TypedElement;
 import io.micronaut.inject.processing.ProcessingException;
@@ -133,6 +134,11 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean typeArgumentsRequireValidation(TypedElement e, boolean requireOnConstraint) {
+        if (e instanceof GenericPlaceholderElement) {
+            // To avoid infinite loops in case of circular generic dependency
+            // For example, in case of A<? extends B>, B<? extends A>
+            return false;
+        }
         return e.getGenericType().getTypeArguments().values().stream()
             .anyMatch(classElement -> requiresValidation(classElement, requireOnConstraint));
     }
