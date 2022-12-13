@@ -1,6 +1,8 @@
 package io.micronaut.validation
 
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
+import io.micronaut.inject.BeanDefinition
+import io.micronaut.inject.ValidatedBeanDefinition
 import io.micronaut.inject.writer.BeanDefinitionVisitor
 import java.time.LocalDate
 
@@ -172,5 +174,56 @@ class Test {
         expect:
         method.isPresent()
         method.get().hasStereotype(VALIDATED_ANN)
+    }
+
+    void "test recursive generic type parameter doesn't result in StackOverflow"() {
+        given:
+        BeanDefinition definition = buildBeanDefinition('test.TrackedSortedSet', '''\
+package test;
+
+import io.micronaut.inject.annotation.*;
+import io.micronaut.context.annotation.*;
+
+@jakarta.inject.Singleton
+final class TrackedSortedSet<T extends java.lang.Comparable<? super T>> {
+ public TrackedSortedSet(java.util.Collection<? extends T> initial) {
+        super();
+    }
+}
+
+''')
+        expect:
+        definition != null
+    }
+
+    void "test constraints on primitive value make method @Validated"() {
+        given:
+        def definition = buildBeanDefinition('test.Test','''
+package test;
+
+import javax.validation.constraints.NotBlank;
+import io.micronaut.context.annotation.Executable;
+import javax.validation.constraints.Min;
+
+@jakarta.inject.Singleton
+class Test {
+
+    @Executable
+    @Min(0)
+    public int getInt() { return 0; }
+
+    @Executable
+    public void setInt(@Min(0) int num) {}
+}
+''')
+        var getter = definition.findMethod("getInt")
+        var setter = definition.findMethod("setInt", int.class)
+
+        expect:
+        getter.isPresent()
+        getter.get().hasStereotype(VALIDATED_ANN)
+
+        setter.isPresent()
+        setter.get().hasStereotype(VALIDATED_ANN)
     }
 }
