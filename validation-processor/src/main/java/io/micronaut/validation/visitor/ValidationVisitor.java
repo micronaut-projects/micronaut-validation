@@ -94,7 +94,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
         if (
             requiresValidation(element.getReturnType(), requireOnConstraint) ||
-            (element.getReturnType().isPrimitive() && primitiveReturnTypeRequiresValidation(element, true)) ||
+            returnTypeRequiresValidation(element, true) ||
             parametersRequireValidation(element, requireOnConstraint)
         ) {
             if (isPrivate) {
@@ -121,7 +121,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             .anyMatch(param -> requiresValidation(param, requireOnConstraint));
     }
 
-    private boolean primitiveReturnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
+    private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
         return e.hasStereotype(ANN_VALID) ||
             (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT));
     }
