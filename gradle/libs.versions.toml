@@ -25,7 +25,7 @@ micronaut-test = "3.7.0"
 #
 
 managed-gorm = "7.3.2"
-managed-groovy = "4.0.5"
+managed-groovy = "4.0.7"
 # This should be kept aligned with https://github.com/micronaut-projects/micronaut-reactor/blob/master/gradle.properties from the BOM
 managed-reactor = "3.4.23"
 managed-spock = "2.2-groovy-4.0"
