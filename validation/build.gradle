@@ -11,17 +11,19 @@ dependencies {
 
     compileOnly mn.micronaut.http.server
 
-    implementation libs.managed.reactor
+    implementation mnReactor.micronaut.reactor
 
     testAnnotationProcessor project(":validation-processor")
     testAnnotationProcessor mn.micronaut.inject.java
-    testImplementation libs.managed.spotbugs
+    testImplementation libs.spotbugs
     testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
 
+    testImplementation platform(libs.groovy.bom)
+
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.http.server.netty
-    testImplementation libs.managed.groovy.json
+    testImplementation libs.groovy.json
     testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.jackson.databind
 
