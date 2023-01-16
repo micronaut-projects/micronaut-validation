@@ -49,7 +49,7 @@
     <!-- Checks whether files end with a new line.                        -->
     <!-- See https://checkstyle.org/config_misc.html#NewlineAtEndOfFile -->
     <module name="NewlineAtEndOfFile">
-        <!-- <property name="lineSeparator" value="lf"/> -->
+        <property name="lineSeparator" value="lf"/>
     </module>
 
     <!-- Checks that property files contain the same keys.         -->
@@ -96,11 +96,13 @@
         <!-- Checks for Javadoc comments.                     -->
         <!-- See https://checkstyle.org/config_javadoc.html -->
         <module name="JavadocMethod">
-            <property name="excludeScope" value="private"/>
+            <property name="accessModifiers" value="public, protected"/>
         </module>
         <module name="JavadocType"/>
         <module name="JavadocStyle"/>
-        <module name="MissingJavadocType"/>
+        <module name="MissingJavadocType">
+            <property name="severity" value="warning"/>
+        </module>
 
         <!-- Checks for Naming Conventions.                  -->
         <!-- See https://checkstyle.org/config_naming.html -->
