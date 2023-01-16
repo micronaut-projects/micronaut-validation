@@ -20,6 +20,7 @@ import io.micronaut.aop.InterceptedMethod;
 import io.micronaut.aop.MethodInterceptor;
 import io.micronaut.aop.MethodInvocationContext;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
@@ -48,15 +49,19 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
 
     private final @Nullable ExecutableValidator executableValidator;
     private final @Nullable ExecutableMethodValidator micronautValidator;
+    private final ConversionService conversionService;
 
     /**
      * Creates ValidatingInterceptor from the validatorFactory.
      *
      * @param micronautValidator The micronaut validator use if no factory is available
      * @param validatorFactory   Factory returning initialized {@code Validator} instances
+     * @param conversionService  The conversion service
      */
     public ValidatingInterceptor(@Nullable Validator micronautValidator,
-                                 @Nullable ValidatorFactory validatorFactory) {
+                                 @Nullable ValidatorFactory validatorFactory,
+                                 ConversionService conversionService) {
+        this.conversionService = conversionService;
 
         if (validatorFactory != null) {
             javax.validation.Validator validator = validatorFactory.getValidator();
@@ -112,7 +117,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                 }
             }
             if (micronautValidator instanceof ReactiveValidator) {
-                InterceptedMethod interceptedMethod = InterceptedMethod.of(context);
+                InterceptedMethod interceptedMethod = InterceptedMethod.of(context, conversionService);
                 try {
                     switch (interceptedMethod.resultType()) {
                         case PUBLISHER:

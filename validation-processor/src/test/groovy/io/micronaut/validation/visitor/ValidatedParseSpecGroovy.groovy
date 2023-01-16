@@ -31,8 +31,7 @@ class Test {
 
         expect:
         definition.findMethod("setName", String).get().hasStereotype(ValidatedParseSpec.VALIDATED_ANN)
-        definition.findMethod("setName2", String).get()
-                .getAnnotationTypesByStereotype(Around).contains(ValidatedParseSpec.VALIDATED_ANN)
+        definition.findMethod("setName2", String).get().hasStereotype(ValidatedParseSpec.VALIDATED_ANN)
     }
 
     void "test annotation default values on a groovy property"() {
