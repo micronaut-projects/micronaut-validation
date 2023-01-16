@@ -22,6 +22,8 @@ include 'validation'
 include 'validation-bom'
 include 'validation-processor'
 
+include 'tests:jakarta-validation-tck'
+
 micronautBuild {
     importMicronautCatalog()
 }

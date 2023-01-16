@@ -1,0 +1,24 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK" verbose="1">
+    <test name="Jakarta-Bean-Validation-TCK">
+
+        <method-selectors>
+            <method-selector>
+                <selector-class name="org.hibernate.beanvalidation.tck.util.IntegrationTestsMethodSelector"/>
+            </method-selector>
+            <method-selector>
+                <selector-class name="org.hibernate.beanvalidation.tck.util.JavaFXTestsMethodSelector"/>
+            </method-selector>
+        </method-selectors>
+
+<!--        <packages>-->
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.*"/>-->
+<!--        </packages>-->
+
+        <classes>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest"/>
+        </classes>
+
+    </test>
+</suite>

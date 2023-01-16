@@ -32,6 +32,8 @@ managed-spock = "2.2-groovy-4.0"
 managed-spotbugs = "4.7.1"
 managed-validation = "2.0.1.Final"
 
+jakarta-validation-tck = "3.0.1"
+
 [libraries]
 
 #
@@ -58,6 +60,10 @@ managed-validation = { module = "javax.validation:validation-api", version.ref =
 
 boms-groovy = { module = "org.apache.groovy:groovy-bom", version.ref = "managed-groovy" }
 micronaut-docs = { module = "io.micronaut.docs:micronaut-docs-asciidoc-config-props", version.ref = "micronaut-docs" }
+
+# Jakarta TCK
+
+jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 
 [bundles]
 
