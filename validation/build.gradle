@@ -9,9 +9,6 @@ dependencies {
     api mn.micronaut.core.reactive
     api libs.managed.validation
 
-    compileOnly(libs.managed.gorm) {
-        exclude(module: 'groovy')
-    }
     compileOnly mn.micronaut.http.server
 
     implementation libs.managed.reactor
@@ -28,12 +25,7 @@ dependencies {
     testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.jackson.databind
 
-    if (!JavaVersion.current().isJava9Compatible()) {
-        testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)
-    }
-
 }
-//compileTestGroovy.groovyOptions.forkOptions.jvmArgs = ['-Xdebug', '-Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=5005']
 
 spotless {
     java {
