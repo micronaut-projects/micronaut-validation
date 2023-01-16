@@ -623,7 +623,8 @@ public class DefaultValidator implements
         } else {
             beanType = definition.getBeanType();
         }
-        final BeanIntrospection<T> introspection = (BeanIntrospection<T>) getBeanIntrospection(bean, beanType);        if (introspection != null) {
+        final BeanIntrospection<T> introspection = (BeanIntrospection<T>) getBeanIntrospection(bean, beanType);
+        if (introspection != null) {
             Set<ConstraintViolation<T>> errors = validate(introspection, bean);
             failOnError(resolutionContext, errors, beanType);
         } else if (bean instanceof Intercepted && definition.hasStereotype(ConfigurationReader.class)) {

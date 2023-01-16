@@ -843,15 +843,6 @@ class ValidatorSpec extends Specification {
         e.message.contains('''updateNumber.number: must be less than or equal to 50''')
         beanC.number == 40
 
-        /*
-        when:
-            beanC.number = 100
-        then:
-            e = thrown()
-            e.message.contains('''updateNumber.number: must be less than or equal to 50''')
-            beanC.number == 40
-         */
-
         and:
         ClassUtils.forName('io.micronaut.validation.validator.$C$Definition', getClass().getClassLoader()).isPresent()
         ClassUtils.forName('io.micronaut.validation.validator.$C$Definition$Intercepted', getClass().getClassLoader()).isPresent()
