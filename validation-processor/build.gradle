@@ -16,6 +16,7 @@ dependencies {
 
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.inject.java.test
+    testImplementation mn.micronaut.inject.groovy.test
 
     if (!JavaVersion.current().isJava9Compatible()) {
         testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)

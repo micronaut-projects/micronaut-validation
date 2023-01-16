@@ -3,7 +3,10 @@ package io.micronaut.validation.validator
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Executable
 import io.micronaut.context.annotation.Prototype
+import io.micronaut.context.annotation.Value
+import io.micronaut.context.exceptions.BeanInstantiationException
 import io.micronaut.core.annotation.Introspected
+import io.micronaut.core.reflect.ClassUtils
 import io.micronaut.validation.validator.resolver.CompositeTraversableResolver
 import jakarta.inject.Singleton
 import spock.lang.AutoCleanup
@@ -21,7 +24,7 @@ class ValidatorSpec extends Specification {
 
     @Shared
     @AutoCleanup
-    ApplicationContext applicationContext = ApplicationContext.run()
+    ApplicationContext applicationContext = ApplicationContext.run(["a.number": 40])
     @Shared
     Validator validator = applicationContext.getBean(Validator)
 
@@ -792,7 +795,6 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
-    @Ignore("https://github.com/micronaut-projects/micronaut-core/issues/8301")
     void "test cascade to container with setter"() {
         given:
         def salad = new ValidatorSpecClasses.SaladWithSetter()
@@ -805,6 +807,81 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == ""
+    }
+
+    void "test @Introspected is required to validate the bean"() {
+        when:
+        applicationContext.getBean(A)
+        then:
+        BeanInstantiationException e = thrown()
+        e.message.contains('''Cannot validate bean [io.micronaut.validation.validator.A]. No bean introspection present. Please add @Introspected.''')
+        and:
+        ClassUtils.forName('io.micronaut.validation.validator.$A$Definition', getClass().getClassLoader()).isPresent()
+        ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
+    }
+
+    void "test @Introspected is required to validate the bean and it's intercepted if one of the methods requires validation"() {
+        when:
+        def beanB = applicationContext.getBean(B)
+        then:
+        BeanInstantiationException e = thrown()
+        e.message.contains('''number - must be less than or equal to 20''')
+        and:
+        ClassUtils.forName('io.micronaut.validation.validator.$B$Definition', getClass().getClassLoader()).isPresent()
+        ClassUtils.forName('io.micronaut.validation.validator.$B$Definition$Intercepted', getClass().getClassLoader()).isPresent()
+    }
+
+    void "test @Introspected is required to validate the bean and it's intercepted if one of the methods requires validation 2"() {
+        when:
+        def beanC = applicationContext.getBean(C)
+        then:
+        beanC.number == 40
+        when:
+        beanC.updateNumber(100)
+        then:
+        Exception e = thrown()
+        e.message.contains('''updateNumber.number: must be less than or equal to 50''')
+        beanC.number == 40
+
+        and:
+        ClassUtils.forName('io.micronaut.validation.validator.$C$Definition', getClass().getClassLoader()).isPresent()
+        ClassUtils.forName('io.micronaut.validation.validator.$C$Definition$Intercepted', getClass().getClassLoader()).isPresent()
+    }
+}
+
+@Singleton
+class A {
+    @Max(20l)
+    @NotNull
+    @Value('${a.number}')
+    Integer number
+}
+
+@Introspected
+@Singleton
+class B {
+    @Max(20l)
+    @NotNull
+    @Value('${a.number}')
+    Integer number
+    void updateNumber(@Max(20l)
+                      @NotNull
+                              Integer number) {
+        this.number = number
+    }
+}
+
+@Introspected
+@Singleton
+class C {
+    @Max(50l)
+    @NotNull
+    @Value('${a.number}')
+    Integer number
+    void updateNumber(@Max(50l)
+                      @NotNull
+                              Integer number) {
+        this.number = number
     }
 }
 

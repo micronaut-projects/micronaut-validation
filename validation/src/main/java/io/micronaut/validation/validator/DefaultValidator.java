@@ -47,6 +47,7 @@ import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.InjectionPoint;
 import io.micronaut.inject.MethodReference;
+import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
@@ -616,17 +617,21 @@ public class DefaultValidator implements
         @NonNull BeanDefinition<T> definition,
         @NonNull T bean
     ) throws BeanInstantiationException {
-        final BeanIntrospection<T> introspection = (BeanIntrospection<T>) getBeanIntrospection(bean);
+        Class<T> beanType;
+        if (definition instanceof ProxyBeanDefinition<?> proxyBeanDefinition) {
+            beanType = (Class<T>) proxyBeanDefinition.getTargetType();
+        } else {
+            beanType = definition.getBeanType();
+        }
+        final BeanIntrospection<T> introspection = (BeanIntrospection<T>) getBeanIntrospection(bean, beanType);
         if (introspection != null) {
             Set<ConstraintViolation<T>> errors = validate(introspection, bean);
-            final Class<?> beanType = bean.getClass();
             failOnError(resolutionContext, errors, beanType);
         } else if (bean instanceof Intercepted && definition.hasStereotype(ConfigurationReader.class)) {
             final Collection<ExecutableMethod<T, ?>> executableMethods = definition.getExecutableMethods();
             if (CollectionUtils.isNotEmpty(executableMethods)) {
                 Set<ConstraintViolation<T>> violations = new HashSet<>();
                 final DefaultConstraintValidatorContext context = new DefaultConstraintValidatorContext(bean);
-                final Class<T> beanType = definition.getBeanType();
                 final Class<?>[] interfaces = beanType.getInterfaces();
                 if (ArrayUtils.isNotEmpty(interfaces)) {
                     context.addConstructorNode(interfaces[0].getSimpleName());
@@ -651,6 +656,8 @@ public class DefaultValidator implements
 
                 failOnError(resolutionContext, violations, beanType);
             }
+        } else {
+            throw new BeanInstantiationException(resolutionContext, "Cannot validate bean [" + beanType.getName() + "]. No bean introspection present. Please add @Introspected.");
         }
     }
 
