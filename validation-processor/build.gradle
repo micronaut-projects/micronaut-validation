@@ -9,7 +9,7 @@ dependencies {
     testImplementation libs.managed.validation
     testCompileOnly mn.micronaut.http
 
-    testImplementation libs.managed.spotbugs
+    testImplementation libs.spotbugs
     testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
     testImplementation libs.managed.validation
@@ -17,10 +17,6 @@ dependencies {
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.inject.groovy.test
-
-    if (!JavaVersion.current().isJava9Compatible()) {
-        testImplementation files(org.gradle.internal.jvm.Jvm.current().toolsJar)
-    }
 }
 
 micronautBuild {

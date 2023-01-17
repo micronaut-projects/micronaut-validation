@@ -4,7 +4,6 @@ import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
 
-import javax.annotation.Nonnull;
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotBlank;

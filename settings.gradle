@@ -24,4 +24,5 @@ include 'validation-processor'
 
 micronautBuild {
     importMicronautCatalog()
+    importMicronautCatalog("micronaut-reactor")
 }
