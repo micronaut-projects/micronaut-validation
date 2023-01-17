@@ -34,6 +34,7 @@ import io.micronaut.core.async.publisher.Publishers;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ArgumentValue;
 import io.micronaut.core.type.MutableArgumentValue;
@@ -107,6 +108,7 @@ public class DefaultValidator implements
     private final TraversableResolver traversableResolver;
     private final ExecutionHandleLocator executionHandleLocator;
     private final MessageSource messageSource;
+    private final ConversionService conversionService;
 
     /**
      * Default constructor.
@@ -122,6 +124,7 @@ public class DefaultValidator implements
         this.traversableResolver = configuration.getTraversableResolver();
         this.executionHandleLocator = configuration.getExecutionHandleLocator();
         this.messageSource = configuration.getMessageSource();
+        this.conversionService = configuration.getConversionService();
     }
 
     @SuppressWarnings("unchecked")
@@ -539,7 +542,7 @@ public class DefaultValidator implements
             });
         }
 
-        return Publishers.convertPublisher(output, ((ReturnType<Publisher>) returnType).getType());
+        return Publishers.convertPublisher(conversionService, output, ((ReturnType<Publisher>) returnType).getType());
     }
 
     /**
@@ -723,7 +726,7 @@ public class DefaultValidator implements
             Class<?> parameterType,
             Object parameterValue
     ) {
-        final Publisher<Object> publisher = Publishers.convertPublisher(parameterValue, Publisher.class);
+        final Publisher<Object> publisher = Publishers.convertPublisher(conversionService, parameterValue, Publisher.class);
         PathImpl copiedPath = new PathImpl(context.currentPath);
 
         if (Publishers.isSingle(parameterType)) {
@@ -733,7 +736,7 @@ public class DefaultValidator implements
                 return violations.isEmpty() ? Mono.just(value) :
                     Mono.error(new ConstraintViolationException(violations));
             });
-            argumentValues[argumentIndex] = Publishers.convertPublisher(finalMono, parameterType);
+            argumentValues[argumentIndex] = Publishers.convertPublisher(conversionService, finalMono, parameterType);
         } else {
             final Flux<Object> finalFlux = Flux.from(publisher).flatMap(value -> {
                 Set violations = validatePublisherElement(rootClass, rootObject, argumentIndex,
@@ -741,7 +744,7 @@ public class DefaultValidator implements
                 return violations.isEmpty() ? Flux.just(value) :
                     Flux.error(new ConstraintViolationException(violations));
             });
-            argumentValues[argumentIndex] = Publishers.convertPublisher(finalFlux, parameterType);
+            argumentValues[argumentIndex] = Publishers.convertPublisher(conversionService, finalFlux, parameterType);
         }
     }
 

@@ -600,7 +600,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == -100
-        violations[0].getPropertyPath().toString() == "Float"
+        violations[0].getPropertyPath().toString() == "float"
         violations[0].getPropertyPath().iterator().next() instanceof Path.ReturnValueNode
     }
 
@@ -619,8 +619,8 @@ class ValidatorSpec extends Specification {
         violations = violations.sort{it -> it.getPropertyPath().toString() }
 
         expect:
-        violations[0].getPropertyPath().toString() == "Map[]<K String>"
-        violations[1].getPropertyPath().toString() == "Map[spouse]<V Client>.name"
+        violations[0].getPropertyPath().toString() == "map[]<K String>"
+        violations[1].getPropertyPath().toString() == "map[spouse]<V Client>.name"
 
         when:
         var path0 = violations[0].getPropertyPath().iterator()
@@ -661,10 +661,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
 
-        violations[0].propertyPath.toString() == "Map[0]<V List>[0]<E Client>.name"
+        violations[0].propertyPath.toString() == "map[0]<V List>[0]<E Client>.name"
         violations[0].invalidValue == "Too long name"
 
-        violations[1].propertyPath.toString() == "Map[33]<V List>[1]<E Client>.name"
+        violations[1].propertyPath.toString() == "map[33]<V List>[1]<E Client>.name"
         violations[1].invalidValue == ""
     }
 

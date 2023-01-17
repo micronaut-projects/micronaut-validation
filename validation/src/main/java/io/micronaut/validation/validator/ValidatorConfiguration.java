@@ -18,6 +18,7 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.MessageSource;
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 
@@ -30,7 +31,7 @@ import javax.validation.TraversableResolver;
  * @author graemerocher
  * @since 1.2
  */
-public interface ValidatorConfiguration {
+public interface ValidatorConfiguration extends ConversionServiceProvider {
 
     /**
      * The prefix to use for config.
@@ -78,4 +79,5 @@ public interface ValidatorConfiguration {
      */
     @NonNull
     ExecutionHandleLocator getExecutionHandleLocator();
+
 }

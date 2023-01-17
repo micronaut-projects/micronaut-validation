@@ -29,8 +29,8 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == 'Publisher[]<T Book>.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'Publisher[]<T Book>.title'
+        e.message == 'publisher[]<T Book>.title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == 'publisher[]<T Book>.title'
     }
 
     void "test reactive return type no validation"() {
