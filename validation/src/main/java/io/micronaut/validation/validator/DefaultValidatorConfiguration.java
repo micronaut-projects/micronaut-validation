@@ -20,6 +20,8 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.convert.ConversionService;
+import io.micronaut.core.convert.ConversionServiceAware;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -46,7 +48,7 @@ import java.lang.annotation.ElementType;
  * @since 1.2
  */
 @ConfigurationProperties(ValidatorConfiguration.PREFIX)
-public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext {
+public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware {
 
     @Nullable
     private ConstraintValidatorRegistry constraintValidatorRegistry;
@@ -66,7 +68,25 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Nullable
     private ExecutionHandleLocator executionHandleLocator;
 
+    private ConversionService conversionService = ConversionService.SHARED;
+
     private boolean enabled = true;
+
+    /**
+     * Sets the conversion service.
+     *
+     * @param conversionService The conversion service
+     */
+    @Inject
+    @Override
+    public void setConversionService(ConversionService conversionService) {
+        this.conversionService = conversionService;
+    }
+
+    @Override
+    public ConversionService getConversionService() {
+        return conversionService;
+    }
 
     @Override
     @NonNull

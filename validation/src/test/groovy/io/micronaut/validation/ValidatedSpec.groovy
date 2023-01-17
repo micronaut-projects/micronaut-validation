@@ -112,7 +112,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "String: must not be null"
+        e.message == "string: must not be null"
 
         cleanup:
         beanContext.close()
@@ -128,7 +128,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "Bar: must not be null"
+        e.message == "bar: must not be null"
 
         cleanup:
         beanContext.close()
@@ -144,7 +144,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "Bar.prop: must not be null"
+        e.message == "bar.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -160,7 +160,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "List[0]<E Bar>.prop: must not be null"
+        e.message == "list[0]<E Bar>.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -176,7 +176,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "Map[barObj]<V Bar>.prop: must not be null"
+        e.message == "map[barObj]<V Bar>.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -734,7 +734,6 @@ class ValidatedSpec extends Specification {
         String test4() {
             throw new ConstraintViolationException("another thing is invalid", Collections.emptySet())
         }
-
 
         static class Some {
 
