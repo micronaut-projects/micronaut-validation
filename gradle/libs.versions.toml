@@ -1,10 +1,14 @@
 [versions]
+
 micronaut = "4.0.0-SNAPSHOT"
 micronaut-docs = "2.0.0"
-micronaut-test = "3.7.0"
+micronaut-test = "4.0.0-SNAPSHOT"
 micronaut-reactor = "3.0.0-SNAPSHOT"
 
 groovy = "4.0.7"
+junit5 = "5.9.1"
+kotlin = "1.7.20"
+kotest = "5.5.4"
 spotbugs = "4.7.1"
 
 managed-validation = "2.0.1.Final"
@@ -13,9 +17,14 @@ managed-validation = "2.0.1.Final"
 
 #BOMS
 micronaut-reactor = { module = 'io.micronaut.reactor:micronaut-reactor-bom', version.ref = "micronaut-reactor" }
+micronaut-test-junit5 = { module = "io.micronaut.test:micronaut-test-junit5", version.ref = "micronaut-test" }
 groovy-bom = { module = "org.apache.groovy:groovy-bom", version.ref = "groovy" }
-
 groovy-json = { module = "org.apache.groovy:groovy-json" }
+
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }
+junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
+kotlin-kotest-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm", version.ref = "kotest" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
 
 managed-validation = { module = "javax.validation:validation-api", version.ref = "managed-validation" }

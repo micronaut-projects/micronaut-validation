@@ -1,1 +1,35 @@
-TODO
+To use the Micronaut’s validation capabilities you must have the validation dependency on your classpath:
+
+dependency:io.micronaut.vallidation:micronaut-validation-processor[scope='annotationProcessor']
+
+dependency:io.micronaut.vallidation:micronaut-validation[]
+
+You can validate types, fields and parameters by applying `javax.validation` annotations to arguments. Include the following dependency for annotations:
+
+dependency:javax.validation:validation-api[]
+
+== Supported Features
+
+Note that Micronaut's implementation is not currently fully compliant with the https://beanvalidation.org/2.0/spec/[Bean Validator specification] as the specification heavily relies on reflection-based APIs.
+
+The following features are unsupported at this time:
+
+* Annotations on generic argument types in Groovy and Kotlin.
+* Any interaction with the https://beanvalidation.org/2.0/spec/#constraintmetadata[constraint metadata API], since Micronaut uses compile-time generated metadata.
+* XML-based configuration
+* Instead of using `javax.validation.ConstraintValidator`, use api:validation.validator.constraints.ConstraintValidator[] (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.
+
+Micronaut's implementation includes the following benefits:
+
+* Reflection and Runtime Proxy free validation, resulting in reduced memory consumption
+* Smaller JAR size since Hibernate Validator adds another 1.4MB
+* Faster startup since Hibernate Validator adds 200ms+ startup overhead
+* Configurability via Annotation Metadata
+* Support for Reactive Bean Validation
+* Support for validating the source AST at compile time
+* Automatic compatibility with GraalVM native without additional configuration
+
+If you require full Bean Validator 2.0 compliance, add the `micronaut-hibernate-validator` module to your build, which replaces Micronaut's implementation.
+
+dependency:micronaut-hibernate-validator[groupId="io.micronaut.beanvalidation"]
+

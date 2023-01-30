@@ -1,1 +1,3 @@
-TODO
+Micronaut Validation is a customizable validation solution for your applications.
+
+NOTE: Micronaut Validation was moved to a separate module for Micronaut version 4.0.0. For previous versions of Micronaut, refer to the link:https://docs.micronaut.io/latest/guide/[Micronaut User Guide].

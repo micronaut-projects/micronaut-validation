@@ -21,8 +21,12 @@ rootProject.name = 'validation-parent'
 include 'validation'
 include 'validation-bom'
 include 'validation-processor'
+include 'test-suite'
+include 'test-suite-groovy'
+include 'test-suite-kotlin'
 
 micronautBuild {
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
 }
+

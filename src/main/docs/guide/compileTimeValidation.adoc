@@ -1,0 +1,24 @@
+
+You can use Micronaut's validator to validate annotation elements at compile time by including `micronaut-validation` in the annotation processor classpath:
+
+dependency::io.micronaut.validation:micronaut-validation[scope="annotationProcessor"]
+
+Then Micronaut will at compile time validate annotation values that are themselves annotated with `javax.validation`. For example consider the following annotation:
+
+.Annotation Validation
+snippet::io.micronaut.docs.validation.custom.TimeOff[tags="imports,class", indent="0"]
+
+If you attempt to use `@TimeOff(duration="junk")` in your source, Micronaut will fail compilation due to the `duration` value violating the `DurationPattern` constraint.
+
+NOTE: If `duration` is a property placeholder such as `@TimeOff(duration="${my.value}")`, validation is deferred until runtime.
+
+Note that to use a custom `ConstraintValidator` at compile time you must instead define the validator as a class:
+
+.Example Constraint Validator
+snippet::io.micronaut.docs.validation.custom.DurationPatternValidator[tags="imports,class", indent="0"]
+
+Additionally:
+
+* Define a `META-INF/services/io.micronaut.validation.validator.constraints.ConstraintValidator` file that references the class.
+* The class must be public and have a public no-argument constructor
+* The class must be on the annotation processor classpath of the project to be validated.

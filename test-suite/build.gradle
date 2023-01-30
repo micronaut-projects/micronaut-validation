@@ -1,0 +1,32 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation mn.micronaut.inject
+    testImplementation mn.micronaut.core.reactive
+    testImplementation libs.managed.validation
+
+    implementation mnReactor.micronaut.reactor
+
+    testImplementation project(":validation")
+    testAnnotationProcessor project(":validation-processor")
+    testAnnotationProcessor mn.micronaut.inject.java
+    testCompileOnly mn.micronaut.http.server
+    testImplementation mn.micronaut.inject.java.test
+    testImplementation libs.spotbugs
+
+    testImplementation mn.micronaut.http.client
+    testImplementation mn.micronaut.http.server.netty
+    testImplementation libs.groovy.json
+    testImplementation mn.micronaut.jackson.databind
+
+    testImplementation libs.junit.jupiter.api
+    testImplementation libs.micronaut.test.junit5
+    testImplementation libs.junit.jupiter.engine
+    testRuntimeOnly libs.junit.jupiter.engine
+}
