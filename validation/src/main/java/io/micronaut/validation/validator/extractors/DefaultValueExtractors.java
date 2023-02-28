@@ -147,17 +147,16 @@ public class DefaultValueExtractors implements ValueExtractorRegistry {
     @Inject
     protected DefaultValueExtractors(@Nullable BeanContext beanContext) {
         BeanWrapper<DefaultValueExtractors> wrapper = BeanWrapper.findWrapper(this).orElse(null);
-        Map<Class, ValueExtractor> extractorMap = new HashMap<>();
+        Map<Class<?>, ValueExtractor<?>> extractorMap = new HashMap<>();
 
         if (beanContext != null && beanContext.containsBean(ValueExtractor.class)) {
-            final Collection<BeanRegistration<ValueExtractor>> valueExtractors =
-                    beanContext.getBeanRegistrations(ValueExtractor.class);
+            final Collection<BeanRegistration<ValueExtractor>> valueExtractors = beanContext.getBeanRegistrations(ValueExtractor.class);
             if (CollectionUtils.isNotEmpty(valueExtractors)) {
                 for (BeanRegistration<ValueExtractor> reg : valueExtractors) {
-                    final ValueExtractor valueExtractor = reg.getBean();
-                    final Class[] typeParameters = reg.getBeanDefinition().getTypeParameters(ValueExtractor.class);
+                    final ValueExtractor<?> valueExtractor = reg.getBean();
+                    final Class<?>[] typeParameters = reg.getBeanDefinition().getTypeParameters(ValueExtractor.class);
                     if (ArrayUtils.isNotEmpty(typeParameters)) {
-                        final Class targetType = typeParameters[0];
+                        final Class<?> targetType = typeParameters[0];
                         extractorMap.put(targetType, valueExtractor);
                         if (valueExtractor instanceof UnwrapByDefaultValueExtractor || valueExtractor.getClass().isAnnotationPresent(UnwrapByDefault.class)) {
                             unwrapByDefaultTypes.add(targetType);
@@ -172,8 +171,7 @@ public class DefaultValueExtractors implements ValueExtractorRegistry {
             final Collection<BeanProperty<DefaultValueExtractors, Object>> properties = wrapper.getBeanProperties();
             for (BeanProperty<DefaultValueExtractors, Object> property : properties) {
                 if (ValueExtractor.class.isAssignableFrom(property.getType())) {
-                    final ValueExtractor valueExtractor = wrapper
-                            .getProperty(property.getName(), ValueExtractor.class).orElse(null);
+                    final ValueExtractor<?> valueExtractor = wrapper.getProperty(property.getName(), ValueExtractor.class).orElse(null);
                     final Class<?> targetType = property.asArgument().getFirstTypeVariable().map(Argument::getType).orElse(null);
                     extractorMap.put(targetType, valueExtractor);
                     if (valueExtractor instanceof UnwrapByDefaultValueExtractor || valueExtractor.getClass().isAnnotationPresent(UnwrapByDefault.class)) {

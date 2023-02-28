@@ -83,7 +83,7 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
      * @param violation The constraint violation
      * @return The violation message
      */
-    protected String buildMessage(ConstraintViolation violation) {
+    protected String buildMessage(ConstraintViolation<?> violation) {
         Path propertyPath = violation.getPropertyPath();
         StringBuilder message = new StringBuilder();
         Iterator<Path.Node> i = propertyPath.iterator();

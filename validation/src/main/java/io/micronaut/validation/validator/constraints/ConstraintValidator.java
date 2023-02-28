@@ -41,7 +41,7 @@ public interface ConstraintValidator<A extends Annotation, T> extends javax.vali
     /**
      * A constraint validator that just returns the object as being valid.
      */
-    ConstraintValidator VALID = (value, annotationMetadata, context) -> true;
+    ConstraintValidator<Annotation, Object> VALID = (value, annotationMetadata, context) -> true;
 
     /**
      * Implements the validation logic.

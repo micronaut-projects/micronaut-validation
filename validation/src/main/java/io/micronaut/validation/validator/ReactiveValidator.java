@@ -39,7 +39,7 @@ public interface ReactiveValidator {
      * @param <T> The generic type
      * @return The publisher
      */
-    @NonNull <T> Publisher<T> validatePublisher(@NonNull ReturnType returnType, @NonNull Publisher<T> publisher, Class<?>... groups);
+    @NonNull <T> Publisher<T> validatePublisher(@NonNull ReturnType<?> returnType, @NonNull Publisher<T> publisher, Class<?>... groups);
 
 
     /**
