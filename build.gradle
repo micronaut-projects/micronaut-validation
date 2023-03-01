@@ -1,4 +1,5 @@
 plugins {
+    id "io.micronaut.build.internal.validation-base"
     id "io.micronaut.build.internal.docs"
     id "io.micronaut.build.internal.quality-reporting"
 }
