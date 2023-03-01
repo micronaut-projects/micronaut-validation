@@ -1,17 +1,7 @@
 plugins {
-    id "io.micronaut.build.internal.validation-module"
+    id 'io.micronaut.build.internal.validation-base'
     id "org.jetbrains.kotlin.jvm" version "1.7.20"
     id "org.jetbrains.kotlin.kapt" version "1.7.20"
-}
-
-repositories {
-    mavenCentral()
-    maven {
-        url "https://s01.oss.sonatype.org/content/repositories/snapshots/"
-        mavenContent {
-            snapshotsOnly()
-        }
-    }
 }
 
 dependencies {

@@ -5,7 +5,3 @@ repositories {
         maven { url "https://s01.oss.sonatype.org/content/repositories/snapshots/" }
     }
 }
-
-configurations.all {
-    resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
-}

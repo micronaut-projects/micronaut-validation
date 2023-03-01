@@ -1,9 +1,5 @@
 plugins {
-    id "io.micronaut.build.internal.validation-module"
-}
-
-repositories {
-    mavenCentral()
+    id 'io.micronaut.build.internal.validation-base'
 }
 
 dependencies {
