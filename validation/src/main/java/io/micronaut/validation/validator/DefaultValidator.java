@@ -814,30 +814,32 @@ public class DefaultValidator implements
         if (constraintValidator == null) {
             return;
         }
-        final String currentMessageTemplate = context.getMessageTemplate().orElse(null);
-        if (!constraintValidator.isValid(parameterValue, constraintAnnotation, context)) {
-            BeanIntrospection<Object> beanIntrospection = getBeanIntrospection(parameterValue);
-            if (beanIntrospection == null) {
-                throw new ValidationException("Passed object [" + parameterValue + "] cannot be introspected. Please annotate with @Introspected");
-            }
-            AnnotationMetadata beanAnnotationMetadata = beanIntrospection.getAnnotationMetadata();
-            AnnotationValue<A> annotationValue = beanAnnotationMetadata.getAnnotation(pojoConstraint);
-
-            final String propertyValue = "";
-            final String messageTemplate = buildMessageTemplate(context, annotationValue, beanAnnotationMetadata);
-            final Map<String, Object> variables = newConstraintVariables(annotationValue, propertyValue, beanAnnotationMetadata);
-            context.overallViolations.add(new DefaultConstraintViolation<>(
-                context.getRootBean(),
-                context.getRootClass(),
-                parameterValue,
-                parameterValue,
-                messageSource.interpolate(messageTemplate, MessageSource.MessageContext.of(variables)),
-                messageTemplate,
-                new PathImpl(context.currentPath),
-                new DefaultConstraintDescriptor<>(beanAnnotationMetadata, pojoConstraint, annotationValue),
-                null));
+        if (constraintValidator.isValid(parameterValue, constraintAnnotation, context)) {
+            final String currentMessageTemplate = context.getMessageTemplate().orElse(null);
+            context.messageTemplate(currentMessageTemplate);
+            return;
         }
-        context.messageTemplate(currentMessageTemplate);
+
+        BeanIntrospection<Object> beanIntrospection = getBeanIntrospection(parameterValue);
+        if (beanIntrospection == null) {
+            throw new ValidationException("Passed object [" + parameterValue + "] cannot be introspected. Please annotate with @Introspected");
+        }
+        AnnotationMetadata beanAnnotationMetadata = beanIntrospection.getAnnotationMetadata();
+        AnnotationValue<A> annotationValue = beanAnnotationMetadata.getAnnotation(pojoConstraint);
+
+        final String propertyValue = "";
+        final String messageTemplate = buildMessageTemplate(context, annotationValue, beanAnnotationMetadata);
+        final Map<String, Object> variables = newConstraintVariables(annotationValue, propertyValue, beanAnnotationMetadata);
+        context.overallViolations.add(new DefaultConstraintViolation<>(
+            context.getRootBean(),
+            context.getRootClass(),
+            parameterValue,
+            parameterValue,
+            messageSource.interpolate(messageTemplate, MessageSource.MessageContext.of(variables)),
+            messageTemplate,
+            new PathImpl(context.currentPath),
+            new DefaultConstraintDescriptor<>(beanAnnotationMetadata, pojoConstraint, annotationValue),
+            null));
     }
 
     private <R, T> void doValidate(@NonNull DefaultConstraintValidatorContext<R> context,
@@ -865,6 +867,9 @@ public class DefaultValidator implements
         }
 
         for (BeanProperty<T, Object> constrainedProperty : introspection.getIndexedProperties(Constraint.class)) {
+            if (constrainedProperty.isWriteOnly()) {
+                continue;
+            }
             context.addPropertyNode(constrainedProperty.getName());
             validateConstrainedElement(context, object, constrainedProperty.asArgument(), constrainedProperty.get(object));
             context.removeLast();
