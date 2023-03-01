@@ -46,7 +46,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
      */
     public DefaultAnnotatedElementValidator() {
         super(new DefaultValidatorConfiguration()
-                    .setConstraintValidatorRegistry(new LocalConstraintValidators()));
+            .setConstraintValidatorRegistry(new LocalConstraintValidators()));
     }
 
     /**
@@ -54,38 +54,38 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
      */
     private static final class LocalConstraintValidators extends DefaultConstraintValidators {
 
-        private Map<ValidatorKey, ConstraintValidator> validatorMap;
+        private Map<ValidatorKey<?, ?>, ConstraintValidator<?, ?>> validatorMap;
 
         @Override
-        protected <A extends Annotation, T> Optional<ConstraintValidator> findLocalConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
+        protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
             return findConstraintValidatorFromServiceLoader(constraintType, targetType);
         }
 
-        private <A extends Annotation, T> Optional<ConstraintValidator> findConstraintValidatorFromServiceLoader(Class<A> constraintType, Class<T> targetType) {
+        private <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidatorFromServiceLoader(Class<A> constraintType, Class<T> targetType) {
             if (validatorMap == null) {
                 validatorMap = initializeValidatorMap();
             }
             return validatorMap.entrySet().stream()
-                    .filter(entry -> {
-                                final ValidatorKey key = entry.getKey();
-                                final Class[] left = {constraintType, targetType};
-                                return TypeArgumentQualifier.areTypesCompatible(
-                                        left,
-                                        Arrays.asList(key.getConstraintType(), key.getTargetType())
-                                );
-                            })
-                    .findFirst().map(Map.Entry::getValue);
+                .filter(entry -> {
+                    final ValidatorKey<?, ?> key = entry.getKey();
+                    final Class<?>[] left = {constraintType, targetType};
+                    return TypeArgumentQualifier.areTypesCompatible(
+                        left,
+                        Arrays.asList(key.getConstraintType(), key.getTargetType())
+                    );
+                })
+                .findFirst().map(e -> (ConstraintValidator<A, T>) e.getValue());
         }
 
-        private Map<ValidatorKey, ConstraintValidator> initializeValidatorMap() {
+        private Map<ValidatorKey<?, ?>, ConstraintValidator<?, ?>> initializeValidatorMap() {
             validatorMap = new HashMap<>();
-            for (ConstraintValidator validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
+            for (ConstraintValidator<?, ?> validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
                 try {
                     final Class[] typeArgs = GenericTypeUtils.resolveInterfaceTypeArguments(validator.getClass(), ConstraintValidator.class);
                     if (ArrayUtils.isNotEmpty(typeArgs) && typeArgs.length == 2) {
                         validatorMap.put(
-                                new ValidatorKey(typeArgs[0], typeArgs[1]),
-                                validator
+                            new ValidatorKey<>(typeArgs[0], typeArgs[1]),
+                            validator
                         );
                     }
                 } catch (Exception e) {

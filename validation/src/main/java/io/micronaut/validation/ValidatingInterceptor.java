@@ -119,25 +119,22 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
             if (micronautValidator instanceof ReactiveValidator) {
                 InterceptedMethod interceptedMethod = InterceptedMethod.of(context, conversionService);
                 try {
-                    switch (interceptedMethod.resultType()) {
-                        case PUBLISHER:
-                            return interceptedMethod.handleResult(
-                                    ((ReactiveValidator) micronautValidator).validatePublisher(
-                                            context.getReturnType(),
-                                            interceptedMethod.interceptResultAsPublisher(),
-                                            getValidationGroups(context))
-                            );
-                        case COMPLETION_STAGE:
-                            return interceptedMethod.handleResult(
-                                    ((ReactiveValidator) micronautValidator).validateCompletionStage(
-                                            interceptedMethod.interceptResultAsCompletionStage(),
-                                            getValidationGroups(context))
-                            );
-                        case SYNCHRONOUS:
-                            return validateReturnMicronautValidator(context, executableMethod);
-                        default:
-                            return interceptedMethod.unsupported();
-                    }
+                    return switch (interceptedMethod.resultType()) {
+                        case PUBLISHER -> interceptedMethod.handleResult(
+                            ((ReactiveValidator) micronautValidator).validatePublisher(
+                                context.getReturnType(),
+                                interceptedMethod.interceptResultAsPublisher(),
+                                getValidationGroups(context))
+                        );
+                        case COMPLETION_STAGE -> interceptedMethod.handleResult(
+                            ((ReactiveValidator) micronautValidator).validateCompletionStage(
+                                interceptedMethod.interceptResultAsCompletionStage(),
+                                getValidationGroups(context))
+                        );
+                        case SYNCHRONOUS ->
+                            validateReturnMicronautValidator(context, executableMethod);
+                        default -> interceptedMethod.unsupported();
+                    };
                 } catch (Exception e) {
                     return interceptedMethod.handleException(e);
                 }

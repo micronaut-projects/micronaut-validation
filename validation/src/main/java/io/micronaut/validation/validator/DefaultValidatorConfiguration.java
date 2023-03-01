@@ -40,6 +40,7 @@ import javax.validation.Validator;
 import javax.validation.ValidatorContext;
 import javax.validation.valueextraction.ValueExtractor;
 import java.lang.annotation.ElementType;
+import java.util.Objects;
 
 /**
  * The default configuration for the validator.
@@ -91,10 +92,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ConstraintValidatorRegistry getConstraintValidatorRegistry() {
-        if (constraintValidatorRegistry != null) {
-            return constraintValidatorRegistry;
-        }
-        return new DefaultConstraintValidators();
+        return Objects.requireNonNullElseGet(constraintValidatorRegistry, DefaultConstraintValidators::new);
     }
 
     @Override
@@ -127,10 +125,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ValueExtractorRegistry getValueExtractorRegistry() {
-        if (valueExtractorRegistry != null) {
-            return valueExtractorRegistry;
-        }
-        return new DefaultValueExtractors();
+        return Objects.requireNonNullElseGet(valueExtractorRegistry, DefaultValueExtractors::new);
     }
 
     /**
@@ -147,11 +142,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ClockProvider getClockProvider() {
-        if (clockProvider != null) {
-            return clockProvider;
-        } else {
-            return new DefaultClockProvider();
-        }
+        return Objects.requireNonNullElseGet(clockProvider, DefaultClockProvider::new);
     }
 
     /**
@@ -168,21 +159,17 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public TraversableResolver getTraversableResolver() {
-        if (traversableResolver != null) {
-            return traversableResolver;
-        } else {
-            return new TraversableResolver() {
-                @Override
-                public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
+        return Objects.requireNonNullElseGet(traversableResolver, () -> new TraversableResolver() {
+            @Override
+            public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+                return true;
+            }
 
-                @Override
-                public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
-            };
-        }
+            @Override
+            public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+                return true;
+            }
+        });
     }
 
     /**
@@ -220,11 +207,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ExecutionHandleLocator getExecutionHandleLocator() {
-        if (executionHandleLocator != null) {
-            return executionHandleLocator;
-        } else {
-            return ExecutionHandleLocator.EMPTY;
-        }
+        return Objects.requireNonNullElse(executionHandleLocator, ExecutionHandleLocator.EMPTY);
     }
 
     /**

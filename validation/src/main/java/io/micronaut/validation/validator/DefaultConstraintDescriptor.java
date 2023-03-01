@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.type.Argument;
 
 import javax.validation.ConstraintTarget;
 import javax.validation.ConstraintValidator;
@@ -26,6 +25,7 @@ import javax.validation.Payload;
 import javax.validation.metadata.ConstraintDescriptor;
 import javax.validation.metadata.ValidateUnwrappedValue;
 import java.lang.annotation.Annotation;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -48,14 +48,15 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     /**
      * Default constructor.
+     *
      * @param annotationMetadata annotation metadata
-     * @param type constraint type
-     * @param annotationValue annotation value
+     * @param type               constraint type
+     * @param annotationValue    annotation value
      */
     DefaultConstraintDescriptor(
-            AnnotationMetadata annotationMetadata,
-            Class<T> type,
-            AnnotationValue<T> annotationValue) {
+        AnnotationMetadata annotationMetadata,
+        Class<T> type,
+        AnnotationValue<T> annotationValue) {
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
         this.type = type;
@@ -68,21 +69,19 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public String getMessageTemplate() {
-        return annotationValue.get("groups", String.class).orElse(null);
+        return annotationValue.stringValue("groups").orElse(null);
     }
 
     @Override
     public Set<Class<?>> getGroups() {
-        Set groups = annotationValue.get("groups", Argument.setOf(Class.class)).orElse(Collections.emptySet());
-        //noinspection unchecked
-        return groups;
+        return Arrays.stream(annotationValue.classValues("groups")).collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
     public Set<Class<? extends Payload>> getPayload() {
-        Set payload = annotationValue.get("payload", Argument.setOf(Class.class)).orElse(Collections.emptySet());
-        //noinspection unchecked
-        return payload;
+        return Arrays.stream(annotationValue.classValues("payload"))
+            .map(c -> (Class<? extends Payload>) c)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     @Override
@@ -98,8 +97,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     @Override
     public Map<String, Object> getAttributes() {
         return annotationValue.getValues().entrySet().stream().collect(Collectors.toMap(
-                entry -> entry.getKey().toString(),
-                Map.Entry::getValue
+            entry -> entry.getKey().toString(),
+            Map.Entry::getValue
         ));
     }
 

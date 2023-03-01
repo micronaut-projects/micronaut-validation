@@ -22,7 +22,6 @@ import javax.validation.ValidationException;
 import javax.validation.constraints.Pattern;
 import java.lang.annotation.Annotation;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.PatternSyntaxException;
@@ -31,7 +30,6 @@ import java.util.regex.PatternSyntaxException;
  * Abstract pattern validator.
  *
  * @param <A> The annotation type.
- *
  * @author graemerocher
  * @since 1.2
  */
@@ -41,13 +39,14 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
 
     /**
      * Gets the pattern for the given annotation metadata.
+     *
      * @param annotationMetadata The metadata
-     * @param isOptional Whether the pattern is required to be returned
+     * @param isOptional         Whether the pattern is required to be returned
      * @return The pattern
      */
     java.util.regex.Pattern getPattern(
-            @NonNull AnnotationValue<?> annotationMetadata,
-            boolean isOptional) {
+        @NonNull AnnotationValue<?> annotationMetadata,
+        boolean isOptional) {
         final Optional<String> regexp = annotationMetadata.get("regexp", String.class);
         final String pattern;
 
@@ -55,7 +54,7 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
             pattern = regexp.orElse(".*");
         } else {
             pattern = regexp
-                    .orElseThrow(() -> new ValidationException("No pattern specified"));
+                .orElseThrow(() -> new ValidationException("No pattern specified"));
         }
 
         final Pattern.Flag[] flags = annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS);
@@ -87,32 +86,10 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
 
     /**
      * Key used to cache patterns.
+     *
+     * @param pattern The pattern
+     * @param flags   The flags
      */
-    private static final class PatternKey {
-        final String pattern;
-        final int flags;
-
-        PatternKey(String pattern, int flags) {
-            this.pattern = pattern;
-            this.flags = flags;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            PatternKey that = (PatternKey) o;
-            return flags == that.flags &&
-                    pattern.equals(that.pattern);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(pattern, flags);
-        }
+    private record PatternKey(String pattern, int flags) {
     }
 }
