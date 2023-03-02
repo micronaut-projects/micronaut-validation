@@ -6,6 +6,12 @@ plugins {
     id 'com.google.devtools.ksp'
 }
 
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+
 dependencies {
     testImplementation mn.micronaut.inject
     testImplementation mn.micronaut.core.reactive
