@@ -1,0 +1,4 @@
+
+You can also validate the properties of classes that are annotated with ann:context.annotation.ConfigurationProperties[] to ensure configuration is correct.
+
+NOTE: It is recommended that you annotate ann:context.annotation.ConfigurationProperties[] that features validation with ann:context.annotation.Context[] to ensure that the validation occurs at startup.
