@@ -28,5 +28,6 @@ include 'test-suite-kotlin'
 micronautBuild {
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
+    importMicronautCatalog("micronaut-rxjava2")
 }
 
