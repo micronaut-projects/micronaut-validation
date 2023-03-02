@@ -15,8 +15,12 @@
  */
 package io.micronaut.validation.visitor;
 
+
+import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -31,10 +35,11 @@ import io.micronaut.inject.visitor.VisitorContext;
 
 import java.util.Arrays;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
- *
+ * <p>
  * It adds @RequiresValidation annotation to fields if they require validation, and to methods
  * if one of the parameters or return value require validation.
  *
@@ -46,6 +51,13 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private static final String ANN_CONSTRAINT = "javax.validation.Constraint";
     private static final String ANN_VALID = "javax.validation.Valid";
+
+    private static final AnnotationValue<Introspected.IndexedAnnotation> INTROSPECTION_INDEXED_CONSTRAINT = AnnotationValue.builder(Introspected.IndexedAnnotation.class)
+        .member("annotation", new AnnotationClassValue<>(ANN_CONSTRAINT))
+        .build();
+    private static final AnnotationValue<Introspected.IndexedAnnotation> INTROSPECTION_INDEXED_VALID = AnnotationValue.builder(Introspected.IndexedAnnotation.class)
+        .member("annotation", new AnnotationClassValue<>(ANN_VALID))
+        .build();
 
     private ClassElement classElement;
 
@@ -68,6 +80,17 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         classElement = element;
+        if (classElement.hasStereotype(Introspected.class)) {
+            AnnotationMetadata annotationMetadata = classElement.getAnnotationMetadata();
+            AnnotationValue<Introspected> introspectedAnnotation = annotationMetadata.getAnnotation(Introspected.class);
+            classElement.annotate(Introspected.class, builder -> {
+                AnnotationValue<?>[] indexed = Stream.concat(
+                    introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class).stream(),
+                    Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID)
+                ).toArray(AnnotationValue<?>[]::new);
+                builder.member("indexed", indexed);
+            });
+        }
     }
 
     @Override
@@ -75,10 +98,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
-        if (
-            requiresValidation(element.getReturnType(), true) ||
-            parametersRequireValidation(element, true)
-        ) {
+        if (requiresValidation(element.getReturnType(), true)
+            || parametersRequireValidation(element, true)) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
         }
@@ -93,11 +114,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
         boolean requireOnConstraint = isAbstract || !isPrivate;
 
-        if (
-            requiresValidation(element.getReturnType(), requireOnConstraint) ||
-            returnTypeRequiresValidation(element, true) ||
-            parametersRequireValidation(element, requireOnConstraint)
-        ) {
+        if (requiresValidation(element.getReturnType(), requireOnConstraint)
+            || returnTypeRequiresValidation(element, true)
+            || parametersRequireValidation(element, requireOnConstraint)) {
             if (isPrivate) {
                 throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
             }
@@ -118,13 +137,11 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
-        return Arrays.stream(element.getParameters())
-            .anyMatch(param -> requiresValidation(param, requireOnConstraint));
+        return Arrays.stream(element.getParameters()).anyMatch(param -> requiresValidation(param, requireOnConstraint));
     }
 
     private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
-        return e.hasStereotype(ANN_VALID) ||
-            (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT));
+        return e.hasStereotype(ANN_VALID) || (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT));
     }
 
     private boolean requiresValidation(TypedElement e, boolean requireOnConstraint) {
@@ -136,9 +153,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             // annotations from the type itself
             e.annotate(RequiresValidation.class);
         }
-        return (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT)) ||
-            annotationMetadata.hasStereotype(ANN_VALID) ||
-            typeArgumentsRequireValidation(e, requireOnConstraint);
+        return (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
+            || annotationMetadata.hasStereotype(ANN_VALID)
+            || typeArgumentsRequireValidation(e, requireOnConstraint);
     }
 
     private boolean typeArgumentsRequireValidation(TypedElement e, boolean requireOnConstraint) {
@@ -147,7 +164,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             // For example, in case of A<? extends B>, B<? extends A>
             return false;
         }
-        return e.getGenericType().getTypeArguments().values().stream()
-            .anyMatch(classElement -> requiresValidation(classElement, requireOnConstraint));
+        return e.getGenericType().getTypeArguments().values().stream().anyMatch(classElement -> requiresValidation(classElement, requireOnConstraint));
     }
 }
