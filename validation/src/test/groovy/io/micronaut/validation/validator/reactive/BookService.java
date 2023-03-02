@@ -36,8 +36,8 @@ class BookService {
     }
 
     @Executable
-    void rxValidWithTypeParameter(Mono<List<@Valid Book>> books) {
-        books.block();
+    Mono<Void> rxValidWithTypeParameter(Mono<List<@Valid Book>> books) {
+        return books.then();
     }
 
     @Executable

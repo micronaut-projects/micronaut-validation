@@ -2,18 +2,23 @@ package io.micronaut.validation.validator.reactive
 
 import io.micronaut.context.ApplicationContext
 import io.micronaut.validation.validator.Validator
+import io.reactivex.Flowable
+import io.reactivex.Maybe
+import io.reactivex.Observable
+import io.reactivex.Single
+import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
+
 import javax.validation.ConstraintViolationException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.regex.Pattern
-import org.reactivestreams.Publisher
 
-class ReactiveMethodValidationSpec extends Specification {
+class RxJava2MethodValidationSpec extends Specification {
 
     @Shared
     @AutoCleanup
@@ -21,11 +26,11 @@ class ReactiveMethodValidationSpec extends Specification {
 
     void "test reactive return type validation"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        Mono<Book> mono = Mono.just(new Book("It"))
-        Mono.from(bookService.rxReturnInvalid(mono)).block()
+        Single<Book> single = Single.just(new Book("It"))
+        Single.fromPublisher(bookService.rxReturnInvalid(single.toFlowable())).blockingGet()
 
         then:
         ConstraintViolationException e = thrown()
@@ -35,11 +40,11 @@ class ReactiveMethodValidationSpec extends Specification {
 
     void "test reactive return type no validation"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        Flux<Book> input = Flux.just(new Book("It"))
-        Mono.from(bookService.rxReturnInvalidWithoutValidation(input)).block()
+        Single<Book> single = Single.just(new Book("It"))
+        bookService.rxReturnInvalidWithoutValidation(single.toFlowable()).blockingGet()
 
         then:
         noExceptionThrown()
@@ -47,21 +52,21 @@ class ReactiveMethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid simple argument"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
         var validator = applicationContext.getBean(Validator)
         var violations = validator.forExecutables().validateParameters(
                 bookService,
                 BookService.class.getDeclaredMethod("rxSimple", Publisher<String>),
-                [Mono.just("")] as Object[]
+                [Flowable.just("")] as Object[]
         )
 
         then: "No errors because publisher is not executed"
         violations.size() == 0
 
         when:
-        Mono.from(bookService.rxSimple(Mono.just(""))).block()
+        Single.fromPublisher(bookService.rxSimple(Single.just("").toFlowable())).blockingGet()
 
         then:
         def e = thrown(ConstraintViolationException)
@@ -70,27 +75,28 @@ class ReactiveMethodValidationSpec extends Specification {
         path.next().getName() == 'rxSimple'
         path.next().getName() == 'title'
         path.next().isInIterable()
+
     }
 
     void "test reactive validation with valid argument"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        def input = Flux.just(new Book("It"))
-        def book = Mono.from(bookService.rxValid(input)).block()
+        def input = Observable.just(new Book("It"))
+        def book = bookService.rxValid(input).blockingFirst()
 
         then:
         book.title == 'It'
     }
 
-    void "test reactive mono validation with valid argument"() {
+    void "test reactive maybe validation with valid argument"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        def input = Mono.just(new Book("It"))
-        def book = Mono.from(bookService.rxValidMono(input)).block()
+        def input = Maybe.just(new Book("It"))
+        def book = bookService.rxValidMaybe(input).blockingGet()
 
         then:
         book.title == 'It'
@@ -98,11 +104,11 @@ class ReactiveMethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid argument"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        def input = Flux.just(new Book(""))
-        Mono.from(bookService.rxValid(input)).block()
+        def input = Observable.just(new Book(""))
+        bookService.rxValid(input).blockingFirst()
 
         then:
         def e = thrown(ConstraintViolationException)
@@ -112,11 +118,11 @@ class ReactiveMethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid argument type parameter"() {
         given:
-        BookService bookService = applicationContext.getBean(BookService)
+        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
 
         when:
-        def input = Mono.just([new Book("It"), new Book("")])
-        Mono.from(bookService.rxValidWithTypeParameter(input)).block()
+        def input = Single.just([new Book("It"), new Book("")])
+        bookService.rxValidWithTypeParameter(input).blockingAwait()
 
         then:
         def e = thrown(ConstraintViolationException)
@@ -124,33 +130,4 @@ class ReactiveMethodValidationSpec extends Specification {
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 
-    void "test future validation with invalid simple argument"() {
-        given:
-        BookService bookService = applicationContext.getBean(BookService)
-
-        when:
-        bookService.futureSimple(CompletableFuture.completedFuture("")).get()
-
-        then:
-        ExecutionException e = thrown()
-        e.cause instanceof ConstraintViolationException
-
-        Pattern.matches('futureSimple.title\\[]<T .*String>: must not be blank', e.cause.message)
-        e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
-    }
-
-    void "test future validation with invalid argument"() {
-        given:
-        BookService bookService = applicationContext.getBean(BookService)
-
-        when:
-        bookService.futureValid(CompletableFuture.completedFuture(new Book(""))).get()
-
-        then:
-        ExecutionException e = thrown()
-        e.cause instanceof ConstraintViolationException
-
-        Pattern.matches('futureValid.book\\[]<T .*Book>.title: must not be blank', e.cause.message);
-        e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureValid.book')
-    }
 }

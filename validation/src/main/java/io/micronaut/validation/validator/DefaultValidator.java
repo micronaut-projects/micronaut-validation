@@ -476,8 +476,11 @@ public class DefaultValidator implements
                     Flux.error(new ConstraintViolationException(violations));
             });
         }
-
-        return Publishers.convertPublisher(conversionService, output, ((ReturnType<Publisher>) returnType).getType());
+        Class<?> returnClass = returnType.getType();
+        if (!Publisher.class.isAssignableFrom(returnClass)) {
+            return (Publisher<T>) output;
+        }
+        return Publishers.convertPublisher(conversionService, output, (Class<Publisher>) returnClass);
     }
 
     /**
