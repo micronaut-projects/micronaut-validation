@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.custom
+package io.micronaut.docs.validation.custom
 
 // tag::imports[]
 import io.micronaut.context.annotation.Factory
+import io.micronaut.docs.ioc.validation.custom.DurationPattern
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import jakarta.inject.Singleton
 // end::imports[]
@@ -26,8 +27,8 @@ import jakarta.inject.Singleton
 class MyValidatorFactory {
 
     @Singleton
-    fun durationPatternValidator() : ConstraintValidator<DurationPattern, Object> {
-        return ConstraintValidator { value, annotation, context ->
+    fun durationPatternValidator() : ConstraintValidator<DurationPattern, Any> {
+        return ConstraintValidator { value, _, context ->
             context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <1>
             value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
         }

@@ -1,7 +1,9 @@
 plugins {
     id 'io.micronaut.build.internal.validation-base'
-    id "org.jetbrains.kotlin.jvm" version "1.7.20"
-    id "org.jetbrains.kotlin.kapt" version "1.7.20"
+    id 'java'
+    id 'io.micronaut.application'
+    id 'org.jetbrains.kotlin.jvm'
+    id 'com.google.devtools.ksp'
 }
 
 dependencies {
@@ -14,8 +16,8 @@ dependencies {
     implementation mnReactor.micronaut.reactor
 
     testImplementation project(":validation")
-    kaptTest project(":validation-processor")
-    kaptTest mn.micronaut.inject.java
+    kspTest project(":validation-processor")
+    kspTest mn.micronaut.inject.kotlin
     testImplementation libs.spotbugs
     testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
