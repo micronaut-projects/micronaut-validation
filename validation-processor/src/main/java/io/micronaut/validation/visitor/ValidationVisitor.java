@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.visitor;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.ast.ClassElement;
@@ -127,15 +128,16 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean requiresValidation(TypedElement e, boolean requireOnConstraint) {
-        if (e.hasStereotype(ANN_VALID)) {
+        AnnotationMetadata annotationMetadata = e instanceof ClassElement ce ? ce.getTypeAnnotationMetadata() : e.getAnnotationMetadata();
+        if (annotationMetadata.hasStereotype(ANN_VALID)) {
             // Annotate the element with same annotation that we annotate classes with.
             // This will ensure the correct behavior of io.micronaut.inject.ast.utils.AstBeanPropertiesUtils
             // in certain cases, as it relies on the fact that usages of types inherit
             // annotations from the type itself
             e.annotate(RequiresValidation.class);
         }
-        return (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT)) ||
-            e.hasStereotype(ANN_VALID) ||
+        return (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT)) ||
+            annotationMetadata.hasStereotype(ANN_VALID) ||
             typeArgumentsRequireValidation(e, requireOnConstraint);
     }
 
