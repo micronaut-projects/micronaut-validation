@@ -11,7 +11,7 @@ groovy = "4.0.7"
 junit5 = "5.9.1"
 kotlin = "1.7.20"
 kotest = "5.5.4"
-spotbugs = "4.7.1"
+spotbugs = "4.7.3"
 
 managed-validation = "2.0.1.Final"
 
