@@ -19,7 +19,7 @@ package io.micronaut.docs.validation;
 
 import jakarta.inject.Singleton;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 // end::imports[]
 
 // tag::class[]

@@ -4,9 +4,9 @@ dependency:micronaut-validation-processor[scope="annotationProcessor",groupId="i
 
 dependency:micronaut-validation[groupId="io.micronaut.validation"]
 
-You can validate types, fields and parameters by applying `javax.validation` annotations to arguments. Include the following dependency for annotations:
+You can validate types, fields and parameters by applying `jakarta.validation` annotations to arguments. Include the following dependency for annotations:
 
-dependency:javax.validation:validation-api[]
+dependency:jakarta.validation:validation-api[]
 
 == Supported Features
 
@@ -16,7 +16,7 @@ The following features are unsupported at this time:
 
 * Any interaction with the https://beanvalidation.org/2.0/spec/#constraintmetadata[constraint metadata API], since Micronaut uses compile-time generated metadata.
 * XML-based configuration
-* Instead of using `javax.validation.ConstraintValidator`, use api:validation.validator.constraints.ConstraintValidator[] (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.
+* Instead of using `jakarta.validation.ConstraintValidator`, use api:validation.validator.constraints.ConstraintValidator[] (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.
 
 Micronaut's implementation includes the following benefits:
 

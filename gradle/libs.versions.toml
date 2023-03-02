@@ -13,13 +13,15 @@ kotlin = "1.7.20"
 kotest = "5.5.5"
 spotbugs = "4.7.3"
 
-managed-validation = "2.0.1.Final"
+managed-validation = "3.0.2"
 
 # Gradle plugins
 
 micronaut-gradle-plugin = "3.7.4"
 kotlin-gradle-plugin = "1.8.10"
 ksp-gradle-plugin = "1.8.10-1.0.9"
+
+jakarta-validation-tck = "3.0.1"
 
 [libraries]
 
@@ -41,7 +43,8 @@ spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = 
 
 # MANAGED DEPENDENCIES
 
-managed-validation = { module = "javax.validation:validation-api", version.ref = "managed-validation" }
+managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
+jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 
 # GRADLE PLUGINS
 

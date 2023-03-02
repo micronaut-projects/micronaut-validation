@@ -7,15 +7,16 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
+import io.micronaut.validation.visitor.ValidationVisitor
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 
 import javax.annotation.processing.SupportedAnnotationTypes
-import javax.validation.constraints.NotBlank
-import javax.validation.constraints.NotEmpty
-import javax.validation.constraints.Size
-import javax.validation.groups.Default
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotEmpty
+import jakarta.validation.constraints.Size
+import jakarta.validation.groups.Default
 
 class ValidatorGroupsSpec extends AbstractTypeElementSpec {
 
@@ -42,7 +43,7 @@ class ValidatorGroupsSpec extends AbstractTypeElementSpec {
 
         then:
         violations.size() == 2
-        messageTemplates.contains('{javax.validation.constraints.Size.message}')
+        messageTemplates.contains('{jakarta.validation.constraints.Size.message}')
         messageTemplates.contains('different message')
 
         when:
@@ -51,7 +52,7 @@ class ValidatorGroupsSpec extends AbstractTypeElementSpec {
 
         then:
         violations.size() == 2
-        messageTemplates.contains('{javax.validation.constraints.Size.message}')
+        messageTemplates.contains('{jakarta.validation.constraints.Size.message}')
         messageTemplates.contains('message for default')
     }
 
@@ -92,7 +93,7 @@ class ValidatorGroupsSpec extends AbstractTypeElementSpec {
         def introspection = buildBeanIntrospection('test.Address', '''
 package test;
 
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 
 
 @io.micronaut.core.annotation.Introspected
@@ -130,7 +131,7 @@ interface GroupThree {}
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

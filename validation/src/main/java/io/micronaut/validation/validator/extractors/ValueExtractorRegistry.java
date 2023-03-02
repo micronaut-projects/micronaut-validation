@@ -17,8 +17,8 @@ package io.micronaut.validation.validator.extractors;
 
 import io.micronaut.core.annotation.NonNull;
 
-import javax.validation.ValidationException;
-import javax.validation.valueextraction.ValueExtractor;
+import jakarta.validation.ValidationException;
+import jakarta.validation.valueextraction.ValueExtractor;
 import java.util.Optional;
 
 /**
@@ -28,15 +28,17 @@ import java.util.Optional;
  * @since 1.2
  */
 public interface ValueExtractorRegistry {
+
+    <T> void addValueExtractor(Class<T> targetType, ValueExtractor<T> valueExtractor);
+
     /**
-     * Finds a a {@link ValueExtractor} for the given type.
+     * Finds a {@link ValueExtractor} for the given type.
      * @param targetType The target type of the value
      * @param <T> The target type
      * @return The extractor
      */
     @NonNull
-    <T> Optional<ValueExtractor<T>> findValueExtractor(
-            @NonNull Class<T> targetType);
+    <T> Optional<ValueExtractor<T>> findValueExtractor(@NonNull Class<T> targetType);
 
     /**
      * Finds a concrete {@link ValueExtractor} without searching the hierarchy.
@@ -45,8 +47,7 @@ public interface ValueExtractorRegistry {
      * @return The extractor
      */
     @NonNull
-    <T> Optional<ValueExtractor<T>> findUnwrapValueExtractor(
-            @NonNull Class<T> targetType);
+    <T> Optional<ValueExtractor<T>> findUnwrapValueExtractor(@NonNull Class<T> targetType);
 
     /**
      * Gets a a {@link ValueExtractor} for the given type.
@@ -56,9 +57,7 @@ public interface ValueExtractorRegistry {
      * @throws ValidationException if no extractor is present
      */
     @NonNull
-    default <T> ValueExtractor<T> getValueExtractor(
-            @NonNull Class<T> targetType) {
-        return findValueExtractor(targetType)
-                .orElseThrow(() -> new ValidationException("No value extractor for target type [" + targetType + "]"));
+    default <T> ValueExtractor<T> getValueExtractor(@NonNull Class<T> targetType) {
+        return findValueExtractor(targetType).orElseThrow(() -> new ValidationException("No value extractor for target type [" + targetType + "]"));
     }
 }

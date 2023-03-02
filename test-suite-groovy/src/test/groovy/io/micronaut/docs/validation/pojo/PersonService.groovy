@@ -19,7 +19,7 @@ package io.micronaut.docs.validation.pojo
 import io.micronaut.docs.validation.Person
 
 import jakarta.inject.Singleton
-import javax.validation.Valid
+import jakarta.validation.Valid
 // end::imports[]
 
 // tag::class[]

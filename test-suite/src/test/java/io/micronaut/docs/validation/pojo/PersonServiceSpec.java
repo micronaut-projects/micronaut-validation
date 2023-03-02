@@ -23,8 +23,8 @@ import io.micronaut.validation.validator.Validator;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
-import javax.validation.ConstraintViolation;
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

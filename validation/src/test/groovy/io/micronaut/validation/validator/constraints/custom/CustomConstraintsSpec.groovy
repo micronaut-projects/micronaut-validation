@@ -8,7 +8,7 @@ import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
 
-import javax.validation.Valid
+import jakarta.validation.Valid
 
 @Ignore("Validation module needs to be removed from core first")
 class CustomConstraintsSpec extends Specification {

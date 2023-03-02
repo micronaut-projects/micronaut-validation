@@ -2,7 +2,7 @@ package io.micronaut.validation.validator.reactive;
 
 import io.micronaut.core.annotation.Introspected;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @Introspected
 public class Book {

@@ -16,7 +16,7 @@
 package io.micronaut.docs.validation.custom
 
 import jakarta.inject.Singleton
-import javax.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotBlank
 import java.time.Duration
 
 // tag::class[]

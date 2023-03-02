@@ -19,20 +19,20 @@ import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 
-import javax.validation.Constraint;
-import javax.validation.ConstraintViolation;
-import javax.validation.Valid;
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Valid;
 import java.util.Set;
 
 /**
- * Extended version of the {@link javax.validation.Valid} interface for Micronaut's implementation.
+ * Extended version of the {@link jakarta.validation.Valid} interface for Micronaut's implementation.
  *
  * <p>The {@link #getConstraintsForClass(Class)} method is not supported by the implementation.</p>
  *
  * @author graemerocher
  * @since 1.2
  */
-public interface Validator extends javax.validation.Validator {
+public interface Validator extends jakarta.validation.Validator {
 
     /**
      * Annotation used to define an object as valid.

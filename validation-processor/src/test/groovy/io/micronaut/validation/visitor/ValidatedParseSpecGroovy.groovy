@@ -16,8 +16,8 @@ class ValidatedParseSpecGroovy extends AbstractBeanDefinitionSpec {
         def definition = buildBeanDefinition('validateparse1.Test','''
 package validateparse1
 import io.micronaut.context.annotation.Executable
-import javax.validation.Valid
-import javax.validation.constraints.NotBlank
+import jakarta.validation.Valid
+import jakarta.validation.constraints.NotBlank
 
 @jakarta.inject.Singleton
 class Test {
@@ -39,7 +39,7 @@ class Test {
         BeanIntrospection beanIntrospection = buildBeanIntrospection('validateparse2.Test','''
 package validateparse2;
 import io.micronaut.core.annotation.Introspected
-import javax.validation.Constraint
+import jakarta.validation.Constraint
 import java.lang.annotation.ElementType
 import java.lang.annotation.Retention
 import java.lang.annotation.RetentionPolicy
@@ -72,7 +72,7 @@ class Test {
 package validateparse3
 import io.micronaut.http.annotation.Get
 import io.micronaut.http.client.annotation.Client
-import javax.validation.constraints.PastOrPresent
+import jakarta.validation.constraints.PastOrPresent
 import java.time.LocalDate
 
 @Client("https://exchangeratesapi.io")

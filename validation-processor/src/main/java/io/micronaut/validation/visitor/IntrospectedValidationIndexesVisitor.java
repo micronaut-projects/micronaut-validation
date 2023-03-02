@@ -39,8 +39,8 @@ import java.util.stream.Stream;
 @Internal
 public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<Object, Object> {
 
-    private static final String ANN_CONSTRAINT = "javax.validation.Constraint";
-    private static final String ANN_VALID = "javax.validation.Valid";
+    private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
+    private static final String ANN_VALID = "jakarta.validation.Valid";
 
     private static final AnnotationValue<Introspected.IndexedAnnotation> INTROSPECTION_INDEXED_CONSTRAINT = AnnotationValue.builder(Introspected.IndexedAnnotation.class)
         .member("annotation", new AnnotationClassValue<>(ANN_CONSTRAINT))

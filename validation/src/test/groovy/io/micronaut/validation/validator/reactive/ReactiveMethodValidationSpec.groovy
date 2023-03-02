@@ -2,16 +2,16 @@ package io.micronaut.validation.validator.reactive
 
 import io.micronaut.context.ApplicationContext
 import io.micronaut.validation.validator.Validator
+import jakarta.validation.ConstraintViolationException
+import org.reactivestreams.Publisher
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
-import javax.validation.ConstraintViolationException
+
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
-import java.util.regex.Pattern
-import org.reactivestreams.Publisher
 
 class ReactiveMethodValidationSpec extends Specification {
 
@@ -29,8 +29,8 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == 'publisher[]<T Book>.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'publisher[]<T Book>.title'
+        e.message == '<return value>[]<publisher element>.title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[]<publisher element>.title'
     }
 
     void "test reactive return type no validation"() {
@@ -65,7 +65,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxSimple.title\\[]<T [^>]*String>: must not be blank', e.message)
+        e.message == "rxSimple.title[]<publisher element>: must not be blank"
         def path = e.getConstraintViolations().first().propertyPath.iterator()
         path.next().getName() == 'rxSimple'
         path.next().getName() == 'title'
@@ -106,7 +106,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxValid.book\\[]<T .*Book>.title: must not be blank', e.message)
+        e.message == "rxValid.book[]<publisher element>.title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValid.book')
     }
 
@@ -120,7 +120,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxValidWithTypeParameter.books\\[]<T List>\\[1]<E Book>.title: must not be blank', e.message)
+        e.message == "rxValidWithTypeParameter.books[]<publisher element>[1]<list element>.title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 
@@ -134,8 +134,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-
-        Pattern.matches('futureSimple.title\\[]<T .*String>: must not be blank', e.cause.message)
+        e.cause.message == "futureSimple.title[]<completion stage element>: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
     }
 
@@ -149,8 +148,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-
-        Pattern.matches('futureValid.book\\[]<T .*Book>.title: must not be blank', e.cause.message);
+        e.cause.message == "futureValid.book[]<completion stage element>.title: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureValid.book')
     }
 }
