@@ -1039,13 +1039,13 @@ void testCustomAndDefaultValidator() {
 
 
 <div class="paragraph">
-<p>You can use Micronaut&#8217;s validator to validate annotation elements at compile time by including <code>micronaut-validation</code> in the annotation processor classpath:</p>
+<p>Micronaut Validation validates annotation elements at compile time with <code>micronaut-validation-processor</code> in the annotation processor classpath:</p>
 </div>
 <div class="paragraph">
 <p>        <div class="listingblock multi-language-sample">
 <div class="title"></div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="gradle">annotationProcessor(<span class="hljs-string">"io.micronaut:io.micronaut.validation:micronaut-validation")</span></code></pre>
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="gradle">annotationProcessor(<span class="hljs-string">"io.micronaut.validation:micronaut-validation-processor")</span></code></pre>
 </div>
 </div>
 <div class="listingblock multi-language-sample">
@@ -1053,16 +1053,16 @@ void testCustomAndDefaultValidator() {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="maven">&lt;annotationProcessorPaths&gt;
     &lt;path&gt;
-        &lt;groupId&gt;io.micronaut&lt;/groupId&gt;
-        &lt;artifactId&gt;io.micronaut.validation&lt;/artifactId&gt;
-        &lt;version&gt;micronaut-validation&lt;/version&gt;
+        &lt;groupId&gt;io.micronaut.validation&lt;/groupId&gt;
+        &lt;artifactId&gt;micronaut-validation-processor&lt;/artifactId&gt;
     &lt;/path&gt;
 &lt;/annotationProcessorPaths&gt;</code></pre>
 </div>
 </div></p>
 </div>
 <div class="paragraph">
-<p>Then Micronaut will at compile time validate annotation values that are themselves annotated with <code>javax.validation</code>. For example consider the following annotation:</p>
+<p>Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with <code>javax.validation</code>.
+For example consider the following annotation:</p>
 </div>
 <div class="listingblock multi-language-sample">
 <div class="title">Annotation Validation</div>
