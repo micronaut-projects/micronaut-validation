@@ -52,13 +52,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static final String ANN_CONSTRAINT = "javax.validation.Constraint";
     private static final String ANN_VALID = "javax.validation.Valid";
 
-    private static final AnnotationValue<Introspected.IndexedAnnotation> INTROSPECTION_INDEXED_CONSTRAINT = AnnotationValue.builder(Introspected.IndexedAnnotation.class)
-        .member("annotation", new AnnotationClassValue<>(ANN_CONSTRAINT))
-        .build();
-    private static final AnnotationValue<Introspected.IndexedAnnotation> INTROSPECTION_INDEXED_VALID = AnnotationValue.builder(Introspected.IndexedAnnotation.class)
-        .member("annotation", new AnnotationClassValue<>(ANN_VALID))
-        .build();
-
     private ClassElement classElement;
 
     @Override
@@ -80,17 +73,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         classElement = element;
-        if (classElement.hasStereotype(Introspected.class)) {
-            AnnotationMetadata annotationMetadata = classElement.getAnnotationMetadata();
-            AnnotationValue<Introspected> introspectedAnnotation = annotationMetadata.getAnnotation(Introspected.class);
-            classElement.annotate(Introspected.class, builder -> {
-                AnnotationValue<?>[] indexed = Stream.concat(
-                    introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class).stream(),
-                    Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID)
-                ).toArray(AnnotationValue<?>[]::new);
-                builder.member("indexed", indexed);
-            });
-        }
     }
 
     @Override

@@ -7,6 +7,7 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
+import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 
@@ -100,7 +101,7 @@ class Address {
     @NotBlank(groups = GroupThree.class, message = "different message")
     @Size(min = 5, max = 20, groups = GroupTwo.class)
     private String street;
-    
+
     public String getStreet() {
         return this.street;
     }
@@ -129,7 +130,7 @@ interface GroupThree {}
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new IntrospectedTypeElementVisitor()]
+            return [new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }
