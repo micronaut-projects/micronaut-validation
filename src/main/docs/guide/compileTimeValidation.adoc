@@ -1,9 +1,9 @@
+Micronaut Validation validates annotation elements at compile time with `micronaut-validation-processor` in the annotation processor classpath:
 
-You can use Micronaut's validator to validate annotation elements at compile time by including `micronaut-validation` in the annotation processor classpath:
+dependency:micronaut-validation-processor[groupId="io.micronaut.validation",scope="annotationProcessor"]
 
-dependency::io.micronaut.validation:micronaut-validation[scope="annotationProcessor"]
-
-Then Micronaut will at compile time validate annotation values that are themselves annotated with `javax.validation`. For example consider the following annotation:
+Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with `javax.validation`.
+For example consider the following annotation:
 
 .Annotation Validation
 snippet::io.micronaut.docs.validation.custom.TimeOff[tags="imports,class", indent="0"]
