@@ -16,11 +16,8 @@
 package io.micronaut.validation.visitor;
 
 
-import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -35,7 +32,6 @@ import io.micronaut.inject.visitor.VisitorContext;
 
 import java.util.Arrays;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
