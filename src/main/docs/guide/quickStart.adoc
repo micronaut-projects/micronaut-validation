@@ -1,8 +1,8 @@
 To use the Micronaut’s validation capabilities you must have the validation dependency on your classpath:
 
-dependency:io.micronaut.vallidation:micronaut-validation-processor[scope='annotationProcessor']
+dependency:micronaut-validation-processor[scope="annotationProcessor",groupId="io.micronaut.validation"]
 
-dependency:io.micronaut.vallidation:micronaut-validation[]
+dependency:micronaut-validation[groupId="io.micronaut.validation"]
 
 You can validate types, fields and parameters by applying `javax.validation` annotations to arguments. Include the following dependency for annotations:
 
