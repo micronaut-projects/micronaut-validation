@@ -100,6 +100,6 @@ class Test {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
             return [new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
-        }n
+        }
     }
 }
