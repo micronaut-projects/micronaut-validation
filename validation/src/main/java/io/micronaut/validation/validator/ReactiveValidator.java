@@ -31,7 +31,7 @@ public interface ReactiveValidator {
 
     /**
      * Validate the given publisher by returning a new Publisher that validates each emitted value. If a
-     * constraint violation error occurs a {@link javax.validation.ConstraintViolationException} will be thrown.
+     * constraint violation error occurs a {@link jakarta.validation.ConstraintViolationException} will be thrown.
      *
      * @param returnType The required type of publisher
      * @param publisher The publisher
@@ -44,7 +44,7 @@ public interface ReactiveValidator {
 
     /**
      * Validate the given CompletionStage by returning a new CompletionStage that validates the emitted value. If a
-     * constraint violation error occurs a {@link javax.validation.ConstraintViolationException} will be thrown.
+     * constraint violation error occurs a {@link jakarta.validation.ConstraintViolationException} will be thrown.
      *
      * @param completionStage The completion stage
      * @param groups The groups

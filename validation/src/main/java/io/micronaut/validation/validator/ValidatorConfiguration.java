@@ -18,12 +18,13 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.MessageSource;
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 
-import javax.validation.ClockProvider;
-import javax.validation.TraversableResolver;
+import jakarta.validation.ClockProvider;
+import jakarta.validation.TraversableResolver;
 
 /**
  * Configuration for the {@link Validator}.
@@ -80,4 +81,11 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     @NonNull
     ExecutionHandleLocator getExecutionHandleLocator();
 
+    /**
+     * The bean introspector.
+     * @return The introspector
+     */
+    default BeanIntrospector getBeanIntrospector() {
+        return BeanIntrospector.SHARED;
+    }
 }

@@ -6,17 +6,11 @@ import io.reactivex.Flowable
 import io.reactivex.Maybe
 import io.reactivex.Observable
 import io.reactivex.Single
+import jakarta.validation.ConstraintViolationException
 import org.reactivestreams.Publisher
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
-
-import javax.validation.ConstraintViolationException
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.ExecutionException
-import java.util.regex.Pattern
 
 class RxJava2MethodValidationSpec extends Specification {
 
@@ -34,8 +28,8 @@ class RxJava2MethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == 'publisher[]<T Book>.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == 'publisher[]<T Book>.title'
+        e.message == '<return value>[]<publisher element>.title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[]<publisher element>.title'
     }
 
     void "test reactive return type no validation"() {
@@ -70,12 +64,11 @@ class RxJava2MethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxSimple.title\\[]<T [^>]*String>: must not be blank', e.message)
+        e.message == "rxSimple.title[]<publisher element>: must not be blank"
         def path = e.getConstraintViolations().first().propertyPath.iterator()
         path.next().getName() == 'rxSimple'
         path.next().getName() == 'title'
         path.next().isInIterable()
-
     }
 
     void "test reactive validation with valid argument"() {
@@ -112,7 +105,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxValid.book\\[]<T .*Book>.title: must not be blank', e.message)
+        e.message == "rxValid.book[]<publisher element>.title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValid.book')
     }
 
@@ -126,7 +119,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        Pattern.matches('rxValidWithTypeParameter.books\\[]<T List>\\[1]<E Book>.title: must not be blank', e.message)
+        e.message == "rxValidWithTypeParameter.books[]<publisher element>[1]<list element>.title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 

@@ -20,8 +20,10 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.ConversionServiceAware;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -29,18 +31,23 @@ import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultValidationMessages;
 import jakarta.inject.Inject;
+import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ParameterNameProvider;
+import jakarta.validation.Path;
+import jakarta.validation.TraversableResolver;
+import jakarta.validation.Validator;
+import jakarta.validation.ValidatorContext;
+import jakarta.validation.valueextraction.ValueExtractor;
 
-import javax.validation.ClockProvider;
-import javax.validation.ConstraintValidatorFactory;
-import javax.validation.MessageInterpolator;
-import javax.validation.ParameterNameProvider;
-import javax.validation.Path;
-import javax.validation.TraversableResolver;
-import javax.validation.Validator;
-import javax.validation.ValidatorContext;
-import javax.validation.valueextraction.ValueExtractor;
 import java.lang.annotation.ElementType;
-import java.util.Objects;
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * The default configuration for the validator.
@@ -71,6 +78,8 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     private ConversionService conversionService = ConversionService.SHARED;
 
+    private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
+
     private boolean enabled = true;
 
     /**
@@ -92,7 +101,10 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ConstraintValidatorRegistry getConstraintValidatorRegistry() {
-        return Objects.requireNonNullElseGet(constraintValidatorRegistry, DefaultConstraintValidators::new);
+        if (constraintValidatorRegistry == null) {
+            constraintValidatorRegistry = new DefaultConstraintValidators();
+        }
+        return constraintValidatorRegistry;
     }
 
     @Override
@@ -113,6 +125,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     /**
      * Sets the constraint validator registry to use.
+     *
      * @param constraintValidatorRegistry The registry to use
      * @return this configuration
      */
@@ -125,11 +138,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ValueExtractorRegistry getValueExtractorRegistry() {
-        return Objects.requireNonNullElseGet(valueExtractorRegistry, DefaultValueExtractors::new);
+        if (valueExtractorRegistry == null) {
+            valueExtractorRegistry = new DefaultValueExtractors();
+        }
+        return valueExtractorRegistry;
     }
 
     /**
      * Sets the value extractor registry use.
+     *
      * @param valueExtractorRegistry The registry
      * @return this configuration
      */
@@ -142,11 +159,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ClockProvider getClockProvider() {
-        return Objects.requireNonNullElseGet(clockProvider, DefaultClockProvider::new);
+        if (clockProvider == null) {
+            clockProvider = new DefaultClockProvider();
+        }
+        return clockProvider;
     }
 
     /**
      * Sets the clock provider to use.
+     *
      * @param clockProvider The clock provider
      * @return this configuration
      */
@@ -159,21 +180,25 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public TraversableResolver getTraversableResolver() {
-        return Objects.requireNonNullElseGet(traversableResolver, () -> new TraversableResolver() {
-            @Override
-            public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                return true;
-            }
+        if (traversableResolver == null) {
+            traversableResolver = new TraversableResolver() {
+                @Override
+                public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+                    return true;
+                }
 
-            @Override
-            public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                return true;
-            }
-        });
+                @Override
+                public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+                    return true;
+                }
+            };
+        }
+        return traversableResolver;
     }
 
     /**
      * Sets the traversable resolver to use.
+     *
      * @param traversableResolver The resolver
      * @return This configuration
      */
@@ -186,10 +211,10 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public MessageSource getMessageSource() {
-        if (messageSource != null) {
-            return messageSource;
+        if (messageSource == null) {
+            messageSource = new DefaultValidationMessages();
         }
-        return new DefaultValidationMessages();
+        return messageSource;
     }
 
     /**
@@ -207,7 +232,10 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     @NonNull
     public ExecutionHandleLocator getExecutionHandleLocator() {
-        return Objects.requireNonNullElse(executionHandleLocator, ExecutionHandleLocator.EMPTY);
+        if (executionHandleLocator == null) {
+            executionHandleLocator = ExecutionHandleLocator.EMPTY;
+        }
+        return executionHandleLocator;
     }
 
     /**
@@ -251,11 +279,62 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
-        throw new UnsupportedOperationException("Method addValueExtractor(..) not supported");
+        List<AnnotatedType> annotatedTypes = new ArrayList<>();
+        determineValueExtractorDefinitions(annotatedTypes, extractor.getClass());
+        if (annotatedTypes.size() != 1) {
+            throw new IllegalStateException("Expected to find one annotation type! Got: " + annotatedTypes);
+        }
+        Class<Object> clazz = (Class<Object>) Argument.of(annotatedTypes.get(0).getType()).getTypeParameters()[0].getType();
+        ValueExtractor<Object> v = (ValueExtractor<Object>) extractor;
+        getValueExtractorRegistry().addValueExtractor(clazz, v);
+        return this;
     }
 
     @Override
     public Validator getValidator() {
         return new DefaultValidator(this);
+    }
+
+    @Override
+    public BeanIntrospector getBeanIntrospector() {
+        return beanIntrospector;
+    }
+
+    public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
+        this.beanIntrospector = beanIntrospector;
+    }
+
+    private static void determineValueExtractorDefinitions(List<AnnotatedType> valueExtractorDefinitions, Class<?> extractorImplementationType) {
+        if (!ValueExtractor.class.isAssignableFrom(extractorImplementationType)) {
+            return;
+        }
+
+        Class<?> superClass = extractorImplementationType.getSuperclass();
+        if (superClass != null && !Object.class.equals(superClass)) {
+            determineValueExtractorDefinitions(valueExtractorDefinitions, superClass);
+        }
+        for (Class<?> implementedInterface : extractorImplementationType.getInterfaces()) {
+            if (!ValueExtractor.class.equals(implementedInterface)) {
+                determineValueExtractorDefinitions(valueExtractorDefinitions, implementedInterface);
+            }
+        }
+        for (AnnotatedType annotatedInterface : extractorImplementationType.getAnnotatedInterfaces()) {
+            if (ValueExtractor.class.equals(getClassFromType(annotatedInterface.getType()))) {
+                valueExtractorDefinitions.add(annotatedInterface);
+            }
+        }
+    }
+
+    public static Class<?> getClassFromType(Type type) {
+        if (type instanceof Class) {
+            return (Class<?>) type;
+        }
+        if (type instanceof ParameterizedType) {
+            return getClassFromType(((ParameterizedType) type).getRawType());
+        }
+        if (type instanceof GenericArrayType) {
+            return Object[].class;
+        }
+        throw new IllegalArgumentException();
     }
 }

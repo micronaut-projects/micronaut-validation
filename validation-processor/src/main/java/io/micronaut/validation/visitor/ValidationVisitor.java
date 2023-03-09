@@ -18,6 +18,7 @@ package io.micronaut.validation.visitor;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -35,7 +36,7 @@ import java.util.Set;
 
 /**
  * The visitor creates annotations utilized by the Validator.
- * <p>
+ *
  * It adds @RequiresValidation annotation to fields if they require validation, and to methods
  * if one of the parameters or return value require validation.
  *
@@ -45,8 +46,8 @@ import java.util.Set;
 @Internal
 public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
-    private static final String ANN_CONSTRAINT = "javax.validation.Constraint";
-    private static final String ANN_VALID = "javax.validation.Valid";
+    private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
+    private static final String ANN_VALID = "jakarta.validation.Valid";
 
     private ClassElement classElement;
 
@@ -69,6 +70,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         classElement = element;
+        if (classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
+            classElement.annotate(Introspected.class);
+        }
     }
 
     @Override

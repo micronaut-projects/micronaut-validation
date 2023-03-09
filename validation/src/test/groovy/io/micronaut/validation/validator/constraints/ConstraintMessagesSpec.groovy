@@ -8,12 +8,15 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.validation.validator.Validator
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
+import io.micronaut.validation.visitor.ValidationVisitor
 import spock.lang.AutoCleanup
+import io.micronaut.validation.visitor.ValidationVisitor
+import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import spock.lang.Shared
 import spock.lang.Unroll
 
 import javax.annotation.processing.SupportedAnnotationTypes
-import javax.validation.constraints.*
+import jakarta.validation.constraints.*
 
 class ConstraintMessagesSpec extends AbstractTypeElementSpec {
 
@@ -41,10 +44,10 @@ class Test {
     public ${type.name} getField() {
         return field;
     }
-    
+
     public void setField(${type.name} f) {
         this.field = f;
-    } 
+    }
 }
 """)
         def instance = introspection.instantiate()
@@ -99,7 +102,7 @@ class Test {
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

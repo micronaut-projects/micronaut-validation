@@ -1,4 +1,4 @@
-You can validate methods of any class declared as a Micronaut bean by applying `javax.validation` annotations to arguments:
+You can validate methods of any class declared as a Micronaut bean by applying `jakarta.validation` annotations to arguments:
 
 .Validating Methods
 snippet::io.micronaut.docs.validation.PersonService[tags="imports,class",indent=0]
@@ -7,7 +7,7 @@ The above example declares that the `@NotBlank` annotation will be validated whe
 
 WARNING: If you use Kotlin, the class and method must be declared `open` so Micronaut can create a compile-time subclass. Alternatively you can annotate the class with ann:validation.Validated[] and configure the Kotlin `all-open` plugin to open classes annotated with this type. See the https://kotlinlang.org/docs/reference/compiler-plugins.html[Compiler plugins] section.
 
-A `javax.validation.ConstraintViolationException` is thrown if a validation error occurs. For example:
+A `jakarta.validation.ConstraintViolationException` is thrown if a validation error occurs. For example:
 
 .ConstraintViolationException Example
 snippet::io.micronaut.docs.validation.PersonServiceSpec[tags="imports,test",indent=0]

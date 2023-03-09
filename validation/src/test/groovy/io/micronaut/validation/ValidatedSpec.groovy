@@ -42,8 +42,8 @@ import io.micronaut.runtime.server.EmbeddedServer
 import reactor.core.publisher.Flux
 import spock.lang.Specification
 
-import javax.validation.ConstraintViolationException
-import javax.validation.constraints.*
+import jakarta.validation.ConstraintViolationException
+import jakarta.validation.constraints.*
 
 /**
  * @author Graeme Rocher
@@ -112,7 +112,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "string: must not be null"
+        e.message == "notNull.<return value>: must not be null"
 
         cleanup:
         beanContext.close()
@@ -128,7 +128,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "bar: must not be null"
+        e.message == "notNullBar.<return value>: must not be null"
 
         cleanup:
         beanContext.close()
@@ -144,7 +144,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "bar.prop: must not be null"
+        e.message == "cascadeValidateReturnValue.<return value>.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -160,7 +160,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "list[0]<E Bar>.prop: must not be null"
+        e.message == "validateReturnList.<return value>[0]<list element>.prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -176,7 +176,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "map[barObj]<V Bar>.prop: must not be null"
+        e.message == "validateMap.<return value>[barObj]<map value>.prop: must not be null"
 
         cleanup:
         beanContext.close()

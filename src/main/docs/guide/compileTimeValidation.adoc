@@ -2,7 +2,7 @@ Micronaut Validation validates annotation elements at compile time with `microna
 
 dependency:micronaut-validation-processor[groupId="io.micronaut.validation",scope="annotationProcessor"]
 
-Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with `javax.validation`.
+Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with `jakarta.validation`.
 For example consider the following annotation:
 
 .Annotation Validation

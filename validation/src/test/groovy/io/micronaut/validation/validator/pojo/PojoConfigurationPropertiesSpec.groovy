@@ -7,8 +7,8 @@ import io.micronaut.validation.Pojo
 import jakarta.inject.Singleton
 import spock.lang.Specification
 
-import javax.validation.ConstraintViolationException
-import javax.validation.Valid
+import jakarta.validation.ConstraintViolationException
+import jakarta.validation.Valid
 
 
 class PojoConfigurationPropertiesSpec extends Specification {
@@ -39,7 +39,7 @@ class PojoConfigurationPropertiesSpec extends Specification {
 
         then:
         def ex = thrown(BeanInstantiationException)
-        ex.message.contains("List of constraint violations:[\n\tpojos[0]<E Pojo>.name - must not be blank\n]")
+        ex.message.contains("List of constraint violations:[\n\tpojos[0]<list element>.name - must not be blank\n]")
     }
 }
 

@@ -9,16 +9,18 @@ import io.micronaut.core.annotation.Introspected
 import io.micronaut.core.reflect.ClassUtils
 import io.micronaut.validation.validator.resolver.CompositeTraversableResolver
 import jakarta.inject.Singleton
+import jakarta.validation.Path
+import jakarta.validation.Valid
+import jakarta.validation.ValidatorFactory
+import jakarta.validation.constraints.Max
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Size
+import jakarta.validation.metadata.BeanDescriptor
 import spock.lang.AutoCleanup
-import spock.lang.Ignore
 import spock.lang.Shared
 import spock.lang.Specification
-
-import javax.validation.Path
-import javax.validation.Valid
-import javax.validation.ValidatorFactory
-import javax.validation.constraints.*
-import javax.validation.metadata.BeanDescriptor
 
 class ValidatorSpec extends Specification {
 
@@ -46,7 +48,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 4
         violations[0].invalidValue == []
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof Size
         violations[0].constraintDescriptor.annotation.min() == 1
@@ -56,7 +58,7 @@ class ValidatorSpec extends Specification {
         violations[1].propertyPath.iterator().next().name == 'pages'
         violations[1].rootBean == b
         violations[1].rootBeanClass == Book
-        violations[1].messageTemplate == '{javax.validation.constraints.Min.message}'
+        violations[1].messageTemplate == '{jakarta.validation.constraints.Min.message}'
         violations[1].constraintDescriptor != null
         violations[1].constraintDescriptor.annotation instanceof Min
         violations[1].constraintDescriptor.annotation.value() == 100l
@@ -81,7 +83,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == []
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof Size
         violations[0].constraintDescriptor.annotation.min() == 1
@@ -94,7 +96,7 @@ class ValidatorSpec extends Specification {
         then:
         violations.size() == 1
         violations[0].invalidValue == ["a", "b", "c"]
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof Size
         violations[0].constraintDescriptor.annotation.min() == 1
@@ -107,7 +109,7 @@ class ValidatorSpec extends Specification {
         then:
         violations.size() == 1
         violations[0].invalidValue == []
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof Size
         violations[0].constraintDescriptor.annotation.min() == 1
@@ -120,7 +122,7 @@ class ValidatorSpec extends Specification {
         then:
         violations.size() == 1
         violations[0].invalidValue == [1L, 2L, 3L]
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof Size
         violations[0].constraintDescriptor.annotation.min() == 1
@@ -180,7 +182,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
 
-        v1.messageTemplate == '{javax.validation.constraints.Max.message}'
+        v1.messageTemplate == '{jakarta.validation.constraints.Max.message}'
         v1.propertyPath.toString() == 'primaryAuthor.age'
         v1.invalidValue == 150
         v1.rootBean.is(b)
@@ -189,7 +191,7 @@ class ValidatorSpec extends Specification {
         v1.constraintDescriptor.annotation instanceof Max
         v1.constraintDescriptor.annotation.value() == 100l
 
-        v2.messageTemplate == '{javax.validation.constraints.NotBlank.message}'
+        v2.messageTemplate == '{jakarta.validation.constraints.NotBlank.message}'
         v2.propertyPath.toString() == 'primaryAuthor.name'
         v2.constraintDescriptor != null
         v2.constraintDescriptor.annotation instanceof NotBlank
@@ -211,7 +213,7 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        v1.messageTemplate == '{javax.validation.constraints.Max.message}'
+        v1.messageTemplate == '{jakarta.validation.constraints.Max.message}'
         v1.propertyPath.toString() == 'primaryAuthor.age'
         v1.invalidValue == 150
         v1.rootBean.is(b)
@@ -220,7 +222,7 @@ class ValidatorSpec extends Specification {
         v1.constraintDescriptor.annotation instanceof Max
         v1.constraintDescriptor.annotation.value() == 100l
 
-        v2.messageTemplate == '{javax.validation.constraints.NotBlank.message}'
+        v2.messageTemplate == '{jakarta.validation.constraints.NotBlank.message}'
         v2.propertyPath.toString() == 'primaryAuthor.name'
         v2.constraintDescriptor != null
         v2.constraintDescriptor.annotation instanceof NotBlank
@@ -239,12 +241,12 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == 'X'
-        violations[0].messageTemplate == '{javax.validation.constraints.Size.message}'
-        violations[0].propertyPath.toString() == 'names[0]<E String>'
+        violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
+        violations[0].propertyPath.toString() == 'names[0]<list element>'
 
         violations[1].invalidValue == 'TooLongName'
-        violations[1].messageTemplate == '{javax.validation.constraints.Size.message}'
-        violations[1].propertyPath.toString() == 'names[2]<E String>'
+        violations[1].messageTemplate == '{jakarta.validation.constraints.Size.message}'
+        violations[1].propertyPath.toString() == 'names[2]<list element>'
     }
 
     void "validate property argument - with iterable constraints"() {
@@ -272,7 +274,7 @@ class ValidatorSpec extends Specification {
         path0.getIndex() == null
         path0.getKey() == null
 
-        path1.getName() == "E String"
+        path1.getName() == "<list element>"
         path1 instanceof Path.ContainerElementNode
         path1.isInIterable()
         path1.getIndex() == 1
@@ -292,10 +294,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == -10
-        violations[0].propertyPath.toString() == 'numbers[Bob]<V Integer>'
+        violations[0].propertyPath.toString() == 'numbers[Bob]<map value>'
 
         violations[1].invalidValue == ""
-        violations[1].propertyPath.toString() == 'numbers[]<K String>'
+        violations[1].propertyPath.toString() == 'numbers[]<map key>'
     }
 
     void "test validate property argument cascade"() {
@@ -306,7 +308,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "authors[0]<E Author>.name"
+        violations[0].propertyPath.toString() == "authors[0]<list element>.name"
     }
 
     void "test validate property argument cascade with cycle"() {
@@ -318,7 +320,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "authors[0]<E Author>.name"
+        violations[0].propertyPath.toString() == "authors[0]<list element>.name"
     }
 
     void "test validate property argument cascade of null container"() {
@@ -347,10 +349,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "books[]<E Book>.authors[1]<E Author>.name"
+        violations[0].propertyPath.toString() == "books[]<iterable element>.authors[1]<list element>.name"
 
         violations[1].invalidValue == "?"
-        violations[1].propertyPath.toString() == "books[]<E Book>.name"
+        violations[1].propertyPath.toString() == "books[]<iterable element>.name"
     }
 
     void "test validate property argument cascade - to non-introspected - inside map"(){
@@ -395,8 +397,8 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        violations[0].getPropertyPath().toString() == "matrix[0]<E List>[1]<E Integer>"
-        violations[1].getPropertyPath().toString() == "matrix[1]<E List>[0]<E Integer>"
+        violations[0].getPropertyPath().toString() == "matrix[0]<list element>[1]<list element>"
+        violations[1].getPropertyPath().toString() == "matrix[1]<list element>[0]<list element>"
     }
 
     void "test validate argument annotations null"() {
@@ -468,7 +470,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == 'saveBook.book.authors[0]<E Author>.name'
+        violations[0].propertyPath.toString() == 'saveBook.book.authors[0]<list element>.name'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof NotBlank
 
@@ -490,8 +492,8 @@ class ValidatorSpec extends Specification {
 
         then:
         violations.size() == 2
-        violations[0].getPropertyPath().toString() == "deposit.banknotes[0]<E Integer>"
-        violations[1].getPropertyPath().toString() == "deposit.banknotes[3]<E Integer>"
+        violations[0].getPropertyPath().toString() == "deposit.banknotes[0]<list element>"
+        violations[1].getPropertyPath().toString() == "deposit.banknotes[3]<list element>"
         violations[0].getPropertyPath().size() == 3
 
         when:
@@ -508,7 +510,7 @@ class ValidatorSpec extends Specification {
         node1.getName() == "banknotes"
 
         node2 instanceof Path.ContainerElementNode
-        node2.getName() == "E Integer"
+        node2.getName() == "<list element>"
     }
 
     void "test validate method argument generic annotations cascade"() {
@@ -534,8 +536,8 @@ class ValidatorSpec extends Specification {
         then:
         violations.size() == 3
         violations[0].getPropertyPath().toString() == "createAccount.client.name"
-        violations[1].getPropertyPath().toString() == "createAccount.clientsWithAccess[]<K String>"
-        violations[2].getPropertyPath().toString() == "createAccount.clientsWithAccess[spouse]<V Client>.name"
+        violations[1].getPropertyPath().toString() == "createAccount.clientsWithAccess[]<map key>"
+        violations[2].getPropertyPath().toString() == "createAccount.clientsWithAccess[spouse]<map value>.name"
 
         when:
         var path0 = violations[0].getPropertyPath().iterator()
@@ -574,16 +576,14 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == 0
-        violations[0].getPropertyPath().toString() == "optionalMethod.number<T Integer>"
+        violations[0].getPropertyPath().toString() == "optionalMethod.number"
         violations[0].constraintDescriptor.annotation instanceof Min
 
-        violations[0].getPropertyPath().size() == 3
+        violations[0].getPropertyPath().size() == 2
         def path = violations[0].getPropertyPath().iterator()
         path.next() instanceof Path.MethodNode
-        path.next() instanceof Path.ParameterNode
         def element = path.next()
-        element instanceof Path.ContainerElementNode
-        ((Path.ContainerElementNode) element).getContainerClass() == Optional<Integer>.class
+        element instanceof Path.ParameterNode
     }
 
     // EXECUTABLE RETURN VALUE VALIDATOR
@@ -600,8 +600,11 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == -100
-        violations[0].getPropertyPath().toString() == "float"
-        violations[0].getPropertyPath().iterator().next() instanceof Path.ReturnValueNode
+        violations[0].getPropertyPath().toString() == "getBalance.<return value>"
+
+        def iterator = violations[0].getPropertyPath().iterator()
+        iterator.next() instanceof Path.MethodNode
+        iterator.next() instanceof Path.ReturnValueNode
     }
 
     void "test validate return value type annotations - cascade"() {
@@ -619,19 +622,21 @@ class ValidatorSpec extends Specification {
         violations = violations.sort{it -> it.getPropertyPath().toString() }
 
         expect:
-        violations[0].getPropertyPath().toString() == "map[]<K String>"
-        violations[1].getPropertyPath().toString() == "map[spouse]<V Client>.name"
+        violations[0].getPropertyPath().toString() == "getClientsWithAccess.<return value>[]<map key>"
+        violations[1].getPropertyPath().toString() == "getClientsWithAccess.<return value>[spouse]<map value>.name"
 
         when:
         var path0 = violations[0].getPropertyPath().iterator()
         var path1 = violations[1].getPropertyPath().iterator()
 
         then:
-        violations[0].getPropertyPath().size() == 2
+        violations[0].getPropertyPath().size() == 3
+        path0.next() instanceof Path.MethodNode
         path0.next() instanceof Path.ReturnValueNode
         path0.next() instanceof Path.ContainerElementNode
 
-        violations[1].getPropertyPath().size() == 3
+        violations[1].getPropertyPath().size() == 4
+        path1.next() instanceof Path.MethodNode
         path1.next() instanceof Path.ReturnValueNode
         path1.next() instanceof Path.ContainerElementNode
         path1.next() instanceof Path.PropertyNode
@@ -661,10 +666,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
 
-        violations[0].propertyPath.toString() == "map[0]<V List>[0]<E Client>.name"
+        violations[0].propertyPath.toString() == "getAllAccounts.<return value>[0]<map value>[0]<list element>.name"
         violations[0].invalidValue == "Too long name"
 
-        violations[1].propertyPath.toString() == "map[33]<V List>[1]<E Client>.name"
+        violations[1].propertyPath.toString() == "getAllAccounts.<return value>[33]<map value>[1]<list element>.name"
         violations[1].invalidValue == ""
     }
 

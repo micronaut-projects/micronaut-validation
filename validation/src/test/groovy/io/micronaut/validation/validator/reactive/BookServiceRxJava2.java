@@ -9,8 +9,8 @@ import io.reactivex.Single;
 import jakarta.inject.Singleton;
 import org.reactivestreams.Publisher;
 
-import javax.validation.Valid;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 
 @Singleton

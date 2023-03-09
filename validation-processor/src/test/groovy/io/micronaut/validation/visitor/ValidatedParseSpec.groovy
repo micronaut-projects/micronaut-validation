@@ -18,12 +18,12 @@ package test;
 class Test {
 
     @io.micronaut.context.annotation.Executable
-    public void setName(@javax.validation.constraints.NotBlank String name) {
+    public void setName(@jakarta.validation.constraints.NotBlank String name) {
 
     }
 
     @io.micronaut.context.annotation.Executable
-    public void setName2(@javax.validation.Valid String name) {
+    public void setName2(@jakarta.validation.Valid String name) {
 
     }
 }
@@ -42,7 +42,7 @@ package test;
 import io.micronaut.http.annotation.Get;
 import io.micronaut.http.client.annotation.Client;
 
-import javax.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.PastOrPresent;
 import java.time.LocalDate;
 
 @Client("https://exchangeratesapi.io")
@@ -63,7 +63,7 @@ interface ExchangeRates {
 package test;
 
 import java.util.List;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @jakarta.inject.Singleton
 class Test {
@@ -88,7 +88,7 @@ class Test {
 package test;
 
 import java.util.List;
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.http.annotation.Body;
@@ -119,8 +119,8 @@ class Test {
 package test;
 
 import java.util.List;
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotNull;
 import io.micronaut.context.annotation.Executable;
 
 @jakarta.inject.Singleton
@@ -156,7 +156,7 @@ class Test {
         def definition = buildBeanDefinition('test.Test','''
 package test;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import io.micronaut.context.annotation.Executable;
 import reactor.core.publisher.Mono;
 
@@ -201,9 +201,9 @@ final class TrackedSortedSet<T extends java.lang.Comparable<? super T>> {
         def definition = buildBeanDefinition('test.Test','''
 package test;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 import io.micronaut.context.annotation.Executable;
-import javax.validation.constraints.Min;
+import jakarta.validation.constraints.Min;
 
 @jakarta.inject.Singleton
 class Test {

@@ -1,14 +1,10 @@
 package io.micronaut.validation.validator.map
 
 import io.micronaut.context.ApplicationContext
-import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.Validator
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
-
-import javax.validation.Valid
-import javax.validation.constraints.NotBlank
 
 class MapValidatorSpec extends Specification {
     @Shared
@@ -29,7 +25,7 @@ class MapValidatorSpec extends Specification {
 
         then:
         constraintViolations.size() == 1
-        constraintViolations.first().propertyPath.toString() == 'books[It]<V Book>.title'
+        constraintViolations.first().propertyPath.toString() == 'books[It]<map value>.title'
     }
 }
 

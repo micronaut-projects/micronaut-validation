@@ -16,7 +16,7 @@ snippet::io.micronaut.docs.validation.pojo.PersonServiceSpec[tags="validator", i
 <1> The validator validates the person
 <2> The constraint violations are verified
 
-Alternatively on Bean methods you can use `javax.validation.Valid` to trigger cascading validation:
+Alternatively on Bean methods you can use `jakarta.validation.Valid` to trigger cascading validation:
 
 .ConstraintViolationException Example
 snippet::io.micronaut.docs.validation.pojo.PersonService[tags="class",indent="0"]

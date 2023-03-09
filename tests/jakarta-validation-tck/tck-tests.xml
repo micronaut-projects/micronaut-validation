@@ -1,0 +1,44 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK" verbose="1">
+    <test name="Jakarta-Bean-Validation-TCK">
+
+<!--        <method-selectors>-->
+<!--            <method-selector>-->
+<!--                <selector-class name="org.hibernate.beanvalidation.tck.util.IntegrationTestsMethodSelector"/>-->
+<!--            </method-selector>-->
+<!--            <method-selector>-->
+<!--                <selector-class name="org.hibernate.beanvalidation.tck.util.JavaFXTestsMethodSelector"/>-->
+<!--            </method-selector>-->
+<!--        </method-selectors>-->
+
+        <packages>
+                <package name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.*"/>
+                <package name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.*"/>
+
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.*"/>-->
+
+
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.*"/>-->
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.constraints.groups.*"/>-->
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.validation.*"/>-->
+<!--            <package name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.*"/>-->
+        </packages>
+
+        <classes>
+<!--            XML definition is not supported-->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
+<!--                Fix processing classes with type annotations-->
+                <methods>
+                    <exclude name="constraint_specified_on_key_type_parameter_of_map_gets_validated"/>
+                </methods>
+            </class>
+        </classes>
+
+    </test>
+</suite>
