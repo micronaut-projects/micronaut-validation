@@ -76,15 +76,15 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>All Implemented Interfaces:</dt>
-<dd><code>io.micronaut.http.server.exceptions.ExceptionHandler&lt;javax.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</code></dd>
+<dd><code>io.micronaut.http.server.exceptions.ExceptionHandler&lt;jakarta.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</code></dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="annotations">@Produces
 @Singleton
-@Requires(classes={javax.validation.ConstraintViolationException.class,io.micronaut.http.server.exceptions.ExceptionHandler.class})
+@Requires(classes={jakarta.validation.ConstraintViolationException.class,io.micronaut.http.server.exceptions.ExceptionHandler.class})
 </span><span class="modifiers">public class </span><span class="element-name type-name-label">ConstraintExceptionHandler</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>
-implements io.micronaut.http.server.exceptions.ExceptionHandler&lt;javax.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</span></div>
+implements io.micronaut.http.server.exceptions.ExceptionHandler&lt;jakarta.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</span></div>
 <div class="block">Default <code>ExceptionHandler</code> for <code>ConstraintViolationException</code>.</div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -122,13 +122,13 @@ implements io.micronaut.http.server.exceptions.ExceptionHandler&lt;javax.validat
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>protected <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#buildMessage(javax.validation.ConstraintViolation)" class="member-name-link">buildMessage</a><wbr>(javax.validation.ConstraintViolation&lt;?&gt;&nbsp;violation)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#buildMessage(jakarta.validation.ConstraintViolation)" class="member-name-link">buildMessage</a><wbr>(jakarta.validation.ConstraintViolation&lt;?&gt;&nbsp;violation)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Builds a message based on the provided violation.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>io.micronaut.http.HttpResponse&lt;?&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#handle(io.micronaut.http.HttpRequest,javax.validation.ConstraintViolationException)" class="member-name-link">handle</a><wbr>(io.micronaut.http.HttpRequest&nbsp;request,
- javax.validation.ConstraintViolationException&nbsp;exception)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#handle(io.micronaut.http.HttpRequest,jakarta.validation.ConstraintViolationException)" class="member-name-link">handle</a><wbr>(io.micronaut.http.HttpRequest&nbsp;request,
+ jakarta.validation.ConstraintViolationException&nbsp;exception)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
@@ -168,20 +168,20 @@ implements io.micronaut.http.server.exceptions.ExceptionHandler&lt;javax.validat
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="handle(io.micronaut.http.HttpRequest,javax.validation.ConstraintViolationException)">
+<section class="detail" id="handle(io.micronaut.http.HttpRequest,jakarta.validation.ConstraintViolationException)">
 <h3>handle</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">io.micronaut.http.HttpResponse&lt;?&gt;</span>&nbsp;<span class="element-name">handle</span><wbr><span class="parameters">(io.micronaut.http.HttpRequest&nbsp;request,
- javax.validation.ConstraintViolationException&nbsp;exception)</span></div>
+ jakarta.validation.ConstraintViolationException&nbsp;exception)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>handle</code>&nbsp;in interface&nbsp;<code>io.micronaut.http.server.exceptions.ExceptionHandler&lt;javax.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</code></dd>
+<dd><code>handle</code>&nbsp;in interface&nbsp;<code>io.micronaut.http.server.exceptions.ExceptionHandler&lt;jakarta.validation.ConstraintViolationException,<wbr>io.micronaut.http.HttpResponse&lt;?&gt;&gt;</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="buildMessage(javax.validation.ConstraintViolation)">
+<section class="detail" id="buildMessage(jakarta.validation.ConstraintViolation)">
 <h3>buildMessage</h3>
-<div class="member-signature"><span class="modifiers">protected</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">buildMessage</span><wbr><span class="parameters">(javax.validation.ConstraintViolation&lt;?&gt;&nbsp;violation)</span></div>
+<div class="member-signature"><span class="modifiers">protected</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">buildMessage</span><wbr><span class="parameters">(jakarta.validation.ConstraintViolation&lt;?&gt;&nbsp;violation)</span></div>
 <div class="block">Builds a message based on the provided violation.</div>
 <dl class="notes">
 <dt>Parameters:</dt>

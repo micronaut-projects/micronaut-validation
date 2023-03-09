@@ -78,7 +78,7 @@ loadScripts(document, 'script');</script>
 </dl>
 <dl class="notes">
 <dt>All Superinterfaces:</dt>
-<dd><code>javax.validation.ConstraintValidator&lt;A,<wbr>T&gt;</code></dd>
+<dd><code>jakarta.validation.ConstraintValidator&lt;A,<wbr>T&gt;</code></dd>
 </dl>
 <dl class="notes">
 <dt>All Known Subinterfaces:</dt>
@@ -96,7 +96,7 @@ loadScripts(document, 'script');</script>
 <div class="type-signature"><span class="annotations">@Indexed(<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator.class</a>)
 <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/FunctionalInterface.html" title="class or interface in java.lang" class="external-link">@FunctionalInterface</a>
 </span><span class="modifiers">public interface </span><span class="element-name type-name-label">ConstraintValidator&lt;A extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr>T&gt;</span><span class="extends-implements">
-extends javax.validation.ConstraintValidator&lt;A,<wbr>T&gt;</span></div>
+extends jakarta.validation.ConstraintValidator&lt;A,<wbr>T&gt;</span></div>
 <div class="block">Constraint validator that can be used at either runtime or compilation time and
  is capable of validation <code>Constraint</code> instances. Allows defining validators that work with both Hibernate validator and Micronaut's validator.
 
@@ -140,14 +140,14 @@ extends javax.validation.ConstraintValidator&lt;A,<wbr>T&gt;</span></div>
 <div class="block">Implements the validation logic.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#isValid(T,javax.validation.ConstraintValidatorContext)" class="member-name-link">isValid</a><wbr>(<a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">T</a>&nbsp;value,
- javax.validation.ConstraintValidatorContext&nbsp;context)</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#isValid(T,jakarta.validation.ConstraintValidatorContext)" class="member-name-link">isValid</a><wbr>(<a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">T</a>&nbsp;value,
+ jakarta.validation.ConstraintValidatorContext&nbsp;context)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">&nbsp;</div>
 </div>
 </div>
 </div>
 <div class="inherited-list">
-<h3 id="methods-inherited-from-class-javax.validation.ConstraintValidator">Methods inherited from interface&nbsp;javax.validation.ConstraintValidator</h3>
+<h3 id="methods-inherited-from-class-jakarta.validation.ConstraintValidator">Methods inherited from interface&nbsp;jakarta.validation.ConstraintValidator</h3>
 <code>initialize</code></div>
 </section>
 </li>
@@ -198,13 +198,13 @@ extends javax.validation.ConstraintValidator&lt;A,<wbr>T&gt;</span></div>
 </section>
 </li>
 <li>
-<section class="detail" id="isValid(T,javax.validation.ConstraintValidatorContext)">
-<h3 id="isValid(java.lang.Object,javax.validation.ConstraintValidatorContext)">isValid</h3>
+<section class="detail" id="isValid(T,jakarta.validation.ConstraintValidatorContext)">
+<h3 id="isValid(java.lang.Object,jakarta.validation.ConstraintValidatorContext)">isValid</h3>
 <div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">isValid</span><wbr><span class="parameters">(<a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">T</a>&nbsp;value,
- javax.validation.ConstraintValidatorContext&nbsp;context)</span></div>
+ jakarta.validation.ConstraintValidatorContext&nbsp;context)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>isValid</code>&nbsp;in interface&nbsp;<code>javax.validation.ConstraintValidator&lt;<a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">A</a> extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr><a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">T</a>&gt;</code></dd>
+<dd><code>isValid</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ConstraintValidator&lt;<a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">A</a> extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr><a href="ConstraintValidator.html" title="type parameter in ConstraintValidator">T</a>&gt;</code></dd>
 </dl>
 </section>
 </li>

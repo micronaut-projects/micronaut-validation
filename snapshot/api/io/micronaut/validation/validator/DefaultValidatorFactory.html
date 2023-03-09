@@ -76,15 +76,15 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>All Implemented Interfaces:</dt>
-<dd><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/AutoCloseable.html" title="class or interface in java.lang" class="external-link">AutoCloseable</a></code>, <code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>jakarta.validation.ValidatorFactory</code>, <code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/AutoCloseable.html" title="class or interface in java.lang" class="external-link">AutoCloseable</a></code></dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="annotations">@Requires(missingBeans=javax.validation.ValidatorFactory.class)
+<div class="type-signature"><span class="annotations">@Requires(missingBeans=jakarta.validation.ValidatorFactory.class)
 @Internal
 @Singleton
 </span><span class="modifiers">public class </span><span class="element-name type-name-label">DefaultValidatorFactory</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>
-implements javax.validation.ValidatorFactory</span></div>
+implements jakarta.validation.ValidatorFactory</span></div>
 <div class="block">Default validator factory implementation.</div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -100,11 +100,17 @@ implements javax.validation.ValidatorFactory</span></div>
 <section class="constructor-summary" id="constructor-summary">
 <h2>Constructor Summary</h2>
 <div class="caption"><span>Constructors</span></div>
-<div class="summary-table three-column-summary">
-<div class="table-header col-first">Modifier</div>
-<div class="table-header col-second">Constructor</div>
+<div class="summary-table two-column-summary">
+<div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>protected </code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E()" class="member-name-link">DefaultValidatorFactory</a>()</code></div>
+<div class="col-last even-row-color">
+<div class="block">The constructor.</div>
+</div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.ValidatorConfiguration)" class="member-name-link">DefaultValidatorFactory</a><wbr>(<a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;configuration)</code></div>
+<div class="col-last odd-row-color">
+<div class="block">The constructor.</div>
+</div>
 <div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.Validator,io.micronaut.validation.validator.ValidatorConfiguration)" class="member-name-link">DefaultValidatorFactory</a><wbr>(<a href="Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;validator,
  <a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;configuration)</code></div>
 <div class="col-last even-row-color">
@@ -127,28 +133,28 @@ implements javax.validation.ValidatorFactory</span></div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#close()" class="member-name-link">close</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ClockProvider</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ClockProvider</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getClockProvider()" class="member-name-link">getClockProvider</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ConstraintValidatorFactory</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ConstraintValidatorFactory</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getConstraintValidatorFactory()" class="member-name-link">getConstraintValidatorFactory</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.MessageInterpolator</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.MessageInterpolator</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getMessageInterpolator()" class="member-name-link">getMessageInterpolator</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ParameterNameProvider</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ParameterNameProvider</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getParameterNameProvider()" class="member-name-link">getParameterNameProvider</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.TraversableResolver</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.TraversableResolver</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.Validator</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.Validator</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getValidator()" class="member-name-link">getValidator</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;T</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#unwrap(java.lang.Class)" class="member-name-link">unwrap</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;type)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#usingContext()" class="member-name-link">usingContext</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
@@ -169,9 +175,28 @@ implements javax.validation.ValidatorFactory</span></div>
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
+<section class="detail" id="&lt;init&gt;()">
+<h3>DefaultValidatorFactory</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">DefaultValidatorFactory</span>()</div>
+<div class="block">The constructor.</div>
+</section>
+</li>
+<li>
+<section class="detail" id="&lt;init&gt;(io.micronaut.validation.validator.ValidatorConfiguration)">
+<h3>DefaultValidatorFactory</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">DefaultValidatorFactory</span><wbr><span class="parameters">(<a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;configuration)</span></div>
+<div class="block">The constructor.</div>
+<dl class="notes">
+<dt>Parameters:</dt>
+<dd><code>configuration</code> - The configuration.</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="&lt;init&gt;(io.micronaut.validation.validator.Validator,io.micronaut.validation.validator.ValidatorConfiguration)">
 <h3>DefaultValidatorFactory</h3>
-<div class="member-signature"><span class="modifiers">protected</span>&nbsp;<span class="element-name">DefaultValidatorFactory</span><wbr><span class="parameters">(<a href="Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;validator,
+<div class="member-signature"><span class="annotations">@Inject
+</span><span class="modifiers">public</span>&nbsp;<span class="element-name">DefaultValidatorFactory</span><wbr><span class="parameters">(<a href="Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;validator,
  <a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;configuration)</span></div>
 <div class="block">Default constructor.</div>
 <dl class="notes">
@@ -192,70 +217,70 @@ implements javax.validation.ValidatorFactory</span></div>
 <li>
 <section class="detail" id="getValidator()">
 <h3>getValidator</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.Validator</span>&nbsp;<span class="element-name">getValidator</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.Validator</span>&nbsp;<span class="element-name">getValidator</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getValidator</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getValidator</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="usingContext()">
 <h3>usingContext</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">usingContext</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">usingContext</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>usingContext</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>usingContext</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getMessageInterpolator()">
 <h3>getMessageInterpolator</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.MessageInterpolator</span>&nbsp;<span class="element-name">getMessageInterpolator</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.MessageInterpolator</span>&nbsp;<span class="element-name">getMessageInterpolator</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getMessageInterpolator</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getMessageInterpolator</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getTraversableResolver()">
 <h3>getTraversableResolver</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getTraversableResolver</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getTraversableResolver</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getConstraintValidatorFactory()">
 <h3>getConstraintValidatorFactory</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ConstraintValidatorFactory</span>&nbsp;<span class="element-name">getConstraintValidatorFactory</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ConstraintValidatorFactory</span>&nbsp;<span class="element-name">getConstraintValidatorFactory</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getConstraintValidatorFactory</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getConstraintValidatorFactory</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getParameterNameProvider()">
 <h3>getParameterNameProvider</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ParameterNameProvider</span>&nbsp;<span class="element-name">getParameterNameProvider</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ParameterNameProvider</span>&nbsp;<span class="element-name">getParameterNameProvider</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getParameterNameProvider</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getParameterNameProvider</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getClockProvider()">
 <h3>getClockProvider</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getClockProvider</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>getClockProvider</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
@@ -265,7 +290,7 @@ implements javax.validation.ValidatorFactory</span></div>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">T</span>&nbsp;<span class="element-name">unwrap</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;type)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>unwrap</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>unwrap</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>
@@ -277,7 +302,7 @@ implements javax.validation.ValidatorFactory</span></div>
 <dt>Specified by:</dt>
 <dd><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/AutoCloseable.html#close()" title="class or interface in java.lang" class="external-link">close</a></code>&nbsp;in interface&nbsp;<code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/AutoCloseable.html" title="class or interface in java.lang" class="external-link">AutoCloseable</a></code></dd>
 <dt>Specified by:</dt>
-<dd><code>close</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorFactory</code></dd>
+<dd><code>close</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorFactory</code></dd>
 </dl>
 </section>
 </li>

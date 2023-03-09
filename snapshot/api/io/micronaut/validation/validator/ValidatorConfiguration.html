@@ -119,32 +119,37 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 <section class="method-summary" id="method-summary">
 <h2>Method Summary</h2>
 <div id="method-summary-table">
-<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="method-summary-table-tab0" role="tab" aria-selected="true" aria-controls="method-summary-table.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table', 3)" class="active-table-tab">All Methods</button><button id="method-summary-table-tab2" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab2', 3)" class="table-tab">Instance Methods</button><button id="method-summary-table-tab3" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab3', 3)" class="table-tab">Abstract Methods</button></div>
+<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="method-summary-table-tab0" role="tab" aria-selected="true" aria-controls="method-summary-table.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table', 3)" class="active-table-tab">All Methods</button><button id="method-summary-table-tab2" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab2', 3)" class="table-tab">Instance Methods</button><button id="method-summary-table-tab3" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab3', 3)" class="table-tab">Abstract Methods</button><button id="method-summary-table-tab5" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab5', 3)" class="table-tab">Default Methods</button></div>
 <div id="method-summary-table.tabpanel" role="tabpanel">
 <div class="summary-table three-column-summary" aria-labelledby="method-summary-table-tab0">
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>javax.validation.ClockProvider</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getClockProvider()" class="member-name-link">getClockProvider</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getConstraintValidatorRegistry()" class="member-name-link">getConstraintValidatorRegistry</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default io.micronaut.core.beans.BeanIntrospector</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#getBeanIntrospector()" class="member-name-link">getBeanIntrospector</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
+<div class="block">The bean introspector.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.ClockProvider</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getClockProvider()" class="member-name-link">getClockProvider</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.ExecutionHandleLocator</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getExecutionHandleLocator()" class="member-name-link">getExecutionHandleLocator</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getConstraintValidatorRegistry()" class="member-name-link">getConstraintValidatorRegistry</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.ExecutionHandleLocator</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getExecutionHandleLocator()" class="member-name-link">getExecutionHandleLocator</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">The execution handler locator to use.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.MessageSource</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getMessageSource()" class="member-name-link">getMessageSource</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>javax.validation.TraversableResolver</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.MessageSource</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getMessageSource()" class="member-name-link">getMessageSource</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getValueExtractorRegistry()" class="member-name-link">getValueExtractorRegistry</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.TraversableResolver</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getValueExtractorRegistry()" class="member-name-link">getValueExtractorRegistry</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -226,7 +231,7 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 <section class="detail" id="getClockProvider()">
 <h3>getClockProvider</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="return-type">javax.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
+</span><span class="return-type">jakarta.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>The clock provider</dd>
@@ -237,7 +242,7 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 <section class="detail" id="getTraversableResolver()">
 <h3>getTraversableResolver</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="return-type">javax.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
+</span><span class="return-type">jakarta.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>The traversable resolver to use</dd>
@@ -264,6 +269,17 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 <dl class="notes">
 <dt>Returns:</dt>
 <dd>The locator</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="getBeanIntrospector()">
+<h3>getBeanIntrospector</h3>
+<div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">io.micronaut.core.beans.BeanIntrospector</span>&nbsp;<span class="element-name">getBeanIntrospector</span>()</div>
+<div class="block">The bean introspector.</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>The introspector</dd>
 </dl>
 </section>
 </li>

@@ -209,19 +209,19 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 </div></p>
 </div>
 <div class="paragraph">
-<p>You can validate types, fields and parameters by applying <code>javax.validation</code> annotations to arguments. Include the following dependency for annotations:</p>
+<p>You can validate types, fields and parameters by applying <code>jakarta.validation</code> annotations to arguments. Include the following dependency for annotations:</p>
 </div>
 <div class="paragraph">
 <p>        <div class="listingblock multi-language-sample">
 <div class="title"></div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="gradle">implementation(<span class="hljs-string">"javax.validation:validation-api")</span></code></pre>
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="gradle">implementation(<span class="hljs-string">"jakarta.validation:validation-api")</span></code></pre>
 </div>
 </div>
 <div class="listingblock multi-language-sample">
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="maven">&lt;dependency&gt;
-    &lt;groupId&gt;javax.validation&lt;/groupId&gt;
+    &lt;groupId&gt;jakarta.validation&lt;/groupId&gt;
     &lt;artifactId&gt;validation-api&lt;/artifactId&gt;
 &lt;/dependency&gt;</code></pre>
 </div>
@@ -245,7 +245,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <p>XML-based configuration</p>
 </li>
 <li>
-<p>Instead of using <code>javax.validation.ConstraintValidator</code>, use <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.</p>
+<p>Instead of using <code>jakarta.validation.ConstraintValidator</code>, use <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.</p>
 </li>
 </ul>
 </div>
@@ -309,14 +309,14 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 
 
 <div class="paragraph">
-<p>You can validate methods of any class declared as a Micronaut bean by applying <code>javax.validation</code> annotations to arguments:</p>
+<p>You can validate methods of any class declared as a Micronaut bean by applying <code>jakarta.validation</code> annotations to arguments:</p>
 </div>
 <div class="listingblock multi-language-sample">
 <div class="title">Validating Methods</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import jakarta.inject.Singleton;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 @Singleton
 public class PersonService {
@@ -330,7 +330,7 @@ public class PersonService {
 <div class="title">Validating Methods</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import jakarta.inject.Singleton
-import javax.validation.constraints.NotBlank
+import jakarta.validation.constraints.NotBlank
 
 @Singleton
 class PersonService {
@@ -356,7 +356,7 @@ If you use Kotlin, the class and method must be declared <code>open</code> so Mi
 </table>
 </div>
 <div class="paragraph">
-<p>A <code>javax.validation.ConstraintViolationException</code> is thrown if a validation error occurs. For example:</p>
+<p>A <code>jakarta.validation.ConstraintViolationException</code> is thrown if a validation error occurs. For example:</p>
 </div>
 <div class="listingblock multi-language-sample">
 <div class="title">ConstraintViolationException Example</div>
@@ -365,7 +365,7 @@ If you use Kotlin, the class and method must be declared <code>open</code> so Mi
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
-import javax.validation.ConstraintViolationException;
+import jakarta.validation.ConstraintViolationException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -394,7 +394,7 @@ class PersonServiceSpec {
 import spock.lang.Specification
 
 import jakarta.inject.Inject
-import javax.validation.ConstraintViolationException
+import jakarta.validation.ConstraintViolationException
 
 @MicronautTest
 class PersonServiceSpec extends Specification {
@@ -442,8 +442,8 @@ class PersonServiceSpec extends Specification {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.core.annotation.Introspected;
 
-import javax.validation.constraints.Min;
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 
 @Introspected
 public class Person {
@@ -477,8 +477,8 @@ public class Person {
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.Introspected
 
-import javax.validation.constraints.Min
-import javax.validation.constraints.NotBlank
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
 
 @Introspected
 class Person {
@@ -554,7 +554,7 @@ void "test person is validated with validator"() {
 </table>
 </div>
 <div class="paragraph">
-<p>Alternatively on Bean methods you can use <code>javax.validation.Valid</code> to trigger cascading validation:</p>
+<p>Alternatively on Bean methods you can use <code>jakarta.validation.Valid</code> to trigger cascading validation:</p>
 </div>
 <div class="listingblock multi-language-sample">
 <div class="title">ConstraintViolationException Example</div>
@@ -760,7 +760,7 @@ It is recommended that you annotate <a href="../api/io/micronaut/context/annotat
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Annotation</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import javax.validation.Constraint;
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import jakarta.validation.Constraint;
 import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
@@ -794,7 +794,7 @@ public @interface DurationPattern {
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Annotation</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import javax.validation.Constraint
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import jakarta.validation.Constraint
 import java.lang.annotation.Retention
 
 import static java.lang.annotation.RetentionPolicy.RUNTIME
@@ -810,7 +810,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
 <table>
 <tr>
 <td><i class="conum" data-value="1"></i><b>1</b></td>
-<td>The annotation should be annotated with <code>javax.validation.Constraint</code></td>
+<td>The annotation should be annotated with <code>jakarta.validation.Constraint</code></td>
 </tr>
 <tr>
 <td><i class="conum" data-value="2"></i><b>2</b></td>
@@ -1061,7 +1061,7 @@ void testCustomAndDefaultValidator() {
 </div></p>
 </div>
 <div class="paragraph">
-<p>Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with <code>javax.validation</code>.
+<p>Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with <code>jakarta.validation</code>.
 For example consider the following annotation:</p>
 </div>
 <div class="listingblock multi-language-sample">

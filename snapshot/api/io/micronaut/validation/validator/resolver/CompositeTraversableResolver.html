@@ -76,7 +76,7 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>All Implemented Interfaces:</dt>
-<dd><code>javax.validation.TraversableResolver</code></dd>
+<dd><code>jakarta.validation.TraversableResolver</code></dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="annotations">@Primary
@@ -84,7 +84,7 @@ loadScripts(document, 'script');</script>
 @Internal
 </span><span class="modifiers">public class </span><span class="element-name type-name-label">CompositeTraversableResolver</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>
-implements javax.validation.TraversableResolver</span></div>
+implements jakarta.validation.TraversableResolver</span></div>
 <div class="block">Primary <code>TraversableResolver</code> that takes into account all configured <code>TraversableResolver</code> instances.</div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -103,7 +103,7 @@ implements javax.validation.TraversableResolver</span></div>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.util.List)" class="member-name-link">CompositeTraversableResolver</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;javax.validation.TraversableResolver&gt;&nbsp;traversableResolvers)</code></div>
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.util.List)" class="member-name-link">CompositeTraversableResolver</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;jakarta.validation.TraversableResolver&gt;&nbsp;traversableResolvers)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Default constructor.</div>
 </div>
@@ -122,17 +122,17 @@ implements javax.validation.TraversableResolver</span></div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isCascadable(java.lang.Object,javax.validation.Path.Node,java.lang.Class,javax.validation.Path,java.lang.annotation.ElementType)" class="member-name-link">isCascadable</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
- javax.validation.Path.Node&nbsp;traversableProperty,
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isCascadable(java.lang.Object,jakarta.validation.Path.Node,java.lang.Class,jakarta.validation.Path,java.lang.annotation.ElementType)" class="member-name-link">isCascadable</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
+ jakarta.validation.Path.Node&nbsp;traversableProperty,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;&nbsp;rootBeanType,
- javax.validation.Path&nbsp;pathToTraversableObject,
+ jakarta.validation.Path&nbsp;pathToTraversableObject,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/ElementType.html" title="class or interface in java.lang.annotation" class="external-link">ElementType</a>&nbsp;elementType)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isReachable(java.lang.Object,javax.validation.Path.Node,java.lang.Class,javax.validation.Path,java.lang.annotation.ElementType)" class="member-name-link">isReachable</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
- javax.validation.Path.Node&nbsp;traversableProperty,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isReachable(java.lang.Object,jakarta.validation.Path.Node,java.lang.Class,jakarta.validation.Path,java.lang.annotation.ElementType)" class="member-name-link">isReachable</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
+ jakarta.validation.Path.Node&nbsp;traversableProperty,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;&nbsp;rootBeanType,
- javax.validation.Path&nbsp;pathToTraversableObject,
+ jakarta.validation.Path&nbsp;pathToTraversableObject,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/ElementType.html" title="class or interface in java.lang.annotation" class="external-link">ElementType</a>&nbsp;elementType)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
@@ -155,7 +155,7 @@ implements javax.validation.TraversableResolver</span></div>
 <li>
 <section class="detail" id="&lt;init&gt;(java.util.List)">
 <h3>CompositeTraversableResolver</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CompositeTraversableResolver</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;javax.validation.TraversableResolver&gt;&nbsp;traversableResolvers)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">CompositeTraversableResolver</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/List.html" title="class or interface in java.util" class="external-link">List</a>&lt;jakarta.validation.TraversableResolver&gt;&nbsp;traversableResolvers)</span></div>
 <div class="block">Default constructor.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -172,30 +172,30 @@ implements javax.validation.TraversableResolver</span></div>
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="isReachable(java.lang.Object,javax.validation.Path.Node,java.lang.Class,javax.validation.Path,java.lang.annotation.ElementType)">
+<section class="detail" id="isReachable(java.lang.Object,jakarta.validation.Path.Node,java.lang.Class,jakarta.validation.Path,java.lang.annotation.ElementType)">
 <h3>isReachable</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">isReachable</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
- javax.validation.Path.Node&nbsp;traversableProperty,
+ jakarta.validation.Path.Node&nbsp;traversableProperty,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;&nbsp;rootBeanType,
- javax.validation.Path&nbsp;pathToTraversableObject,
+ jakarta.validation.Path&nbsp;pathToTraversableObject,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/ElementType.html" title="class or interface in java.lang.annotation" class="external-link">ElementType</a>&nbsp;elementType)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>isReachable</code>&nbsp;in interface&nbsp;<code>javax.validation.TraversableResolver</code></dd>
+<dd><code>isReachable</code>&nbsp;in interface&nbsp;<code>jakarta.validation.TraversableResolver</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="isCascadable(java.lang.Object,javax.validation.Path.Node,java.lang.Class,javax.validation.Path,java.lang.annotation.ElementType)">
+<section class="detail" id="isCascadable(java.lang.Object,jakarta.validation.Path.Node,java.lang.Class,jakarta.validation.Path,java.lang.annotation.ElementType)">
 <h3>isCascadable</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">isCascadable</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;traversableObject,
- javax.validation.Path.Node&nbsp;traversableProperty,
+ jakarta.validation.Path.Node&nbsp;traversableProperty,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;&nbsp;rootBeanType,
- javax.validation.Path&nbsp;pathToTraversableObject,
+ jakarta.validation.Path&nbsp;pathToTraversableObject,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/ElementType.html" title="class or interface in java.lang.annotation" class="external-link">ElementType</a>&nbsp;elementType)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>isCascadable</code>&nbsp;in interface&nbsp;<code>javax.validation.TraversableResolver</code></dd>
+<dd><code>isCascadable</code>&nbsp;in interface&nbsp;<code>jakarta.validation.TraversableResolver</code></dd>
 </dl>
 </section>
 </li>

@@ -76,13 +76,13 @@ loadScripts(document, 'script');</script>
 <section class="class-description" id="class-description">
 <dl class="notes">
 <dt>All Implemented Interfaces:</dt>
-<dd><code>io.micronaut.core.convert.ConversionServiceAware</code>, <code>io.micronaut.core.convert.ConversionServiceProvider</code>, <code>io.micronaut.core.util.Toggleable</code>, <code><a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></code>, <code>javax.validation.ValidatorContext</code></dd>
+<dd><code>io.micronaut.core.convert.ConversionServiceAware</code>, <code>io.micronaut.core.convert.ConversionServiceProvider</code>, <code>io.micronaut.core.util.Toggleable</code>, <code><a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></code>, <code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 <hr>
 <div class="type-signature"><span class="annotations">@ConfigurationProperties("micronaut.validator")
 </span><span class="modifiers">public class </span><span class="element-name type-name-label">DefaultValidatorConfiguration</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>
-implements <a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>, io.micronaut.core.util.Toggleable, javax.validation.ValidatorContext, io.micronaut.core.convert.ConversionServiceAware</span></div>
+implements <a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>, io.micronaut.core.util.Toggleable, jakarta.validation.ValidatorContext, io.micronaut.core.convert.ConversionServiceAware</span></div>
 <div class="block">The default configuration for the validator.</div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -120,22 +120,30 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 <section class="method-summary" id="method-summary">
 <h2>Method Summary</h2>
 <div id="method-summary-table">
-<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="method-summary-table-tab0" role="tab" aria-selected="true" aria-controls="method-summary-table.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table', 3)" class="active-table-tab">All Methods</button><button id="method-summary-table-tab2" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab2', 3)" class="table-tab">Instance Methods</button><button id="method-summary-table-tab4" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab4', 3)" class="table-tab">Concrete Methods</button></div>
+<div class="table-tabs" role="tablist" aria-orientation="horizontal"><button id="method-summary-table-tab0" role="tab" aria-selected="true" aria-controls="method-summary-table.tabpanel" tabindex="0" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table', 3)" class="active-table-tab">All Methods</button><button id="method-summary-table-tab1" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab1', 3)" class="table-tab">Static Methods</button><button id="method-summary-table-tab2" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab2', 3)" class="table-tab">Instance Methods</button><button id="method-summary-table-tab4" role="tab" aria-selected="false" aria-controls="method-summary-table.tabpanel" tabindex="-1" onkeydown="switchTab(event)" onclick="show('method-summary-table', 'method-summary-table-tab4', 3)" class="table-tab">Concrete Methods</button></div>
 <div id="method-summary-table.tabpanel" role="tabpanel">
 <div class="summary-table three-column-summary" aria-labelledby="method-summary-table-tab0">
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#addValueExtractor(javax.validation.valueextraction.ValueExtractor)" class="member-name-link">addValueExtractor</a><wbr>(javax.validation.valueextraction.ValueExtractor&lt;?&gt;&nbsp;extractor)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#addValueExtractor(jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">addValueExtractor</a><wbr>(jakarta.validation.valueextraction.ValueExtractor&lt;?&gt;&nbsp;extractor)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#clockProvider(javax.validation.ClockProvider)" class="member-name-link">clockProvider</a><wbr>(javax.validation.ClockProvider&nbsp;clockProvider)</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#clockProvider(jakarta.validation.ClockProvider)" class="member-name-link">clockProvider</a><wbr>(jakarta.validation.ClockProvider&nbsp;clockProvider)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#constraintValidatorFactory(javax.validation.ConstraintValidatorFactory)" class="member-name-link">constraintValidatorFactory</a><wbr>(javax.validation.ConstraintValidatorFactory&nbsp;factory)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#constraintValidatorFactory(jakarta.validation.ConstraintValidatorFactory)" class="member-name-link">constraintValidatorFactory</a><wbr>(jakarta.validation.ConstraintValidatorFactory&nbsp;factory)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ClockProvider</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>io.micronaut.core.beans.BeanIntrospector</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getBeanIntrospector()" class="member-name-link">getBeanIntrospector</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">The bean introspector.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code>static <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4"><code><a href="#getClassFromType(java.lang.reflect.Type)" class="member-name-link">getClassFromType</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Type.html" title="class or interface in java.lang.reflect" class="external-link">Type</a>&nbsp;type)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab1 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ClockProvider</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getClockProvider()" class="member-name-link">getClockProvider</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a></code></div>
@@ -152,10 +160,10 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>io.micronaut.context.MessageSource</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getMessageSource()" class="member-name-link">getMessageSource</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.TraversableResolver</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.TraversableResolver</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.Validator</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.Validator</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getValidator()" class="member-name-link">getValidator</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></div>
@@ -164,55 +172,58 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isEnabled()" class="member-name-link">isEnabled</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#messageInterpolator(javax.validation.MessageInterpolator)" class="member-name-link">messageInterpolator</a><wbr>(javax.validation.MessageInterpolator&nbsp;messageInterpolator)</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#messageInterpolator(jakarta.validation.MessageInterpolator)" class="member-name-link">messageInterpolator</a><wbr>(jakarta.validation.MessageInterpolator&nbsp;messageInterpolator)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#parameterNameProvider(javax.validation.ParameterNameProvider)" class="member-name-link">parameterNameProvider</a><wbr>(javax.validation.ParameterNameProvider&nbsp;parameterNameProvider)</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#parameterNameProvider(jakarta.validation.ParameterNameProvider)" class="member-name-link">parameterNameProvider</a><wbr>(jakarta.validation.ParameterNameProvider&nbsp;parameterNameProvider)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setClockProvider(javax.validation.ClockProvider)" class="member-name-link">setClockProvider</a><wbr>(javax.validation.ClockProvider&nbsp;clockProvider)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>final void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector)" class="member-name-link">setBeanIntrospector</a><wbr>(io.micronaut.core.beans.BeanIntrospector&nbsp;beanIntrospector)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setClockProvider(jakarta.validation.ClockProvider)" class="member-name-link">setClockProvider</a><wbr>(jakarta.validation.ClockProvider&nbsp;clockProvider)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the clock provider to use.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setConstraintValidatorRegistry(io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry)" class="member-name-link">setConstraintValidatorRegistry</a><wbr>(<a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a>&nbsp;constraintValidatorRegistry)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setConstraintValidatorRegistry(io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry)" class="member-name-link">setConstraintValidatorRegistry</a><wbr>(<a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a>&nbsp;constraintValidatorRegistry)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the constraint validator registry to use.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setConversionService(io.micronaut.core.convert.ConversionService)" class="member-name-link">setConversionService</a><wbr>(io.micronaut.core.convert.ConversionService&nbsp;conversionService)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>void</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setConversionService(io.micronaut.core.convert.ConversionService)" class="member-name-link">setConversionService</a><wbr>(io.micronaut.core.convert.ConversionService&nbsp;conversionService)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the conversion service.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setEnabled(boolean)" class="member-name-link">setEnabled</a><wbr>(boolean&nbsp;enabled)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setEnabled(boolean)" class="member-name-link">setEnabled</a><wbr>(boolean&nbsp;enabled)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets whether Micronaut's validator is enabled.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setExecutionHandleLocator(io.micronaut.context.ExecutionHandleLocator)" class="member-name-link">setExecutionHandleLocator</a><wbr>(io.micronaut.context.ExecutionHandleLocator&nbsp;executionHandleLocator)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setExecutionHandleLocator(io.micronaut.context.ExecutionHandleLocator)" class="member-name-link">setExecutionHandleLocator</a><wbr>(io.micronaut.context.ExecutionHandleLocator&nbsp;executionHandleLocator)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the execution handler locator to use.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setMessageSource(io.micronaut.context.MessageSource)" class="member-name-link">setMessageSource</a><wbr>(io.micronaut.context.MessageSource&nbsp;messageSource)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setMessageSource(io.micronaut.context.MessageSource)" class="member-name-link">setMessageSource</a><wbr>(io.micronaut.context.MessageSource&nbsp;messageSource)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the message source to use.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setTraversableResolver(javax.validation.TraversableResolver)" class="member-name-link">setTraversableResolver</a><wbr>(javax.validation.TraversableResolver&nbsp;traversableResolver)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setTraversableResolver(jakarta.validation.TraversableResolver)" class="member-name-link">setTraversableResolver</a><wbr>(jakarta.validation.TraversableResolver&nbsp;traversableResolver)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the traversable resolver to use.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setValueExtractorRegistry(io.micronaut.validation.validator.extractors.ValueExtractorRegistry)" class="member-name-link">setValueExtractorRegistry</a><wbr>(<a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a>&nbsp;valueExtractorRegistry)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#setValueExtractorRegistry(io.micronaut.validation.validator.extractors.ValueExtractorRegistry)" class="member-name-link">setValueExtractorRegistry</a><wbr>(<a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a>&nbsp;valueExtractorRegistry)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Sets the value extractor registry use.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.ValidatorContext</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#traversableResolver(javax.validation.TraversableResolver)" class="member-name-link">traversableResolver</a><wbr>(javax.validation.TraversableResolver&nbsp;traversableResolver)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>jakarta.validation.ValidatorContext</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#traversableResolver(jakarta.validation.TraversableResolver)" class="member-name-link">traversableResolver</a><wbr>(jakarta.validation.TraversableResolver&nbsp;traversableResolver)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -351,7 +362,7 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 <section class="detail" id="getClockProvider()">
 <h3>getClockProvider</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ClockProvider</span>&nbsp;<span class="element-name">getClockProvider</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code><a href="ValidatorConfiguration.html#getClockProvider()">getClockProvider</a></code>&nbsp;in interface&nbsp;<code><a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></code></dd>
@@ -361,11 +372,11 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 </section>
 </li>
 <li>
-<section class="detail" id="setClockProvider(javax.validation.ClockProvider)">
+<section class="detail" id="setClockProvider(jakarta.validation.ClockProvider)">
 <h3>setClockProvider</h3>
 <div class="member-signature"><span class="annotations">@Inject
 </span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></span>&nbsp;<span class="element-name">setClockProvider</span><wbr><span class="parameters">(@Nullable
- javax.validation.ClockProvider&nbsp;clockProvider)</span></div>
+ jakarta.validation.ClockProvider&nbsp;clockProvider)</span></div>
 <div class="block">Sets the clock provider to use.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -379,7 +390,7 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 <section class="detail" id="getTraversableResolver()">
 <h3>getTraversableResolver</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.TraversableResolver</span>&nbsp;<span class="element-name">getTraversableResolver</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code><a href="ValidatorConfiguration.html#getTraversableResolver()">getTraversableResolver</a></code>&nbsp;in interface&nbsp;<code><a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></code></dd>
@@ -389,11 +400,11 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 </section>
 </li>
 <li>
-<section class="detail" id="setTraversableResolver(javax.validation.TraversableResolver)">
+<section class="detail" id="setTraversableResolver(jakarta.validation.TraversableResolver)">
 <h3>setTraversableResolver</h3>
 <div class="member-signature"><span class="annotations">@Inject
 </span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></span>&nbsp;<span class="element-name">setTraversableResolver</span><wbr><span class="parameters">(@Nullable
- javax.validation.TraversableResolver&nbsp;traversableResolver)</span></div>
+ jakarta.validation.TraversableResolver&nbsp;traversableResolver)</span></div>
 <div class="block">Sets the traversable resolver to use.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
@@ -462,73 +473,99 @@ implements <a href="ValidatorConfiguration.html" title="interface in io.micronau
 </section>
 </li>
 <li>
-<section class="detail" id="messageInterpolator(javax.validation.MessageInterpolator)">
+<section class="detail" id="messageInterpolator(jakarta.validation.MessageInterpolator)">
 <h3>messageInterpolator</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">messageInterpolator</span><wbr><span class="parameters">(javax.validation.MessageInterpolator&nbsp;messageInterpolator)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">messageInterpolator</span><wbr><span class="parameters">(jakarta.validation.MessageInterpolator&nbsp;messageInterpolator)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>messageInterpolator</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>messageInterpolator</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="traversableResolver(javax.validation.TraversableResolver)">
+<section class="detail" id="traversableResolver(jakarta.validation.TraversableResolver)">
 <h3>traversableResolver</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">traversableResolver</span><wbr><span class="parameters">(javax.validation.TraversableResolver&nbsp;traversableResolver)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">traversableResolver</span><wbr><span class="parameters">(jakarta.validation.TraversableResolver&nbsp;traversableResolver)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>traversableResolver</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>traversableResolver</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="constraintValidatorFactory(javax.validation.ConstraintValidatorFactory)">
+<section class="detail" id="constraintValidatorFactory(jakarta.validation.ConstraintValidatorFactory)">
 <h3>constraintValidatorFactory</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">constraintValidatorFactory</span><wbr><span class="parameters">(javax.validation.ConstraintValidatorFactory&nbsp;factory)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">constraintValidatorFactory</span><wbr><span class="parameters">(jakarta.validation.ConstraintValidatorFactory&nbsp;factory)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>constraintValidatorFactory</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>constraintValidatorFactory</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="parameterNameProvider(javax.validation.ParameterNameProvider)">
+<section class="detail" id="parameterNameProvider(jakarta.validation.ParameterNameProvider)">
 <h3>parameterNameProvider</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">parameterNameProvider</span><wbr><span class="parameters">(javax.validation.ParameterNameProvider&nbsp;parameterNameProvider)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">parameterNameProvider</span><wbr><span class="parameters">(jakarta.validation.ParameterNameProvider&nbsp;parameterNameProvider)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>parameterNameProvider</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>parameterNameProvider</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="clockProvider(javax.validation.ClockProvider)">
+<section class="detail" id="clockProvider(jakarta.validation.ClockProvider)">
 <h3>clockProvider</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">clockProvider</span><wbr><span class="parameters">(javax.validation.ClockProvider&nbsp;clockProvider)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">clockProvider</span><wbr><span class="parameters">(jakarta.validation.ClockProvider&nbsp;clockProvider)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>clockProvider</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>clockProvider</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
-<section class="detail" id="addValueExtractor(javax.validation.valueextraction.ValueExtractor)">
+<section class="detail" id="addValueExtractor(jakarta.validation.valueextraction.ValueExtractor)">
 <h3>addValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.ValidatorContext</span>&nbsp;<span class="element-name">addValueExtractor</span><wbr><span class="parameters">(javax.validation.valueextraction.ValueExtractor&lt;?&gt;&nbsp;extractor)</span></div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.ValidatorContext</span>&nbsp;<span class="element-name">addValueExtractor</span><wbr><span class="parameters">(jakarta.validation.valueextraction.ValueExtractor&lt;?&gt;&nbsp;extractor)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>addValueExtractor</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>addValueExtractor</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
 </section>
 </li>
 <li>
 <section class="detail" id="getValidator()">
 <h3>getValidator</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.Validator</span>&nbsp;<span class="element-name">getValidator</span>()</div>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">jakarta.validation.Validator</span>&nbsp;<span class="element-name">getValidator</span>()</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>getValidator</code>&nbsp;in interface&nbsp;<code>javax.validation.ValidatorContext</code></dd>
+<dd><code>getValidator</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ValidatorContext</code></dd>
 </dl>
+</section>
+</li>
+<li>
+<section class="detail" id="getBeanIntrospector()">
+<h3>getBeanIntrospector</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">io.micronaut.core.beans.BeanIntrospector</span>&nbsp;<span class="element-name">getBeanIntrospector</span>()</div>
+<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ValidatorConfiguration.html#getBeanIntrospector()">ValidatorConfiguration</a></code></span></div>
+<div class="block">The bean introspector.</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="ValidatorConfiguration.html#getBeanIntrospector()">getBeanIntrospector</a></code>&nbsp;in interface&nbsp;<code><a href="ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></code></dd>
+<dt>Returns:</dt>
+<dd>The introspector</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector)">
+<h3>setBeanIntrospector</h3>
+<div class="member-signature"><span class="modifiers">public final</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">setBeanIntrospector</span><wbr><span class="parameters">(io.micronaut.core.beans.BeanIntrospector&nbsp;beanIntrospector)</span></div>
+</section>
+</li>
+<li>
+<section class="detail" id="getClassFromType(java.lang.reflect.Type)">
+<h3>getClassFromType</h3>
+<div class="member-signature"><span class="modifiers">public static</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;</span>&nbsp;<span class="element-name">getClassFromType</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Type.html" title="class or interface in java.lang.reflect" class="external-link">Type</a>&nbsp;type)</span></div>
 </section>
 </li>
 </ul>

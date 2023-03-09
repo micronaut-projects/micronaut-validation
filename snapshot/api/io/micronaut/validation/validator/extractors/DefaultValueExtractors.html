@@ -44,13 +44,13 @@ loadScripts(document, 'script');</script>
 <ul class="sub-nav-list">
 <li>Summary:&nbsp;</li>
 <li>Nested&nbsp;|&nbsp;</li>
-<li><a href="#field-summary">Field</a>&nbsp;|&nbsp;</li>
+<li>Field&nbsp;|&nbsp;</li>
 <li><a href="#constructor-summary">Constr</a>&nbsp;|&nbsp;</li>
 <li><a href="#method-summary">Method</a></li>
 </ul>
 <ul class="sub-nav-list">
 <li>Detail:&nbsp;</li>
-<li><a href="#field-detail">Field</a>&nbsp;|&nbsp;</li>
+<li>Field&nbsp;|&nbsp;</li>
 <li><a href="#constructor-detail">Constr</a>&nbsp;|&nbsp;</li>
 <li><a href="#method-detail">Method</a></li>
 </ul>
@@ -94,33 +94,6 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 </section>
 <section class="summary">
 <ul class="summary-list">
-<!-- =========== FIELD SUMMARY =========== -->
-<li>
-<section class="field-summary" id="field-summary">
-<h2>Field Summary</h2>
-<div class="caption"><span>Fields</span></div>
-<div class="summary-table three-column-summary">
-<div class="table-header col-first">Modifier and Type</div>
-<div class="table-header col-second">Field</div>
-<div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color"><code><a href="#ITERABLE_ELEMENT_NODE_NAME" class="member-name-link">ITERABLE_ELEMENT_NODE_NAME</a></code></div>
-<div class="col-last even-row-color">
-<div class="block">Node name for an element of an iterable.</div>
-</div>
-<div class="col-first odd-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second odd-row-color"><code><a href="#LIST_ELEMENT_NODE_NAME" class="member-name-link">LIST_ELEMENT_NODE_NAME</a></code></div>
-<div class="col-last odd-row-color">
-<div class="block">Node name for an element of an indexed iterable.</div>
-</div>
-<div class="col-first even-row-color"><code>static final <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></code></div>
-<div class="col-second even-row-color"><code><a href="#MAP_VALUE_NODE_NAME" class="member-name-link">MAP_VALUE_NODE_NAME</a></code></div>
-<div class="col-last even-row-color">
-<div class="block">Node name for an value element of a map.</div>
-</div>
-</div>
-</section>
-</li>
 <!-- ======== CONSTRUCTOR SUMMARY ======== -->
 <li>
 <section class="constructor-summary" id="constructor-summary">
@@ -154,85 +127,19 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;javax.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#findUnwrapValueExtractor(java.lang.Class)" class="member-name-link">findUnwrapValueExtractor</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;void</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#addValueExtractor(java.lang.Class,jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">addValueExtractor</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType,
+ jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&nbsp;valueExtractor)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#findUnwrapValueExtractor(java.lang.Class)" class="member-name-link">findUnwrapValueExtractor</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Finds a concrete <code>ValueExtractor</code> without searching the hierarchy.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;javax.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#findValueExtractor(java.lang.Class)" class="member-name-link">findValueExtractor</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Finds a a <code>ValueExtractor</code> for the given type.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;boolean[]&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getBooleanArrayValueExtractor()" class="member-name-link">getBooleanArrayValueExtractor</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#findValueExtractor(java.lang.Class)" class="member-name-link">findValueExtractor</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for boolean[].</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;byte[]&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getByteArrayValueExtractor()" class="member-name-link">getByteArrayValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for byte[].</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;char[]&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getCharArrayValueExtractor()" class="member-name-link">getCharArrayValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for char[].</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;double[]&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getDoubleArrayValueExtractor()" class="member-name-link">getDoubleArrayValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for double[].</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;float[]&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getFloatArrayValueExtractor()" class="member-name-link">getFloatArrayValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for float[].</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;int[]&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getIntArrayValueExtractor()" class="member-name-link">getIntArrayValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for int[].</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Iterable.html" title="class or interface in java.lang" class="external-link">Iterable</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getIterableValueExtractor()" class="member-name-link">getIterableValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for iterable.</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;?,<wbr>?&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getMapValueExtractor()" class="member-name-link">getMapValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for iterable.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getObjectArrayValueExtractor()" class="member-name-link">getObjectArrayValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for Object[].</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalDouble.html" title="class or interface in java.util" class="external-link">OptionalDouble</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOptionalDoubleValueExtractor()" class="member-name-link">getOptionalDoubleValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalDouble.html" title="class or interface in java.util" class="external-link"><code>OptionalDouble</code></a>.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalInt.html" title="class or interface in java.util" class="external-link">OptionalInt</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOptionalIntValueExtractor()" class="member-name-link">getOptionalIntValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalInt.html" title="class or interface in java.util" class="external-link"><code>OptionalInt</code></a>.</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalLong.html" title="class or interface in java.util" class="external-link">OptionalLong</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOptionalLongValueExtractor()" class="member-name-link">getOptionalLongValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalLong.html" title="class or interface in java.util" class="external-link"><code>OptionalLong</code></a>.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOptionalValueExtractor()" class="member-name-link">getOptionalValueExtractor</a>()</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for optional.</div>
-</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>javax.validation.valueextraction.ValueExtractor&lt;short[]&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getShortArrayValueExtractor()" class="member-name-link">getShortArrayValueExtractor</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Value extractor for short[].</div>
+<div class="block">Finds a <code>ValueExtractor</code> for the given type.</div>
 </div>
 </div>
 </div>
@@ -249,59 +156,6 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 </section>
 <section class="details">
 <ul class="details-list">
-<!-- ============ FIELD DETAIL =========== -->
-<li>
-<section class="field-details" id="field-detail">
-<h2>Field Details</h2>
-<ul class="member-list">
-<li>
-<section class="detail" id="ITERABLE_ELEMENT_NODE_NAME">
-<h3>ITERABLE_ELEMENT_NODE_NAME</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">ITERABLE_ELEMENT_NODE_NAME</span></div>
-<div class="block">Node name for an element of an iterable.</div>
-<dl class="notes">
-<dt>See Also:</dt>
-<dd>
-<ul class="see-list">
-<li><a href="../../../../../constant-values.html#io.micronaut.validation.validator.extractors.DefaultValueExtractors.ITERABLE_ELEMENT_NODE_NAME">Constant Field Values</a></li>
-</ul>
-</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="LIST_ELEMENT_NODE_NAME">
-<h3>LIST_ELEMENT_NODE_NAME</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">LIST_ELEMENT_NODE_NAME</span></div>
-<div class="block">Node name for an element of an indexed iterable.</div>
-<dl class="notes">
-<dt>See Also:</dt>
-<dd>
-<ul class="see-list">
-<li><a href="../../../../../constant-values.html#io.micronaut.validation.validator.extractors.DefaultValueExtractors.LIST_ELEMENT_NODE_NAME">Constant Field Values</a></li>
-</ul>
-</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="MAP_VALUE_NODE_NAME">
-<h3>MAP_VALUE_NODE_NAME</h3>
-<div class="member-signature"><span class="modifiers">public static final</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a></span>&nbsp;<span class="element-name">MAP_VALUE_NODE_NAME</span></div>
-<div class="block">Node name for an value element of a map.</div>
-<dl class="notes">
-<dt>See Also:</dt>
-<dd>
-<ul class="see-list">
-<li><a href="../../../../../constant-values.html#io.micronaut.validation.validator.extractors.DefaultValueExtractors.MAP_VALUE_NODE_NAME">Constant Field Values</a></li>
-</ul>
-</dd>
-</dl>
-</section>
-</li>
-</ul>
-</section>
-</li>
 <!-- ========= CONSTRUCTOR DETAIL ======== -->
 <li>
 <section class="constructor-details" id="constructor-detail">
@@ -336,156 +190,13 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 <h2>Method Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="getOptionalValueExtractor()">
-<h3>getOptionalValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&gt;</span>&nbsp;<span class="element-name">getOptionalValueExtractor</span>()</div>
-<div class="block">Value extractor for optional.</div>
+<section class="detail" id="addValueExtractor(java.lang.Class,jakarta.validation.valueextraction.ValueExtractor)">
+<h3>addValueExtractor</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">void</span>&nbsp;<span class="element-name">addValueExtractor</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType,
+ jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&nbsp;valueExtractor)</span></div>
 <dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor.</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getOptionalIntValueExtractor()">
-<h3>getOptionalIntValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalInt.html" title="class or interface in java.util" class="external-link">OptionalInt</a>&gt;</span>&nbsp;<span class="element-name">getOptionalIntValueExtractor</span>()</div>
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalInt.html" title="class or interface in java.util" class="external-link"><code>OptionalInt</code></a>.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getOptionalLongValueExtractor()">
-<h3>getOptionalLongValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalLong.html" title="class or interface in java.util" class="external-link">OptionalLong</a>&gt;</span>&nbsp;<span class="element-name">getOptionalLongValueExtractor</span>()</div>
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalLong.html" title="class or interface in java.util" class="external-link"><code>OptionalLong</code></a>.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getOptionalDoubleValueExtractor()">
-<h3>getOptionalDoubleValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalDouble.html" title="class or interface in java.util" class="external-link">OptionalDouble</a>&gt;</span>&nbsp;<span class="element-name">getOptionalDoubleValueExtractor</span>()</div>
-<div class="block">Value extractor for <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/OptionalDouble.html" title="class or interface in java.util" class="external-link"><code>OptionalDouble</code></a>.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getIterableValueExtractor()">
-<h3>getIterableValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Iterable.html" title="class or interface in java.lang" class="external-link">Iterable</a>&gt;</span>&nbsp;<span class="element-name">getIterableValueExtractor</span>()</div>
-<div class="block">Value extractor for iterable.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getMapValueExtractor()">
-<h3>getMapValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Map.html" title="class or interface in java.util" class="external-link">Map</a>&lt;?,<wbr>?&gt;&gt;</span>&nbsp;<span class="element-name">getMapValueExtractor</span>()</div>
-<div class="block">Value extractor for iterable.</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The value extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getObjectArrayValueExtractor()">
-<h3>getObjectArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&gt;</span>&nbsp;<span class="element-name">getObjectArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for Object[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The object[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getIntArrayValueExtractor()">
-<h3>getIntArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;int[]&gt;</span>&nbsp;<span class="element-name">getIntArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for int[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The int[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getByteArrayValueExtractor()">
-<h3>getByteArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;byte[]&gt;</span>&nbsp;<span class="element-name">getByteArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for byte[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The byte[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getCharArrayValueExtractor()">
-<h3>getCharArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;char[]&gt;</span>&nbsp;<span class="element-name">getCharArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for char[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The char[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getBooleanArrayValueExtractor()">
-<h3>getBooleanArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;boolean[]&gt;</span>&nbsp;<span class="element-name">getBooleanArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for boolean[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The boolean[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getDoubleArrayValueExtractor()">
-<h3>getDoubleArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;double[]&gt;</span>&nbsp;<span class="element-name">getDoubleArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for double[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The double[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getFloatArrayValueExtractor()">
-<h3>getFloatArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;float[]&gt;</span>&nbsp;<span class="element-name">getFloatArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for float[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The float[] extractor</dd>
-</dl>
-</section>
-</li>
-<li>
-<section class="detail" id="getShortArrayValueExtractor()">
-<h3>getShortArrayValueExtractor</h3>
-<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">javax.validation.valueextraction.ValueExtractor&lt;short[]&gt;</span>&nbsp;<span class="element-name">getShortArrayValueExtractor</span>()</div>
-<div class="block">Value extractor for short[].</div>
-<dl class="notes">
-<dt>Returns:</dt>
-<dd>The short[] extractor</dd>
+<dt>Specified by:</dt>
+<dd><code><a href="ValueExtractorRegistry.html#addValueExtractor(java.lang.Class,jakarta.validation.valueextraction.ValueExtractor)">addValueExtractor</a></code>&nbsp;in interface&nbsp;<code><a href="ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></dd>
 </dl>
 </section>
 </li>
@@ -494,10 +205,10 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 <h3>findValueExtractor</h3>
 <div class="member-signature"><span class="annotations">@NonNull
 </span><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>
-<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;javax.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">findValueExtractor</span><wbr><span class="parameters">(@NonNull
+<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">findValueExtractor</span><wbr><span class="parameters">(@NonNull
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
 <div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ValueExtractorRegistry.html#findValueExtractor(java.lang.Class)">ValueExtractorRegistry</a></code></span></div>
-<div class="block">Finds a a <code>ValueExtractor</code> for the given type.</div>
+<div class="block">Finds a <code>ValueExtractor</code> for the given type.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code><a href="ValueExtractorRegistry.html#findValueExtractor(java.lang.Class)">findValueExtractor</a></code>&nbsp;in interface&nbsp;<code><a href="ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></dd>
@@ -515,7 +226,7 @@ implements <a href="ValueExtractorRegistry.html" title="interface in io.micronau
 <h3>findUnwrapValueExtractor</h3>
 <div class="member-signature"><span class="annotations">@NonNull
 </span><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>
-<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;javax.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">findUnwrapValueExtractor</span><wbr><span class="parameters">(@NonNull
+<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;jakarta.validation.valueextraction.ValueExtractor&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">findUnwrapValueExtractor</span><wbr><span class="parameters">(@NonNull
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
 <div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ValueExtractorRegistry.html#findUnwrapValueExtractor(java.lang.Class)">ValueExtractorRegistry</a></code></span></div>
 <div class="block">Finds a concrete <code>ValueExtractor</code> without searching the hierarchy.</div>
