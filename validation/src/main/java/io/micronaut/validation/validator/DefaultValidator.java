@@ -50,6 +50,7 @@ import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
+import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
@@ -113,7 +114,7 @@ import java.util.stream.Collectors;
 @Primary
 @Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
 public class DefaultValidator implements
-        Validator, ExecutableMethodValidator, ReactiveValidator, AnnotatedElementValidator, BeanDefinitionValidator {
+    Validator, ExecutableMethodValidator, ReactiveValidator, AnnotatedElementValidator, BeanDefinitionValidator {
 
     private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
@@ -221,7 +222,7 @@ public class DefaultValidator implements
         }
 
         final BeanProperty<T, Object> beanProperty = introspection.getProperty(propertyName)
-                .orElseThrow(() -> new ValidationException("No property [" + propertyName + "] found on type: " + beanType));
+            .orElseThrow(() -> new ValidationException("No property [" + propertyName + "] found on type: " + beanType));
 
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(beanType, groups);
 
@@ -284,8 +285,8 @@ public class DefaultValidator implements
     @Override
     public BeanDescriptor getConstraintsForClass(Class<?> clazz) {
         return beanIntrospector.findIntrospection(clazz)
-                .map((Function<BeanIntrospection<?>, BeanDescriptor>) IntrospectedBeanDescriptor::new)
-                .orElseGet(() -> new EmptyDescriptor(clazz));
+            .map((Function<BeanIntrospection<?>, BeanDescriptor>) IntrospectedBeanDescriptor::new)
+            .orElseGet(() -> new EmptyDescriptor(clazz));
     }
 
     @Override
@@ -361,11 +362,11 @@ public class DefaultValidator implements
                                                               @Nullable Class<?>... groups) {
         ArgumentUtils.requireNonNull("method", method);
         return executionHandleLocator.findExecutableMethod(
-                        method.getDeclaringClass(),
-                        method.getName(),
-                        method.getParameterTypes()
-                ).map(executableMethod -> validateParameters(object, executableMethod, parameterValues, groups))
-                .orElse(Collections.emptySet());
+                method.getDeclaringClass(),
+                method.getName(),
+                method.getParameterTypes()
+            ).map(executableMethod -> validateParameters(object, executableMethod, parameterValues, groups))
+            .orElse(Collections.emptySet());
     }
 
     @NonNull
@@ -377,11 +378,11 @@ public class DefaultValidator implements
         ArgumentUtils.requireNonNull("method", method);
         ArgumentUtils.requireNonNull("object", object);
         return executionHandleLocator.findExecutableMethod(
-                        method.getDeclaringClass(),
-                        method.getName(),
-                        method.getParameterTypes()
-                ).map(executableMethod -> validateReturnValue(object, executableMethod, returnValue, groups))
-                .orElse(Collections.emptySet());
+                method.getDeclaringClass(),
+                method.getName(),
+                method.getParameterTypes()
+            ).map(executableMethod -> validateReturnValue(object, executableMethod, returnValue, groups))
+            .orElse(Collections.emptySet());
     }
 
     @Override
@@ -478,13 +479,13 @@ public class DefaultValidator implements
             output = Mono.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validatePublisherValue(publisherArgument, publisher, groups, typeParameter, value);
                 return violations.isEmpty() ? Mono.just(value) :
-                        Mono.error(new ConstraintViolationException(violations));
+                    Mono.error(new ConstraintViolationException(violations));
             });
         } else {
             output = Flux.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validatePublisherValue(publisherArgument, publisher, groups, typeParameter, value);
                 return violations.isEmpty() ? Flux.just(value) :
-                        Flux.error(new ConstraintViolationException(violations));
+                    Flux.error(new ConstraintViolationException(violations));
             });
         }
         Class<?> returnClass = returnType.getType();
@@ -507,14 +508,14 @@ public class DefaultValidator implements
         context.addReturnValueNode();
         try {
             validateIterableValue(context,
-                    publisher,
-                    "<publisher element>",
-                    publisherArgument,
-                    valueArgument,
-                    value,
-                    null, null, 0, true,
-                    publisherArgument.getAnnotationMetadata().hasAnnotation(Valid.class) || valueArgument.getAnnotationMetadata().hasAnnotation(Valid.class),
-                    valueArgument.getAnnotationMetadata().hasAnnotation(Constraint.class)
+                publisher,
+                "<publisher element>",
+                publisherArgument,
+                valueArgument,
+                value,
+                null, null, 0, true,
+                publisherArgument.getAnnotationMetadata().hasAnnotation(Valid.class) || valueArgument.getAnnotationMetadata().hasAnnotation(Valid.class),
+                valueArgument.getAnnotationMetadata().hasAnnotation(Constraint.class)
             );
         } finally {
             context.removeLast();
@@ -556,7 +557,7 @@ public class DefaultValidator implements
         final Class<?> rootClass = injectionPoint.getDeclaringBean().getBeanType();
 
         context.addConstructorNode(
-                rootClass.getName(), injectionPoint.getDeclaringBean().getConstructor().getArguments());
+            rootClass.getName(), injectionPoint.getDeclaringBean().getConstructor().getArguments());
 
         context.addPropertyNode(argument.getName());
         try {
@@ -635,7 +636,7 @@ public class DefaultValidator implements
             return null;
         }
         return beanIntrospector.findIntrospection((Class<T>) object.getClass())
-                .orElseGet(() -> beanIntrospector.findIntrospection(definedClass).orElse(null));
+            .orElseGet(() -> beanIntrospector.findIntrospection(definedClass).orElse(null));
     }
 
     /**
@@ -695,20 +696,20 @@ public class DefaultValidator implements
         Publisher<?> objectPublisher;
         if (publisherArgument.isSpecifiedSingle()) {
             objectPublisher = Mono.from(publisher)
-                    .flatMap(value -> {
+                .flatMap(value -> {
 
-                        validatePublishedValue(valueContext, argumentIndex, publisherArgument, parameterValue, value);
+                    validatePublishedValue(valueContext, argumentIndex, publisherArgument, parameterValue, value);
 
-                        return valueContext.overallViolations.isEmpty() ? Mono.just(value) :
-                                Mono.error(new ConstraintViolationException(valueContext.overallViolations));
-                    });
+                    return valueContext.overallViolations.isEmpty() ? Mono.just(value) :
+                        Mono.error(new ConstraintViolationException(valueContext.overallViolations));
+                });
         } else {
             objectPublisher = Flux.from(publisher).flatMap(value -> {
 
                 validatePublishedValue(valueContext, argumentIndex, publisherArgument, parameterValue, value);
 
                 return valueContext.overallViolations.isEmpty() ? Flux.just(value) :
-                        Flux.error(new ConstraintViolationException(valueContext.overallViolations));
+                    Flux.error(new ConstraintViolationException(valueContext.overallViolations));
             });
         }
         argumentValues[argumentIndex] = Publishers.convertPublisher(conversionService, objectPublisher, publisherArgument.getType());
@@ -792,6 +793,10 @@ public class DefaultValidator implements
                                                 int argLen) {
         for (int parameterIndex = 0; parameterIndex < argLen; parameterIndex++) {
             Argument<Object> argument = (Argument<Object>) arguments[parameterIndex];
+            if (!argument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class)) {
+                continue;
+            }
+
             final Class<Object> parameterType = argument.getType();
 
             Object parameterValue = parameters[parameterIndex];
@@ -809,9 +814,16 @@ public class DefaultValidator implements
                 continue;
             }
 
+            AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
             context.addParameterNode(argument.getName(), parameterIndex);
             try {
-                visitElement(context, bean, argument, parameterValue);
+                visitElement(context,
+                    bean,
+                    argument,
+                    parameterValue,
+                    annotationMetadata.hasStereotype(Valid.class),
+                    annotationMetadata.hasStereotype(Constraint.class)
+                );
             } finally {
                 context.removeLast();
             }
@@ -823,10 +835,10 @@ public class DefaultValidator implements
                                    @NonNull T object) {
 
         visitElement(
-                context,
-                object,
-                Argument.of(introspection.getBeanType(), introspection.getAnnotationMetadata()),
-                object
+            context,
+            object,
+            Argument.of(introspection.getBeanType(), introspection.getAnnotationMetadata()),
+            object
         );
 
         for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
@@ -842,10 +854,10 @@ public class DefaultValidator implements
         context.addPropertyNode(property.getName());
         try {
             visitElement(
-                    context,
-                    object,
-                    property.asArgument(),
-                    property.get(object)
+                context,
+                object,
+                property.asArgument(),
+                property.get(object)
             );
         } finally {
             context.removeLast();
@@ -855,22 +867,22 @@ public class DefaultValidator implements
     private <R> boolean canCascade(@NonNull DefaultConstraintValidatorContext<R> context,
                                    Object propertyValue) {
         final boolean isReachable = traversableResolver.isReachable(
-                propertyValue,
-                context.currentPath.nodes.peekLast(),
-                context.getRootClass(),
-                context.currentPath,
-                ElementType.FIELD
+            propertyValue,
+            context.currentPath.nodes.peekLast(),
+            context.getRootClass(),
+            context.currentPath,
+            ElementType.FIELD
         );
         if (!isReachable) {
             return false;
         }
 
         return traversableResolver.isCascadable(
-                propertyValue,
-                context.currentPath.nodes.peekLast(),
-                context.getRootClass(),
-                context.currentPath,
-                ElementType.FIELD
+            propertyValue,
+            context.currentPath.nodes.peekLast(),
+            context.getRootClass(),
+            context.currentPath,
+            ElementType.FIELD
         );
     }
 
@@ -879,11 +891,11 @@ public class DefaultValidator implements
                                      Argument<E> annotatedElementType,
                                      E elementValue) {
         visitElement(context,
-                bean,
-                annotatedElementType,
-                elementValue,
-                annotatedElementType.getAnnotationMetadata().hasStereotype(Valid.class),
-                annotatedElementType.getAnnotationMetadata().hasStereotype(Constraint.class)
+            bean,
+            annotatedElementType,
+            elementValue,
+            annotatedElementType.getAnnotationMetadata().hasStereotype(Valid.class),
+            annotatedElementType.getAnnotationMetadata().hasStereotype(Constraint.class)
         );
     }
 
@@ -985,7 +997,7 @@ public class DefaultValidator implements
 
             @Override
             public void iterableValue(String nodeName, Object iterableValue) {
-                Argument<Object> argument = (Argument<Object>) arguments[0];
+                Argument<Object> argument = asArgument(iterableValue);
                 validateIterableValue(context, leftBean, nodeName, iterableArgument, argument, iterableValue, null, null, 0, true, valueHasValid, valueHasConstraint);
             }
 
@@ -1099,15 +1111,15 @@ public class DefaultValidator implements
             final ConstraintDescriptor<?> constraintDescriptor = new DefaultConstraintDescriptor<>(annotationMetadata, constraintType, annotationValue);
 
             DefaultConstraintViolation<R> constraintViolation = new DefaultConstraintViolation<>(
-                    context.getRootBean(),
-                    context.getRootClass(),
-                    leafBean,
-                    elementValue,
-                    message,
-                    messageTemplate,
-                    new PathImpl(context.currentPath),
-                    constraintDescriptor,
-                    context.executableParameterValues
+                context.getRootBean(),
+                context.getRootClass(),
+                leafBean,
+                elementValue,
+                message,
+                messageTemplate,
+                new PathImpl(context.currentPath),
+                constraintDescriptor,
+                context.executableParameterValues
             );
 
             context.overallViolations.add(constraintViolation);
@@ -1141,9 +1153,9 @@ public class DefaultValidator implements
                                             final AnnotationValue<?> annotationValue,
                                             final AnnotationMetadata annotationMetadata) {
         return context.getMessageTemplate()
-                .orElseGet(() -> annotationValue.stringValue("message")
-                        .orElseGet(() -> annotationMetadata.getDefaultValue(annotationValue.getAnnotationName(), "message", String.class)
-                                .orElse("{" + annotationValue.getAnnotationName() + ".message}")));
+            .orElseGet(() -> annotationValue.stringValue("message")
+                .orElseGet(() -> annotationMetadata.getDefaultValue(annotationValue.getAnnotationName(), "message", String.class)
+                    .orElse("{" + annotationValue.getAnnotationName() + ".message}")));
     }
 
     private <T> void failOnError(@NonNull BeanResolutionContext resolutionContext,
@@ -1151,9 +1163,9 @@ public class DefaultValidator implements
                                  Class<?> beanType) {
         if (!errors.isEmpty()) {
             StringBuilder builder = new StringBuilder()
-                    .append("Validation failed for bean definition [")
-                    .append(beanType.getName())
-                    .append("]\nList of constraint violations:[\n");
+                .append("Validation failed for bean definition [")
+                .append(beanType.getName())
+                .append("]\nList of constraint violations:[\n");
             for (ConstraintViolation<?> violation : errors) {
                 builder.append('\t').append(violation.getPropertyPath()).append(" - ").append(violation.getMessage()).append('\n');
             }
@@ -1169,15 +1181,15 @@ public class DefaultValidator implements
                                                                                            E invalidValue) {
         final String messageTemplate = context.getMessageTemplate().orElseGet(() -> "{" + Introspected.class.getName() + ".message}");
         return new DefaultConstraintViolation<>(
-                context.getRootBean(),
-                context.getRootClass(),
-                leftBean,
-                invalidValue,
-                messageSource.interpolate(messageTemplate, MessageSource.MessageContext.of(Collections.singletonMap("type", invalidValueType.getType().getName()))),
-                messageTemplate,
-                new PathImpl(context.currentPath),
-                null,
-                context.executableParameterValues);
+            context.getRootBean(),
+            context.getRootClass(),
+            leftBean,
+            invalidValue,
+            messageSource.interpolate(messageTemplate, MessageSource.MessageContext.of(Collections.singletonMap("type", invalidValueType.getType().getName()))),
+            messageTemplate,
+            new PathImpl(context.currentPath),
+            null,
+            context.executableParameterValues);
     }
 
     private List<Class<?>[]> findGroupSequences(Class<?>[] groups) {
@@ -1186,8 +1198,8 @@ public class DefaultValidator implements
         }
         List<Class<?>> groupSequence = GROUP_SEQUENCES.computeIfAbsent(groups[0], group -> {
             return beanIntrospector.findIntrospection(group).stream()
-                    .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
-                    .toList();
+                .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
+                .toList();
         });
         if (groupSequence.isEmpty()) {
             return Collections.singletonList(groups);
@@ -1261,7 +1273,7 @@ public class DefaultValidator implements
                 }
                 if (!clazz.isInterface()) {
                     throw new IllegalArgumentException(
-                            "Validation groups must be interfaces. " + clazz.getName() + " is not.");
+                        "Validation groups must be interfaces. " + clazz.getName() + " is not.");
                 }
             }
         }
@@ -1650,15 +1662,15 @@ public class DefaultValidator implements
      * @param <T>                       The bean type.
      */
     private record DefaultConstraintViolation<T>(
-            @Nullable T rootBean,
-            @Nullable Class<T> rootBeanClass,
-            Object leafBean,
-            Object invalidValue,
-            String message,
-            String messageTemplate,
-            Path path,
-            ConstraintDescriptor<?> constraintDescriptor,
-            @Nullable Object[] executableParameterValues
+        @Nullable T rootBean,
+        @Nullable Class<T> rootBeanClass,
+        Object leafBean,
+        Object invalidValue,
+        String message,
+        String messageTemplate,
+        Path path,
+        ConstraintDescriptor<?> constraintDescriptor,
+        @Nullable Object[] executableParameterValues
     ) implements ConstraintViolation<T> {
 
         @Override
@@ -1689,8 +1701,8 @@ public class DefaultValidator implements
         @Override
         public Object[] getExecutableParameters() {
             return Objects.requireNonNullElse(
-                    executableParameterValues,
-                    ArrayUtils.EMPTY_OBJECT_ARRAY
+                executableParameterValues,
+                ArrayUtils.EMPTY_OBJECT_ARRAY
             );
         }
 
@@ -1722,10 +1734,10 @@ public class DefaultValidator implements
         @Override
         public String toString() {
             return "DefaultConstraintViolation{" +
-                    "rootBean=" + rootBeanClass +
-                    ", invalidValue=" + invalidValue +
-                    ", path=" + path +
-                    '}';
+                "rootBean=" + rootBeanClass +
+                ", invalidValue=" + invalidValue +
+                ", path=" + path +
+                '}';
         }
     }
 
@@ -1735,7 +1747,7 @@ public class DefaultValidator implements
      * @param elementClass the class of element
      */
     private record EmptyDescriptor(
-            Class<?> elementClass
+        Class<?> elementClass
     ) implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
         @Override
