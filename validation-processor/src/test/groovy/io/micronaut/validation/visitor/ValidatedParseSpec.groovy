@@ -4,6 +4,8 @@ import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.inject.BeanDefinition
 import io.micronaut.inject.ValidatedBeanDefinition
 import io.micronaut.inject.writer.BeanDefinitionVisitor
+import jakarta.validation.Valid
+
 import java.time.LocalDate
 
 class ValidatedParseSpec extends AbstractTypeElementSpec {
@@ -74,12 +76,12 @@ class Test {
 }
 ''')
         when:
-        def method = definition.findMethod("setList", List<String>);
+        def method = definition.getRequiredMethod("setList", List<String>);
 
         then:
-        method.isPresent()
-        method.get().hasStereotype(VALIDATED_ANN)
-        method.get().getArguments().size() == 1
+        method.hasStereotype(VALIDATED_ANN)
+        method.arguments.size() == 1
+        method.arguments[0].annotationMetadata.hasAnnotation(Valid)
     }
 
     void "test constraints on a controller operation make method @Validated"() {

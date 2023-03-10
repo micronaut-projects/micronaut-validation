@@ -22,6 +22,8 @@ import io.micronaut.context.annotation.Factory
 import io.micronaut.context.annotation.Requires
 import io.micronaut.context.env.Environment
 import io.micronaut.core.annotation.Introspected
+import io.micronaut.validation.Pojo
+import io.micronaut.validation.PojoService
 import io.micronaut.validation.validator.Validator
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import jakarta.inject.Singleton
@@ -92,6 +94,39 @@ class PojoValidatorSpec extends Specification {
         def ex = thrown(ConstraintViolationException)
         ex.constraintViolations.size() == 1
     }
+
+    void "test cascade to iterable with @Valid"() {
+        when:
+        applicationContext.getBean(SearchAny2).validateIterable([new Search()])
+
+        then:
+        def ex = thrown(ConstraintViolationException)
+        ex.constraintViolations.size() == 1
+
+        when:
+        applicationContext.getBean(PojoService).validateIterable([new Pojo()])
+
+        then:
+        ex = thrown(ConstraintViolationException)
+        ex.constraintViolations.size() == 1
+    }
+
+    void "test don't cascade to iterable without @Valid"() {
+        expect:
+        applicationContext.getBean(SearchAny2).validateIterableWithoutCascade([new Search()])
+        applicationContext.getBean(PojoService).validateIterableWithoutCascade([new Pojo()], new Pojo(name:"John", email:"john@doe.com"))
+    }
+
+    void "test don't cascade to raw iterable without @Valid"() {
+        given:
+        def pojoService = applicationContext.getBean(PojoService)
+        expect:
+        applicationContext.getBean(SearchAny2).validateRawIterableWithoutCascade([new Search()])
+        pojoService.validateRawIterableWithoutCascade([new Pojo()], new Pojo(name:"John", email:"john@doe.com"))
+        pojoService.validateRawIterableWithoutCascadeCustomIterable({
+            ['test'].iterator()
+        } as PojoService.Session, new Pojo(name:"John", email:"john@doe.com"))
+    }
 }
 
 @Singleton
@@ -122,6 +157,18 @@ class SearchAny {
 class SearchAny2 {
     void validate(@NotNull @Valid Search search) {
 
+    }
+
+    void validateIterable(@Valid Iterable<Search> search) {
+
+    }
+
+    boolean validateIterableWithoutCascade(Iterable<Search> search) {
+        return true
+    }
+
+    boolean validateRawIterableWithoutCascade(Iterable search) {
+        return true
     }
 }
 

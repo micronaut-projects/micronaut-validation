@@ -50,6 +50,7 @@ import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
+import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
@@ -809,11 +810,22 @@ public class DefaultValidator implements
                 continue;
             }
 
-            context.addParameterNode(argument.getName(), parameterIndex);
-            try {
-                visitElement(context, bean, argument, parameterValue);
-            } finally {
-                context.removeLast();
+            AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
+            boolean hasValid = annotationMetadata.hasStereotype(Valid.class);
+            boolean hasConstraint = annotationMetadata.hasStereotype(Constraint.class);
+            if (hasValid || hasConstraint) {
+                context.addParameterNode(argument.getName(), parameterIndex);
+                try {
+                    visitElement(context,
+                        bean,
+                        argument,
+                        parameterValue,
+                        hasValid,
+                        hasConstraint
+                    );
+                } finally {
+                    context.removeLast();
+                }
             }
         }
     }
@@ -985,7 +997,7 @@ public class DefaultValidator implements
 
             @Override
             public void iterableValue(String nodeName, Object iterableValue) {
-                Argument<Object> argument = (Argument<Object>) arguments[0];
+                Argument<Object> argument = asArgument(iterableValue);
                 validateIterableValue(context, leftBean, nodeName, iterableArgument, argument, iterableValue, null, null, 0, true, valueHasValid, valueHasConstraint);
             }
 

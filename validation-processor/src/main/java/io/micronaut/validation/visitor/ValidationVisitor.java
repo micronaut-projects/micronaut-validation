@@ -25,13 +25,13 @@ import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.ast.MethodElement;
+import io.micronaut.inject.ast.ParameterElement;
 import io.micronaut.inject.ast.TypedElement;
 import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
-import java.util.Arrays;
 import java.util.Set;
 
 /**
@@ -96,14 +96,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
         boolean requireOnConstraint = isAbstract || !isPrivate;
 
-        if (requiresValidation(element.getReturnType(), requireOnConstraint)
-            || returnTypeRequiresValidation(element, true)
-            || parametersRequireValidation(element, requireOnConstraint)) {
+        if (parametersRequireValidation(element, requireOnConstraint) ||
+            requiresValidation(element.getReturnType(), requireOnConstraint) ||
+            returnTypeRequiresValidation(element, true)) {
             if (isPrivate) {
                 throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
+            } else {
+                element.annotate(RequiresValidation.class);
+                classElement.annotate(RequiresValidation.class);
             }
-            element.annotate(RequiresValidation.class);
-            classElement.annotate(RequiresValidation.class);
         }
     }
 
@@ -119,7 +120,20 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
-        return Arrays.stream(element.getParameters()).anyMatch(param -> requiresValidation(param, requireOnConstraint));
+        boolean requiredValidation = false;
+        for (ParameterElement parameter : element.getParameters()) {
+            if (requiresValidation(parameter, requireOnConstraint)) {
+                requiredValidation = true;
+                if (typeArgumentsRequireValidation(parameter, requireOnConstraint)) {
+                    try {
+                        parameter.annotate(ANN_VALID);
+                    } catch (IllegalStateException e) {
+                        // workaround for bug
+                    }
+                }
+            }
+        }
+        return requiredValidation;
     }
 
     private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
@@ -133,7 +147,11 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             // This will ensure the correct behavior of io.micronaut.inject.ast.utils.AstBeanPropertiesUtils
             // in certain cases, as it relies on the fact that usages of types inherit
             // annotations from the type itself
-            e.annotate(RequiresValidation.class);
+            try {
+                e.annotate(RequiresValidation.class);
+            } catch (IllegalStateException ex) {
+                // workaround Groovy bug
+            }
         }
         return (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
             || annotationMetadata.hasStereotype(ANN_VALID)

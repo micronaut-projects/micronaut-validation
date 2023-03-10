@@ -46,10 +46,7 @@ tasks.register('singleTest', Test) {
 //                            include(name: 'methodParameterValidationIncludesConstraintsFromImplementedInterface')
 //                        }
 //                    }
-                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotEmptyConstraintTest') {
-                        methods() {
-                            include(name: 'testNotEmptyConstraint')
-                        }
+                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest') {
                     }
                 }
             }
