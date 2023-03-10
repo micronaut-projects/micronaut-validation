@@ -46,6 +46,7 @@ import java.util.Set;
 @Internal
 public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
+    private static final String ANN_CASCADE = "io.micronaut.validation.annotation.ValidatedElement";
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
 
@@ -124,12 +125,10 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         for (ParameterElement parameter : element.getParameters()) {
             if (requiresValidation(parameter, requireOnConstraint)) {
                 requiredValidation = true;
-                if (typeArgumentsRequireValidation(parameter, requireOnConstraint)) {
-                    try {
-                        parameter.annotate(ANN_VALID);
-                    } catch (IllegalStateException e) {
-                        // workaround for bug
-                    }
+                try {
+                    parameter.annotate(ANN_CASCADE);
+                } catch (IllegalStateException e) {
+                    // workaround Groovy bug
                 }
             }
         }

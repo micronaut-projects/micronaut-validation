@@ -3,6 +3,7 @@ package io.micronaut.validation
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.inject.BeanDefinition
 import io.micronaut.inject.ValidatedBeanDefinition
+import io.micronaut.inject.validation.RequiresValidation
 import io.micronaut.inject.writer.BeanDefinitionVisitor
 import jakarta.validation.Valid
 
@@ -81,7 +82,7 @@ class Test {
         then:
         method.hasStereotype(VALIDATED_ANN)
         method.arguments.size() == 1
-        method.arguments[0].annotationMetadata.hasAnnotation(Valid)
+        method.arguments[0].annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
     }
 
     void "test constraints on a controller operation make method @Validated"() {
