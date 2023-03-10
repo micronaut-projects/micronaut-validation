@@ -53,7 +53,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
-        return Set.of(ANN_CONSTRAINT, ANN_VALID);
+        return Set.of("jakarta.validation.*");
     }
 
     @Override
