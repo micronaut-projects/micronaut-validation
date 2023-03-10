@@ -1,4 +1,5 @@
 io.micronaut.validation
+io.micronaut.validation.annotation
 io.micronaut.validation.exceptions
 io.micronaut.validation.validator
 io.micronaut.validation.validator.constraints
