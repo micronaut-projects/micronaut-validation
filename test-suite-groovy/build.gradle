@@ -29,7 +29,7 @@ dependencies {
     testImplementation mn.micronaut.jackson.databind
 
     testImplementation("org.junit.jupiter:junit-jupiter-api")
-    testImplementation("io.micronaut.test:micronaut-test-junit5:3.8.0")
+    testImplementation("io.micronaut.test:micronaut-test-junit5:3.9.2")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:{junitVersion}")
     testImplementation("org.junit.jupiter:junit-jupiter-engine:{junitVersion}")
 }
