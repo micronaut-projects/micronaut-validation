@@ -56,6 +56,11 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         return IntrospectedTypeElementVisitor.POSITION + 10; // Should just before the introspected visitor
     }
 
+    @Override
+    public Set<String> getSupportedAnnotationNames() {
+        return Set.of("jakarta.validation.*");
+    }
+
     @NonNull
     @Override
     public VisitorKind getVisitorKind() {
