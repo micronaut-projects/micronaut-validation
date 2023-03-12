@@ -7,7 +7,7 @@ micronaut-reactor = "3.0.0-SNAPSHOT"
 micronaut-rxjava2 = "2.0.0-SNAPSHOT"
 micronaut-kotlin = "4.0.0-SNAPSHOT"
 
-groovy = "4.0.9"
+groovy = "4.0.10"
 junit5 = "5.9.2"
 kotlin = "1.8.10"
 kotest = "5.5.5"
