@@ -17,23 +17,25 @@ package io.micronaut.validation.validator.extractors;
 
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
-import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-import jakarta.validation.valueextraction.UnwrapByDefault;
 import jakarta.validation.valueextraction.ValueExtractor;
+import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * The default value extractors.
@@ -41,12 +43,14 @@ import java.util.Set;
  * @author graemerocher
  * @since 1.2
  */
+@Internal
 @Singleton
 @Introspected
-public class DefaultValueExtractors implements ValueExtractorRegistry {
+public final class DefaultValueExtractors implements ValueExtractorRegistry {
 
-    private final Map<Class<?>, ValueExtractor<?>> valueExtractors;
-    private final Set<Class<?>> unwrapByDefaultTypes = new HashSet<>(5);
+    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> internalValueExtractors = new HashMap<>();
+    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> localValueExtractors = new HashMap<>();
+    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> matchingValueExtractors = new ConcurrentHashMap<>();
 
     /**
      * Default constructor.
@@ -62,64 +66,67 @@ public class DefaultValueExtractors implements ValueExtractorRegistry {
      */
     @Inject
     protected DefaultValueExtractors(@Nullable BeanContext beanContext) {
-        Map<Class<?>, ValueExtractor<?>> extractorMap = new HashMap<>();
-
+        for (Map.Entry<Argument<Object>, ValueExtractor<?>> entry : InternalValueExtractors.getValueExtractors()) {
+            final Argument<Object> definition = entry.getKey();
+            final ValueExtractor<?> valueExtractor = entry.getValue();
+            addValueExtractor(internalValueExtractors, new ValueExtractorDefinition(
+                definition,
+                valueExtractor
+            ));
+        }
         if (beanContext != null && beanContext.containsBean(ValueExtractor.class)) {
             final Collection<BeanRegistration<ValueExtractor>> valueExtractors = beanContext.getBeanRegistrations(ValueExtractor.class);
             if (CollectionUtils.isNotEmpty(valueExtractors)) {
                 for (BeanRegistration<ValueExtractor> reg : valueExtractors) {
-                    final ValueExtractor<?> valueExtractor = reg.getBean();
-                    final Class<?>[] typeParameters = reg.getBeanDefinition().getTypeParameters(ValueExtractor.class);
-                    if (ArrayUtils.isNotEmpty(typeParameters)) {
-                        final Class<?> targetType = typeParameters[0];
-                        extractorMap.put(targetType, valueExtractor);
-                        if (valueExtractor instanceof UnwrapByDefaultValueExtractor || valueExtractor.getClass().isAnnotationPresent(UnwrapByDefault.class)) {
-                            unwrapByDefaultTypes.add(targetType);
-                        }
-                    }
+                    addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
+                        reg.getBeanDefinition().asArgument(),
+                        reg.getBean()
+                    ));
                 }
             }
         }
-        for (Map.Entry<Argument<Object>, ValueExtractor<?>> entry : InternalValueExtractors.getValueExtractors()) {
-            final Argument<Object> definition = entry.getKey();
-            final ValueExtractor<?> valueExtractor = entry.getValue();
-            final Class<?> targetType = definition.getFirstTypeVariable().map(Argument::getType).orElse(null);
-            extractorMap.put(targetType, valueExtractor);
-            if (valueExtractor instanceof UnwrapByDefaultValueExtractor || valueExtractor.getClass().isAnnotationPresent(UnwrapByDefault.class)) {
-                unwrapByDefaultTypes.add(targetType);
+    }
+
+    @Override
+    public <T> void addValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition) {
+        addValueExtractor(localValueExtractors, valueExtractorDefinition);
+    }
+
+    private <T> void addValueExtractor(Map<Class<?>, List<ValueExtractorDefinition<?>>> collection,
+                                       ValueExtractorDefinition<T> valueExtractorDefinition) {
+        List<ValueExtractorDefinition<?>> valueExtractorDefinitions = collection.computeIfAbsent(
+            valueExtractorDefinition.containerType(),
+            ignore -> new ArrayList<>()
+        );
+        if (valueExtractorDefinitions.stream()
+            .anyMatch(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()))) {
+            throw new ValueExtractorDeclarationException("Value extractor with this type and type argument is already defined!");
+        }
+        valueExtractorDefinitions.add(valueExtractorDefinition);
+    }
+
+    @SuppressWarnings("unchecked")
+    @NonNull
+    @Override
+    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType) {
+        List<ValueExtractorDefinition<?>> valueExtractorDefinitions = matchingValueExtractors.get(targetType);
+        if (valueExtractorDefinitions == null) {
+            valueExtractorDefinitions = localValueExtractors.get(targetType);
+            if (valueExtractorDefinitions == null) {
+                valueExtractorDefinitions = internalValueExtractors.get(targetType);
             }
+            if (valueExtractorDefinitions == null) {
+                valueExtractorDefinitions = Stream.concat(
+                        localValueExtractors.entrySet().stream(),
+                        internalValueExtractors.entrySet().stream()
+                    )
+                    .filter(entry -> entry.getKey().isAssignableFrom(targetType))
+                    .map(Map.Entry::getValue)
+                    .findFirst().orElseGet(List::of);
+            }
+            matchingValueExtractors.put(targetType, valueExtractorDefinitions);
         }
-        this.valueExtractors = CollectionUtils.newHashMap(extractorMap.size());
-        this.valueExtractors.putAll(extractorMap);
+        return (List) valueExtractorDefinitions;
     }
 
-    @Override
-    public <T> void addValueExtractor(Class<T> targetType, ValueExtractor<T> valueExtractor) {
-        valueExtractors.put(targetType, valueExtractor);
-    }
-
-    @SuppressWarnings("unchecked")
-    @NonNull
-    @Override
-    public <T> Optional<ValueExtractor<T>> findValueExtractor(@NonNull Class<T> targetType) {
-        final ValueExtractor<T> valueExtractor = (ValueExtractor<T>) valueExtractors.get(targetType);
-        if (valueExtractor != null) {
-            return Optional.of(valueExtractor);
-        } else {
-            return valueExtractors.entrySet().stream()
-                .filter(entry -> entry.getKey().isAssignableFrom(targetType))
-                .map(e -> (ValueExtractor<T>) e.getValue())
-                .findFirst();
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    @NonNull
-    @Override
-    public <T> Optional<ValueExtractor<T>> findUnwrapValueExtractor(@NonNull Class<T> targetType) {
-        if (unwrapByDefaultTypes.contains(targetType)) {
-            return Optional.ofNullable((ValueExtractor<T>) valueExtractors.get(targetType));
-        }
-        return Optional.empty();
-    }
 }

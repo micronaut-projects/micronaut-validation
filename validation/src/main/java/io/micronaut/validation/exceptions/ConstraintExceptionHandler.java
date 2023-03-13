@@ -97,17 +97,16 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
                 continue;
             }
 
-            if (node.getKind() == ElementKind.CONTAINER_ELEMENT) {
-                if (node.isInIterable()) {
-                    message.append('[');
-                    if (node.getKey() != null) {
-                        message.append(node.getKey());
-                    } else if (node.getIndex() != null) {
-                        message.append(node.getIndex());
-                    }
-                    message.append(']');
+            if (node.isInIterable()) {
+                message.append('[');
+                if (node.getKey() != null) {
+                    message.append(node.getKey());
+                } else if (node.getIndex() != null) {
+                    message.append(node.getIndex());
                 }
-            } else {
+                message.append(']');
+            }
+            if (node.getKind() != ElementKind.CONTAINER_ELEMENT) {
                 if (!firstNode) {
                     message.append('.');
                 }

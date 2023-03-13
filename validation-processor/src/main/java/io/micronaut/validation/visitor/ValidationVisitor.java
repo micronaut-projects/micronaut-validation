@@ -20,10 +20,10 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
-import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.ast.ParameterElement;
 import io.micronaut.inject.ast.TypedElement;
@@ -71,7 +71,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         classElement = element;
-        if (classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
+        if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
             classElement.annotate(Introspected.class);
         }
     }
@@ -81,8 +81,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
-        if (requiresValidation(element.getReturnType(), true)
-            || parametersRequireValidation(element, true)) {
+        boolean parametersRequireValidation = parametersRequireValidation(element, true);
+        boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), true);
+        if (returnTypeRequiresValidation || parametersRequireValidation) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
         }
@@ -90,16 +91,17 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null) {
+        if (classElement == null || element.hasStereotype(Vetoed.class)) {
             return;
         }
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
         boolean requireOnConstraint = isAbstract || !isPrivate;
 
-        if (parametersRequireValidation(element, requireOnConstraint) ||
-            requiresValidation(element.getReturnType(), requireOnConstraint) ||
-            returnTypeRequiresValidation(element, true)) {
+        boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
+        boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
+        boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
+        if (parametersRequireValidation || returnTypeRequiresValidation || methodAnnotatedForValidation) {
             if (isPrivate) {
                 throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
             } else {
@@ -114,7 +116,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
-        if (requiresValidation(element, true)) {
+        if (visitElementValidationAndMarkForValidationIfNeeded(element, true)) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
         }
@@ -123,14 +125,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
         boolean requiredValidation = false;
         for (ParameterElement parameter : element.getParameters()) {
-            if (requiresValidation(parameter, requireOnConstraint)) {
-                requiredValidation = true;
-                try {
-                    parameter.annotate(ANN_CASCADE);
-                } catch (IllegalStateException e) {
-                    // workaround Groovy bug
-                }
-            }
+            // Make sure `visitElementValidationAndMarkForValidationIfNeeded` is invoked for all parameters to mark it of cascading
+            boolean requiresValidationForParameter = visitElementValidationAndMarkForValidationIfNeeded(parameter, requireOnConstraint);
+            requiredValidation |= requiresValidationForParameter;
         }
         return requiredValidation;
     }
@@ -139,30 +136,31 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         return e.hasStereotype(ANN_VALID) || (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT));
     }
 
-    private boolean requiresValidation(TypedElement e, boolean requireOnConstraint) {
+    private boolean visitElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
+        boolean requiresTypeValidation = visitTypedElementValidationAndMarkForValidationIfNeeded(e, requireOnConstraint);
+
         AnnotationMetadata annotationMetadata = e instanceof ClassElement ce ? ce.getTypeAnnotationMetadata() : e.getAnnotationMetadata();
-        if (annotationMetadata.hasStereotype(ANN_VALID)) {
-            // Annotate the element with same annotation that we annotate classes with.
-            // This will ensure the correct behavior of io.micronaut.inject.ast.utils.AstBeanPropertiesUtils
-            // in certain cases, as it relies on the fact that usages of types inherit
-            // annotations from the type itself
+        boolean requiresValidation = (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
+            || annotationMetadata.hasStereotype(ANN_VALID)
+            || requiresTypeValidation;
+        if (requiresValidation) {
             try {
+                e.annotate(ANN_CASCADE);
                 e.annotate(RequiresValidation.class);
             } catch (IllegalStateException ex) {
                 // workaround Groovy bug
             }
         }
-        return (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
-            || annotationMetadata.hasStereotype(ANN_VALID)
-            || typeArgumentsRequireValidation(e, requireOnConstraint);
+        return requiresValidation;
     }
 
-    private boolean typeArgumentsRequireValidation(TypedElement e, boolean requireOnConstraint) {
-        if (e instanceof GenericPlaceholderElement) {
-            // To avoid infinite loops in case of circular generic dependency
-            // For example, in case of A<? extends B>, B<? extends A>
-            return false;
+    private boolean visitTypedElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
+        boolean requires = false;
+        for (ClassElement typeArgument : e.getGenericType().getTypeArguments().values()) {
+            // Make sure `visitElementValidationAndMarkForValidationIfNeeded` is invoked on all type arguments to mark it of cascading
+            boolean requiresForType = visitElementValidationAndMarkForValidationIfNeeded(typeArgument, requireOnConstraint);
+            requires |= requiresForType;
         }
-        return e.getGenericType().getTypeArguments().values().stream().anyMatch(classElement -> requiresValidation(classElement, requireOnConstraint));
+        return requires;
     }
 }

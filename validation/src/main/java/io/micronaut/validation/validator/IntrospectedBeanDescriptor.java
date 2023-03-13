@@ -20,10 +20,19 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArgumentUtils;
-
 import jakarta.validation.Constraint;
 import jakarta.validation.Valid;
-import jakarta.validation.metadata.*;
+import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.ConstructorDescriptor;
+import jakarta.validation.metadata.ContainerElementTypeDescriptor;
+import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.GroupConversionDescriptor;
+import jakarta.validation.metadata.MethodDescriptor;
+import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.PropertyDescriptor;
+import jakarta.validation.metadata.Scope;
+
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.Collections;
@@ -59,16 +68,16 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     @Override
     public PropertyDescriptor getConstraintsForProperty(String propertyName) {
         return beanIntrospection.getProperty(propertyName)
-                .map(IntrospectedPropertyDescriptor::new)
-                .orElse(null);
+            .map(IntrospectedPropertyDescriptor::new)
+            .orElse(null);
     }
 
     @Override
     public Set<PropertyDescriptor> getConstrainedProperties() {
         return beanIntrospection.getIndexedProperties(Constraint.class)
-                .stream()
-                .map(IntrospectedPropertyDescriptor::new)
-                .collect(Collectors.toSet());
+            .stream()
+            .map(IntrospectedPropertyDescriptor::new)
+            .collect(Collectors.toSet());
     }
 
     @Override
@@ -186,15 +195,15 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return beanProperty.getAnnotationTypesByStereotype(Constraint.class)
-                    .stream().map(type -> {
-                        AnnotationValue<? extends Annotation> annotation = beanProperty.getAnnotation(type);
-                        DefaultConstraintDescriptor<?> descriptor = new DefaultConstraintDescriptor(
-                                beanProperty.getAnnotationMetadata(),
-                                type,
-                                annotation
-                        );
-                        return descriptor;
-                    }).collect(Collectors.toSet());
+                .stream().flatMap(type -> beanProperty.getAnnotationValuesByType(type).stream().map(annotationValue -> {
+                    AnnotationValue<? extends Annotation> annotation = beanProperty.getAnnotation(type);
+                    DefaultConstraintDescriptor<?> descriptor = new DefaultConstraintDescriptor(
+                        type,
+                        annotation,
+                        beanProperty
+                    );
+                    return descriptor;
+                })).collect(Collectors.toSet());
         }
 
         @Override

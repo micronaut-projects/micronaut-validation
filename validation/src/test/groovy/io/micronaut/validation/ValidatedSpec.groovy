@@ -160,7 +160,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "validateReturnList.<return value>[0]<list element>.prop: must not be null"
+        e.message == "validateReturnList.<return value>[0].prop: must not be null"
 
         cleanup:
         beanContext.close()
@@ -176,7 +176,7 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "validateMap.<return value>[barObj]<map value>.prop: must not be null"
+        e.message == "validateMap.<return value>[barObj].prop: must not be null"
 
         cleanup:
         beanContext.close()

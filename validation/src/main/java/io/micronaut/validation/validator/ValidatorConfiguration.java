@@ -16,14 +16,13 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.context.MessageSource;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
-
 import jakarta.validation.ClockProvider;
+import jakarta.validation.MessageInterpolator;
 import jakarta.validation.TraversableResolver;
 
 /**
@@ -63,16 +62,34 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     ClockProvider getClockProvider();
 
     /**
+     * @return The default clock provider
+     */
+    @NonNull
+    ClockProvider getDefaultClockProvider();
+
+    /**
      * @return The traversable resolver to use
      */
     @NonNull
     TraversableResolver getTraversableResolver();
 
     /**
-     * @return The message source
+     * @return The default traversable resolver to use
      */
     @NonNull
-    MessageSource getMessageSource();
+    TraversableResolver getDefaultTraversableResolver();
+
+    /**
+     * @return The message interpolator
+     */
+    @NonNull
+    MessageInterpolator getMessageInterpolator();
+
+    /**
+     * @return The default message interpolator
+     */
+    @NonNull
+    MessageInterpolator getDefaultMessageInterpolator();
 
     /**
      * The execution handler locator to use.

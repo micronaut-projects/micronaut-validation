@@ -3,39 +3,368 @@
 <suite name="Jakarta-Bean-Validation-TCK" verbose="1">
     <test name="Jakarta-Bean-Validation-TCK">
 
-<!--        <method-selectors>-->
-<!--            <method-selector>-->
-<!--                <selector-class name="org.hibernate.beanvalidation.tck.util.IntegrationTestsMethodSelector"/>-->
-<!--            </method-selector>-->
-<!--            <method-selector>-->
-<!--                <selector-class name="org.hibernate.beanvalidation.tck.util.JavaFXTestsMethodSelector"/>-->
-<!--            </method-selector>-->
-<!--        </method-selectors>-->
+        <!--        <method-selectors>-->
+        <!--            <method-selector>-->
+        <!--                <selector-class name="org.hibernate.beanvalidation.tck.util.IntegrationTestsMethodSelector"/>-->
+        <!--            </method-selector>-->
+        <!--            <method-selector>-->
+        <!--                <selector-class name="org.hibernate.beanvalidation.tck.util.JavaFXTestsMethodSelector"/>-->
+        <!--            </method-selector>-->
+        <!--        </method-selectors>-->
 
         <packages>
-                <package name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.*"/>
-                <package name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.*"/>
 
-<!--            <package name="org.hibernate.beanvalidation.tck.tests.*"/>-->
+            <package name="org.hibernate.beanvalidation.tck.tests.*">
+                <!-- NOT SUPPORTED -->
+                <exclude name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.*"/>
+                <exclude name="org.hibernate.beanvalidation.tck.tests.integration.*"/>
+                <exclude name="org.hibernate.beanvalidation.tck.tests.bootstrap.*"/>
+                <exclude name="org.hibernate.beanvalidation.tck.tests.metadata.*"/>
+            </package>
 
-
-<!--            <package name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.*"/>-->
-<!--            <package name="org.hibernate.beanvalidation.tck.tests.constraints.groups.*"/>-->
-<!--            <package name="org.hibernate.beanvalidation.tck.tests.validation.*"/>-->
-<!--            <package name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.*"/>-->
         </packages>
 
         <classes>
-<!--            XML definition is not supported-->
+            <!-- Extracted to a custom suite -->
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
+                <methods>
+                    <exclude name="testFullGraphValidationBeforeNextGroupInSequence"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validatorfactory.DefaultConstraintValidatorFactoryTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- Not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest">
+                <methods>
+                    <exclude name="testElExpressionsAreInterpolated"/>
+                    <exclude name="testExceptionDuringMessageInterpolationIsWrappedIntoValidationException"/>
+                    <exclude name="testMessageInterpolationWithLocale"/>
+                    <exclude name="testRecursiveMessageInterpolation"/>
+                    <exclude name="testSuccessfulInterpolationOfValidationMessagesValue"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
+                <methods>
+                    <!-- Not supported ParameterNameProvider -->
+                    <exclude name="testPropertyPathForMethodParameterConstraintWithCustomParameterNameProvider.*"/>
+                    <!-- Constructor -->
+                    <exclude name="testPropertyPathTraversingConstructor.*"/>
+                    <exclude name="testPassingWrongTypeToAsOnConstructorNodeCausesClassCastException"/>
+                    <exclude name="testPassingWrongTypeToAsOnParameterNodeCausesClassCastException"/>
+                    <exclude name="testPropertyPathForConstructor.*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
+                <methods>
+                    <!-- Combined constraint not implemented -->
+                    <exclude name="testMultipleConstraintViolationOfDifferentTypes"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
+                <methods>
+                    <!-- Combined constraint not implemented -->
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
+                <methods>
+                    <!-- Micronaut Validation accessed the values using a getter -->
+                    <exclude name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.nestedconstraintcomposition.NestedConstraintCompositionTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest">
+
+                <methods>
+                    <exclude name="testClassLevelConstraints"/>
+                    <exclude name="testConstraintAppliedOnFieldAndProperty"/>
+                    <exclude name="testFieldAccess"/>
+                </methods>
+            </class>
+
+
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
+                <methods>
+                    <exclude name="testCorrectDefaultSequenceInheritance3"/>
+                </methods>
+            </class>
+
+            <!-- TODO -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
+                <methods>
+                    <exclude name="testCorrectDefaultSequenceInheritance3"/>
+                </methods>
+            </class>
+
+            <!-- Invalid check is not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.invalidconstraintdefinitions.InvalidConstraintDefinitionsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Invalid check is not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequence.SequenceResolutionTest">
+                <methods>
+                    <exclude name="testInvalidDefinitionOfDefaultSequenceInEntity"/>
+                </methods>
+            </class>
+
+            <!-- Using superclass as the default group is not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest">
+                <methods>
+                    <exclude name="testImplicitGrouping"/>
+                </methods>
+            </class>
+
+            <!-- Invalid declaration check of cross parameters are not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Invalid declaration check of method constraints are not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Invalid declaration check of groups are not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.containerelement.InvalidGroupDefinitionsOnContainerElementsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Correct grouping of field and method annotations -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
+                <methods>
+                    <exclude name="valuePassedToExtractorRetrievedFromHost"/>
+                </methods>
+            </class>
+
+            <!-- Constructors do not generate executable methods -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
+                <methods>
+                    <exclude name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest">
+                <methods>
+                    <exclude name="cascading_on_container_element_of_constructor_parameter_is_applied"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.validdeclarations.ValidMethodConstraintDeclarationTest">
+                <methods>
+                    <exclude name="testParameterConstraintAddedToConstructorInSubClass"/>
+                    <exclude name="testParameterConstraintMarkedAsCascadedAtConstructorInSubClass"/>
+                    <exclude name="testReturnValueConstraintAddedToConstructorInSubClass"/>
+                    <exclude name="testReturnValueMarkedAsCascadedAtConstructorInSuperAndSubClass"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest">
+                <methods>
+                    <exclude name="testCascadedConstructorParameterIsValidatedRecursively"/>
+                    <exclude name="testCascadedConstructorReturnValueIsValidatedRecursively"/>
+                    <exclude name="testConstructorParameterAndCrossParameterConstraintsAreEvaluatedAtTheSameTime"/>
+                    <exclude name="testConstructorParameterConstraintsAreDeclaredByAnnotatingParameters"/>
+                    <exclude name="testConstructorParameterIsMarkedAsCascaded"/>
+                    <exclude name="testConstructorReturnValueIsMarkedAsCascaded"/>
+                    <exclude name="testCrossParameterConstraintsAreDeclaredByAnnotatingConstructors"/>
+                    <exclude name="testPassingNullToCascadedConstructorParameterCausesNoViolation"/>
+                    <exclude name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorReturnValueTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorParametersTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest">
+                <methods>
+                    <exclude name="testValidateConstructor.*"/>
+                </methods>
+            </class>
+            <!-- Parameter name provider is not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.DefaultParameterNameProviderTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest">
+                <methods>
+                    <exclude name="testExceptionInParameterNameProviderIsWrappedIntoValidationException"/>
+                    <exclude name="testGetParameterNameProviderFromValidatorFactory"/>
+                    <exclude name="testParameterNameProviderSetUsingContext"/>
+                </methods>
+            </class>
+
+            <!-- XML definition is not supported-->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
                 <methods>
                     <exclude name=".*"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
-<!--                Fix processing classes with type annotations-->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDeclaredInValidationXmlTest">
                 <methods>
-                    <exclude name="constraint_specified_on_key_type_parameter_of_map_gets_validated"/>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorWithNoPublicNoArgConstructorInValidationXmlTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorsPrecedenceTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsInValidationXmlForSameTypeAndTypeArgumentTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Loading from the service loader is not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorFromServiceLoaderTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Not repeatable annotations containers aren't supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintdefinition.ConstraintDefinitionsTest">
+                <methods>
+                    <exclude name="testConstraintWithCustomAttributes"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest">
+                <methods>
+                    <exclude name="testCrossParameterConstraintGivenSeveralTimes"/>
+                </methods>
+            </class>
+
+            <!-- Custom constraint type validation not implemented -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.customconstraint.CustomConstraintValidatorTest">
+                <methods>
+                    <exclude name="testUnexpectedTypeExceptionIsRaisedForInvalidType"/>
+                </methods>
+            </class>
+
+            <!-- JavaFX not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- Incorrect value extractors are not supported -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest">
+                <methods>
+                    <exclude name="validate_forced_unwrapping_having_two_reverted_type_parameters_correctly_identifies_type_parameter"/>
+                </methods>
+            </class>
+
+            <!-- Address bean cannot be found - some issue with testing -->
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest">
+                <methods>
+                    <exclude name="testUnexpectedType"/>
                 </methods>
             </class>
         </classes>

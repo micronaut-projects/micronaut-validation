@@ -25,7 +25,7 @@ class MapValidatorSpec extends Specification {
 
         then:
         constraintViolations.size() == 1
-        constraintViolations.first().propertyPath.toString() == 'books[It]<map value>.title'
+        constraintViolations.first().propertyPath.toString() == 'books[It].title'
     }
 }
 

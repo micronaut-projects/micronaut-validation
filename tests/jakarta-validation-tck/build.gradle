@@ -25,6 +25,27 @@ dependencies {
     testImplementation 'javax.annotation:javax.annotation-api:1.3.2'
 }
 
+def methodsTest1 = tasks.register('methodsTest1', Test) {
+    scanForTestClasses false
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
+        ]
+        suites file("tck-methods2.xml")
+    }
+}
+
+def methodsTest2 = tasks.register('methodsTest2', Test) {
+    scanForTestClasses false
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
+        ]
+        suites file("tck-methods.xml")
+    }
+//    dependsOn(methodsTest1)
+}
+
 test {
     scanForTestClasses false
     useTestNG {
@@ -33,6 +54,7 @@ test {
         ]
         suites file("tck-tests.xml")
     }
+    dependsOn(methodsTest2)
 }
 
 tasks.register('singleTest', Test) {
@@ -41,13 +63,11 @@ tasks.register('singleTest', Test) {
         suiteXmlBuilder().suite(name: 'Sample Suite') {
             test(name : 'Sample Test') {
                 classes('') {
-//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest') {
+//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest') {
 //                        methods() {
-//                            include(name: 'methodParameterValidationIncludesConstraintsFromImplementedInterface')
+//                            include(name: 'testFullGraphValidationBeforeNextGroupInSequence')
 //                        }
 //                    }
-                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest') {
-                    }
                 }
             }
         }

@@ -1,0 +1,19 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK Methods" verbose="1">
+    <test name="Jakarta-Bean-Validation-TCK Methods">
+
+        <classes>
+
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
+                <methods>
+                    <include name="methodParameterValidationIsAppliedGroupWise"/>
+                    <include name="methodReturnValueValidationIsAppliedGroupWise"/>
+                    <include name="methodReturnValueValidationTargetsReturnValueAndCascadedConstraints"/>
+                </methods>
+            </class>
+
+        </classes>
+
+    </test>
+</suite>

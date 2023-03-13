@@ -29,8 +29,8 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == '<return value>[]<publisher element>.title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[]<publisher element>.title'
+        e.message == '<return value>[].title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[].title'
     }
 
     void "test reactive return type no validation"() {
@@ -106,7 +106,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxValid.book[]<publisher element>.title: must not be blank"
+        e.message == "rxValid.book[].title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValid.book')
     }
 
@@ -120,7 +120,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxValidWithTypeParameter.books[]<publisher element>[1]<list element>.title: must not be blank"
+        e.message == "rxValidWithTypeParameter.books[][1].title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 
@@ -161,7 +161,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureValid.book[]<completion stage element>.title: must not be blank"
+        e.cause.message == "futureValid.book[].title: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureValid.book')
     }
 }

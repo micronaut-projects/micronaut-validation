@@ -12,6 +12,7 @@ import io.micronaut.core.beans.BeanProperty
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.jackson.modules.BeanIntrospectionModule
+import io.micronaut.validation.annotation.ValidatedElement
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 import jakarta.inject.Singleton
@@ -660,13 +661,10 @@ public class Test {
         param2.getTypeParameters().length == 1
         def param3 = param2.getTypeParameters()[0]
 
-        property.getAnnotationMetadata().getAnnotationNames().size() == 0
-        param1.getAnnotationMetadata().getAnnotationNames().size() == 1
-        param1.getAnnotationMetadata().getAnnotationNames().asList() == ['jakarta.validation.constraints.Size$List']
-        param2.getAnnotationMetadata().getAnnotationNames().size() == 1
-        param2.getAnnotationMetadata().getAnnotationNames().asList() == ['jakarta.validation.constraints.NotEmpty$List']
-        param3.getAnnotationMetadata().getAnnotationNames().size() == 1
-        param3.getAnnotationMetadata().getAnnotationNames().asList() == ['jakarta.validation.constraints.NotNull$List']
+        property.getAnnotationMetadata().getAnnotationNames().toList() == [ValidatedElement.class.name]
+        param1.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.Size$List']
+        param2.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.NotEmpty$List']
+        param3.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.NotNull$List']
     }
 
     void "test build introspection"() {

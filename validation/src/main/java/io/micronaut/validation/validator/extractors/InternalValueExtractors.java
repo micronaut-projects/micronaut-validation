@@ -15,9 +15,11 @@
  */
 package io.micronaut.validation.validator.extractors;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanWrapper;
 import io.micronaut.core.type.Argument;
+import jakarta.validation.valueextraction.ExtractedValue;
 import jakarta.validation.valueextraction.ValueExtractor;
 
 import java.util.List;
@@ -32,6 +34,7 @@ import java.util.OptionalLong;
  *
  * @author Denis Stepanov
  */
+@Internal
 @Introspected(accessKind = Introspected.AccessKind.FIELD)
 final class InternalValueExtractors {
 
@@ -44,20 +47,24 @@ final class InternalValueExtractors {
      */
     private static final String LIST_ELEMENT_NODE_NAME = "<list element>";
     /**
+     * Node name for an key element of a map.
+     */
+    private static final String MAP_KEY_NODE_NAME = "<map key>";
+    /**
      * Node name for an value element of a map.
      */
     private static final String MAP_VALUE_NODE_NAME = "<map value>";
 
-    final UnwrapByDefaultValueExtractor<Optional<?>> optionalValueExtractor =
+    final ValueExtractor<Optional<@ExtractedValue ?>> optionalValueExtractor =
         (originalValue, receiver) -> receiver.value(null, originalValue.orElse(null));
-    final UnwrapByDefaultValueExtractor<OptionalInt> optionalIntValueExtractor =
+    final UnwrapByDefaultValueExtractor<@ExtractedValue(type = Integer.class) OptionalInt> optionalIntValueExtractor =
         (originalValue, receiver) -> receiver.value(null, originalValue.isPresent() ? originalValue.getAsInt() : null);
-    final UnwrapByDefaultValueExtractor<OptionalLong> optionalLongValueExtractor =
+    final UnwrapByDefaultValueExtractor<@ExtractedValue(type = Long.class)  OptionalLong> optionalLongValueExtractor =
         (originalValue, receiver) -> receiver.value(null, originalValue.isPresent() ? originalValue.getAsLong() : null);
-    final UnwrapByDefaultValueExtractor<OptionalDouble> optionalDoubleValueExtractor =
+    final UnwrapByDefaultValueExtractor<@ExtractedValue(type = Double.class)  OptionalDouble> optionalDoubleValueExtractor =
         (originalValue, receiver) -> receiver.value(null, originalValue.isPresent() ? originalValue.getAsDouble() : null);
 
-    final ValueExtractor<Iterable<?>> iterableValueExtractor = (originalValue, receiver) -> {
+    final ValueExtractor<Iterable<@ExtractedValue ?>> iterableValueExtractor = (originalValue, receiver) -> {
         if (originalValue instanceof List) {
             int i = 0;
             for (Object o : originalValue) {
@@ -69,7 +76,13 @@ final class InternalValueExtractors {
             }
         }
     };
-    final ValueExtractor<Map<?, ?>> mapValueExtractor = (originalValue, receiver) -> {
+    final ValueExtractor<Map<@ExtractedValue ?, ?>> mapKeyExtractor = (originalValue, receiver) -> {
+        for (Map.Entry<?, ?> entry : originalValue.entrySet()) {
+            receiver.keyedValue(MAP_KEY_NODE_NAME, entry.getKey(), entry.getKey());
+        }
+    };
+
+    final ValueExtractor<Map<?, @ExtractedValue ?>> mapValueExtractor = (originalValue, receiver) -> {
         for (Map.Entry<?, ?> entry : originalValue.entrySet()) {
             receiver.keyedValue(MAP_VALUE_NODE_NAME, entry.getKey(), entry.getValue());
         }

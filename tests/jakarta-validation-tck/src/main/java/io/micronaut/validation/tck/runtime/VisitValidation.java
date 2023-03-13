@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 original authors
+ * Copyright 2017-2023 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.validator.pojo;
+package io.micronaut.validation.tck.runtime;
 
-import jakarta.validation.Constraint;
+import io.micronaut.core.annotation.Internal;
+
+import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-@Constraint(validatedBy = {})
-@interface NameAndLastNameValidator {
-    String message() default "Both name and lastName can't be null";
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
+
+/**
+ * Visits classes for validation visitor.
+ */
+@Documented
+@Retention(RUNTIME)
+@Target({ElementType.TYPE, ElementType.ANNOTATION_TYPE})
+@Inherited
+@Internal
+public @interface VisitValidation {
+
+    /**
+     * @return The classes to process
+     */
+    String[] classNames() default {};
+
+
 }
