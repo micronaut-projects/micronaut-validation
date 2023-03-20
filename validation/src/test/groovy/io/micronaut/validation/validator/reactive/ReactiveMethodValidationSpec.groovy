@@ -138,6 +138,19 @@ class ReactiveMethodValidationSpec extends Specification {
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
     }
 
+    void "test future validation of return"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        bookService.futureLong(CompletableFuture.completedFuture("abc")).get()
+
+        then:
+        ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
+        e.cause.message == "<completion stage element>: must be greater than or equal to 10"
+    }
+
     void "test future validation with invalid argument"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)
