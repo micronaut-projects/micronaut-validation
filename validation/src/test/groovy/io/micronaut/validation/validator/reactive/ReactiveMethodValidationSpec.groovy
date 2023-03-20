@@ -72,6 +72,18 @@ class ReactiveMethodValidationSpec extends Specification {
         path.next().isInIterable()
     }
 
+    void "test reactive validation return long"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        Mono.from(bookService.rxLong(Mono.just("xxx"))).block()
+
+        then:
+        def e = thrown(ConstraintViolationException)
+        e.message == "<return value>[]<publisher element>: must be greater than or equal to 10"
+    }
+
     void "test reactive validation with valid argument"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)

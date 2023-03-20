@@ -568,7 +568,11 @@ public class DefaultValidator implements
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addReturnValueNode()) {
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addContainerElementNode("<publisher element>",
                 ValidationPath.ContainerContext.ofIterableContainer(publisherArgument.getType()))) {
-                visitElement(context, publisher, valueArgument, value, canCascade);
+                for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
+                    try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
+                        visitElement(context, publisher, valueArgument, value, canCascade);
+                    }
+                }
             }
         }
         return context.getOverallViolations();
@@ -577,17 +581,18 @@ public class DefaultValidator implements
     @NonNull
     @Override
     public <T> CompletionStage<T> validateCompletionStage(@NonNull CompletionStage<T> completionStage,
+                                                          @NonNull Argument<T> argument,
                                                           @NonNull Class<?>... groups) {
         requireNonNull("completionStage", completionStage);
         requireNonNull("groups", groups);
 
-        return completionStage.thenApply(t -> {
-            final Set<ConstraintViolation<Object>> constraintViolations = validate(t, groups);
-            if (!constraintViolations.isEmpty()) {
-                throw new ConstraintViolationException(constraintViolations);
+        DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, groups);
+        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
+            try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
+                return instrumentCompletionStage(context, completionStage, argument, true);
             }
-            return t;
-        });
+        }
+        return completionStage;
     }
 
     @Override
@@ -809,33 +814,30 @@ public class DefaultValidator implements
                                                                         @NonNull Argument<E> completionStageArgument,
                                                                         E parameterValue,
                                                                         boolean canCascade) {
-        final CompletionStage<?> completionStage = (CompletionStage<?>) parameterValue;
+        final CompletionStage<Object> completionStage = (CompletionStage<Object>) parameterValue;
 
-        final CompletionStage<?> validatedStage = completionStage.thenApply(value -> {
-            DefaultConstraintValidatorContext<T> newContext = context.copy();
+        Argument<Object> valueArgument = (Argument<Object>) completionStageArgument.getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT);
 
-            // noinspection unchecked
-            Argument<Object>[] typeParameters = completionStageArgument.getTypeParameters();
+        argumentValues[argumentIndex] = instrumentCompletionStage(context.copy(), completionStage, valueArgument, canCascade);
+    }
 
-            if (typeParameters.length == 0) {
-                // No validation if no parameters
-                return value;
+    private <T, E> CompletionStage<E> instrumentCompletionStage(DefaultConstraintValidatorContext<T> context,
+                                                                CompletionStage<E> completionStage,
+                                                                Argument<E> argument,
+                                                                boolean canCascade) {
+        return completionStage.thenApply(value -> {
+
+            try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
+                    .addContainerElementNode("<completion stage element>", ValidationPath.ContainerContext.ofContainer(CompletionStage.class))) {
+                visitElement(context, context.getRootBean(), argument, value, canCascade);
             }
-            Argument<Object> valueArgument = typeParameters[0];
 
-            try (ValidationPath.ContextualPath ignored1 = newContext.getCurrentPath()
-                .addContainerElementNode("<completion stage element>", ValidationPath.ContainerContext.ofIterableContainer(parameterValue.getClass()))) {
-                visitElement(newContext, newContext.getRootBean(), valueArgument, value, canCascade);
-            }
-
-            if (!newContext.getOverallViolations().isEmpty()) {
-                throw new ConstraintViolationException(newContext.getOverallViolations());
+            if (!context.getOverallViolations().isEmpty()) {
+                throw new ConstraintViolationException(context.getOverallViolations());
             }
 
             return value;
         });
-
-        argumentValues[argumentIndex] = validatedStage;
     }
 
     private <T> void validateParametersInternal(@NonNull DefaultConstraintValidatorContext<T> context,
@@ -994,16 +996,16 @@ public class DefaultValidator implements
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
                                      Object bean,
-                                     Argument<E> annotatedElementType,
+                                     Argument<E> elementArgument,
                                      E elementValue,
                                      boolean canCascade) {
         visitElement(context,
             bean,
-            annotatedElementType,
+            elementArgument,
             elementValue,
             canCascade,
-            canCascade && annotatedElementType.getAnnotationMetadata().hasStereotype(Valid.class),
-            annotatedElementType.getAnnotationMetadata().hasStereotype(Constraint.class)
+            canCascade && elementArgument.getAnnotationMetadata().hasStereotype(Valid.class),
+            elementArgument.getAnnotationMetadata().hasStereotype(Constraint.class)
         );
     }
 

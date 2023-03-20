@@ -473,6 +473,10 @@ final class ValidationPath implements Path {
             return new ContainerContext(containerClass, null, null, true, 0);
         }
 
+        public static ContainerContext ofContainer(Class<?> containerClass) {
+            return new ContainerContext(containerClass, null, null, false, 0);
+        }
+
         public static ContainerContext indexed(Class<?> containerClass, int index, Integer typeArgumentIndex) {
             return new ValidationPath.ContainerContext(containerClass, index, null, true, typeArgumentIndex);
         }
