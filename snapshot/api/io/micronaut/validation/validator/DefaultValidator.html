@@ -196,7 +196,8 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
  T&nbsp;value)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateCompletionStage(java.util.concurrent.CompletionStage,java.lang.Class...)" class="member-name-link">validateCompletionStage</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)" class="member-name-link">validateCompletionStage</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
+ io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Validate the given CompletionStage by returning a new CompletionStage that validates the emitted value.</div>
@@ -731,22 +732,25 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
 </section>
 </li>
 <li>
-<section class="detail" id="validateCompletionStage(java.util.concurrent.CompletionStage,java.lang.Class...)">
+<section class="detail" id="validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)">
 <h3>validateCompletionStage</h3>
 <div class="member-signature"><span class="annotations">@NonNull
 </span><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</span>&nbsp;<span class="element-name">validateCompletionStage</span><wbr><span class="parameters">(@NonNull
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
+ @NonNull
+ io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</span></div>
-<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ReactiveValidator.html#validateCompletionStage(java.util.concurrent.CompletionStage,java.lang.Class...)">ReactiveValidator</a></code></span></div>
+<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ReactiveValidator.html#validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)">ReactiveValidator</a></code></span></div>
 <div class="block">Validate the given CompletionStage by returning a new CompletionStage that validates the emitted value. If a
  constraint violation error occurs a <code>ConstraintViolationException</code> will be thrown.</div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code><a href="ReactiveValidator.html#validateCompletionStage(java.util.concurrent.CompletionStage,java.lang.Class...)">validateCompletionStage</a></code>&nbsp;in interface&nbsp;<code><a href="ReactiveValidator.html" title="interface in io.micronaut.validation.validator">ReactiveValidator</a></code></dd>
+<dd><code><a href="ReactiveValidator.html#validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)">validateCompletionStage</a></code>&nbsp;in interface&nbsp;<code><a href="ReactiveValidator.html" title="interface in io.micronaut.validation.validator">ReactiveValidator</a></code></dd>
 <dt>Type Parameters:</dt>
 <dd><code>T</code> - The generic type</dd>
 <dt>Parameters:</dt>
 <dd><code>completionStage</code> - The completion stage</dd>
+<dd><code>argument</code> - The completion stage element argument</dd>
 <dd><code>groups</code> - The groups</dd>
 <dt>Returns:</dt>
 <dd>The publisher</dd>
