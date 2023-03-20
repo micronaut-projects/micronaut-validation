@@ -1020,19 +1020,23 @@ public class DefaultValidator implements
 
             @Override
             public void keyedValue(String nodeName, Object key, Object keyedValue) {
-                Argument<Object> argumentKey = (Argument<Object>) arguments[0];
+                Argument<Object> argumentKey = asArgument(iterableArgument);
                 validateIterableValue(context, leftBean, "<map key>", iterableArgument, argumentKey, key, null, key, 0, true, keyHasValid, keyHasConstraint);
 
-                Argument<Object> argumentValue = (Argument<Object>) arguments[1];
+                Argument<Object> argumentValue = asArgument(iterableArgument, 1);
                 validateIterableValue(context, leftBean, "<map value>", iterableArgument, argumentValue, keyedValue, null, key, 1, true, valueHasValid, valueHasConstraint);
             }
 
             private Argument<Object> asArgument(Object value) {
+                return asArgument(value, 0);
+            }
+
+            private Argument<Object> asArgument(Object value, int index) {
                 Argument<Object> argument;
                 if (arguments.length == 0) {
                     argument = Argument.of(value == null ? Object.class : (Class<Object>) value.getClass(), iterableArgument.getAnnotationMetadata());
                 } else {
-                    argument = (Argument<Object>) arguments[0];
+                    argument = (Argument<Object>) arguments[index];
                 }
                 return argument;
             }
