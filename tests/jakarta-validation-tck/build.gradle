@@ -43,7 +43,7 @@ def methodsTest2 = tasks.register('methodsTest2', Test) {
         ]
         suites file("tck-methods.xml")
     }
-//    dependsOn(methodsTest1)
+    dependsOn(methodsTest1)
 }
 
 test {
@@ -54,6 +54,7 @@ test {
         ]
         suites file("tck-tests.xml")
     }
+    // Methods tests are extracted to prevent flaky tests caused by class loading issues
     dependsOn(methodsTest2)
 }
 

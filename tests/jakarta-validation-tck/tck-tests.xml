@@ -31,11 +31,6 @@
                     <exclude name=".*"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
-                <methods>
-                    <exclude name="testFullGraphValidationBeforeNextGroupInSequence"/>
-                </methods>
-            </class>
             <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
                 <methods>
