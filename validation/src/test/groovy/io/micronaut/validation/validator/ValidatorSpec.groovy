@@ -7,6 +7,7 @@ import io.micronaut.context.annotation.Value
 import io.micronaut.context.exceptions.BeanInstantiationException
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.core.reflect.ClassUtils
+import io.micronaut.validation.Validated
 import io.micronaut.validation.validator.resolver.CompositeTraversableResolver
 import jakarta.inject.Singleton
 import jakarta.validation.Path
@@ -18,6 +19,7 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
+import org.apache.groovy.util.Maps
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -852,6 +854,33 @@ class ValidatorSpec extends Specification {
         ClassUtils.forName('io.micronaut.validation.validator.$C$Definition', getClass().getClassLoader()).isPresent()
         ClassUtils.forName('io.micronaut.validation.validator.$C$Definition$Intercepted', getClass().getClassLoader()).isPresent()
     }
+
+    void "test validating implemented map"() {
+        when:
+        def service = applicationContext.getBean(MyService)
+        service.myBeans()
+        then:
+        noExceptionThrown()
+    }
+}
+
+class Bean extends AbstractMap<String, Integer> {
+
+    @Override
+    Set<Entry<String, Integer>> entrySet() {
+        return Maps.of("A", 1, "B", 2, "C", 3).entrySet()
+    }
+
+}
+
+@Validated
+@Singleton
+class MyService {
+
+    List<Bean> myBeans() {
+        return [new Bean(), new Bean()] as List
+    }
+
 }
 
 @Singleton
