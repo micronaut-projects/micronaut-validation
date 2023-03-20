@@ -21,17 +21,20 @@ import io.micronaut.aop.MethodInterceptor;
 import io.micronaut.aop.MethodInvocationContext;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.convert.ConversionService;
+import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.Validator;
 import jakarta.inject.Singleton;
-import java.lang.reflect.Method;
-import java.util.Set;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableValidator;
+
+import java.lang.reflect.Method;
+import java.util.Set;
+import java.util.concurrent.CompletionStage;
 
 /**
  * A {@link MethodInterceptor} that validates method invocations.
@@ -128,7 +131,8 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                         );
                         case COMPLETION_STAGE -> interceptedMethod.handleResult(
                             ((ReactiveValidator) micronautValidator).validateCompletionStage(
-                                interceptedMethod.interceptResultAsCompletionStage(),
+                                (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),
+                                (Argument<Object>) context.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT),
                                 getValidationGroups(context))
                         );
                         case SYNCHRONOUS ->

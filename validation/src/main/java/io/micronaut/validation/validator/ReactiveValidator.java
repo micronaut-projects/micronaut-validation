@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import org.reactivestreams.Publisher;
 
@@ -47,9 +48,10 @@ public interface ReactiveValidator {
      * constraint violation error occurs a {@link jakarta.validation.ConstraintViolationException} will be thrown.
      *
      * @param completionStage The completion stage
+     * @param argument        The completion stage element argument
      * @param groups The groups
      * @param <T> The generic type
      * @return The publisher
      */
-    @NonNull <T> CompletionStage<T> validateCompletionStage(@NonNull CompletionStage<T> completionStage, Class<?>... groups);
+    @NonNull <T> CompletionStage<T> validateCompletionStage(@NonNull CompletionStage<T> completionStage, @NonNull Argument<T> argument, Class<?>... groups);
 }

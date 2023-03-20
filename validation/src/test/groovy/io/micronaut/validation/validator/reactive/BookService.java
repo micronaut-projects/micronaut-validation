@@ -1,14 +1,14 @@
 package io.micronaut.validation.validator.reactive;
 
 import io.micronaut.context.annotation.Executable;
-import io.micronaut.validation.Validated;
 import jakarta.inject.Singleton;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -18,6 +18,11 @@ class BookService {
     @Executable
     CompletionStage<@Valid Book> futureSimple(CompletionStage<@NotBlank String> title) {
         return title.thenApply(Book::new);
+    }
+
+    @Executable
+    CompletionStage<@Min(10) Long> futureLong(CompletionStage<@NotBlank String> title) {
+        return title.thenApply(s -> 2L);
     }
 
     @Executable

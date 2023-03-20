@@ -527,14 +527,25 @@ public class DefaultValidator implements
     @NonNull
     @Override
     public <T> CompletionStage<T> validateCompletionStage(@NonNull CompletionStage<T> completionStage,
+                                                          @NonNull Argument<T> argument,
                                                           Class<?>... groups) {
         ArgumentUtils.requireNonNull("completionStage", completionStage);
-        return completionStage.thenApply(t -> {
-            final Set<ConstraintViolation<Object>> constraintViolations = validate(t, groups);
-            if (!constraintViolations.isEmpty()) {
-                throw new ConstraintViolationException(constraintViolations);
+        return completionStage.thenApply(value -> {
+            DefaultConstraintValidatorContext<Object> newContext = new DefaultConstraintValidatorContext<>(null, Object.class, groups);
+
+            // Create the parameter node and the container element node
+            newContext.addContainerElementNode("<completion stage element>", CompletionStage.class, null, null, false, 0);
+            try {
+                visitElement(newContext, newContext.getRootBean(), argument, value);
+            } finally {
+                newContext.removeLast();
             }
-            return t;
+
+            if (!newContext.overallViolations.isEmpty()) {
+                throw new ConstraintViolationException(newContext.overallViolations);
+            }
+
+            return value;
         });
     }
 
