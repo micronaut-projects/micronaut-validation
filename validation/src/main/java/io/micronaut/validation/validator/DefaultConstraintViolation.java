@@ -21,6 +21,9 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
+import java.util.Arrays;
+import java.util.Objects;
+
 /**
  * Default implementation of {@link ConstraintViolation}.
  *
@@ -103,6 +106,25 @@ record DefaultConstraintViolation<T>(
     @Override
     public <U> U unwrap(Class<U> type) {
         throw new UnsupportedOperationException("Unwrapping is unsupported by this implementation");
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        DefaultConstraintViolation<?> that = (DefaultConstraintViolation<?>) o;
+        return Objects.equals(rootBean, that.rootBean) && Objects.equals(rootBeanClass, that.rootBeanClass) && Objects.equals(leafBean, that.leafBean) && Objects.equals(invalidValue, that.invalidValue) && Objects.equals(message, that.message) && Objects.equals(messageTemplate, that.messageTemplate) && Objects.equals(path, that.path) && Objects.equals(constraintDescriptor, that.constraintDescriptor) && Arrays.equals(executableParameterValues, that.executableParameterValues) && Objects.equals(executableReturnValue, that.executableReturnValue);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = Objects.hash(rootBean, rootBeanClass, leafBean, invalidValue, message, messageTemplate, path, constraintDescriptor, executableReturnValue);
+        result = 31 * result + Arrays.hashCode(executableParameterValues);
+        return result;
     }
 
     @Override

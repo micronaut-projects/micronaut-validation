@@ -12,7 +12,6 @@ dependencies {
 
     implementation projects.validation
     implementation projects.validationProcessor
-    implementation mnReactor.micronaut.reactor
 
     implementation 'org.jboss.arquillian.container:arquillian-container-test-spi:1.7.0.Alpha2'
     implementation libs.jakarta.validation.tck.tests
@@ -43,7 +42,8 @@ def methodsTest2 = tasks.register('methodsTest2', Test) {
         ]
         suites file("tck-methods.xml")
     }
-    dependsOn(methodsTest1)
+// Flaky
+//    dependsOn(methodsTest1)
 }
 
 test {
