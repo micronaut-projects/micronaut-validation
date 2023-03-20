@@ -84,7 +84,7 @@ final class ArchiveCompiler {
         }
     }
 
-    private void compileWar() throws ArchiveCompilationException, ArchiveCompilerException, IOException {
+    private void compileWar() throws ArchiveCompilationException, IOException {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();

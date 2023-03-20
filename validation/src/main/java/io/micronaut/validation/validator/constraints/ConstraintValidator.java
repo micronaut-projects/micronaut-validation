@@ -87,7 +87,7 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
             }
 
             @Override
-            public <T> T unwrap(Class<T> type) {
+            public <K> K unwrap(Class<K> type) {
                 return null;
             }
 

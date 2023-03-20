@@ -206,7 +206,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
         List<Class<?>> prevGroups = currentGroups;
         convertedGroups = new HashMap<>(prevConvertedGroups);
 
-        Map<? extends Class<?>, ? extends Class<?>> newConvertGroups = conversions.stream().collect(Collectors.toMap(
+        Map<Class<?>, Class<?>> newConvertGroups = conversions.stream().collect(Collectors.toMap(
                 av -> av.classValue("from").orElse(Default.class),
                 av -> av.classValue("to").orElseThrow())
         );
