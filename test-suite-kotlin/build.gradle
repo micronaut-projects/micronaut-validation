@@ -1,7 +1,5 @@
 plugins {
-    id 'io.micronaut.build.internal.validation-base'
-    id 'java'
-    id 'io.micronaut.application'
+    id 'io.micronaut.build.internal.validation-test-suite'
     id 'org.jetbrains.kotlin.jvm'
     id 'com.google.devtools.ksp'
 }
