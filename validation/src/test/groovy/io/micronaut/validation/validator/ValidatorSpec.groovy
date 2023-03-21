@@ -19,7 +19,6 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
-import org.apache.groovy.util.Maps
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -860,15 +859,79 @@ class ValidatorSpec extends Specification {
         then:
         noExceptionThrown()
     }
+
+    void "test shouldn't iterate"() {
+        when:
+        def service = applicationContext.getBean(MyService)
+        service.myMethod1()
+        service.myMethod2()
+        service.myMethod3()
+        service.myMethod4(new BeanMap<String, Integer>())
+        service.myMethod5(new BeanList<BeanMap<String, Integer>>())
+
+        then:
+        noExceptionThrown()
+    }
+
+    void "test validate primitives parameter"() {
+        when:
+            def service = applicationContext.getBean(MyService2)
+            service.myMethod1(10)
+        then:
+            Exception e = thrown()
+            e.message.contains('''myMethod1.a: must be less than or equal to 5''')
+    }
+
+    void "test validate primitives return"() {
+        when:
+            def service = applicationContext.getBean(MyService2)
+            service.myMethod1(1)
+        then:
+            Exception e = thrown()
+            e.message.contains('''myMethod1.<return value>: must be greater than or equal to 10''')
+    }
+
+    void "test validate bean with primitives"() {
+        when:
+            def service = applicationContext.getBean(MyService2)
+            def bean = new MyBeanWithPrimitives()
+            bean.number = 100
+            service.myMethod2(bean)
+        then:
+            Exception e = thrown()
+            e.message.contains('''myMethod2.bean.number: must be less than or equal to 20''')
+    }
 }
 
 class Bean extends AbstractMap<String, Integer> {
 
     @Override
     Set<Entry<String, Integer>> entrySet() {
-        return Maps.of("A", 1, "B", 2, "C", 3).entrySet()
+        throw new IllegalStateException("Should be iterated")
     }
 
+}
+
+class BeanMap<K, V> extends AbstractMap<K, V> {
+
+    @Override
+    Set<Entry<String, Integer>> entrySet() {
+        throw new IllegalStateException("Should be iterated")
+    }
+
+}
+
+class BeanList<V> extends AbstractList<V> {
+
+    @Override
+    V get(int index) {
+        throw new IllegalStateException("Should be iterated")
+    }
+
+    @Override
+    int size() {
+        throw new IllegalStateException("Should be iterated")
+    }
 }
 
 @Validated
@@ -877,6 +940,37 @@ class MyService {
 
     List<Bean> myBeans() {
         return [new Bean(), new Bean()] as List
+    }
+
+    List<Bean> myMethod1() {
+        return [new Bean(), new Bean()] as List
+    }
+
+    List<BeanMap<String, Integer>> myMethod2() {
+        return [new BeanMap<String, Integer>(), new BeanMap<String, Integer>()] as List
+    }
+
+    BeanMap<String, Integer> myMethod3() {
+        return new BeanMap<String, Integer>()
+    }
+
+    void myMethod4(BeanMap<String, Integer> val) {
+    }
+
+    void myMethod5(List<BeanMap<String, Integer>> val) {
+    }
+
+}
+
+@Validated
+@Singleton
+class MyService2 {
+
+    @Min(10) int myMethod1(@Max(5) int a) {
+        return a
+    }
+
+    void myMethod2(@Valid MyBeanWithPrimitives bean) {
     }
 
 }
