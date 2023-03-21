@@ -43,7 +43,7 @@ loadScripts(document, 'script');</script>
 <div>
 <ul class="sub-nav-list">
 <li>Summary:&nbsp;</li>
-<li>Nested&nbsp;|&nbsp;</li>
+<li><a href="#nested-class-summary">Nested</a>&nbsp;|&nbsp;</li>
 <li>Field&nbsp;|&nbsp;</li>
 <li>Constr&nbsp;|&nbsp;</li>
 <li><a href="#method-summary">Method</a></li>
@@ -71,8 +71,13 @@ loadScripts(document, 'script');</script>
 <h1 title="Interface ConstraintValidatorContext" class="title">Interface ConstraintValidatorContext</h1>
 </div>
 <section class="class-description" id="class-description">
+<dl class="notes">
+<dt>All Superinterfaces:</dt>
+<dd><code>jakarta.validation.ConstraintValidatorContext</code></dd>
+</dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public interface </span><span class="element-name type-name-label">ConstraintValidatorContext</span></div>
+<div class="type-signature"><span class="modifiers">public interface </span><span class="element-name type-name-label">ConstraintValidatorContext</span><span class="extends-implements">
+extends jakarta.validation.ConstraintValidatorContext</span></div>
 <div class="block">Subset of the <code>ConstraintValidatorContext</code> interface without the unnecessary parts.</div>
 <dl class="notes">
 <dt>Since:</dt>
@@ -83,6 +88,15 @@ loadScripts(document, 'script');</script>
 </section>
 <section class="summary">
 <ul class="summary-list">
+<!-- ======== NESTED CLASS SUMMARY ======== -->
+<li>
+<section class="nested-class-summary" id="nested-class-summary">
+<h2>Nested Class Summary</h2>
+<div class="inherited-list">
+<h2 id="nested-classes-inherited-from-class-jakarta.validation.ConstraintValidatorContext">Nested classes/interfaces inherited from interface&nbsp;jakarta.validation.ConstraintValidatorContext</h2>
+<code>jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder</code></div>
+</section>
+</li>
 <!-- ========== METHOD SUMMARY =========== -->
 <li>
 <section class="method-summary" id="method-summary">
@@ -114,6 +128,9 @@ loadScripts(document, 'script');</script>
 </div>
 </div>
 </div>
+<div class="inherited-list">
+<h3 id="methods-inherited-from-class-jakarta.validation.ConstraintValidatorContext">Methods inherited from interface&nbsp;jakarta.validation.ConstraintValidatorContext</h3>
+<code>buildConstraintViolationWithTemplate, disableDefaultConstraintViolation, getDefaultConstraintMessageTemplate, unwrap</code></div>
 </section>
 </li>
 </ul>
@@ -133,6 +150,8 @@ loadScripts(document, 'script');</script>
 <div class="block">Returns the provider for obtaining the current time in the form of a <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/Clock.html" title="class or interface in java.time" class="external-link"><code>Clock</code></a>,
  e.g. when validating the <code>Future</code> and <code>Past</code> constraints.</div>
 <dl class="notes">
+<dt>Specified by:</dt>
+<dd><code>getClockProvider</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ConstraintValidatorContext</code></dd>
 <dt>Returns:</dt>
 <dd>the provider for obtaining the current time, never <code>null</code>. If no
  specific provider has been configured during bootstrap, a default implementation using

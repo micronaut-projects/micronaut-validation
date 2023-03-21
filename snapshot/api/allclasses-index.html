@@ -152,17 +152,9 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color all-classes-table all-classes-table-tab1">
 <div class="block">Interface for reactive bean validation.</div>
 </div>
-<div class="col-first odd-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/extractors/SimpleValueReceiver.html" title="interface in io.micronaut.validation.validator.extractors">SimpleValueReceiver</a></div>
+<div class="col-first odd-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/constraints/SizeValidator.html" title="interface in io.micronaut.validation.validator.constraints">SizeValidator</a>&lt;<a href="io/micronaut/validation/validator/constraints/SizeValidator.html" title="type parameter in SizeValidator">T</a>&gt;</div>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab1">
-<div class="block">No-op implementation that makes it easier to use with Lambdas.</div>
-</div>
-<div class="col-first even-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/constraints/SizeValidator.html" title="interface in io.micronaut.validation.validator.constraints">SizeValidator</a>&lt;<a href="io/micronaut/validation/validator/constraints/SizeValidator.html" title="type parameter in SizeValidator">T</a>&gt;</div>
-<div class="col-last even-row-color all-classes-table all-classes-table-tab1">
 <div class="block">Abstract implementation of a <code>Size</code> validator.</div>
-</div>
-<div class="col-first odd-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/extractors/UnwrapByDefaultValueExtractor.html" title="interface in io.micronaut.validation.validator.extractors">UnwrapByDefaultValueExtractor</a>&lt;<a href="io/micronaut/validation/validator/extractors/UnwrapByDefaultValueExtractor.html" title="type parameter in UnwrapByDefaultValueExtractor">T</a>&gt;</div>
-<div class="col-last odd-row-color all-classes-table all-classes-table-tab1">
-<div class="block">Interface based alternative for unwrap by default semantics.</div>
 </div>
 <div class="col-first even-row-color all-classes-table all-classes-table-tab7"><a href="io/micronaut/validation/Validated.html" title="annotation interface in io.micronaut.validation">Validated</a></div>
 <div class="col-last even-row-color all-classes-table all-classes-table-tab7">
@@ -176,6 +168,14 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color all-classes-table all-classes-table-tab2">
 <div class="block">A <code>MethodInterceptor</code> that validates method invocations.</div>
 </div>
+<div class="col-first odd-row-color all-classes-table all-classes-table-tab2"><a href="io/micronaut/validation/transformer/ValidationAnnotationRemapper.html" title="class in io.micronaut.validation.transformer">ValidationAnnotationRemapper</a></div>
+<div class="col-last odd-row-color all-classes-table all-classes-table-tab2">
+<div class="block">The validation annotations remapper.</div>
+</div>
+<div class="col-first even-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/ValidationAnnotationUtil.html" title="interface in io.micronaut.validation.validator">ValidationAnnotationUtil</a></div>
+<div class="col-last even-row-color all-classes-table all-classes-table-tab1">
+<div class="block">Internal validation utils.</div>
+</div>
 <div class="col-first odd-row-color all-classes-table all-classes-table-tab2"><a href="io/micronaut/validation/visitor/ValidationVisitor.html" title="class in io.micronaut.validation.visitor">ValidationVisitor</a></div>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab2">
 <div class="block">The visitor creates annotations utilized by the Validator.</div>
@@ -188,8 +188,12 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color all-classes-table all-classes-table-tab1">
 <div class="block">Configuration for the <a href="io/micronaut/validation/validator/Validator.html" title="interface in io.micronaut.validation.validator"><code>Validator</code></a>.</div>
 </div>
-<div class="col-first even-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></div>
-<div class="col-last even-row-color all-classes-table all-classes-table-tab1">
+<div class="col-first even-row-color all-classes-table all-classes-table-tab4"><a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html" title="class in io.micronaut.validation.validator.extractors">ValueExtractorDefinition</a>&lt;<a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;</div>
+<div class="col-last even-row-color all-classes-table all-classes-table-tab4">
+<div class="block">The value extractor definition.</div>
+</div>
+<div class="col-first odd-row-color all-classes-table all-classes-table-tab1"><a href="io/micronaut/validation/validator/extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></div>
+<div class="col-last odd-row-color all-classes-table all-classes-table-tab1">
 <div class="block">Registry of value extractors.</div>
 </div>
 </div>

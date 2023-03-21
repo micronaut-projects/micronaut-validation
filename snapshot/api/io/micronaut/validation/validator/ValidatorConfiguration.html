@@ -136,20 +136,29 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="constraints/ConstraintValidatorRegistry.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorRegistry</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getConstraintValidatorRegistry()" class="member-name-link">getConstraintValidatorRegistry</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.ExecutionHandleLocator</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getExecutionHandleLocator()" class="member-name-link">getExecutionHandleLocator</a>()</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
-<div class="block">The execution handler locator to use.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.MessageSource</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getMessageSource()" class="member-name-link">getMessageSource</a>()</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.ClockProvider</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getDefaultClockProvider()" class="member-name-link">getDefaultClockProvider</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.MessageInterpolator</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getDefaultMessageInterpolator()" class="member-name-link">getDefaultMessageInterpolator</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.TraversableResolver</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getDefaultTraversableResolver()" class="member-name-link">getDefaultTraversableResolver</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getValueExtractorRegistry()" class="member-name-link">getValueExtractorRegistry</a>()</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>io.micronaut.context.ExecutionHandleLocator</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getExecutionHandleLocator()" class="member-name-link">getExecutionHandleLocator</a>()</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
+<div class="block">The execution handler locator to use.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.MessageInterpolator</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getMessageInterpolator()" class="member-name-link">getMessageInterpolator</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>jakarta.validation.TraversableResolver</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getTraversableResolver()" class="member-name-link">getTraversableResolver</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#getValueExtractorRegistry()" class="member-name-link">getValueExtractorRegistry</a>()</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">&nbsp;</div>
 </div>
 </div>
 </div>
@@ -239,6 +248,17 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 </section>
 </li>
 <li>
+<section class="detail" id="getDefaultClockProvider()">
+<h3>getDefaultClockProvider</h3>
+<div class="member-signature"><span class="annotations">@NonNull
+</span><span class="return-type">jakarta.validation.ClockProvider</span>&nbsp;<span class="element-name">getDefaultClockProvider</span>()</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>The default clock provider</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="getTraversableResolver()">
 <h3>getTraversableResolver</h3>
 <div class="member-signature"><span class="annotations">@NonNull
@@ -250,13 +270,35 @@ extends io.micronaut.core.convert.ConversionServiceProvider</span></div>
 </section>
 </li>
 <li>
-<section class="detail" id="getMessageSource()">
-<h3>getMessageSource</h3>
+<section class="detail" id="getDefaultTraversableResolver()">
+<h3>getDefaultTraversableResolver</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="return-type">io.micronaut.context.MessageSource</span>&nbsp;<span class="element-name">getMessageSource</span>()</div>
+</span><span class="return-type">jakarta.validation.TraversableResolver</span>&nbsp;<span class="element-name">getDefaultTraversableResolver</span>()</div>
 <dl class="notes">
 <dt>Returns:</dt>
-<dd>The message source</dd>
+<dd>The default traversable resolver to use</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="getMessageInterpolator()">
+<h3>getMessageInterpolator</h3>
+<div class="member-signature"><span class="annotations">@NonNull
+</span><span class="return-type">jakarta.validation.MessageInterpolator</span>&nbsp;<span class="element-name">getMessageInterpolator</span>()</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>The message interpolator</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="getDefaultMessageInterpolator()">
+<h3>getDefaultMessageInterpolator</h3>
+<div class="member-signature"><span class="annotations">@NonNull
+</span><span class="return-type">jakarta.validation.MessageInterpolator</span>&nbsp;<span class="element-name">getDefaultMessageInterpolator</span>()</div>
+<dl class="notes">
+<dt>Returns:</dt>
+<dd>The default message interpolator</dd>
 </dl>
 </section>
 </li>
