@@ -39,7 +39,7 @@ class PojoConfigurationPropertiesSpec extends Specification {
 
         then:
         def ex = thrown(BeanInstantiationException)
-        ex.message.contains("List of constraint violations:[\n\tpojos[0]<list element>.name - must not be blank\n]")
+        ex.message.contains("List of constraint violations:[\n\tpojos[0].name - must not be blank\n]")
     }
 }
 

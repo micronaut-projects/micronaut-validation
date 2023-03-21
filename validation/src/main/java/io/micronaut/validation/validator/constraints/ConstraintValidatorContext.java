@@ -26,7 +26,7 @@ import jakarta.validation.ClockProvider;
  * @author graemerocher
  * @since 1.2
  */
-public interface ConstraintValidatorContext {
+public interface ConstraintValidatorContext extends jakarta.validation.ConstraintValidatorContext {
 
     /**
      * Returns the provider for obtaining the current time in the form of a {@link java.time.Clock},

@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.extractors;
 
+import io.micronaut.core.annotation.Internal;
+import jakarta.validation.valueextraction.UnwrapByDefault;
 import jakarta.validation.valueextraction.ValueExtractor;
 
 /**
@@ -24,6 +26,7 @@ import jakarta.validation.valueextraction.ValueExtractor;
  * @since 1.2
  * @param <T> the extracted type
  */
-@SuppressWarnings("WeakerAccess")
-public interface UnwrapByDefaultValueExtractor<T> extends ValueExtractor<T> {
+@Internal
+@UnwrapByDefault
+interface UnwrapByDefaultValueExtractor<T> extends ValueExtractor<T> {
 }

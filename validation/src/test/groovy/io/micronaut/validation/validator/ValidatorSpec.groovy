@@ -131,13 +131,13 @@ class ValidatorSpec extends Specification {
         violations[0].constraintDescriptor.annotation.max() == 2
     }
 
-    void "test validate bean property cascade"() {
+    void "test validate bean property doesn't cascade"() {
         given:
         Book b = new Book(primaryAuthor: new Author(name: "", age: 200));
-        def violations = validator.validateProperty(b, "primaryAuthor").sort{it.propertyPath.toString();}
+        def violations = validator.validateProperty(b, "primaryAuthor")
 
         expect:
-        violations.size() == 2
+        violations.size() == 0
     }
 
     void "test validate bean property"() {
@@ -310,7 +310,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "authors[0]<list element>.name"
+        violations[0].propertyPath.toString() == "authors[0].name"
     }
 
     void "test validate property argument cascade with cycle"() {
@@ -322,7 +322,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 1
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "authors[0]<list element>.name"
+        violations[0].propertyPath.toString() == "authors[0].name"
     }
 
     void "test validate property argument cascade of null container"() {
@@ -351,10 +351,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == "books[]<iterable element>.authors[1]<list element>.name"
+        violations[0].propertyPath.toString() == "books[].authors[1].name"
 
         violations[1].invalidValue == "?"
-        violations[1].propertyPath.toString() == "books[]<iterable element>.name"
+        violations[1].propertyPath.toString() == "books[].name"
     }
 
     void "test validate property argument cascade - to non-introspected - inside map"(){
@@ -364,7 +364,7 @@ class ValidatorSpec extends Specification {
         def violations = validator.validate(apartmentBuilding)
 
         then:
-        !violations[0].constraintDescriptor
+        violations[0].constraintDescriptor
         violations[0].message == "Cannot validate io.micronaut.validation.validator.ValidatorSpecClasses\$Person. No bean introspection present. " +
                 "Please add @Introspected to the class and ensure Micronaut annotation processing is enabled"
         // violations[0].propertyPath.toString() ==
@@ -399,8 +399,8 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        violations[0].getPropertyPath().toString() == "matrix[0]<list element>[1]<list element>"
-        violations[1].getPropertyPath().toString() == "matrix[1]<list element>[0]<list element>"
+        violations[0].getPropertyPath().toString() == "matrix[0][1]<list element>"
+        violations[1].getPropertyPath().toString() == "matrix[1][0]<list element>"
     }
 
     void "test validate argument annotations null"() {
@@ -472,7 +472,7 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
         violations[0].invalidValue == ""
-        violations[0].propertyPath.toString() == 'saveBook.book.authors[0]<list element>.name'
+        violations[0].propertyPath.toString() == 'saveBook.book.authors[0].name'
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof NotBlank
 
@@ -539,7 +539,7 @@ class ValidatorSpec extends Specification {
         violations.size() == 3
         violations[0].getPropertyPath().toString() == "createAccount.client.name"
         violations[1].getPropertyPath().toString() == "createAccount.clientsWithAccess[]<map key>"
-        violations[2].getPropertyPath().toString() == "createAccount.clientsWithAccess[spouse]<map value>.name"
+        violations[2].getPropertyPath().toString() == "createAccount.clientsWithAccess[spouse].name"
 
         when:
         var path0 = violations[0].getPropertyPath().iterator()
@@ -549,7 +549,7 @@ class ValidatorSpec extends Specification {
         then:
         violations[0].getPropertyPath().size() == 3
         violations[1].getPropertyPath().size() == 3
-        violations[2].getPropertyPath().size() == 4
+        violations[2].getPropertyPath().size() == 3
 
         path0.next() instanceof Path.MethodNode
         path0.next() instanceof Path.ParameterNode
@@ -561,7 +561,6 @@ class ValidatorSpec extends Specification {
 
         path2.next() instanceof Path.MethodNode
         path2.next() instanceof Path.ParameterNode
-        path2.next() instanceof Path.ContainerElementNode
         path2.next() instanceof Path.PropertyNode
 
     }
@@ -625,7 +624,7 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations[0].getPropertyPath().toString() == "getClientsWithAccess.<return value>[]<map key>"
-        violations[1].getPropertyPath().toString() == "getClientsWithAccess.<return value>[spouse]<map value>.name"
+        violations[1].getPropertyPath().toString() == "getClientsWithAccess.<return value>[spouse].name"
 
         when:
         var path0 = violations[0].getPropertyPath().iterator()
@@ -637,10 +636,9 @@ class ValidatorSpec extends Specification {
         path0.next() instanceof Path.ReturnValueNode
         path0.next() instanceof Path.ContainerElementNode
 
-        violations[1].getPropertyPath().size() == 4
+        violations[1].getPropertyPath().size() == 3
         path1.next() instanceof Path.MethodNode
         path1.next() instanceof Path.ReturnValueNode
-        path1.next() instanceof Path.ContainerElementNode
         path1.next() instanceof Path.PropertyNode
     }
 
@@ -668,10 +666,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
 
-        violations[0].propertyPath.toString() == "getAllAccounts.<return value>[0]<map value>[0]<list element>.name"
+        violations[0].propertyPath.toString() == "getAllAccounts.<return value>[0][0].name"
         violations[0].invalidValue == "Too long name"
 
-        violations[1].propertyPath.toString() == "getAllAccounts.<return value>[33]<map value>[1]<list element>.name"
+        violations[1].propertyPath.toString() == "getAllAccounts.<return value>[33][1].name"
         violations[1].invalidValue == ""
     }
 
@@ -728,7 +726,7 @@ class ValidatorSpec extends Specification {
 
         then:
         violations.size() == 1
-        !violations[0].constraintDescriptor
+        violations[0].constraintDescriptor
         violations[0].message == 'Cannot validate io.micronaut.validation.validator.ValidatorSpecClasses$Bee. No bean introspection present. ' +
                 "Please add @Introspected to the class and ensure Micronaut annotation processing is enabled"
 
@@ -749,7 +747,7 @@ class ValidatorSpec extends Specification {
 
         then:
         violations.size() == 1
-        !violations[0].constraintDescriptor
+        violations[0].constraintDescriptor
         violations[0].message == 'Cannot validate io.micronaut.validation.validator.ValidatorSpecClasses$Bee. No bean introspection present. ' +
                 "Please add @Introspected to the class and ensure Micronaut annotation processing is enabled"
 

@@ -15,9 +15,10 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.context.BeanContext;
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.ConfigurationProperties;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -25,9 +26,14 @@ import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.ConversionServiceAware;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.Toggleable;
+import io.micronaut.inject.BeanDefinition;
+import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
+import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultValidationMessages;
 import jakarta.inject.Inject;
@@ -41,13 +47,23 @@ import jakarta.validation.Validator;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
 
+import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 /**
  * The default configuration for the validator.
@@ -68,10 +84,19 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private ClockProvider clockProvider;
 
     @Nullable
+    private ClockProvider defaultClockProvider;
+
+    @Nullable
     private TraversableResolver traversableResolver;
 
     @Nullable
-    private MessageSource messageSource;
+    private TraversableResolver defaultTraversableResolver;
+
+    @Nullable
+    private MessageInterpolator defaultMessageInterpolator;
+
+    @Nullable
+    private MessageInterpolator messageInterpolator;
 
     @Nullable
     private ExecutionHandleLocator executionHandleLocator;
@@ -160,9 +185,17 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @NonNull
     public ClockProvider getClockProvider() {
         if (clockProvider == null) {
-            clockProvider = new DefaultClockProvider();
+            return getDefaultClockProvider();
         }
         return clockProvider;
+    }
+
+    @Override
+    public ClockProvider getDefaultClockProvider() {
+        if (defaultClockProvider == null) {
+            defaultClockProvider = new DefaultClockProvider();
+        }
+        return defaultClockProvider;
     }
 
     /**
@@ -179,9 +212,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     @NonNull
-    public TraversableResolver getTraversableResolver() {
-        if (traversableResolver == null) {
-            traversableResolver = new TraversableResolver() {
+    public TraversableResolver getDefaultTraversableResolver() {
+        if (defaultTraversableResolver == null) {
+            defaultTraversableResolver = new TraversableResolver() {
                 @Override
                 public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
                     return true;
@@ -192,6 +225,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
                     return true;
                 }
             };
+        }
+        return defaultTraversableResolver;
+    }
+
+    @Override
+    @NonNull
+    public TraversableResolver getTraversableResolver() {
+        if (traversableResolver == null) {
+            return getDefaultTraversableResolver();
         }
         return traversableResolver;
     }
@@ -208,24 +250,33 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
-    @Override
     @NonNull
-    public MessageSource getMessageSource() {
-        if (messageSource == null) {
-            messageSource = new DefaultValidationMessages();
+    @Override
+    public MessageInterpolator getMessageInterpolator() {
+        if (messageInterpolator == null) {
+            return getDefaultMessageInterpolator();
         }
-        return messageSource;
+        return messageInterpolator;
+    }
+
+    @NonNull
+    @Override
+    public MessageInterpolator getDefaultMessageInterpolator() {
+        if (defaultMessageInterpolator == null) {
+            defaultMessageInterpolator = new DefaultValidationMessages();
+        }
+        return defaultMessageInterpolator;
     }
 
     /**
-     * Sets the message source to use.
+     * Sets the message interpolator to use.
      *
-     * @param messageSource The message source
+     * @param messageInterpolator The message interpolator
      * @return this configuration
      */
     @Inject
-    public DefaultValidatorConfiguration setMessageSource(@Nullable MessageSource messageSource) {
-        this.messageSource = messageSource;
+    public DefaultValidatorConfiguration setMessageInterpolator(@Nullable MessageInterpolator messageInterpolator) {
+        this.messageInterpolator = messageInterpolator;
         return this;
     }
 
@@ -241,18 +292,44 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     /**
      * Sets the execution handler locator to use.
      *
-     * @param executionHandleLocator The locator
+     * @param beanContext The beanContext
      * @return this configuration
      */
     @Inject
-    public DefaultValidatorConfiguration setExecutionHandleLocator(@Nullable ExecutionHandleLocator executionHandleLocator) {
-        this.executionHandleLocator = executionHandleLocator;
+    public DefaultValidatorConfiguration setExecutionHandleLocator(@Nullable BeanContext beanContext) {
+        this.executionHandleLocator = new ExecutionHandleLocator() {
+
+            @Override
+            public <T, R> Optional<ExecutableMethod<T, R>> findExecutableMethod(Class<T> beanType, String method, Class<?>... arguments) {
+                if (beanType == null) {
+                    return Optional.empty();
+                }
+                Collection<BeanDefinition<T>> definitions = beanContext.getBeanDefinitions(beanType);
+                if (definitions.isEmpty()) {
+                    return Optional.empty();
+                }
+                Optional<BeanDefinition<T>> optionalBeanDefinition = definitions.stream().filter(bd -> bd.getBeanType().equals(beanType)).findFirst();
+                if (optionalBeanDefinition.isPresent()) {
+                    Optional<ExecutableMethod<T, R>> foundMethod = optionalBeanDefinition.get().findMethod(method, arguments);
+                    if (foundMethod.isPresent()) {
+                        return foundMethod;
+                    }
+                }
+                BeanDefinition<T> beanDefinition = definitions.iterator().next();
+                Optional<ExecutableMethod<T, R>> foundMethod = beanDefinition.findMethod(method, arguments);
+                if (foundMethod.isPresent()) {
+                    return foundMethod;
+                }
+                return beanDefinition.<R>findPossibleMethods(method).findFirst();
+            }
+        };
         return this;
     }
 
     @Override
     public ValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
-        throw new UnsupportedOperationException("Method messageInterpolator(..) not supported");
+        this.messageInterpolator = messageInterpolator;
+        return this;
     }
 
     @Override
@@ -280,14 +357,64 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
         List<AnnotatedType> annotatedTypes = new ArrayList<>();
-        determineValueExtractorDefinitions(annotatedTypes, extractor.getClass());
+        Class<? extends ValueExtractor> extractorClass = extractor.getClass();
+        determineValueExtractorDefinitions(annotatedTypes, extractorClass);
         if (annotatedTypes.size() != 1) {
             throw new IllegalStateException("Expected to find one annotation type! Got: " + annotatedTypes);
         }
-        Class<Object> clazz = (Class<Object>) Argument.of(annotatedTypes.get(0).getType()).getTypeParameters()[0].getType();
-        ValueExtractor<Object> v = (ValueExtractor<Object>) extractor;
-        getValueExtractorRegistry().addValueExtractor(clazz, v);
+        ValueExtractorRegistry valueExtractorRegistry1 = getValueExtractorRegistry();
+        Argument<ValueExtractor<Object>> argument = (Argument<ValueExtractor<Object>>) argumentOf(annotatedTypes.get(0));
+        if (extractorClass.getAnnotations().length > 0) {
+            argument = Argument.of(
+                argument.getType(),
+                new AnnotationMetadataHierarchy(argument.getAnnotationMetadata(), annotationMetadataOf(extractorClass)),
+                argument.getTypeParameters());
+        }
+        valueExtractorRegistry1.addValueExtractor(new ValueExtractorDefinition<>(
+            argument,
+            (ValueExtractor<Object>) extractor
+        ));
         return this;
+    }
+
+    @NonNull
+    private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
+        if (type instanceof AnnotatedParameterizedType annotatedParameterizedType) {
+            return Argument.of(
+                getClassFromType(type.getType()),
+                annotationMetadataOf(type),
+                Arrays.stream(annotatedParameterizedType.getAnnotatedActualTypeArguments()).map(DefaultValidatorConfiguration::argumentOf).toArray(Argument[]::new)
+            );
+        }
+        return Argument.of(getClassFromType(type.getType()), annotationMetadataOf(type));
+    }
+
+    private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
+        Annotation[] annotations = annotatedElement.getAnnotations();
+        if (annotations.length == 0) {
+            return AnnotationMetadata.EMPTY_METADATA;
+        }
+        MutableAnnotationMetadata mutableAnnotationMetadata = new MutableAnnotationMetadata();
+        for (Annotation annotation : annotations) {
+            Map<CharSequence, Object> values = new LinkedHashMap<>();
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            Method[] methods = annotationType.getMethods();
+            for (Method method : methods) {
+                if (!method.getDeclaringClass().equals(annotationType)) {
+                    continue;
+                }
+                try {
+                    Object value = method.invoke(annotation);
+                    if (value != null) {
+                        values.put(method.getName(), value);
+                    }
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }
+            mutableAnnotationMetadata.addAnnotation(annotationType.getName(), values);
+        }
+        return mutableAnnotationMetadata;
     }
 
     @Override
@@ -335,6 +462,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         if (type instanceof GenericArrayType) {
             return Object[].class;
         }
-        throw new IllegalArgumentException();
+        if (type instanceof WildcardType wildcardType) {
+            return getClassFromType(wildcardType.getUpperBounds()[0]);
+        }
+        throw new IllegalArgumentException("Unknown type: " + type);
     }
 }

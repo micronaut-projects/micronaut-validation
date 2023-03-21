@@ -36,6 +36,11 @@ class BookService {
     }
 
     @Executable
+    Publisher<@Min(10) Long> rxLong(Publisher<@NotBlank String> title) {
+        return Flux.from(title).map(x -> 2L);
+    }
+
+    @Executable
     Flux<@Valid Book> rxValid(Flux<@Valid Book> book) {
         return book;
     }

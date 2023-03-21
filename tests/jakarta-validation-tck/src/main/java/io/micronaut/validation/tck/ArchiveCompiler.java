@@ -21,10 +21,15 @@ import io.micronaut.annotation.processing.PackageConfigurationInjectProcessor;
 import io.micronaut.annotation.processing.TypeElementVisitorProcessor;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.validation.tck.runtime.VisitValidation;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest;
+import org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest;
+import org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.NestedCascadingOnContainerElementsTest;
+import org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDefinedInConfigurationApiTest;
+import org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.model.Cinema;
 import org.jboss.shrinkwrap.api.Archive;
 import org.jboss.shrinkwrap.api.ArchivePath;
 import org.jboss.shrinkwrap.api.Node;
@@ -79,7 +84,7 @@ final class ArchiveCompiler {
         }
     }
 
-    private void compileWar() throws ArchiveCompilationException, ArchiveCompilerException, IOException {
+    private void compileWar() throws ArchiveCompilationException, IOException {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
@@ -99,15 +104,16 @@ final class ArchiveCompiler {
 
                 Path sourceFilePath = deploymentDir.source.resolve(sourceFile.substring(1)); // sourceFile begins with `/`
 
-                sourceFiles.add(sourceFilePath.toFile());
-
                 Files.createDirectories(sourceFilePath.getParent()); // make sure the directory exists
                 try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
                     if (in == null) {
-                        throw new ArchiveCompilerException("Source file not found: " + sourceFile);
+                        // This might be a non-inner class defined in another class
+                        continue;
                     }
                     Files.copy(in, sourceFilePath);
                 }
+
+                sourceFiles.add(sourceFilePath.toFile());
             } else if (path.startsWith("/WEB-INF/lib") && path.endsWith(".jar")) {
                 String jarFile = path.replace("/WEB-INF/lib", "");
                 Path jarFilePath = deploymentDir.lib.resolve(jarFile.substring(1)); // jarFile begins with `/`
@@ -173,10 +179,31 @@ final class ArchiveCompiler {
             importBeans.add(NestedContainerElementConstraintsTest.class.getName() + "$MapOfListsWithAutomaticUnwrapping");
             packageName = NestedContainerElementConstraintsTest.class.getPackageName();
         }
+        if (testSources.stream().anyMatch(f -> f.getName().contains(ValueExtractorDefinedInConfigurationApiTest.class.getSimpleName()))) {
+            importBeans.add(Cinema.class.getName());
+            packageName = ValueExtractorDefinedInConfigurationApiTest.class.getPackageName();
+        }
+        if (testSources.stream().anyMatch(f -> f.getName().contains(CascadingOnContainerElementsTest.class.getSimpleName()))) {
+            importBeans.add(CascadingOnContainerElementsTest.class.getName() + "$TypeWithList");
+            importBeans.add(CascadingOnContainerElementsTest.class.getName() + "$TypeWithMapKey");
+            importBeans.add(CascadingOnContainerElementsTest.class.getName() + "$TypeWithMapValue");
+            importBeans.add(CascadingOnContainerElementsTest.class.getName() + "$TypeWithOptional");
+            importBeans.add(CascadingOnContainerElementsTest.class.getName() + "$TypeWithSet");
+            packageName = CascadingOnContainerElementsTest.class.getPackageName();
+        }
+        if (testSources.stream().anyMatch(f -> f.getName().contains(NestedCascadingOnContainerElementsTest.class.getSimpleName()))) {
+            importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$CinemaEmailAddresses");
+            importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$EmailAddressMap");
+            importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$AddressBook");
+            packageName = NestedCascadingOnContainerElementsTest.class.getPackageName();
+        }
         if (!importBeans.isEmpty()) {
-            annotations = "@" + Introspected.class.getName() + "(" +
+            annotations += "@" + Introspected.class.getName() + "(" +
                 "visibility = io.micronaut.core.annotation.Introspected.Visibility.ANY, " +
                 "accessKind = io.micronaut.core.annotation.Introspected.AccessKind.FIELD, " +
+                "classNames = {" + importBeans.stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}" +
+                ") ";
+            annotations += "@" + VisitValidation.class.getName() + "(" +
                 "classNames = {" + importBeans.stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}" +
                 ") ";
         }

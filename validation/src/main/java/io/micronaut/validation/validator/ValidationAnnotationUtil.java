@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 original authors
+ * Copyright 2017-2023 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.validator.pojo;
+package io.micronaut.validation.validator;
 
-import jakarta.validation.Constraint;
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+import io.micronaut.core.annotation.Internal;
 
-@Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.TYPE)
-@Constraint(validatedBy = {})
-@interface NameAndLastNameValidator {
-    String message() default "Both name and lastName can't be null";
+/**
+ * Internal validation utils.
+ *
+ * @author Denis Stepanov
+ */
+@Internal
+public interface ValidationAnnotationUtil {
+
+    String CONSTRAINT_VALIDATED_BY = "$validatedBy";
+
 }

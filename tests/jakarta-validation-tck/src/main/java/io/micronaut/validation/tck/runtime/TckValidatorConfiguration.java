@@ -46,11 +46,13 @@ public final class TckValidatorConfiguration implements Configuration<TckValidat
 
     @Override
     public TckValidatorConfiguration messageInterpolator(MessageInterpolator interpolator) {
+        validatorConfiguration.setMessageInterpolator(interpolator);
         return this;
     }
 
     @Override
     public TckValidatorConfiguration traversableResolver(TraversableResolver resolver) {
+        validatorConfiguration.setTraversableResolver(resolver);
         return this;
     }
 
@@ -88,12 +90,12 @@ public final class TckValidatorConfiguration implements Configuration<TckValidat
 
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
-        return null;
+        return validatorConfiguration.getDefaultMessageInterpolator();
     }
 
     @Override
     public TraversableResolver getDefaultTraversableResolver() {
-        return null;
+        return validatorConfiguration.getDefaultTraversableResolver();
     }
 
     @Override
@@ -108,7 +110,7 @@ public final class TckValidatorConfiguration implements Configuration<TckValidat
 
     @Override
     public ClockProvider getDefaultClockProvider() {
-        return null;
+        return validatorConfiguration.getDefaultClockProvider();
     }
 
     @Override

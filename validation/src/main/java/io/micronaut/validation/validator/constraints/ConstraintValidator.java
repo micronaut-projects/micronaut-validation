@@ -66,10 +66,29 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
 
             private String messageTemplate = context.getDefaultConstraintMessageTemplate();
 
+            @Override
+            public void disableDefaultConstraintViolation() {
+            }
+
+            @Override
+            public String getDefaultConstraintMessageTemplate() {
+                return null;
+            }
+
             @NonNull
             @Override
             public ClockProvider getClockProvider() {
                 return context.getClockProvider();
+            }
+
+            @Override
+            public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
+                return null;
+            }
+
+            @Override
+            public <K> K unwrap(Class<K> type) {
+                return null;
             }
 
             @Nullable

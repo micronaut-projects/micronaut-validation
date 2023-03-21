@@ -18,19 +18,23 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-
+import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.util.CollectionUtils;
+import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Payload;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
+import jakarta.validation.valueextraction.Unwrapping;
+
 import java.lang.annotation.Annotation;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Default constraint descriptor implementation.
@@ -42,24 +46,64 @@ import java.util.stream.Collectors;
 @Internal
 class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T> {
 
+    @NonNull
+    private final Class<T> type;
+    @Nullable
+    private final String message;
+    @Nullable
+    private final String defaultMessage;
+    private final Set<Class<?>> groups;
+    private final Set<Class<? extends Payload>> payload;
+    private final List<Class<? extends ConstraintValidator<T, ?>>> validatedBy;
+
+    private final ConstraintTarget validationAppliesTo;
     private final AnnotationValue<T> annotationValue;
     private final AnnotationMetadata annotationMetadata;
-    private final Class<T> type;
 
-    /**
-     * Default constructor.
-     *
-     * @param annotationMetadata annotation metadata
-     * @param type               constraint type
-     * @param annotationValue    annotation value
-     */
-    DefaultConstraintDescriptor(
-        AnnotationMetadata annotationMetadata,
-        Class<T> type,
-        AnnotationValue<T> annotationValue) {
+    DefaultConstraintDescriptor(Class<T> constraintType,
+                                AnnotationValue<T> annotationValue,
+                                AnnotationMetadata annotationMetadata) {
+        this(constraintType,
+            annotationValue.stringValue("message").orElse(null),
+            (String) annotationValue.getDefaultValues().get("message"),
+            Set.of(annotationValue.classValues("groups")),
+            (Set) Set.of(annotationValue.classValues("payload")),
+            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)),
+            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT),
+            annotationValue,
+            annotationMetadata);
+    }
+
+    DefaultConstraintDescriptor(Class<T> type,
+                                String message,
+                                String defaultMessage,
+                                Set<Class<?>> groups,
+                                Set<Class<? extends Payload>> payload,
+                                List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
+                                ConstraintTarget validationAppliesTo,
+                                AnnotationValue<T> annotationValue,
+                                AnnotationMetadata annotationMetadata) {
+        this.type = type;
+        this.message = message;
+        this.defaultMessage = defaultMessage;
+        this.groups = groups;
+        this.payload = payload;
+        this.validatedBy = validatedBy;
+        this.validationAppliesTo = validationAppliesTo;
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
-        this.type = type;
+    }
+
+    public AnnotationValue<T> getAnnotationValue() {
+        return annotationValue;
+    }
+
+    public AnnotationMetadata getAnnotationMetadata() {
+        return annotationMetadata;
+    }
+
+    public Class<T> getType() {
+        return type;
     }
 
     @Override
@@ -69,37 +113,56 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public String getMessageTemplate() {
-        return annotationValue.stringValue("groups").orElse(null);
+        if (message != null) {
+            return message;
+        }
+        if (defaultMessage != null) {
+            return defaultMessage;
+        }
+        return "{" + type.getName() + ".message}";
     }
 
     @Override
     public Set<Class<?>> getGroups() {
-        return Arrays.stream(annotationValue.classValues("groups")).collect(Collectors.toUnmodifiableSet());
+        if (groups.isEmpty()) {
+            return Set.of(Default.class);
+        }
+        return groups;
     }
 
     @Override
     public Set<Class<? extends Payload>> getPayload() {
-        return Arrays.stream(annotationValue.classValues("payload"))
-            .map(c -> (Class<? extends Payload>) c)
-            .collect(Collectors.toUnmodifiableSet());
+        return payload;
     }
 
     @Override
     public ConstraintTarget getValidationAppliesTo() {
-        return ConstraintTarget.IMPLICIT;
+        return validationAppliesTo;
     }
 
     @Override
     public List<Class<? extends ConstraintValidator<T, ?>>> getConstraintValidatorClasses() {
-        return Collections.emptyList();
+        return validatedBy;
     }
 
     @Override
     public Map<String, Object> getAttributes() {
-        return annotationValue.getValues().entrySet().stream().collect(Collectors.toMap(
-            entry -> entry.getKey().toString(),
-            Map.Entry::getValue
-        ));
+        final Map<?, ?> values = annotationValue.getValues();
+        Map<String, Object> variables = CollectionUtils.newLinkedHashMap(values.size());
+        for (Map.Entry<?, ?> entry : values.entrySet()) {
+            variables.put(entry.getKey().toString(), entry.getValue());
+        }
+        final Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
+        for (Map.Entry<CharSequence, Object> entry : defaultValues.entrySet()) {
+            final String n = entry.getKey().toString();
+            if (!variables.containsKey(n)) {
+                final Object v = entry.getValue();
+                if (v != null) {
+                    variables.put(n, v);
+                }
+            }
+        }
+        return variables;
     }
 
     @Override
@@ -114,11 +177,22 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public ValidateUnwrappedValue getValueUnwrapping() {
+        boolean unwrap = payload.contains(Unwrapping.Unwrap.class);
+        boolean skip = payload.contains(Unwrapping.Skip.class);
+        if (unwrap && skip) {
+            throw new ConstraintDeclarationException("Payload declared with both " + Unwrapping.Unwrap.class.getName() + " and " + Unwrapping.Skip.class);
+        }
+        if (unwrap) {
+            return ValidateUnwrappedValue.UNWRAP;
+        }
+        if (skip) {
+            return ValidateUnwrappedValue.SKIP;
+        }
         return ValidateUnwrappedValue.DEFAULT;
     }
 
     @Override
-    public Object unwrap(Class type) {
+    public <U> U unwrap(Class<U> type) {
         throw new UnsupportedOperationException("Unwrapping unsupported");
     }
 }

@@ -12,7 +12,6 @@ dependencies {
 
     implementation projects.validation
     implementation projects.validationProcessor
-    implementation mnReactor.micronaut.reactor
 
     implementation 'org.jboss.arquillian.container:arquillian-container-test-spi:1.7.0.Alpha2'
     implementation libs.jakarta.validation.tck.tests
@@ -25,6 +24,28 @@ dependencies {
     testImplementation 'javax.annotation:javax.annotation-api:1.3.2'
 }
 
+def methodsTest1 = tasks.register('methodsTest1', Test) {
+    scanForTestClasses false
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
+        ]
+        suites file("tck-methods2.xml")
+    }
+}
+
+def methodsTest2 = tasks.register('methodsTest2', Test) {
+    scanForTestClasses false
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
+        ]
+        suites file("tck-methods.xml")
+    }
+// Flaky
+//    dependsOn(methodsTest1)
+}
+
 test {
     scanForTestClasses false
     useTestNG {
@@ -33,6 +54,8 @@ test {
         ]
         suites file("tck-tests.xml")
     }
+    // Methods tests are extracted to prevent flaky tests caused by class loading issues
+    dependsOn(methodsTest2)
 }
 
 tasks.register('singleTest', Test) {
@@ -41,13 +64,11 @@ tasks.register('singleTest', Test) {
         suiteXmlBuilder().suite(name: 'Sample Suite') {
             test(name : 'Sample Test') {
                 classes('') {
-//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest') {
+//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest') {
 //                        methods() {
-//                            include(name: 'methodParameterValidationIncludesConstraintsFromImplementedInterface')
+//                            include(name: 'testFullGraphValidationBeforeNextGroupInSequence')
 //                        }
 //                    }
-                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest') {
-                    }
                 }
             }
         }

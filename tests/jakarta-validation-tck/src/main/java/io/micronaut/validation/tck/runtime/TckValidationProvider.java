@@ -33,7 +33,7 @@ public final class TckValidationProvider implements ValidationProvider<TckValida
 
     @Override
     public Configuration<?> createGenericConfiguration(BootstrapState state) {
-        throw new RuntimeException();
+        return new TckValidatorConfiguration();
     }
 
     @Override
