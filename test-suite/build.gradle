@@ -1,7 +1,5 @@
 plugins {
-    id 'io.micronaut.build.internal.validation-base'
-    id 'java'
-    id 'io.micronaut.application'
+    id 'io.micronaut.build.internal.validation-test-suite'
 }
 
 dependencies {
@@ -28,3 +26,4 @@ dependencies {
     testImplementation libs.junit.jupiter.engine
     testRuntimeOnly libs.junit.jupiter.engine
 }
+
