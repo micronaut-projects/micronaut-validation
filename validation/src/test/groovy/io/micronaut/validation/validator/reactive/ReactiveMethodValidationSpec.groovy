@@ -146,7 +146,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureSimple.title[]<completion stage element>: must not be blank"
+        e.cause.message == "futureSimple.title<completion stage element>: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
     }
 
@@ -173,7 +173,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureValid.book[].title: must not be blank"
+        e.cause.message == "futureValid.book.title: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureValid.book')
     }
 }
