@@ -7,3 +7,7 @@ micronaut {
     // Do not build examples against M1 since the platform is not released
     version = "4.0.0-SNAPSHOT"
 }
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}

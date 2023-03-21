@@ -1,12 +1,14 @@
 package io.micronaut.docs.validation.iterable;
 
-import java.util.*;
-
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+import jakarta.validation.ConstraintViolationException;
 import org.junit.jupiter.api.Test;
 
-import jakarta.validation.ConstraintViolationException;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -28,7 +30,7 @@ public class BookInfoSpec {
                         bookInfoService.setBookAuthors("My Book", authors)
                 );
 
-        assertEquals("setBookAuthors.authors[1]<E String>: must not be blank",
+        assertEquals("setBookAuthors.authors[1]<list element>: must not be blank",
                 exception.getMessage()); // <1>
     }
 
@@ -42,7 +44,7 @@ public class BookInfoSpec {
                         bookInfoService.setBookSectionPages("My Book", sectionStartPages)
                 );
 
-        assertEquals("setBookSectionPages.sectionStartPages[]<K String>: must not be blank",
+        assertEquals("setBookSectionPages.sectionStartPages[]<map key>: must not be blank",
                 exception.getMessage()); // <2>
     }
 

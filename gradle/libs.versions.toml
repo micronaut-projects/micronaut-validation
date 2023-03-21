@@ -29,12 +29,14 @@ jakarta-validation-tck = "3.0.1"
 micronaut-reactor = { module = 'io.micronaut.reactor:micronaut-reactor-bom', version.ref = "micronaut-reactor" }
 micronaut-rxjava2 = { module = 'io.micronaut.rxjava2:micronaut-rxjava2-bom', version.ref = "micronaut-rxjava2" }
 micronaut-kotlin = { module = 'io.micronaut.kotlin:micronaut-kotlin-bom', version.ref = "micronaut-kotlin" }
-micronaut-test-junit5 = { module = "io.micronaut.test:micronaut-test-junit5", version.ref = "micronaut-test" }
+
 groovy-bom = { module = "org.apache.groovy:groovy-bom", version.ref = "groovy" }
 groovy-json = { module = "org.apache.groovy:groovy-json" }
 
 # TESTING
 
+micronaut-test-junit5 = { module = "io.micronaut.test:micronaut-test-junit5", version.ref = "micronaut-test" }
+micronaut-test-spock = { module = "io.micronaut.test:micronaut-test-spock", version.ref = "micronaut-test" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit5" }
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine", version.ref = "junit5" }
 kotlin-kotest-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm", version.ref = "kotest" }

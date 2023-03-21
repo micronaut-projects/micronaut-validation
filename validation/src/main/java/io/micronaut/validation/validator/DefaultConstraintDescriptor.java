@@ -152,13 +152,15 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         for (Map.Entry<?, ?> entry : values.entrySet()) {
             variables.put(entry.getKey().toString(), entry.getValue());
         }
-        final Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
-        for (Map.Entry<CharSequence, Object> entry : defaultValues.entrySet()) {
-            final String n = entry.getKey().toString();
-            if (!variables.containsKey(n)) {
-                final Object v = entry.getValue();
-                if (v != null) {
-                    variables.put(n, v);
+        if (annotationValue.getDefaultValues() != null) {
+            final Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
+            for (Map.Entry<CharSequence, Object> entry : defaultValues.entrySet()) {
+                final String n = entry.getKey().toString();
+                if (!variables.containsKey(n)) {
+                    final Object v = entry.getValue();
+                    if (v != null) {
+                        variables.put(n, v);
+                    }
                 }
             }
         }
