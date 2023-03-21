@@ -60,12 +60,12 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final AnnotationValue<T> annotationValue;
     private final AnnotationMetadata annotationMetadata;
 
-    DefaultConstraintDescriptor(Class<T> constraintType,
-                                AnnotationValue<T> annotationValue,
-                                AnnotationMetadata annotationMetadata) {
+    DefaultConstraintDescriptor(@NonNull Class<T> constraintType,
+                                @NonNull AnnotationValue<T> annotationValue,
+                                @NonNull AnnotationMetadata annotationMetadata) {
         this(constraintType,
             annotationValue.stringValue("message").orElse(null),
-            (String) annotationValue.getDefaultValues().get("message"),
+            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get("message"),
             Set.of(annotationValue.classValues("groups")),
             (Set) Set.of(annotationValue.classValues("payload")),
             (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)),
@@ -74,15 +74,15 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             annotationMetadata);
     }
 
-    DefaultConstraintDescriptor(Class<T> type,
-                                String message,
-                                String defaultMessage,
-                                Set<Class<?>> groups,
-                                Set<Class<? extends Payload>> payload,
-                                List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                ConstraintTarget validationAppliesTo,
-                                AnnotationValue<T> annotationValue,
-                                AnnotationMetadata annotationMetadata) {
+    DefaultConstraintDescriptor(@NonNull Class<T> type,
+                                @Nullable String message,
+                                @Nullable String defaultMessage,
+                                @NonNull Set<Class<?>> groups,
+                                @NonNull Set<Class<? extends Payload>> payload,
+                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
+                                @NonNull ConstraintTarget validationAppliesTo,
+                                @NonNull AnnotationValue<T> annotationValue,
+                                @NonNull AnnotationMetadata annotationMetadata) {
         this.type = type;
         this.message = message;
         this.defaultMessage = defaultMessage;
