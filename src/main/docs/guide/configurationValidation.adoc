@@ -1,4 +1,3 @@
+You can also validate the properties of classes that are annotated with {coreDocsUrl}context/annotation/ConfigurationProperties[@ConfigurationProperties] to ensure configuration is correct.
 
-You can also validate the properties of classes that are annotated with ann:context.annotation.ConfigurationProperties[] to ensure configuration is correct.
-
-NOTE: It is recommended that you annotate ann:context.annotation.ConfigurationProperties[] that features validation with ann:context.annotation.Context[] to ensure that the validation occurs at startup.
+NOTE: It is recommended that you annotate {coreDocsUrl}context/annotation/ConfigurationProperties[@ConfigurationProperties] that features validation with {coreDocsUrl}context/annotation/Context[@Context] to ensure that the validation occurs at startup.
