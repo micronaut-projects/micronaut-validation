@@ -3,7 +3,7 @@ plugins {
 }
 
 dependencies {
-    api mn.micronaut.core.processor
+    compileOnly mn.micronaut.core.processor
     implementation projects.validation
 
     testImplementation mn.micronaut.core.reactive
