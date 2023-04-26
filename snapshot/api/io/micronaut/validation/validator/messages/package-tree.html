@@ -58,7 +58,16 @@ loadScripts(document, 'script');</script>
 <ul>
 <li class="circle">java.lang.<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" class="type-name-link external-link" title="class or interface in java.lang">Object</a>
 <ul>
-<li class="circle">io.micronaut.validation.validator.messages.<a href="DefaultValidationMessages.html" class="type-name-link" title="class in io.micronaut.validation.validator.messages">DefaultValidationMessages</a> (implements jakarta.validation.MessageInterpolator)</li>
+<li class="circle">io.micronaut.context.AbstractMessageSource (implements io.micronaut.context.MessageSource)
+<ul>
+<li class="circle">io.micronaut.context.StaticMessageSource
+<ul>
+<li class="circle">io.micronaut.validation.validator.messages.<a href="DefaultMessages.html" class="type-name-link" title="class in io.micronaut.validation.validator.messages">DefaultMessages</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="circle">io.micronaut.validation.validator.messages.<a href="DefaultMessageInterpolator.html" class="type-name-link" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolator</a> (implements jakarta.validation.MessageInterpolator)</li>
 </ul>
 </li>
 </ul>
