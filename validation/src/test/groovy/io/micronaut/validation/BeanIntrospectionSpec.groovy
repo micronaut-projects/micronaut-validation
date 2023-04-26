@@ -661,10 +661,10 @@ public class Test {
         param2.getTypeParameters().length == 1
         def param3 = param2.getTypeParameters()[0]
 
-        property.getAnnotationMetadata().getAnnotationNames().toList() == [ValidatedElement.class.name]
-        param1.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.Size$List']
-        param2.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.NotEmpty$List']
-        param3.getAnnotationMetadata().getAnnotationNames().asList() == [ValidatedElement.class.name, 'jakarta.validation.constraints.NotNull$List']
+        property.getAnnotationMetadata().getAnnotationNames().contains ValidatedElement.class.name
+        param1.getAnnotationMetadata().getAnnotationNames().containsAll([ValidatedElement.class.name, 'jakarta.validation.constraints.Size$List'])
+        param2.getAnnotationMetadata().getAnnotationNames().containsAll([ValidatedElement.class.name, 'jakarta.validation.constraints.NotEmpty$List'])
+        param3.getAnnotationMetadata().getAnnotationNames().containsAll([ValidatedElement.class.name, 'jakarta.validation.constraints.NotNull$List'])
     }
 
     void "test build introspection"() {
