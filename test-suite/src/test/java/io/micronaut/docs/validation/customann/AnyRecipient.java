@@ -11,7 +11,7 @@ import java.lang.annotation.Target;
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface AnyRecipient {
-    String MESSAGE = "io.micronaut.validation.docs.customann.AnyRecipient.message";
+    String MESSAGE = "io.micronaut.docs.validation.customann.AnyRecipient.message";
 
     String message() default "{" + MESSAGE + "}";
 

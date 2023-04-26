@@ -35,7 +35,8 @@ import io.micronaut.validation.validator.constraints.DefaultConstraintValidators
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
-import io.micronaut.validation.validator.messages.DefaultValidationMessages;
+import io.micronaut.validation.validator.messages.DefaultMessages;
+import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
@@ -263,7 +264,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
         if (defaultMessageInterpolator == null) {
-            defaultMessageInterpolator = new DefaultValidationMessages();
+            defaultMessageInterpolator = new DefaultMessageInterpolator(new DefaultMessages());
         }
         return defaultMessageInterpolator;
     }
