@@ -1,15 +1,16 @@
 package io.micronaut.validation.validator.constraints
 
+import io.micronaut.annotation.processing.JavaAnnotationMetadataBuilder
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.validation.validator.DefaultClockProvider
+import jakarta.validation.ClockProvider
+import jakarta.validation.constraints.*
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Unroll
 
-import jakarta.validation.ClockProvider
-import jakarta.validation.constraints.*
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
@@ -308,6 +309,8 @@ class ConstraintsSpec extends AbstractTypeElementSpec {
     }
 
     private AnnotationValue constraintMetadata(Class annotation, String ann) {
-        buildAnnotationMetadata(ann, "jakarta.validation.constraints").getAnnotation(annotation)
+        def av = buildAnnotationMetadata(ann, "jakarta.validation.constraints").getAnnotation(annotation)
+        JavaAnnotationMetadataBuilder.clearCaches()
+        av
     }
 }
