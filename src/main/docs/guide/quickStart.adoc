@@ -6,7 +6,7 @@ dependency:micronaut-validation[groupId="io.micronaut.validation"]
 
 You can validate types, fields and parameters by applying `jakarta.validation` annotations to arguments. Include the following dependency for annotations:
 
-dependency:jakarta.validation:validation-api[]
+dependency:jakarta.validation:jakarta.validation-api[]
 
 == Supported Features
 
