@@ -20,7 +20,7 @@ managed-validation = "3.0.2"
 
 micronaut-gradle-plugin = "4.0.0-M2"
 kotlin-gradle-plugin = "1.8.10"
-ksp-gradle-plugin = "1.8.20-1.0.11"
+ksp-gradle-plugin = "1.8.21-1.0.11"
 
 jakarta-validation-tck = "3.0.1"
 
