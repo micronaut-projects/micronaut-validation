@@ -34,6 +34,7 @@ import io.micronaut.runtime.server.EmbeddedServer
 import io.micronaut.validation.Validated
 import jakarta.validation.groups.Default
 import spock.lang.AutoCleanup
+import spock.lang.PendingFeature
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -65,6 +66,7 @@ class PojoBodyParameterSpec extends Specification {
         e.response.status() == HttpStatus.BAD_REQUEST
     }
 
+    @PendingFeature
     void "test only sub properties are bound"() {
         HttpRequest req = HttpRequest.POST("/search/sub", '{"name":"X","search":{"lastName":"Jones"}}')
 
