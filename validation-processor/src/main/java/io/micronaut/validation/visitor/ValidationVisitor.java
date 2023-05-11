@@ -74,6 +74,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
             classElement.annotate(Introspected.class);
         }
+        classElement.getMethods().forEach(this::visitMethodInternal);
+        classElement.getFields().forEach(this::visitFieldInternal);
     }
 
     @Override
@@ -89,8 +91,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
     }
 
-    @Override
-    public void visitMethod(MethodElement element, VisitorContext context) {
+    private void visitMethodInternal(MethodElement element) {
         if (classElement == null || element.hasStereotype(Vetoed.class)) {
             return;
         }
@@ -111,8 +112,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
     }
 
-    @Override
-    public void visitField(FieldElement element, VisitorContext context) {
+    private void visitFieldInternal(FieldElement element) {
         if (classElement == null) {
             return;
         }
@@ -156,10 +156,14 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private boolean visitTypedElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
         boolean requires = false;
-        for (ClassElement typeArgument : e.getGenericType().getTypeArguments().values()) {
+        ClassElement genericType = e.getGenericType();
+        for (ClassElement typeArgument : genericType.getTypeArguments().values()) {
             // Make sure `visitElementValidationAndMarkForValidationIfNeeded` is invoked on all type arguments to mark it of cascading
             boolean requiresForType = visitElementValidationAndMarkForValidationIfNeeded(typeArgument, requireOnConstraint);
             requires |= requiresForType;
+        }
+        if (!genericType.equals(e)) {
+            requires |= visitElementValidationAndMarkForValidationIfNeeded(genericType, requireOnConstraint);
         }
         return requires;
     }
