@@ -31,7 +31,9 @@ import jakarta.validation.GroupSequence;
 import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import jakarta.validation.metadata.ConstraintDescriptor;
 
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -41,6 +43,7 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,6 +60,9 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
+
+    boolean disableDefaultConstraintViolation;
+    ConstraintDescriptor<Annotation> constraint;
 
     private final DefaultValidator defaultValidator;
     private final BeanIntrospection<R> beanIntrospection;
@@ -124,7 +130,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
             }
             if (!clazz.isInterface()) {
                 throw new IllegalArgumentException(
-                        "Validation groups must be interfaces. " + clazz.getName() + " is not.");
+                    "Validation groups must be interfaces. " + clazz.getName() + " is not.");
             }
         }
     }
@@ -207,8 +213,8 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
         convertedGroups = new HashMap<>(prevConvertedGroups);
 
         Map<Class<?>, Class<?>> newConvertGroups = conversions.stream().collect(Collectors.toMap(
-                av -> av.classValue("from").orElse(Default.class),
-                av -> av.classValue("to").orElseThrow())
+            av -> av.classValue("from").orElse(Default.class),
+            av -> av.classValue("to").orElseThrow())
         );
         convertedGroups.putAll(newConvertGroups);
         currentGroups = prevGroups.stream().<Class<?>>map(this::convertGroup).toList();
@@ -226,13 +232,13 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
                     throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
                 }
                 return Arrays.stream(classGroupSequence)
-                        .flatMap(group -> {
-                            if (group == beanIntrospection.getBeanType()) {
-                                return Stream.of(new ValidationGroup(true, true, List.of(Default.class)));
-                            }
-                            return findGroupSequence(Collections.singletonList(group), new HashSet<>()).stream();
-                        })
-                        .toList();
+                    .flatMap(group -> {
+                        if (group == beanIntrospection.getBeanType()) {
+                            return Stream.of(new ValidationGroup(true, true, List.of(Default.class)));
+                        }
+                        return findGroupSequence(Collections.singletonList(group), new HashSet<>()).stream();
+                    })
+                    .toList();
             }
         }
         return findGroupSequence(definedGroups, new HashSet<>());
@@ -256,8 +262,8 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
         Class<?> finalGroup = group;
         List<Class<?>> groupSequence = GROUP_SEQUENCES.computeIfAbsent(group, ignore -> {
             return defaultValidator.getBeanIntrospector().findIntrospection(finalGroup).stream()
-                    .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
-                    .toList();
+                .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
+                .toList();
         });
         if (groupSequence.isEmpty()) {
             return List.of(new ValidationGroup(false, false, List.of(group)));
@@ -278,11 +284,11 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
         List<ValidationGroup> innerGroups = groupSequence.stream().flatMap(g -> findGroups(g, processedGroups).stream()).toList();
         if (innerGroups.stream().noneMatch(validationGroup -> validationGroup.isSequence)) {
             return List.of(
-                    new ValidationGroup(
-                            false,
-                            false,
-                            innerGroups.stream().flatMap(validationGroup -> validationGroup.groups.stream()).toList()
-                    )
+                new ValidationGroup(
+                    false,
+                    false,
+                    innerGroups.stream().flatMap(validationGroup -> validationGroup.groups.stream()).toList()
+                )
             );
         }
         return innerGroups;
@@ -325,12 +331,12 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     @Override
     public void disableDefaultConstraintViolation() {
-        throw new ValidationException("Not supported");
+        disableDefaultConstraintViolation = true;
     }
 
     @Override
     public String getDefaultConstraintMessageTemplate() {
-        throw new ValidationException("Not supported");
+        return getMessageTemplate().orElse(Objects.requireNonNull(constraint).getMessageTemplate());
     }
 
     @NonNull
@@ -341,7 +347,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     @Override
     public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
-        return null;
+        return new DefaultConstraintViolationBuilder(messageTemplate, this, defaultValidator.messageInterpolator);
     }
 
     @Override
@@ -376,6 +382,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
     }
 
     @Internal
-    record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence, List<Class<?>> groups) {
+    record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence,
+                           List<Class<?>> groups) {
     }
 }

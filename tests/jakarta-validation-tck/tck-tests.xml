@@ -46,16 +46,18 @@
             <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <exclude name="customGenericTypeWithContainerElementConstraintButNoValueExtractorThrowsException"/>
+                    <exclude name="mostSpecificValueExtractorFound"/>
+                    <exclude name="parallelValueExtractorDefinitionsCausesException"/>
                 </methods>
             </class>
-            <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <!-- ConstraintValidatorFactory not supported yet-->
+                    <exclude name="testGetConstraintValidatorFactoryFromValidatorFactory"/>
                 </methods>
             </class>
-            <!-- TODO -->
+            <!-- ConstraintValidatorFactory not supported yet-->
             <class name="org.hibernate.beanvalidation.tck.tests.validatorfactory.DefaultConstraintValidatorFactoryTest">
                 <methods>
                     <exclude name=".*"/>
@@ -83,13 +85,12 @@
                     <exclude name=".*"/>
                 </methods>
             </class>
-            <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <!-- custom parameter name provider is not supported -->
+                    <exclude name="testAddParameterNodeUsingCustomParameterNameProvider"/>
                 </methods>
             </class>
-            <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
                 <methods>
                     <!-- Not supported ParameterNameProvider -->
@@ -120,16 +121,30 @@
                     <exclude name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
                 </methods>
             </class>
-            <!-- TODO -->
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest">
-                <methods>
-                    <exclude name=".*"/>
-                </methods>
-            </class>
-            <!-- TODO -->
+<!--            &lt;!&ndash; TODO &ndash;&gt;-->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <!-- TODO -->
+                    <exclude name="testAmbiguousValidatorResolution"/>
+                    <exclude name="testCrossParameterConstraintWithoutValidatorCausesConstraintDefinitionException"/>
+                    <!-- INVESTIGATE -->
+                    <exclude name="testResolutionOfMinMaxForDifferentTypes"/>
+                    <exclude name="testClassLevelValidatorForSubTypeHasPredenceOverValidatorForSuperClass"/>
+
+                    <!-- TODO Support selecting validators by the generic type -->
+                    <exclude name="testSeveralCrossParameterValidatorsCauseConstraintDefinitionException"/>
+                    <exclude name="testTargetTypeIsClass"/>
+                    <exclude name="testTargetTypeIsInterface"/>
+                    <exclude name="testTargetedTypeIsConstructor"/>
+                    <exclude name="testTargetedTypeIsConstructorParameter"/>
+                    <exclude name="testTargetedTypeIsField"/>
+                    <exclude name="testTargetedTypeIsGetter"/>
+                    <exclude name="testTargetedTypeIsMethod"/>
+                    <exclude name="testTargetedTypeIsMethodParameter"/>
+                    <exclude name="testTargetedTypeIsTypeArgument"/>
+                    <exclude name="testTargetedTypeIsTypeArgumentForNonGenericContainerInheritingFromGenericTypeWithValueExtractor"/>
+                    <exclude name="testTargetedTypeIsTypeArgumentForNonGenericContainerWithValueExtractorWithExtractedType"/>
+                    <exclude name="testTwoValidatorsForSameTypeCauseUnexpectedTypeException"/>
                 </methods>
             </class>
             <!-- TODO -->

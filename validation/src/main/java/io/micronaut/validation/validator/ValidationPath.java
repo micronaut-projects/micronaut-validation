@@ -41,8 +41,8 @@ import java.util.List;
 @Internal
 final class ValidationPath implements Path {
 
-    private final Deque<Node> nodes;
-    private ContainerContext containerContext = ContainerContext.NONE;
+    final Deque<Node> nodes;
+    private ContainerContext containerContext = DefaultContainerContext.NONE;
 
     private final ContextualPath popPath = new ContextualPath() {
         @Override
@@ -109,10 +109,18 @@ final class ValidationPath implements Path {
     }
 
     ContextualPath addBeanNode() {
+        return addBeanNode(containerContext);
+    }
+
+    ContextualPath addBeanNode(ContainerContext containerContext) {
         return addNode(new ValidationPath.DefaultBeanNode(containerContext));
     }
 
     ContextualPath addPropertyNode(String name) {
+        return addPropertyNode(name, containerContext);
+    }
+
+    ContextualPath addPropertyNode(String name, ContainerContext containerContext) {
         return addNode(new ValidationPath.DefaultPropertyNode(name, containerContext));
     }
 
@@ -138,7 +146,7 @@ final class ValidationPath implements Path {
 
     private ContextualPath addNode(Node node) {
         nodes.add(node);
-        ContextualPath contextualPath = withContainerContext(ContainerContext.NONE);
+        ContextualPath contextualPath = withContainerContext(DefaultContainerContext.NONE);
 
         return () -> {
             popPath.close();
@@ -180,7 +188,7 @@ final class ValidationPath implements Path {
 
     public ContextualPath cascaded() {
         Node last = nodes.peekLast();
-        if (containerContext.containerClass == null && last != null && last.getKind() == ElementKind.CONTAINER_ELEMENT) {
+        if (containerContext.containerClass() == null && last != null && last.getKind() == ElementKind.CONTAINER_ELEMENT) {
             DefaultContainerElementNode removed = (DefaultContainerElementNode) nodes.removeLast();
             ContainerContext prevContainerContext = containerContext;
             containerContext = removed.containerContext;
@@ -208,7 +216,7 @@ final class ValidationPath implements Path {
     static final class DefaultReturnValueNode extends DefaultNode implements ReturnValueNode {
 
         public DefaultReturnValueNode() {
-            super("<return value>", ContainerContext.NONE);
+            super("<return value>", DefaultContainerContext.NONE);
         }
 
         @Override
@@ -225,19 +233,19 @@ final class ValidationPath implements Path {
     /**
      * Default bean node implementation.
      */
-    private static final class DefaultBeanNode extends DefaultNode implements BeanNode {
+    static final class DefaultBeanNode extends DefaultNode implements BeanNode {
         public DefaultBeanNode(ContainerContext containerContext) {
             super(null, containerContext);
         }
 
         @Override
         public Class<?> getContainerClass() {
-            return containerContext.containerClass;
+            return containerContext.containerClass();
         }
 
         @Override
         public Integer getTypeArgumentIndex() {
-            return containerContext.typeArgumentIndex;
+            return containerContext.typeArgumentIndex();
         }
 
         @Override
@@ -249,19 +257,19 @@ final class ValidationPath implements Path {
     /**
      * Default property node implementation.
      */
-    private static final class DefaultPropertyNode extends DefaultNode implements PropertyNode {
+    static final class DefaultPropertyNode extends DefaultNode implements PropertyNode {
         public DefaultPropertyNode(String name, ContainerContext containerContext) {
             super(name, containerContext);
         }
 
         @Override
         public Class<?> getContainerClass() {
-            return containerContext.containerClass;
+            return containerContext.containerClass();
         }
 
         @Override
         public Integer getTypeArgumentIndex() {
-            return containerContext.typeArgumentIndex;
+            return containerContext.typeArgumentIndex();
         }
 
         @Override
@@ -273,11 +281,11 @@ final class ValidationPath implements Path {
     /**
      * Default parameter node implementation.
      */
-    private static final class DefaultParameterNode extends DefaultNode implements ParameterNode {
+    static final class DefaultParameterNode extends DefaultNode implements ParameterNode {
         private final int parameterIndex;
 
-        public DefaultParameterNode(@NonNull String name, int parameterIndex) {
-            super(name, ContainerContext.NONE);
+        public DefaultParameterNode(@Nullable String name, int parameterIndex) {
+            super(name, DefaultContainerContext.NONE);
             this.parameterIndex = parameterIndex;
         }
 
@@ -298,7 +306,7 @@ final class ValidationPath implements Path {
     private static final class DefaultCrossParameterNode extends DefaultNode implements CrossParameterNode {
 
         public DefaultCrossParameterNode() {
-            super("<cross-parameter>", ContainerContext.NONE);
+            super("<cross-parameter>", DefaultContainerContext.NONE);
         }
 
         @Override
@@ -315,7 +323,7 @@ final class ValidationPath implements Path {
     /**
      * Default node implementation.
      */
-    private abstract static class DefaultNode implements Node {
+    abstract static class DefaultNode implements Node {
         protected final String name;
         protected final ContainerContext containerContext;
 
@@ -331,17 +339,17 @@ final class ValidationPath implements Path {
 
         @Override
         public boolean isInIterable() {
-            return containerContext.isInIterable;
+            return containerContext.isInIterable();
         }
 
         @Override
         public Integer getIndex() {
-            return containerContext.index;
+            return containerContext.index();
         }
 
         @Override
         public Object getKey() {
-            return containerContext.key;
+            return containerContext.key();
         }
 
         @Override
@@ -366,13 +374,17 @@ final class ValidationPath implements Path {
     /**
      * Method node implementation.
      */
-    private static class DefaultMethodNode extends DefaultNode implements MethodNode {
+    static class DefaultMethodNode extends DefaultNode implements MethodNode {
 
         private final MethodReference<?, ?> methodReference;
 
         public DefaultMethodNode(MethodReference<?, ?> methodReference) {
-            super(methodReference.getMethodName(), ContainerContext.NONE);
+            super(methodReference.getMethodName(), DefaultContainerContext.NONE);
             this.methodReference = methodReference;
+        }
+
+        public MethodReference<?, ?> getMethodReference() {
+            return methodReference;
         }
 
         @Override
@@ -398,27 +410,27 @@ final class ValidationPath implements Path {
 
         @Override
         public Class<?> getContainerClass() {
-            return containerContext.containerClass;
+            return containerContext.containerClass();
         }
 
         @Override
         public Integer getTypeArgumentIndex() {
-            return containerContext.typeArgumentIndex;
+            return containerContext.typeArgumentIndex();
         }
 
         @Override
         public boolean isInIterable() {
-            return containerContext.isInIterable;
+            return containerContext.isInIterable();
         }
 
         @Override
         public Integer getIndex() {
-            return containerContext.index;
+            return containerContext.index();
         }
 
         @Override
         public Object getKey() {
-            return containerContext.key;
+            return containerContext.key();
         }
 
         @Override
@@ -442,6 +454,34 @@ final class ValidationPath implements Path {
         }
     }
 
+    public interface ContainerContext {
+        static ContainerContext indexed(Class<?> containerClass, int index, Integer typeArgumentIndex) {
+            return new ValidationPath.DefaultContainerContext(containerClass, index, null, true, typeArgumentIndex);
+        }
+
+        static ContainerContext keyed(Class<?> containerClass, Object key, Integer typeArgumentIndex) {
+            return new ValidationPath.DefaultContainerContext(containerClass, null, key, true, typeArgumentIndex);
+        }
+
+        static ContainerContext iterable(Class<?> containerClass, Integer typeArgumentIndex) {
+            return new ValidationPath.DefaultContainerContext(containerClass, null, null, true, typeArgumentIndex);
+        }
+
+        static ContainerContext value(Class<?> containerClass, Integer typeArgumentIndex) {
+            return new ValidationPath.DefaultContainerContext(containerClass, null, null, false, typeArgumentIndex);
+        }
+
+        Class<?> containerClass();
+
+        Integer index();
+
+        Object key();
+
+        boolean isInIterable();
+
+        Integer typeArgumentIndex();
+    }
+
     /**
      * The container context.
      *
@@ -452,16 +492,16 @@ final class ValidationPath implements Path {
      * @param typeArgumentIndex The type argument index
      */
     @Internal
-    public record ContainerContext(@Nullable Class<?> containerClass,
-                                   @Nullable Integer index,
-                                   @Nullable Object key,
-                                   boolean isInIterable,
-                                   @Nullable Integer typeArgumentIndex) {
+    public record DefaultContainerContext(@Nullable Class<?> containerClass,
+                                          @Nullable Integer index,
+                                          @Nullable Object key,
+                                          boolean isInIterable,
+                                          @Nullable Integer typeArgumentIndex) implements ContainerContext {
 
         /**
          * Not in a container context.
          */
-        static ContainerContext NONE = new ContainerContext(null, null, null, false, null);
+        static DefaultContainerContext NONE = new DefaultContainerContext(null, null, null, false, null);
 
         /**
          * The iterable container context.
@@ -469,30 +509,81 @@ final class ValidationPath implements Path {
          * @param containerClass The container class
          * @return new context
          */
-        public static ContainerContext ofIterableContainer(Class<?> containerClass) {
-            return new ContainerContext(containerClass, null, null, true, 0);
+        public static DefaultContainerContext ofIterableContainer(Class<?> containerClass) {
+            return new DefaultContainerContext(containerClass, null, null, true, 0);
         }
 
-        public static ContainerContext ofContainer(Class<?> containerClass) {
-            return new ContainerContext(containerClass, null, null, false, 0);
+        public static DefaultContainerContext ofContainer(Class<?> containerClass) {
+            return new DefaultContainerContext(containerClass, null, null, false, 0);
         }
 
-        public static ContainerContext indexed(Class<?> containerClass, int index, Integer typeArgumentIndex) {
-            return new ValidationPath.ContainerContext(containerClass, index, null, true, typeArgumentIndex);
+    }
+
+    /**
+     * The mutable container context.
+     *
+     */
+    @Internal
+    public static class MutableContainerContext implements ContainerContext {
+
+        private @Nullable Class<?> containerClass;
+        private @Nullable Integer index;
+        private  @Nullable Object key;
+        private  boolean isInIterable;
+        private  @Nullable Integer typeArgumentIndex;
+
+        public MutableContainerContext() {
         }
 
-        public static ContainerContext keyed(Class<?> containerClass, Object key, Integer typeArgumentIndex) {
-            return new ValidationPath.ContainerContext(containerClass, null, key, true, typeArgumentIndex);
+        public MutableContainerContext(ValidationPath.ContainerContext containerContext) {
+            containerClass = containerContext.containerClass();
+            index = containerContext.index();
+            key = containerContext.key();
+            isInIterable = containerContext.isInIterable();
+            typeArgumentIndex = containerContext.typeArgumentIndex();
         }
 
-        public static ContainerContext iterable(Class<?> containerClass, Integer typeArgumentIndex) {
-            return new ValidationPath.ContainerContext(containerClass, null, null, true, typeArgumentIndex);
+        @Override
+        public Class<?> containerClass() {
+            return containerClass;
         }
 
-        public static ContainerContext value(Class<?> containerClass, Integer typeArgumentIndex) {
-            return new ValidationPath.ContainerContext(containerClass, null, null, false, typeArgumentIndex);
+        @Override
+        public Integer index() {
+            return index;
         }
 
+        @Override
+        public Object key() {
+            return key;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return isInIterable;
+        }
+
+        @Override
+        public Integer typeArgumentIndex() {
+            return typeArgumentIndex;
+        }
+
+        public void inIterable() {
+            isInIterable = true;
+        }
+
+        public void inContainer(Class<?> containerClass, Integer typeArgumentIndex) {
+            this.containerClass = containerClass;
+            this.typeArgumentIndex = typeArgumentIndex;
+        }
+
+        public void atKey(Object key) {
+            this.key = key;
+        }
+
+        public void atIndex(Integer index) {
+            this.index = index;
+        }
     }
 
     @Internal
