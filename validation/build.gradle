@@ -13,8 +13,8 @@ dependencies {
 
     implementation mnReactor.micronaut.reactor
 
-    testAnnotationProcessor project(":validation-processor")
-    testImplementation project(":validation-processor")
+    testAnnotationProcessor project(":micronaut-validation-processor")
+    testImplementation project(":micronaut-validation-processor")
     testAnnotationProcessor mn.micronaut.inject.java
     testImplementation libs.spotbugs
     testCompileOnly mn.micronaut.inject.groovy

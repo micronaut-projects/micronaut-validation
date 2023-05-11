@@ -1,9 +1,15 @@
 // If you don't need any common settings/dependencies/... for everything, remove this convention plugin and the reference to it in `io.micronaut.build.internal.project-template-module.gradle` file
 repositories {
     mavenCentral()
-    maven { url "https://s01.oss.sonatype.org/content/repositories/snapshots/" }
 }
 
 configurations.all {
     resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+    resolutionStrategy.dependencySubstitution {
+        all {
+            if (it.requested instanceof ModuleComponentSelector && it.requested.group == project.group) {
+                substitute module("${it.requested.group}:${it.requested.module}") using project(":${it.requested.module}")
+            }
+        }
+    }
 }

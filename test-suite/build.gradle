@@ -9,8 +9,8 @@ dependencies {
 
     implementation mnReactor.micronaut.reactor
 
-    testImplementation project(":validation")
-    testAnnotationProcessor project(":validation-processor")
+    testImplementation project(":micronaut-validation")
+    testAnnotationProcessor project(":micronaut-validation-processor")
     testAnnotationProcessor mn.micronaut.inject.java
     testCompileOnly mn.micronaut.http.server
     testImplementation mn.micronaut.inject.java.test

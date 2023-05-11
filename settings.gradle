@@ -30,6 +30,7 @@ include 'test-suite-kotlin'
 include 'tests:jakarta-validation-tck'
 
 micronautBuild {
+    useStandardizedProjectNames.set(true)
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
     importMicronautCatalog("micronaut-rxjava2")

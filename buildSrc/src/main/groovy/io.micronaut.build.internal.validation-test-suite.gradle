@@ -5,7 +5,7 @@ plugins {
 }
 micronaut {
     // Do not build examples against M1 since the platform is not released
-    version = "4.0.0-SNAPSHOT"
+    version libs.versions.micronaut.platform.get()
 }
 
 tasks.withType(Test).configureEach {
