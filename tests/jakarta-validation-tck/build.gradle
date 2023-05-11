@@ -10,8 +10,8 @@ dependencies {
     implementation mn.micronaut.aop
     implementation mn.micronaut.context
 
-    implementation projects.validation
-    implementation projects.validationProcessor
+    implementation projects.micronautValidation
+    implementation projects.micronautValidationProcessor
 
     implementation 'org.jboss.arquillian.container:arquillian-container-test-spi:1.7.0.Alpha2'
     implementation libs.jakarta.validation.tck.tests

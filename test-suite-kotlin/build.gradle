@@ -19,8 +19,8 @@ dependencies {
 
     implementation mnReactor.micronaut.reactor
 
-    testImplementation project(":validation")
-    kspTest project(":validation-processor")
+    testImplementation project(":micronaut-validation")
+    kspTest project(":micronaut-validation-processor")
     kspTest mn.micronaut.inject.kotlin
     testImplementation libs.spotbugs
     testCompileOnly mn.micronaut.inject.groovy
