@@ -4,7 +4,7 @@ plugins {
 }
 
 dependencies {
-    implementation mn.logback.classic
+    runtimeOnly(mnLogging.logback.classic)
     implementation mn.micronaut.inject.java
     implementation mn.micronaut.inject
     implementation mn.micronaut.aop
