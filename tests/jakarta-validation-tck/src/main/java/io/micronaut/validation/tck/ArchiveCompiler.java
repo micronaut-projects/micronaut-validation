@@ -26,6 +26,7 @@ import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.Conta
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest;
 import org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest;
+import org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest;
 import org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest;
 import org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.NestedCascadingOnContainerElementsTest;
 import org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDefinedInConfigurationApiTest;
@@ -195,6 +196,13 @@ final class ArchiveCompiler {
             importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$CinemaEmailAddresses");
             importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$EmailAddressMap");
             importBeans.add(NestedCascadingOnContainerElementsTest.class.getName() + "$AddressBook");
+            packageName = NestedCascadingOnContainerElementsTest.class.getPackageName();
+        }
+        if (testSources.stream().anyMatch(f -> f.getName().contains(ValidatorResolutionTest.class.getSimpleName()))) {
+            importBeans.add(ValidatorResolutionTest.class.getName() + "$CustomInterfaceImpl");
+            importBeans.add(ValidatorResolutionTest.class.getName() + "$AnotherSubClass");
+            importBeans.add(ValidatorResolutionTest.class.getName() + "$CustomClass");
+            importBeans.add(ValidatorResolutionTest.class.getName() + "$SubClassF");
             packageName = NestedCascadingOnContainerElementsTest.class.getPackageName();
         }
         if (!importBeans.isEmpty()) {

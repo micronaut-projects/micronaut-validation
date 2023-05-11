@@ -112,12 +112,13 @@ public class DefaultValidator implements
         }
     };
 
+    final MessageInterpolator messageInterpolator;
+
     private final ConstraintValidatorRegistry constraintValidatorRegistry;
     private final ClockProvider clockProvider;
     private final ValueExtractorRegistry valueExtractorRegistry;
     private final TraversableResolver traversableResolver;
     private final ExecutionHandleLocator executionHandleLocator;
-    private final MessageInterpolator messageInterpolator;
     private final ConversionService conversionService;
     private final BeanIntrospector beanIntrospector;
 
@@ -567,7 +568,7 @@ public class DefaultValidator implements
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, publisher, groups);
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addReturnValueNode()) {
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addContainerElementNode("<publisher element>",
-                ValidationPath.ContainerContext.ofIterableContainer(publisherArgument.getType()))) {
+                ValidationPath.DefaultContainerContext.ofIterableContainer(publisherArgument.getType()))) {
                 for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
                     try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
                         visitElement(context, publisher, valueArgument, value, canCascade);
@@ -799,7 +800,7 @@ public class DefaultValidator implements
         Argument<Object> valueArgument = typeParameters[0];
 
         try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
-            .addContainerElementNode("<publisher element>", ValidationPath.ContainerContext.ofIterableContainer(value.getClass()))) {
+            .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(value.getClass()))) {
             visitElement(context, context.getRootBean(), valueArgument, publisherInstance, canCascade);
         }
     }
@@ -828,7 +829,7 @@ public class DefaultValidator implements
         return completionStage.thenApply(value -> {
 
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
-                    .addContainerElementNode("<completion stage element>", ValidationPath.ContainerContext.ofContainer(CompletionStage.class))) {
+                .addContainerElementNode("<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class))) {
                 visitElement(context, context.getRootBean(), argument, value, canCascade);
             }
 
@@ -1237,6 +1238,7 @@ public class DefaultValidator implements
         }
         ConstraintTarget constraintTarget = context.getCurrentPath().getConstraintTarget();
         for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+            context.constraint = constraint;
             if (constraint.getValidationAppliesTo() != ConstraintTarget.IMPLICIT && constraint.getValidationAppliesTo() != constraintTarget) {
                 continue;
             }
@@ -1256,7 +1258,13 @@ public class DefaultValidator implements
                             continue;
                         }
 
-                        jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = (jakarta.validation.ConstraintValidator<Annotation, E>) beanIntrospection.instantiate();
+                        jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator;
+                        try {
+                            constraintValidator =
+                                (jakarta.validation.ConstraintValidator<Annotation, E>) beanIntrospection.instantiate();
+                        } catch (Exception e) {
+                            throw new ValidationException("Cannot initialize validator: " + beanIntrospection.getBeanType().getName());
+                        }
                         if (constraintValidator instanceof ConstraintValidator<Annotation, E>) {
                             validator = (ConstraintValidator<Annotation, E>) constraintValidator;
                         } else {
@@ -1308,10 +1316,14 @@ public class DefaultValidator implements
                 throw new ValidationException("Cannot call 'isValid' on: " + validator.getClass().getName(), e);
             }
 
-            DefaultConstraintViolation<R> constraintViolation = createConstraintViolation(context, leftBean, elementValue, constraint);
-
-            context.addViolation(constraintViolation);
+            if (!context.disableDefaultConstraintViolation) {
+                DefaultConstraintViolation<R> constraintViolation = createConstraintViolation(context, leftBean, elementValue, constraint);
+                context.addViolation(constraintViolation);
+            } else if (context.getOverallViolations().isEmpty()) {
+                throw new ValidationException("Default violation is disabled and no violations were added");
+            }
             context.messageTemplate(null);
+            context.constraint = null;
         }
     }
 
