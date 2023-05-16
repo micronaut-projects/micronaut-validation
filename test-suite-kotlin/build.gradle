@@ -22,8 +22,8 @@ dependencies {
     testImplementation project(":micronaut-validation")
     kspTest project(":micronaut-validation-processor")
     kspTest mn.micronaut.inject.kotlin
+
     testImplementation libs.spotbugs
-    testCompileOnly mn.micronaut.inject.groovy
     testImplementation mn.micronaut.inject
 
     testImplementation libs.kotlin.test
@@ -31,11 +31,8 @@ dependencies {
     testImplementation libs.kotlin.kotest.junit5
     testImplementation libs.micronaut.test.junit5
     testImplementation libs.junit.jupiter.engine
-    testRuntimeOnly libs.junit.jupiter.engine
 
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.http.server.netty
-    testImplementation libs.groovy.json
-    testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.jackson.databind
 }
