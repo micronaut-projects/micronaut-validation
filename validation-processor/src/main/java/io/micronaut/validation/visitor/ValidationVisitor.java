@@ -32,11 +32,11 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.HashSet;
 import java.util.Set;
 
 /**
  * The visitor creates annotations utilized by the Validator.
- *
  * It adds @RequiresValidation annotation to fields if they require validation, and to methods
  * if one of the parameters or return value require validation.
  *
@@ -51,6 +51,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static final String ANN_VALID = "jakarta.validation.Valid";
 
     private ClassElement classElement;
+    private final Set<Object> visited = new HashSet<>();
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
@@ -70,17 +71,21 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
+        visited.clear();
         classElement = element;
         if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
             classElement.annotate(Introspected.class);
         }
-        classElement.getMethods().forEach(this::visitMethodInternal);
-        classElement.getFields().forEach(this::visitFieldInternal);
+        classElement.getMethods().forEach(m -> visitMethod(m, context));
+//        classElement.getFields().forEach(f -> visitField(f, context));
     }
 
     @Override
     public void visitConstructor(ConstructorElement element, VisitorContext context) {
         if (classElement == null) {
+            return;
+        }
+        if (!visited.add(element)) {
             return;
         }
         boolean parametersRequireValidation = parametersRequireValidation(element, true);
@@ -91,8 +96,12 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
     }
 
-    private void visitMethodInternal(MethodElement element) {
+    @Override
+    public void visitMethod(MethodElement element, VisitorContext context) {
         if (classElement == null || element.hasStereotype(Vetoed.class)) {
+            return;
+        }
+        if (!visited.add(element)) {
             return;
         }
         boolean isPrivate = element.isPrivate();
@@ -112,8 +121,12 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
     }
 
-    private void visitFieldInternal(FieldElement element) {
+    @Override
+    public void visitField(FieldElement element, VisitorContext context) {
         if (classElement == null) {
+            return;
+        }
+        if (!visited.add(element)) {
             return;
         }
         if (visitElementValidationAndMarkForValidationIfNeeded(element, true)) {
