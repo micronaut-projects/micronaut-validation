@@ -11,3 +11,7 @@ micronaut {
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
 }
+
+configurations.all {
+    resolutionStrategy.preferProjectModules()
+}
