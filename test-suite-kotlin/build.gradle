@@ -1,29 +1,26 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 plugins {
     id 'io.micronaut.build.internal.validation-test-suite'
     id 'org.jetbrains.kotlin.jvm'
     id 'com.google.devtools.ksp'
 }
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
+tasks.withType(KotlinCompile).configureEach {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
 dependencies {
     testImplementation mn.micronaut.inject
-    testImplementation mn.micronaut.core.reactive
     testImplementation libs.managed.validation
-
-    compileOnly mn.micronaut.http.server
-
-    implementation mnReactor.micronaut.reactor
-
     testImplementation project(":micronaut-validation")
+
     kspTest project(":micronaut-validation-processor")
     kspTest mn.micronaut.inject.kotlin
 
-    testImplementation libs.spotbugs
     testImplementation mn.micronaut.inject
 
     testImplementation libs.kotlin.test

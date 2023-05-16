@@ -5,26 +5,17 @@ plugins {
 
 dependencies {
     testImplementation mn.micronaut.inject
-    testImplementation mn.micronaut.core.reactive
     testImplementation libs.managed.validation
 
-    compileOnly mn.micronaut.http.server
-
-    implementation mnReactor.micronaut.reactor
+    testCompileOnly mn.micronaut.inject.groovy
 
     testImplementation project(":micronaut-validation")
     testImplementation project(":micronaut-validation-processor")
     testAnnotationProcessor project(":micronaut-validation-processor")
     testAnnotationProcessor mn.micronaut.inject.java
-    testImplementation libs.spotbugs
-    testCompileOnly mn.micronaut.inject.groovy
-    testImplementation mn.micronaut.inject
-
-    testImplementation platform(libs.groovy.bom)
 
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.http.server.netty
-    testImplementation libs.groovy.json
     testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.jackson.databind
 
