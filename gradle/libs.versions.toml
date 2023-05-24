@@ -18,7 +18,7 @@ managed-validation = "3.0.2"
 
 # Gradle plugins
 
-micronaut-gradle-plugin = "4.0.0-M2"
+micronaut-gradle-plugin = "4.0.0-M4"
 kotlin-gradle-plugin = "1.8.21"
 ksp-gradle-plugin = "1.8.21-1.0.11"
 
