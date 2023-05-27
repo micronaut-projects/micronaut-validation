@@ -66,7 +66,6 @@ class PojoBodyParameterSpec extends Specification {
         e.response.status() == HttpStatus.BAD_REQUEST
     }
 
-    @PendingFeature
     void "test only sub properties are bound"() {
         HttpRequest req = HttpRequest.POST("/search/sub", '{"name":"X","search":{"lastName":"Jones"}}')
 
