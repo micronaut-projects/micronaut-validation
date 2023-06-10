@@ -33,6 +33,5 @@ micronautBuild {
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
     importMicronautCatalog("micronaut-rxjava2")
-    importMicronautCatalog("micronaut-logging")
 }
 
