@@ -124,8 +124,8 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)" class="member-name-link">ValidatingInterceptor</a><wbr>(<a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
- jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)" class="member-name-link">ValidatingInterceptor</a><wbr>(@Nullable <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
+ @Nullable jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
  io.micronaut.core.convert.ConversionService&nbsp;conversionService)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates ValidatingInterceptor from the validatorFactory.</div>
@@ -147,7 +147,7 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>int</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#getOrder()" class="member-name-link">getOrder</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#intercept(io.micronaut.aop.MethodInvocationContext)" class="member-name-link">intercept</a><wbr>(io.micronaut.aop.MethodInvocationContext&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;context)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 </div>
@@ -189,9 +189,9 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <section class="detail" id="&lt;init&gt;(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)">
 <h3>ValidatingInterceptor</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ValidatingInterceptor</span><wbr><span class="parameters">(@Nullable
- <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
+ @Nullable <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
  @Nullable
- jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
+ @Nullable jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
  io.micronaut.core.convert.ConversionService&nbsp;conversionService)</span></div>
 <div class="block">Creates ValidatingInterceptor from the validatorFactory.</div>
 <dl class="notes">
@@ -224,7 +224,7 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <section class="detail" id="intercept(io.micronaut.aop.MethodInvocationContext)">
 <h3>intercept</h3>
 <div class="member-signature"><span class="annotations">@Nullable
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span>&nbsp;<span class="element-name">intercept</span><wbr><span class="parameters">(io.micronaut.aop.MethodInvocationContext&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;context)</span></div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">@Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a></span>&nbsp;<span class="element-name">intercept</span><wbr><span class="parameters">(io.micronaut.aop.MethodInvocationContext&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;context)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
 <dd><code>intercept</code>&nbsp;in interface&nbsp;<code>io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></dd>

@@ -98,16 +98,16 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)" class="member-name-link">validateCompletionStage</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
- io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)" class="member-name-link">validateCompletionStage</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
+ @NonNull io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Validate the given CompletionStage by returning a new CompletionStage that validates the emitted value.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>&lt;T&gt;&nbsp;org.reactivestreams.Publisher&lt;T&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#validatePublisher(io.micronaut.core.type.ReturnType,org.reactivestreams.Publisher,java.lang.Class...)" class="member-name-link">validatePublisher</a><wbr>(io.micronaut.core.type.ReturnType&lt;?&gt;&nbsp;returnType,
- org.reactivestreams.Publisher&lt;T&gt;&nbsp;publisher,
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>&lt;T&gt;&nbsp;@NonNull org.reactivestreams.Publisher&lt;T&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#validatePublisher(io.micronaut.core.type.ReturnType,org.reactivestreams.Publisher,java.lang.Class...)" class="member-name-link">validatePublisher</a><wbr>(@NonNull io.micronaut.core.type.ReturnType&lt;?&gt;&nbsp;returnType,
+ @NonNull org.reactivestreams.Publisher&lt;T&gt;&nbsp;publisher,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Validate the given publisher by returning a new Publisher that validates each emitted value.</div>
@@ -130,10 +130,10 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="validatePublisher(io.micronaut.core.type.ReturnType,org.reactivestreams.Publisher,java.lang.Class...)">
 <h3>validatePublisher</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">org.reactivestreams.Publisher&lt;T&gt;</span>&nbsp;<span class="element-name">validatePublisher</span><wbr><span class="parameters">(@NonNull
- io.micronaut.core.type.ReturnType&lt;?&gt;&nbsp;returnType,
+</span><span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">@NonNull org.reactivestreams.Publisher&lt;T&gt;</span>&nbsp;<span class="element-name">validatePublisher</span><wbr><span class="parameters">(@NonNull
+ @NonNull io.micronaut.core.type.ReturnType&lt;?&gt;&nbsp;returnType,
  @NonNull
- org.reactivestreams.Publisher&lt;T&gt;&nbsp;publisher,
+ @NonNull org.reactivestreams.Publisher&lt;T&gt;&nbsp;publisher,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</span></div>
 <div class="block">Validate the given publisher by returning a new Publisher that validates each emitted value. If a
  constraint violation error occurs a <code>ConstraintViolationException</code> will be thrown.</div>
@@ -153,10 +153,10 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="validateCompletionStage(java.util.concurrent.CompletionStage,io.micronaut.core.type.Argument,java.lang.Class...)">
 <h3>validateCompletionStage</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</span>&nbsp;<span class="element-name">validateCompletionStage</span><wbr><span class="parameters">(@NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
+</span><span class="type-parameters">&lt;T&gt;</span>&nbsp;<span class="return-type">@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;</span>&nbsp;<span class="element-name">validateCompletionStage</span><wbr><span class="parameters">(@NonNull
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/concurrent/CompletionStage.html" title="class or interface in java.util.concurrent" class="external-link">CompletionStage</a>&lt;T&gt;&nbsp;completionStage,
  @NonNull
- io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
+ @NonNull io.micronaut.core.type.Argument&lt;T&gt;&nbsp;argument,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</span></div>
 <div class="block">Validate the given CompletionStage by returning a new CompletionStage that validates the emitted value. If a
  constraint violation error occurs a <code>ConstraintViolationException</code> will be thrown.</div>

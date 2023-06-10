@@ -99,16 +99,16 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>&lt;A extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr>
-T&gt;<br><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#findConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">findConstraintValidator</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
+T&gt;<br>@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#findConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">findConstraintValidator</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Finds a constraint validator for the given type and target type.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default &lt;A extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr>
-T&gt;<br><a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#getConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">getConstraintValidator</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
+T&gt;<br>@NonNull <a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#getConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">getConstraintValidator</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
 <div class="block">Finds a constraint validator for the given type and target type.</div>
 </div>
@@ -132,10 +132,10 @@ T&gt;<br><a href="ConstraintValidator.html" title="interface in io.micronaut.val
 <div class="member-signature"><span class="annotations">@NonNull
 </span><span class="type-parameters">&lt;A extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr>
 T&gt;</span>
-<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;&gt;</span>&nbsp;<span class="element-name">findConstraintValidator</span><wbr><span class="parameters">(@NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
+<span class="return-type">@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Optional.html" title="class or interface in java.util" class="external-link">Optional</a>&lt;<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;&gt;</span>&nbsp;<span class="element-name">findConstraintValidator</span><wbr><span class="parameters">(@NonNull
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
  @NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
 <div class="block">Finds a constraint validator for the given type and target type.</div>
 <dl class="notes">
 <dt>Type Parameters:</dt>
@@ -155,10 +155,10 @@ T&gt;</span>
 <div class="member-signature"><span class="annotations">@NonNull
 </span><span class="modifiers">default</span>&nbsp;<span class="type-parameters">&lt;A extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>,<wbr>
 T&gt;</span>
-<span class="return-type"><a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;</span>&nbsp;<span class="element-name">getConstraintValidator</span><wbr><span class="parameters">(@NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
+<span class="return-type">@NonNull <a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;A,<wbr>T&gt;</span>&nbsp;<span class="element-name">getConstraintValidator</span><wbr><span class="parameters">(@NonNull
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;A&gt;&nbsp;constraintType,
  @NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;targetType)</span></div>
 <div class="block">Finds a constraint validator for the given type and target type.</div>
 <dl class="notes">
 <dt>Type Parameters:</dt>

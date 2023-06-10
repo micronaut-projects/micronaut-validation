@@ -124,9 +124,9 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>boolean</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isValid(java.lang.CharSequence,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)" class="member-name-link">isValid</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/CharSequence.html" title="class or interface in java.lang" class="external-link">CharSequence</a>&nbsp;value,
- io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.Email&gt;&nbsp;annotationMetadata,
- <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#isValid(java.lang.CharSequence,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)" class="member-name-link">isValid</a><wbr>(@Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/CharSequence.html" title="class or interface in java.lang" class="external-link">CharSequence</a>&nbsp;value,
+ @NonNull io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.Email&gt;&nbsp;annotationMetadata,
+ @NonNull <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Implements the validation logic.</div>
 </div>
@@ -171,11 +171,11 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="isValid(java.lang.CharSequence,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)">
 <h3>isValid</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">isValid</span><wbr><span class="parameters">(@Nullable
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/CharSequence.html" title="class or interface in java.lang" class="external-link">CharSequence</a>&nbsp;value,
+ @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/CharSequence.html" title="class or interface in java.lang" class="external-link">CharSequence</a>&nbsp;value,
  @NonNull
- io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.Email&gt;&nbsp;annotationMetadata,
+ @NonNull io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.Email&gt;&nbsp;annotationMetadata,
  @NonNull
- <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</span></div>
+ @NonNull <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</span></div>
 <div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ConstraintValidator.html#isValid(T,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)">ConstraintValidator</a></code></span></div>
 <div class="block">Implements the validation logic.
 

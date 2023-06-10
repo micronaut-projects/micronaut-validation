@@ -114,14 +114,14 @@ extends <a href="ConstraintValidator.html" title="interface in io.micronaut.vali
 <div class="table-header col-last">Description</div>
 <div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code>int</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3"><code><a href="#doComparison(T,java.math.BigDecimal)" class="member-name-link">doComparison</a><wbr>(<a href="DecimalMaxValidator.html" title="type parameter in DecimalMaxValidator">T</a>&nbsp;value,
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/BigDecimal.html" title="class or interface in java.math" class="external-link">BigDecimal</a>&nbsp;bigDecimal)</code></div>
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/BigDecimal.html" title="class or interface in java.math" class="external-link">BigDecimal</a>&nbsp;bigDecimal)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab3">
 <div class="block">Perform the comparison for the given value.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code>default boolean</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5"><code><a href="#isValid(T,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)" class="member-name-link">isValid</a><wbr>(<a href="DecimalMaxValidator.html" title="type parameter in DecimalMaxValidator">T</a>&nbsp;value,
- io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.DecimalMax&gt;&nbsp;annotationMetadata,
- <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</code></div>
+ @NonNull io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.DecimalMax&gt;&nbsp;annotationMetadata,
+ @NonNull <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab5">
 <div class="block">Implements the validation logic.</div>
 </div>
@@ -151,9 +151,9 @@ extends <a href="ConstraintValidator.html" title="interface in io.micronaut.vali
 <div class="member-signature"><span class="modifiers">default</span>&nbsp;<span class="return-type">boolean</span>&nbsp;<span class="element-name">isValid</span><wbr><span class="parameters">(@Nullable
  <a href="DecimalMaxValidator.html" title="type parameter in DecimalMaxValidator">T</a>&nbsp;value,
  @NonNull
- io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.DecimalMax&gt;&nbsp;annotationMetadata,
+ @NonNull io.micronaut.core.annotation.AnnotationValue&lt;jakarta.validation.constraints.DecimalMax&gt;&nbsp;annotationMetadata,
  @NonNull
- <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</span></div>
+ @NonNull <a href="ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidatorContext</a>&nbsp;context)</span></div>
 <div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ConstraintValidator.html#isValid(T,io.micronaut.core.annotation.AnnotationValue,io.micronaut.validation.validator.constraints.ConstraintValidatorContext)">ConstraintValidator</a></code></span></div>
 <div class="block">Implements the validation logic.
 
@@ -176,7 +176,7 @@ extends <a href="ConstraintValidator.html" title="interface in io.micronaut.vali
 <div class="member-signature"><span class="return-type">int</span>&nbsp;<span class="element-name">doComparison</span><wbr><span class="parameters">(@NonNull
  <a href="DecimalMaxValidator.html" title="type parameter in DecimalMaxValidator">T</a>&nbsp;value,
  @NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/BigDecimal.html" title="class or interface in java.math" class="external-link">BigDecimal</a>&nbsp;bigDecimal)</span></div>
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/math/BigDecimal.html" title="class or interface in java.math" class="external-link">BigDecimal</a>&nbsp;bigDecimal)</span></div>
 <div class="block">Perform the comparison for the given value.</div>
 <dl class="notes">
 <dt>Parameters:</dt>

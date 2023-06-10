@@ -87,7 +87,7 @@ loadScripts(document, 'script');</script>
 <dd><code><span id="param-valueExtractor">valueExtractor</span></code> - The value extractor</dd>
 </dl>
 <hr>
-<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ValueExtractorDefinition&lt;T&gt;</span>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType, <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType, <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex, boolean&nbsp;unwrapByDefault, jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)
+<div class="type-signature"><span class="modifiers">public record </span><span class="element-name type-name-label">ValueExtractorDefinition&lt;T&gt;</span>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType, @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType, @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex, boolean&nbsp;unwrapByDefault, jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Record.html" title="class or interface in java.lang" class="external-link">Record</a></span></div>
 <div class="block">The value extractor definition.</div>
 <dl class="notes">
@@ -105,17 +105,17 @@ loadScripts(document, 'script');</script>
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.core.type.Argument,jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">ValueExtractorDefinition</a><wbr>(@NotNull io.micronaut.core.type.Argument&lt;jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&gt;&nbsp;argument,
- @NotNull jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)</code></div>
-<div class="col-last even-row-color">&nbsp;</div>
-<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(java.lang.Class,java.lang.Class,java.lang.Integer,boolean,jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">ValueExtractorDefinition</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType,
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType,
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex,
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(java.lang.Class,java.lang.Class,java.lang.Integer,boolean,jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">ValueExtractorDefinition</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType,
+ @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex,
  boolean&nbsp;unwrapByDefault,
  jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)</code></div>
-<div class="col-last odd-row-color">
+<div class="col-last even-row-color">
 <div class="block">Creates an instance of a <code>ValueExtractorDefinition</code> record class.</div>
 </div>
+<div class="col-constructor-name odd-row-color"><code><a href="#%3Cinit%3E(io.micronaut.core.type.Argument,jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">ValueExtractorDefinition</a><wbr>(@NotNull io.micronaut.core.type.Argument&lt;jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&gt;&nbsp;argument,
+ @NotNull jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)</code></div>
+<div class="col-last odd-row-color">&nbsp;</div>
 </div>
 </section>
 </li>
@@ -130,7 +130,7 @@ loadScripts(document, 'script');</script>
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Method</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;</code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;</code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#containerType()" class="member-name-link">containerType</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-containerType"><code>containerType</code></a> record component.</div>
@@ -150,7 +150,7 @@ loadScripts(document, 'script');</script>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns a string representation of this record class.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></code></div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></code></div>
 <div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#typeArgumentIndex()" class="member-name-link">typeArgumentIndex</a>()</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-typeArgumentIndex"><code>typeArgumentIndex</code></a> record component.</div>
@@ -165,7 +165,7 @@ loadScripts(document, 'script');</script>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-valueExtractor"><code>valueExtractor</code></a> record component.</div>
 </div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#valueType()" class="member-name-link">valueType</a>()</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Returns the value of the <a href="#param-valueType"><code>valueType</code></a> record component.</div>
@@ -200,11 +200,11 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="&lt;init&gt;(java.lang.Class,java.lang.Class,java.lang.Integer,boolean,jakarta.validation.valueextraction.ValueExtractor)">
 <h3>ValueExtractorDefinition</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ValueExtractorDefinition</span><wbr><span class="parameters">(@NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;containerType,
  @NonNull
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;valueType,
  @Nullable
- <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex,
+ @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a>&nbsp;typeArgumentIndex,
  boolean&nbsp;unwrapByDefault,
  jakarta.validation.valueextraction.ValueExtractor&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;&nbsp;valueExtractor)</span></div>
 <div class="block">Creates an instance of a <code>ValueExtractorDefinition</code> record class.</div>
@@ -271,7 +271,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="containerType()">
 <h3>containerType</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;</span>&nbsp;<span class="element-name">containerType</span>()</div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="ValueExtractorDefinition.html" title="type parameter in ValueExtractorDefinition">T</a>&gt;</span>&nbsp;<span class="element-name">containerType</span>()</div>
 <div class="block">Returns the value of the <a href="#param-containerType"><code>containerType</code></a> record component.</div>
 <dl class="notes">
 <dt>Returns:</dt>
@@ -283,7 +283,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="valueType()">
 <h3>valueType</h3>
 <div class="member-signature"><span class="annotations">@NonNull
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">valueType</span>()</div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">valueType</span>()</div>
 <div class="block">Returns the value of the <a href="#param-valueType"><code>valueType</code></a> record component.</div>
 <dl class="notes">
 <dt>Returns:</dt>
@@ -295,7 +295,7 @@ loadScripts(document, 'script');</script>
 <section class="detail" id="typeArgumentIndex()">
 <h3>typeArgumentIndex</h3>
 <div class="member-signature"><span class="annotations">@Nullable
-</span><span class="modifiers">public</span>&nbsp;<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></span>&nbsp;<span class="element-name">typeArgumentIndex</span>()</div>
+</span><span class="modifiers">public</span>&nbsp;<span class="return-type">@Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Integer.html" title="class or interface in java.lang" class="external-link">Integer</a></span>&nbsp;<span class="element-name">typeArgumentIndex</span>()</div>
 <div class="block">Returns the value of the <a href="#param-typeArgumentIndex"><code>typeArgumentIndex</code></a> record component.</div>
 <dl class="notes">
 <dt>Returns:</dt>
