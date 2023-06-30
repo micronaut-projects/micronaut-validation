@@ -6,5 +6,7 @@ plugins {
 micronautBuild {
     binaryCompatibility {
         enabled = true
+        // TODO required for now. Remove after Micronaut 4 release
+        baselineVersion = "4.0.0-M11"
     }
 }
