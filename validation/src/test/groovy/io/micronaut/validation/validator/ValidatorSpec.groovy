@@ -6,6 +6,7 @@ import io.micronaut.context.annotation.Prototype
 import io.micronaut.context.annotation.Value
 import io.micronaut.context.exceptions.BeanInstantiationException
 import io.micronaut.core.annotation.Introspected
+import io.micronaut.core.annotation.Nullable
 import io.micronaut.core.reflect.ClassUtils
 import io.micronaut.validation.Validated
 import io.micronaut.validation.validator.resolver.CompositeTraversableResolver
@@ -17,6 +18,7 @@ import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
+import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
 import spock.lang.AutoCleanup
@@ -151,6 +153,19 @@ class ValidatorSpec extends Specification {
         violations[0].constraintDescriptor != null
         violations[0].constraintDescriptor.annotation instanceof NotBlank
 
+    }
+
+    void "test validate bean property with Optional getter"() {
+        given:
+        OptionalGetters g = new OptionalGetters(alpha: "non alpha with space");
+        def violations = validator.validateProperty(g, "alpha")
+
+        expect:
+        violations.size() == 1
+        violations[0].invalidValue == 'non alpha with space'
+        violations[0].propertyPath.iterator().next().name == 'alpha'
+        violations[0].constraintDescriptor.annotation instanceof Pattern
+        violations[0].message == 'must match "[a-z]+"'
     }
 
     void "test validate value"() {
@@ -1045,6 +1060,22 @@ class Author {
 
     @Valid
     Book favouriteBook
+}
+
+@Introspected
+class OptionalGetters {
+
+    @Nullable
+    @Pattern(regexp = "[a-z]+")
+    String alpha
+
+    Optional<String> getAlpha() {
+        Optional.ofNullable(alpha)
+    }
+
+    void setAlpha(String alpha) {
+        this.alpha = alpha
+    }
 }
 
 @Introspected
