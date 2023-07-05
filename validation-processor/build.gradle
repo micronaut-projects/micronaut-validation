@@ -13,8 +13,3 @@ dependencies {
     testImplementation mn.micronaut.inject.groovy.test
 }
 
-micronautBuild {
-    binaryCompatibility {
-        enabled = false
-    }
-}

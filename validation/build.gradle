@@ -37,8 +37,3 @@ spotless {
     }
 }
 
-micronautBuild {
-    binaryCompatibility {
-        enabled = false
-    }
-}
