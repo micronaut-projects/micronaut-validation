@@ -209,23 +209,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 </div></p>
 </div>
 <div class="paragraph">
-<p>You can validate types, fields and parameters by applying <code>jakarta.validation</code> annotations to arguments. Include the following dependency for annotations:</p>
-</div>
-<div class="paragraph">
-<p>        <div class="listingblock multi-language-sample">
-<div class="title"></div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="gradle">implementation(<span class="hljs-string">"jakarta.validation:jakarta.validation-api")</span></code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-xml hljs" data-lang="maven">&lt;dependency&gt;
-    &lt;groupId&gt;jakarta.validation&lt;/groupId&gt;
-    &lt;artifactId&gt;jakarta.validation-api&lt;/artifactId&gt;
-&lt;/dependency&gt;</code></pre>
-</div>
-</div></p>
+<p>You can validate types, fields and parameters by applying <code>jakarta.validation</code> annotations to arguments. The <code>jakarta.validation-api</code> library exposes those annotations, but it unnecessary to specify it as a direct dependency. It is included transitively when using <code>micronaut-validation</code>.</p>
 </div>
 <div class="sect1">
 <h2 id="_supported_features">Supported Features</h2>
