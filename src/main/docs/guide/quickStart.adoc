@@ -4,9 +4,7 @@ dependency:micronaut-validation-processor[scope="annotationProcessor",groupId="i
 
 dependency:micronaut-validation[groupId="io.micronaut.validation"]
 
-You can validate types, fields and parameters by applying `jakarta.validation` annotations to arguments. Include the following dependency for annotations:
-
-dependency:jakarta.validation:jakarta.validation-api[]
+You can validate types, fields and parameters by applying `jakarta.validation` annotations to arguments. The `jakarta.validation-api` library exposes those annotations, but it unnecessary to specify it as a direct dependency. It is included transitively when using `micronaut-validation`.
 
 == Supported Features
 
