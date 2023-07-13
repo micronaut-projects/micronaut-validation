@@ -2,11 +2,11 @@
 micronaut = "4.0.0"
 micronaut-platform = "4.0.0-RC1"
 micronaut-docs = "2.0.0"
-micronaut-test = "4.0.0-M9"
-micronaut-reactor = "3.0.0-M10"
-micronaut-rxjava2 = "2.0.0-M7"
-micronaut-kotlin = "4.0.0-M7"
-micronaut-logging = "1.0.0-M6"
+micronaut-test = "4.0.0"
+micronaut-reactor = "3.0.0"
+micronaut-rxjava2 = "2.0.0"
+micronaut-kotlin = "4.0.0"
+micronaut-logging = "1.0.0"
 
 groovy = "4.0.13"
 junit5 = "5.9.3"
@@ -18,7 +18,7 @@ managed-validation = "3.0.2"
 
 # Gradle plugins
 
-micronaut-gradle-plugin = "4.0.0-M8"
+micronaut-gradle-plugin = "4.0.0"
 kotlin-gradle-plugin = "1.8.22"
 ksp-gradle-plugin = "1.8.22-1.0.11"
 
