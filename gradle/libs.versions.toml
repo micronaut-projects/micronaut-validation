@@ -8,7 +8,7 @@ micronaut-rxjava2 = "2.0.1"
 micronaut-kotlin = "4.0.1"
 micronaut-logging = "1.0.0"
 
-groovy = "4.0.13"
+groovy = "4.0.14"
 junit5 = "5.9.3"
 kotlin = "1.8.22"
 kotest = "5.6.2"
