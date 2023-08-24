@@ -24,7 +24,7 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
 
 // tag::class[]
 @Retention(RUNTIME)
-@Constraint(validatedBy = []) // <1>
+@Constraint(validatedBy = [ MyValidatorBean ]) // <1>
 @interface DurationPattern {
     String message() default "invalid duration ({validatedValue})" // <2>
 }
