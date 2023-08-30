@@ -450,11 +450,15 @@ public class DefaultValidator implements
                         try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
                             // Strip class annotations
                             AnnotationMetadata returnAm = returnType.asArgument().getAnnotationMetadata();
-                            if (returnAm instanceof AnnotationMetadataHierarchy annotationMetadataHierarchy && returnAm.getDeclaredMetadata() instanceof AnnotationMetadataHierarchy) {
-                                returnAm = new AnnotationMetadataHierarchy(
-                                    annotationMetadataHierarchy.getRootMetadata(),
-                                    annotationMetadataHierarchy.getDeclaredMetadata().getDeclaredMetadata()
-                                );
+                            if (returnAm instanceof AnnotationMetadataHierarchy annotationMetadataHierarchy) {
+                                if (returnAm.getDeclaredMetadata() instanceof AnnotationMetadataHierarchy) {
+                                    returnAm = new AnnotationMetadataHierarchy(
+                                        annotationMetadataHierarchy.getRootMetadata(),
+                                        annotationMetadataHierarchy.getDeclaredMetadata().getDeclaredMetadata()
+                                    );
+                                } else {
+                                    returnAm = annotationMetadataHierarchy.getDeclaredMetadata();
+                                }
                             }
                             visitElement(context, bean, returnType.asArgument(), returnAm, returnValue, canCascade);
 
