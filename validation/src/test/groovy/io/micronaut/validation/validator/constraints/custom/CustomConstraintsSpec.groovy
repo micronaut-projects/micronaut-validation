@@ -159,7 +159,25 @@ class CustomConstraintsSpec extends Specification {
         BeanWithConstraintAndPrivateMethods abean = applicationContext.getBean(BeanWithConstraintAndPrivateMethods)
 
         when:
-        def result = abean.publicCombine("A", "B")
+        def result = abean.publicCombine1("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine2("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine3("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine4("A", "B")
 
         then:
         result == "AB"
