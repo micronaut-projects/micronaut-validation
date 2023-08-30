@@ -27,6 +27,7 @@ import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.ast.ParameterElement;
 import io.micronaut.inject.ast.TypedElement;
+import io.micronaut.inject.ast.annotation.MutableAnnotationMetadataDelegate;
 import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
@@ -146,7 +147,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
-        return e.hasStereotype(ANN_VALID) || (requireOnConstraint && e.hasStereotype(ANN_CONSTRAINT));
+        MutableAnnotationMetadataDelegate<AnnotationMetadata> methodAnnotationMetadata = e.getMethodAnnotationMetadata();
+        return methodAnnotationMetadata.hasStereotype(ANN_VALID) || (requireOnConstraint && methodAnnotationMetadata.hasStereotype(ANN_CONSTRAINT));
     }
 
     private boolean visitElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
