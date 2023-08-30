@@ -11,11 +11,20 @@ import jakarta.validation.constraints.NotNull;
 class BeanWithConstraintAndPrivateMethods {
 
     @NotBlank
-    public String publicCombine(@NotNull String a, String b) {
+    public String publicCombine1(@NotNull String a, String b) {
         return privateCombine(a, b);
     }
 
     public String publicCombine2(String a, String b) {
+        return privateCombine(a, b);
+    }
+
+    public String publicCombine3(@NotNull String a, String b) {
+        return privateCombine(a, b);
+    }
+
+    @NotBlank
+    public String publicCombine4(String a, String b) {
         return privateCombine(a, b);
     }
 
