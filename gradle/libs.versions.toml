@@ -10,7 +10,7 @@ micronaut-logging = "1.0.0"
 
 groovy = "4.0.13"
 junit5 = "5.9.3"
-kotlin = "1.8.22"
+kotlin = "1.9.10"
 kotest = "5.6.2"
 spotbugs = "4.7.3"
 
@@ -19,7 +19,7 @@ managed-validation = "3.0.2"
 # Gradle plugins
 
 micronaut-gradle-plugin = "4.0.0"
-kotlin-gradle-plugin = "1.8.22"
+kotlin-gradle-plugin = "1.9.10"
 ksp-gradle-plugin = "1.9.10-1.0.13"
 
 jakarta-validation-tck = "3.0.1"
