@@ -241,6 +241,9 @@ public class DefaultValidator implements
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, introspection, null, groups);
 
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(beanProperty.getName())) {
+            if (isNotReachable(context, null)) {
+                return Collections.unmodifiableSet(context.getOverallViolations());
+            }
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(introspection)) {
                 try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
 
@@ -460,7 +463,7 @@ public class DefaultValidator implements
                                     returnAm = annotationMetadataHierarchy.getDeclaredMetadata();
                                 }
                             }
-                            visitElement(context, bean, returnType.asArgument(), returnAm, returnValue, canCascade);
+                            visitElement(context, bean, returnType.asArgument(), returnAm, returnValue, canCascade, false);
 
                             if (validation.isFailed()) {
                                 return context.getOverallViolations();
@@ -894,6 +897,7 @@ public class DefaultValidator implements
                             final Class<Object> parameterType = argument.getType();
 
                             Object parameterValue = parameters[parameterIndex];
+
                             final boolean hasValue = parameterValue != null;
 
                             final boolean isPublisher = hasValue && Publishers.isConvertibleToPublisher(parameterType);
@@ -912,7 +916,8 @@ public class DefaultValidator implements
                                 bean,
                                 argument,
                                 parameterValue,
-                                canCascade
+                                canCascade,
+                                false
                             );
                         }
                     }
@@ -969,6 +974,9 @@ public class DefaultValidator implements
         }
 
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(property.getName())) {
+            if (isNotReachable(context, object)) {
+                return;
+            }
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(property.getAnnotationMetadata())) {
                 Object propertyValue;
                 try {
@@ -987,26 +995,37 @@ public class DefaultValidator implements
         }
     }
 
-    private <R> boolean canCascade(@NonNull DefaultConstraintValidatorContext<R> context,
-                                   Object propertyValue) {
-        final boolean isReachable = traversableResolver.isReachable(
-            propertyValue,
-            context.getCurrentPath().last(),
-            context.getRootClass(),
-            context.getCurrentPath(),
-            ElementType.FIELD
-        );
-        if (!isReachable) {
-            return false;
+    private <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, T object) {
+        ValidationPath currentPath = context.getCurrentPath();
+        ValidationPath previousPath = currentPath.previousPath();
+        try {
+            return !traversableResolver.isReachable(
+                    object,
+                    currentPath.last(),
+                    context.getRootClass(),
+                    previousPath,
+                    ElementType.FIELD
+            );
+        } catch (Exception e) {
+            throw new ValidationException("Cannot call 'isReachable' on traversableResolver: " + traversableResolver, e);
         }
+    }
 
-        return traversableResolver.isCascadable(
-            propertyValue,
-            context.getCurrentPath().last(),
-            context.getRootClass(),
-            context.getCurrentPath(),
-            ElementType.FIELD
-        );
+    private <R> boolean canCascade(@NonNull DefaultConstraintValidatorContext<R> context,
+                                   Object leftBean) {
+        try {
+            ValidationPath currentPath = context.getCurrentPath();
+            ValidationPath previousPath = currentPath.previousPath();
+            return traversableResolver.isCascadable(
+                    leftBean,
+                    currentPath.last(),
+                    context.getRootClass(),
+                    previousPath,
+                    ElementType.FIELD
+            );
+        } catch (Exception e) {
+            throw new ValidationException("Cannot call 'isCascadable' on traversableResolver: " + traversableResolver, e);
+        }
     }
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
@@ -1035,7 +1054,43 @@ public class DefaultValidator implements
             annotationMetadata,
             elementValue,
             canCascade,
-            canCascade && annotationMetadata.hasStereotype(Valid.class)
+            canCascade && annotationMetadata.hasStereotype(Valid.class),
+            true
+        );
+    }
+
+    private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
+                                     Object bean,
+                                     Argument<E> elementArgument,
+                                     E elementValue,
+                                     boolean canCascade,
+                                     boolean needsCanCascadeCheck) {
+        AnnotationMetadata annotationMetadata = elementArgument.getAnnotationMetadata();
+        visitElement(context,
+            bean,
+            elementArgument,
+            annotationMetadata,
+            elementValue,
+            canCascade,
+            needsCanCascadeCheck
+        );
+    }
+
+    private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
+                                     Object bean,
+                                     Argument<E> elementArgument,
+                                     AnnotationMetadata annotationMetadata,
+                                     E elementValue,
+                                     boolean canCascade,
+                                     boolean needsCanCascadeCheck) {
+        visitElement(context,
+            bean,
+            elementArgument,
+            annotationMetadata,
+            elementValue,
+            canCascade,
+            canCascade && annotationMetadata.hasStereotype(Valid.class),
+            needsCanCascadeCheck
         );
     }
 
@@ -1045,7 +1100,8 @@ public class DefaultValidator implements
                                      AnnotationMetadata annotationMetadata,
                                      E elementValue,
                                      boolean canCascade,
-                                     boolean hasValid) {
+                                     boolean hasValid,
+                                     boolean needsCanCascadeCheck) {
 
         List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata);
 
@@ -1059,7 +1115,7 @@ public class DefaultValidator implements
 
         if (canCascade && hasValid && elementValue != null) {
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(elementArgument.getAnnotationMetadata())) {
-                propagateValidation(context, leftBean, elementArgument, elementValue);
+                propagateValidation(context, leftBean, elementArgument, elementValue, needsCanCascadeCheck);
             }
         }
     }
@@ -1196,7 +1252,8 @@ public class DefaultValidator implements
                             containerValueArgument.getAnnotationMetadata(),
                             value,
                             canCascade,
-                            containerValueArgument.getAnnotationMetadata().hasStereotype(Valid.class) || isLegacyValid);
+                            containerValueArgument.getAnnotationMetadata().hasStereotype(Valid.class) || isLegacyValid,
+                            true);
                     }
 
                     private <RX, EX> void validateContainerValue(DefaultConstraintValidatorContext<RX> context,
@@ -1232,7 +1289,8 @@ public class DefaultValidator implements
     private <R, E> void propagateValidation(DefaultConstraintValidatorContext<R> context,
                                             Object leftBean,
                                             Argument<E> elementType,
-                                            E elementValue) {
+                                            E elementValue,
+                                            boolean needsCanCascadeCheck) {
 
         final BeanIntrospection<E> beanIntrospection = getBeanIntrospection(elementValue, elementType.getType());
         if (beanIntrospection == null) {
@@ -1242,7 +1300,7 @@ public class DefaultValidator implements
             context.addViolation(violation);
             return;
         }
-        if (canCascade(context, elementValue)) {
+        if (!needsCanCascadeCheck || canCascade(context, leftBean)) {
             try (ValidationPath.ContextualPath ignore = context.getCurrentPath().cascaded()) {
                 doValidate(context, beanIntrospection, elementValue);
             }
