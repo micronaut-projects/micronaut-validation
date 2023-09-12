@@ -6,7 +6,7 @@ micronaut-test = "4.0.1"
 micronaut-reactor = "3.0.2"
 micronaut-rxjava2 = "2.0.1"
 micronaut-kotlin = "4.0.1"
-micronaut-logging = "1.0.0"
+micronaut-logging = "1.1.0"
 
 groovy = "4.0.14"
 junit5 = "5.9.3"
