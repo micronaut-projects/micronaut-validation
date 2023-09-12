@@ -10,6 +10,7 @@ The above example defines a `Person` class that has two properties (`name` and `
 To validate the class manually, inject an instance of api:validation.validator.Validator[]:
 
 .Manual Validation Example
+
 snippet::io.micronaut.docs.validation.pojo.PersonServiceSpec[tags="validator", indent="0"]
 
 <1> The validator validates the person
@@ -23,6 +24,7 @@ snippet::io.micronaut.docs.validation.pojo.PersonService[tags="class",indent="0"
 The `PersonService` now validates the `Person` class when invoked:
 
 .Manual Validation Example
+
 snippet::io.micronaut.docs.validation.pojo.PersonServiceSpec[tags="validate-service",indent="0"]
 
 <1> A validated method is invoked

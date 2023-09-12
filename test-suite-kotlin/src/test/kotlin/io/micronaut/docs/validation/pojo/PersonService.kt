@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.itfce
+package io.micronaut.docs.validation.pojo
+
+// tag::imports[]
+import io.micronaut.docs.validation.Person
 
 import jakarta.inject.Singleton
+import jakarta.validation.Valid
 
+// end::imports[]
+
+// tag::class[]
 @Singleton
-class Engine(val config: EngineConfig)// <1>
-{
-    val cylinders: Int
-        get() = config.cylinders
-
-    fun start(): String {// <2>
-        return  "${config.manufacturer} Engine Starting V${config.cylinders} [rodLength=${config.crankShaft.rodLength ?: 6.0}]"
+open class PersonService {
+    open fun sayHello(@Valid person: Person) {
+        println("Hello ${person.name}")
     }
 }
+// end::class[]
