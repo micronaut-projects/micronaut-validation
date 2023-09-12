@@ -30,9 +30,9 @@ snippet::io.micronaut.docs.validation.pojo.PersonServiceSpec[tags="validate-serv
 <1> A validated method is invoked
 <2> The constraint violations are verified
 
-.Iterables Validation Example
-
 You can validate values of Java iterables, like `List`, `Set` and `Map` by defining validation annotations on generic parameters.
+
+.Iterables Validation Example
 
 snippet::io.micronaut.docs.validation.iterable.BookInfoService[tags="validate-iterables",indent="0"]
 
