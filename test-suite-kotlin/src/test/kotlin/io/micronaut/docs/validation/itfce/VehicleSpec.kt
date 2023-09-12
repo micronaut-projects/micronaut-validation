@@ -1,4 +1,4 @@
-package io.micronaut.docs.ioc.validation.itfce
+package io.micronaut.docs.validation.itfce
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.micronaut.context.ApplicationContext

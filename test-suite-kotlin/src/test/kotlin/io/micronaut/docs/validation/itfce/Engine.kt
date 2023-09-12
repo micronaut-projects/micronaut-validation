@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.custom
+package io.micronaut.docs.validation.itfce
 
-// tag::imports[]
-import jakarta.validation.Constraint
-import kotlin.annotation.AnnotationRetention.RUNTIME
-// end::imports[]
+import jakarta.inject.Singleton
 
-// tag::class[]
-@Retention(RUNTIME)
-@Constraint(validatedBy = []) // <1>
-annotation class DurationPattern(
-    val message: String = "invalid duration ({validatedValue})" // <2>
-)
-// end::class[]
+@Singleton
+class Engine(val config: EngineConfig)// <1>
+{
+    val cylinders: Int
+        get() = config.cylinders
+
+    fun start(): String {// <2>
+        return  "${config.manufacturer} Engine Starting V${config.cylinders} [rodLength=${config.crankShaft.rodLength ?: 6.0}]"
+    }
+}

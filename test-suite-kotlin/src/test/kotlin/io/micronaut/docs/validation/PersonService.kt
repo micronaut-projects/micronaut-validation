@@ -13,21 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.pojo
+package io.micronaut.docs.validation
 
 // tag::imports[]
-import io.micronaut.docs.ioc.validation.Person
-
 import jakarta.inject.Singleton
-import jakarta.validation.Valid
-
+import jakarta.validation.constraints.NotBlank
 // end::imports[]
 
 // tag::class[]
 @Singleton
 open class PersonService {
-    open fun sayHello(@Valid person: Person) {
-        println("Hello ${person.name}")
+    open fun sayHello(@NotBlank name: String) {
+        println("Hello $name")
     }
 }
 // end::class[]
