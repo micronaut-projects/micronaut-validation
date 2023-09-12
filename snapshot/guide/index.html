@@ -324,6 +324,20 @@ class PersonService {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Validating Methods</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import jakarta.inject.Singleton
+import jakarta.validation.constraints.NotBlank
+
+@Singleton
+open class PersonService {
+    open fun sayHello(@NotBlank name: String) {
+        println("Hello $name")
+    }
+}</code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>The above example declares that the <code>@NotBlank</code> annotation will be validated when invoking the <code>sayHello</code> method.</p>
 </div>
@@ -392,6 +406,33 @@ class PersonServiceSpec extends Specification {
         then:"A validation error occurs"
         def e = thrown(ConstraintViolationException)
         e.message == "sayHello.name: must not be blank" //  <b class="conum">(2)</b>
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">ConstraintViolationException Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.test.extensions.junit5.annotation.MicronautTest
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Test
+import jakarta.inject.Inject
+import jakarta.validation.ConstraintViolationException
+
+@MicronautTest
+class PersonServiceSpec {
+
+    @Inject
+    lateinit var personService: PersonService
+
+    @Test
+    fun testThatNameIsValidated() {
+        val exception = assertThrows(ConstraintViolationException::class.java) {
+            personService.sayHello("") // <b class="conum">(1)</b>
+        }
+
+        assertEquals("sayHello.name: must not be blank", exception.message) // <b class="conum">(2)</b>
     }
 }</code></pre>
 </div>
@@ -475,6 +516,20 @@ class Person {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">POJO Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.core.annotation.Introspected
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+
+@Introspected
+data class Person(
+    @field:NotBlank var name: String,
+    @field:Min(18) var age: Int
+)</code></pre>
+</div>
+</div>
 <div class="admonitionblock tip">
 <table>
 <tr>
@@ -525,6 +580,21 @@ void "test person is validated with validator"() {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Manual Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
+lateinit var validator: Validator
+
+@Test
+fun testThatPersonIsValidWithValidator() {
+    val person = Person("", 10)
+    val constraintViolations = validator.validate(person) // <b class="conum">(1)</b>
+
+    assertEquals(2, constraintViolations.size) // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
 <div class="colist arabic">
 <table>
 <tr>
@@ -558,6 +628,17 @@ public class PersonService {
 class PersonService {
     void sayHello(@Valid Person person) {
         println "Hello $person.name"
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">ConstraintViolationException Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
+open class PersonService {
+    open fun sayHello(@Valid person: Person) {
+        println("Hello ${person.name}")
     }
 }</code></pre>
 </div>
@@ -601,6 +682,23 @@ void "test person name is validated"() {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Manual Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
+lateinit var personService: PersonService
+
+@Test
+fun testThatPersonIsValid() {
+    val person = Person("", 10)
+    val exception = assertThrows(ConstraintViolationException::class.java) {
+        personService.sayHello(person) // <b class="conum">(1)</b>
+    }
+
+    assertEquals(2, exception.constraintViolations.size) // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
 <div class="colist arabic">
 <table>
 <tr>
@@ -614,10 +712,10 @@ void "test person name is validated"() {
 </table>
 </div>
 <div class="paragraph">
-<div class="title">Iterables Validation Example</div>
 <p>You can validate values of Java iterables, like <code>List</code>, <code>Set</code> and <code>Map</code> by defining validation annotations on generic parameters.</p>
 </div>
 <div class="listingblock multi-language-sample">
+<div class="title">Iterables Validation Example</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">@Singleton
 public class BookInfoService {
@@ -633,6 +731,48 @@ public class BookInfoService {
         Map&lt;@NotBlank String, @Min(1) Integer&gt; sectionStartPages // <b class="conum">(2)</b>
     ) {
         System.out.println("Set the start pages for all sections of book " + bookName);
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Iterables Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
+class BookInfoService {
+    void setBookAuthors(
+        @NotBlank String bookName,
+        List&lt;@NotBlank String&gt; authors // <b class="conum">(1)</b>
+    ) {
+        println("Set book authors for book " + bookName)
+    }
+
+    void setBookSectionPages(
+        @NotBlank String bookName,
+        Map&lt;@NotBlank String, @Min(1) Integer&gt; sectionStartPages // <b class="conum">(2)</b>
+    ) {
+        println("Set the start pages for all sections of book " + bookName)
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Iterables Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
+open class BookInfoService {
+    open fun setBookAuthors(
+        bookName: @NotBlank String,
+        authors: List&lt;@NotBlank String&gt; // <b class="conum">(1)</b>
+    ) {
+        println("Set book authors for book $bookName")
+    }
+
+    open fun setBookSectionPages(
+        bookName: @NotBlank String,
+        sectionStartPages: Map&lt;@NotBlank String, @Min(1) Int&gt;  // <b class="conum">(2)</b>
+    ) {
+        println("Set the start pages for all sections of book $bookName")
     }
 }</code></pre>
 </div>
@@ -677,6 +817,66 @@ void testSectionsAreValidated() {
     assertEquals("setBookSectionPages.sectionStartPages[]&lt;map key&gt;: must not be blank",
             exception.getMessage()); // <b class="conum">(2)</b>
 }</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">void testAuthorNamesAreValidated() {
+    given:
+    List&lt;String&gt; authors = ["Me", ""]
+
+    when:
+    bookInfoService.setBookAuthors("My Book", authors)
+
+    then:
+    ConstraintViolationException exception = thrown()
+    "setBookAuthors.authors[1]&lt;list element&gt;: must not be blank" == exception.message // <b class="conum">(1)</b>
+}
+
+void testSectionsAreValidated() {
+    given:
+    Map&lt;String, Integer&gt; sectionStartPages = new HashMap&lt;&gt;()
+    sectionStartPages.put("", 1)
+
+    when:
+    bookInfoService.setBookSectionPages("My Book", sectionStartPages)
+
+    then:
+    ConstraintViolationException exception = thrown()
+    "setBookSectionPages.sectionStartPages[]&lt;map key&gt;: must not be blank" == exception.message // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Test
+fun testAuthorNamesAreValidated() {
+    val authors: List&lt;String&gt; = mutableListOf("Me", "")
+    val exception = Assertions.assertThrows(
+        ConstraintViolationException::class.java
+    ) { bookInfoService.setBookAuthors("My Book", authors) }
+    Assertions.assertEquals(
+        "setBookAuthors.authors[1]&lt;list element&gt;: must not be blank",
+        exception.message
+    ) // <b class="conum">(1)</b>
+}
+
+@Test
+fun testSectionsAreValidated() {
+    val sectionStartPages: MutableMap&lt;String, Int&gt; = HashMap()
+    sectionStartPages[""] = 1
+    val exception = Assertions.assertThrows(
+        ConstraintViolationException::class.java
+    ) {
+        bookInfoService.setBookSectionPages(
+            "My Book",
+            sectionStartPages
+        )
+    }
+    Assertions.assertEquals(
+        "setBookSectionPages.sectionStartPages[]&lt;map key&gt;: must not be blank",
+        exception.message
+    ) // <b class="conum">(2)</b></code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -790,6 +990,19 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Annotation</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import jakarta.validation.Constraint
+import kotlin.annotation.AnnotationRetention.RUNTIME
+
+@Retention(RUNTIME)
+@Constraint(validatedBy = []) // <b class="conum">(1)</b>
+annotation class DurationPattern(
+    val message: String = "invalid duration ({validatedValue})" // <b class="conum">(2)</b>
+)</code></pre>
+</div>
+</div>
 <div class="colist arabic">
 <table>
 <tr>
@@ -877,7 +1090,7 @@ class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Validator Bean</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.docs.ioc.validation.custom.DurationPattern
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.docs.validation.custom.DurationPattern
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.constraints.ConstraintValidator
@@ -957,7 +1170,6 @@ class MyValidatorFactory {
 <div class="title">Example Constraint Validator Factory</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.context.annotation.Factory
-import io.micronaut.docs.ioc.validation.custom.DurationPattern
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import jakarta.inject.Singleton
 
@@ -1036,6 +1248,20 @@ class HolidayService {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Custom Constraint Usage</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
+open class HolidayService {
+
+    open fun startHoliday(@NotBlank person: String,
+                          @DurationPattern duration: String): String {
+        val d = Duration.parse(duration)
+        return "Person $person is off on holiday for ${d.toMinutes()} minutes"
+    }
+}</code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>To verify the above examples validates the <code>duration</code> parameter, define a test:</p>
 </div>
@@ -1081,6 +1307,22 @@ void testCustomAndDefaultValidator() {
     then:"A validation error occurs"
     def e = thrown(ConstraintViolationException)
     e.message == "startHoliday.duration: invalid duration (junk), additional custom message" //  <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Testing Example Custom Constraint Usage</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
+lateinit var holidayService: HolidayService
+
+@Test
+fun testCustomValidator() {
+    val exception = assertThrows(ConstraintViolationException::class.java) {
+        holidayService.startHoliday("Fred", "junk") // <b class="conum">(1)</b>
+    }
+
+    assertEquals("startHoliday.duration: invalid duration (junk), additional custom message", exception.message) // <b class="conum">(2)</b>
 }</code></pre>
 </div>
 </div>
@@ -1160,6 +1402,17 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Annotation Validation</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import kotlin.annotation.AnnotationRetention.RUNTIME
+
+@Retention(RUNTIME)
+annotation class TimeOff(
+    @DurationPattern val duration: String
+)</code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>If you attempt to use <code>@TimeOff(duration="junk")</code> in your source, Micronaut will fail compilation due to the <code>duration</code> value violating the <code>DurationPattern</code> constraint.</p>
 </div>
@@ -1214,6 +1467,23 @@ class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern
             @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
             @NonNull ConstraintValidatorContext context) {
         return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
+
+class DurationPatternValidator : ConstraintValidator&lt;DurationPattern, CharSequence&gt; {
+    override fun isValid(
+        value: CharSequence?,
+        annotationMetadata: AnnotationValue&lt;DurationPattern&gt;,
+        context: ConstraintValidatorContext): Boolean {
+        return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
     }
 }</code></pre>
 </div>
