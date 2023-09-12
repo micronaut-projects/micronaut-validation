@@ -11,7 +11,7 @@ micronaut-logging = "1.0.0"
 groovy = "4.0.14"
 junit5 = "5.9.3"
 kotlin = "1.8.22"
-kotest = "5.6.2"
+kotest = "5.7.2"
 spotbugs = "4.7.3"
 
 managed-validation = "3.0.2"
