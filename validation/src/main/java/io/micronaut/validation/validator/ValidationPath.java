@@ -205,6 +205,15 @@ final class ValidationPath implements Path {
         return nodes.peekLast();
     }
 
+    public ValidationPath previousPath() {
+        ValidationPath path = new ValidationPath(this);
+        path.nodes.removeLast();
+        if (path.nodes.isEmpty()) {
+            path.nodes.add(new DefaultBeanNode(containerContext));
+        }
+        return path;
+    }
+
     public ConstraintTarget getConstraintTarget() {
         DefaultNode node = (DefaultNode) nodes.peekLast();
         return node == null ? ConstraintTarget.IMPLICIT : node.getConstraintTarget();
