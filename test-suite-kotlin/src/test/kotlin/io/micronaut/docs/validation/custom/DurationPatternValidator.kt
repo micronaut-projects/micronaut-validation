@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.custom
+package io.micronaut.docs.validation.custom
 
 // tag::imports[]
 import io.micronaut.core.annotation.AnnotationValue
@@ -24,9 +24,9 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
 // tag::class[]
 class DurationPatternValidator : ConstraintValidator<DurationPattern, CharSequence> {
     override fun isValid(
-            value: CharSequence?,
-            annotationMetadata: AnnotationValue<DurationPattern>,
-            context: ConstraintValidatorContext): Boolean {
+        value: CharSequence?,
+        annotationMetadata: AnnotationValue<DurationPattern>,
+        context: ConstraintValidatorContext): Boolean {
         return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
     }
 }

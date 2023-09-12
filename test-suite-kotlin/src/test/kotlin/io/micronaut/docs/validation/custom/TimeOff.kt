@@ -13,18 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation
+package io.micronaut.docs.validation.custom
 
 // tag::imports[]
-import jakarta.inject.Singleton
-import jakarta.validation.constraints.NotBlank
+import kotlin.annotation.AnnotationRetention.RUNTIME
 // end::imports[]
 
 // tag::class[]
-@Singleton
-open class PersonService {
-    open fun sayHello(@NotBlank name: String) {
-        println("Hello $name")
-    }
-}
+@Retention(RUNTIME)
+annotation class TimeOff(
+    @DurationPattern val duration: String
+)
 // end::class[]

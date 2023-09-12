@@ -1,7 +1,7 @@
-package io.micronaut.docs.ioc.validation.pojo
+package io.micronaut.docs.validation.pojo
 
 // tag::imports[]
-import io.micronaut.docs.ioc.validation.Person
+import io.micronaut.docs.validation.Person
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import io.micronaut.validation.validator.Validator
 import org.junit.jupiter.api.Assertions.assertEquals

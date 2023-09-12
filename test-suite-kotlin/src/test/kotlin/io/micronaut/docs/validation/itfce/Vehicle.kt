@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.custom
+package io.micronaut.docs.validation.itfce
 
-// tag::imports[]
-import kotlin.annotation.AnnotationRetention.RUNTIME
-// end::imports[]
+import jakarta.inject.Singleton
 
-// tag::class[]
-@Retention(RUNTIME)
-annotation class TimeOff(
-    @DurationPattern val duration: String
-)
-// end::class[]
+@Singleton
+class Vehicle(val engine: Engine)// <6>
+{
+    fun start(): String {
+        return engine.start()
+    }
+}

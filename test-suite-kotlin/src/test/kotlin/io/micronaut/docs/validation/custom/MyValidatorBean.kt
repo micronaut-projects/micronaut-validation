@@ -16,7 +16,7 @@
 package io.micronaut.docs.validation.custom;
 
 // tag::imports[]
-import io.micronaut.docs.ioc.validation.custom.DurationPattern
+import io.micronaut.docs.validation.custom.DurationPattern
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.constraints.ConstraintValidator
