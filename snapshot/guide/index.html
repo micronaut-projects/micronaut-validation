@@ -123,7 +123,7 @@
 <h1 id="introduction"><a class="anchor" href="#introduction"></a>1 Introduction</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/introduction.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/introduction.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -148,7 +148,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="releaseHistory"><a class="anchor" href="#releaseHistory"></a>2 Release History</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/releaseHistory.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/releaseHistory.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -164,7 +164,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="quickStart"><a class="anchor" href="#quickStart"></a>3 Quick Start</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/quickStart.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/quickStart.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -286,7 +286,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="methodsValidation"><a class="anchor" href="#methodsValidation"></a>4 Validating Bean Methods</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/methodsValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/methodsValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -412,7 +412,7 @@ class PersonServiceSpec extends Specification {
 <h1 id="dataClassesValidation"><a class="anchor" href="#dataClassesValidation"></a>5 Validating Data Classes</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/dataClassesValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/dataClassesValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -707,7 +707,7 @@ This feature is not yet supported in Groovy and Kotlin
 <h1 id="configurationValidation"><a class="anchor" href="#configurationValidation"></a>6 Validating Configuration Properties</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/configurationValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/configurationValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -732,7 +732,7 @@ It is recommended that you annotate <a href="https://docs.micronaut.io/latest/ap
 <h1 id="additionalConstraints"><a class="anchor" href="#additionalConstraints"></a>7 Defining Additional Constraints</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/additionalConstraints.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/additionalConstraints.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -758,7 +758,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 @Retention(RUNTIME)
-@Constraint(validatedBy = { }) // <b class="conum">(1)</b>
+@Constraint(validatedBy = { MyValidatorBean.class }) // <b class="conum">(1)</b>
 public @interface DurationPattern {
 
     String message() default "invalid duration ({validatedValue})"; // <b class="conum">(2)</b>
@@ -784,7 +784,7 @@ import java.lang.annotation.Retention
 import static java.lang.annotation.RetentionPolicy.RUNTIME
 
 @Retention(RUNTIME)
-@Constraint(validatedBy = []) // <b class="conum">(1)</b>
+@Constraint(validatedBy = [ MyValidatorBean ]) // <b class="conum">(1)</b>
 @interface DurationPattern {
     String message() default "invalid duration ({validatedValue})" // <b class="conum">(2)</b>
 }</code></pre>
@@ -822,10 +822,94 @@ You can add messages and message bundles using the <a href="https://docs.microna
 <p>Once you have defined the annotation, implement a <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> that validates the annotation. You can either create a bean class that implements the interface directly or define a factory that returns one or more validators.</p>
 </div>
 <div class="paragraph">
+<p>The former approach can be taken for single bean:</p>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator Bean</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.annotation.Nullable;
+import io.micronaut.validation.validator.constraints.ConstraintValidator;
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
+import jakarta.inject.Singleton;
+
+@Singleton
+@Introspected
+public class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
+
+    @Override
+    public boolean isValid(@Nullable Object value,
+                           @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
+                           @NonNull ConstraintValidatorContext context) {
+        context.messageTemplate("invalid duration ({validatedValue}), additional custom message"); // (1)
+        return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$");
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator Bean</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.core.annotation.Introspected
+import io.micronaut.core.annotation.NonNull
+import io.micronaut.core.annotation.Nullable
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
+import jakarta.inject.Singleton
+
+@Singleton
+@Introspected
+class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
+
+    @Override
+    boolean isValid(@Nullable Object value,
+                    @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
+                    @NonNull ConstraintValidatorContext context) {
+        context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
+        return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator Bean</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.docs.ioc.validation.custom.DurationPattern
+import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.core.annotation.Introspected
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
+import jakarta.inject.Singleton
+
+@Singleton
+@Introspected
+class MyValidatorBean : ConstraintValidator&lt;DurationPattern, Any&gt; {
+
+    override fun isValid(value: Any?,
+                         annotationMetadata: AnnotationValue&lt;DurationPattern&gt;,
+                         context: ConstraintValidatorContext) : Boolean {
+        context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // (1)
+        return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
+    }
+}</code></pre>
+</div>
+</div>
+<div class="colist arabic">
+<table>
+<tr>
+<td><i class="conum" data-value="1"></i><b>1</b></td>
+<td>Override the default message template with an inline call for more control over the validation error message. (Since <code>2.5.0</code>)</td>
+</tr>
+</table>
+</div>
+<div class="paragraph">
 <p>The latter approach is recommended if you plan to define multiple validators:</p>
 </div>
 <div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator</div>
+<div class="title">Example Constraint Validator Factory</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.context.annotation.Factory;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
@@ -845,7 +929,7 @@ public class MyValidatorFactory {
 </div>
 </div>
 <div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator</div>
+<div class="title">Example Constraint Validator Factory</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.context.annotation.Factory
 import io.micronaut.core.annotation.AnnotationValue
@@ -870,7 +954,7 @@ class MyValidatorFactory {
 </div>
 </div>
 <div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator</div>
+<div class="title">Example Constraint Validator Factory</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.context.annotation.Factory
 import io.micronaut.docs.ioc.validation.custom.DurationPattern
@@ -1016,7 +1100,7 @@ void testCustomAndDefaultValidator() {
 <h1 id="compileTimeValidation"><a class="anchor" href="#compileTimeValidation"></a>8 Validating Annotations at Compile Time</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/compileTimeValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/compileTimeValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -1154,7 +1238,7 @@ class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern
 <h1 id="repository"><a class="anchor" href="#repository"></a>9 Repository</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.0.x/src/main/docs/guide/repository.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/master/src/main/docs/guide/repository.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
