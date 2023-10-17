@@ -33,8 +33,13 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
@@ -78,7 +83,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             classElement.annotate(Introspected.class);
         }
         classElement.getMethods().forEach(m -> visitMethod(m, context));
-//        classElement.getFields().forEach(f -> visitField(f, context));
     }
 
     @Override
@@ -105,6 +109,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!visited.add(element)) {
             return;
         }
+
+        getOverriddenMethods(element).forEach(m -> inheritAnnotationsForMethod(element, m));
+
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
         boolean requireOnConstraint = isAbstract || !isPrivate;
@@ -182,4 +189,62 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
         return requires;
     }
+
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForMethod(MethodElement method, MethodElement parent) {
+        ParameterElement[] methodParameters = method.getParameters();
+        ParameterElement[] parentParameters = parent.getParameters();
+
+        for (int i = 0; i < methodParameters.length; ++i) {
+            inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
+        }
+    }
+
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForParameter(TypedElement element, TypedElement parentElement) {
+        if (element.getType().equals(parentElement.getType())) {
+            Stream<String> parentAnnotations = Stream.concat(
+                    parentElement.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
+                    parentElement.getAnnotationNamesByStereotype(ANN_VALID).stream()
+            );
+            parentAnnotations
+                    .filter(name -> !element.hasAnnotation(name))
+                    .flatMap(name -> parentElement.getAnnotationValuesByName(name).stream())
+                    .forEach(element::annotate);
+
+            Map<String, ClassElement> typeArguments = element.getGenericType().getTypeArguments();
+            Map<String, ClassElement> parentTypeArguments = parentElement.getGenericType().getTypeArguments();
+            if (typeArguments.size() != parentTypeArguments.size()) {
+                return;
+            }
+            for (String parameter: typeArguments.keySet()) {
+                inheritAnnotationsForParameter(
+                        typeArguments.get(parameter),
+                        parentTypeArguments.get(parameter)
+                );
+            }
+        }
+    }
+
+    /**
+     * Get all the methods that current method overrides.
+     */
+    private Collection<MethodElement> getOverriddenMethods(MethodElement element) {
+        List<MethodElement> results = new ArrayList<>();
+        ClassElement classElement = element.getOwningType();
+        classElement.getSuperType()
+                .flatMap(t -> t.getMethods().stream().filter(element::overrides).findFirst())
+                .ifPresent(results::add);
+        classElement.getInterfaces().forEach(i ->
+                i.getMethods().stream().filter(element::overrides).findFirst().ifPresent(results::add)
+        );
+        return results;
+    }
+
 }
