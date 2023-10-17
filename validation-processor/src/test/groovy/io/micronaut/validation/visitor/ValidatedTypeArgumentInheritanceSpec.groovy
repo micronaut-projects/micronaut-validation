@@ -6,9 +6,9 @@ import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Size
 
 class ValidatedTypeArgumentInheritanceSpec extends AbstractTypeElementSpec {
-    final static String VALIDATED_ANN = "io.micronaut.validation.Validated";
+    final static String VALIDATED_ANN = "io.micronaut.validation.Validated"
 
-    void "test constraints on inherited generic parameters make method @Validated"() {
+    void "test constraints inherit for generic parameters"() {
         given:
         def definition = buildBeanDefinition('test.Test','''
 package test;
@@ -39,7 +39,38 @@ interface TestBase {
         method.arguments[0].typeParameters[0].annotationMetadata.hasAnnotation(NotBlank)
     }
 
-    void "test constraints on inherited generic parameters make method @Validated deep"() {
+    void "test constraints inherit for generic parameters of return type"() {
+        given:
+        def definition = buildBeanDefinition('test.Test','''
+package test;
+
+import java.util.List;
+import jakarta.validation.constraints.NotNull;
+
+@jakarta.inject.Singleton
+class Test implements TestBase {
+    @Override
+    public List<String> getList() {
+        return null;
+    }
+}
+
+interface TestBase {
+    @io.micronaut.context.annotation.Executable
+    List<@NotNull String> getList();
+}
+''')
+        when:
+        def method = definition.getRequiredMethod("getList")
+
+        then:
+        method.hasStereotype(VALIDATED_ANN)
+        method.returnType.annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
+        method.returnType.typeParameters.size() == 1
+        method.returnType.typeParameters[0].annotationMetadata.hasAnnotation(NotNull)
+    }
+
+    void "test constraints inherit for deep generic parameters"() {
         given:
         def definition = buildBeanDefinition('test.Test','''
 package test;
@@ -69,12 +100,13 @@ interface TestBase {
         method.arguments[0].annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
         method.arguments[0].typeParameters.size() == 2
         method.arguments[0].typeParameters[0].annotationMetadata.hasAnnotation(NotBlank)
+        method.arguments[0].typeParameters[1].annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
         method.arguments[0].typeParameters[1].typeParameters.length == 1
         method.arguments[0].typeParameters[1].typeParameters[0].annotationMetadata.hasAnnotation(NotBlank)
         method.arguments[0].typeParameters[1].typeParameters[0].annotationMetadata.hasAnnotation(NotNull)
     }
 
-    void "test constraints from inherited class generic parameters make method @Validated"() {
+    void "test constraints inherit for generic parameters from abstract class"() {
         given:
         def definition = buildBeanDefinition('test.Test','''
 package test;

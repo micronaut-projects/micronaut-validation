@@ -201,6 +201,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         for (int i = 0; i < methodParameters.length; ++i) {
             inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
         }
+        inheritAnnotationsForParameter(method.getReturnType(), parent.getReturnType());
     }
 
     /**
