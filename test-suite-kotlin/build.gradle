@@ -1,15 +1,12 @@
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-
 plugins {
     id 'io.micronaut.build.internal.validation-test-suite'
     id 'org.jetbrains.kotlin.jvm'
     id 'com.google.devtools.ksp'
 }
 
-tasks.withType(KotlinCompile).configureEach {
-    compilerOptions {
-        jvmTarget = JvmTarget.JVM_17
+kotlin {
+    jvmToolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
     }
 }
 
