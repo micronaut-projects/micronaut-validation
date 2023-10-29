@@ -220,7 +220,7 @@ final class InternalConstraintValidators {
 
     final ConstraintValidator<NotBlank, CharSequence> notBlankValidator =
         (value, annotationMetadata, context) ->
-            StringUtils.isNotEmpty(value) && value.toString().trim().length() > 0;
+            StringUtils.isNotEmpty(value) && !value.toString().isBlank();
 
     final ConstraintValidator<NotNull, Object> notNullValidator =
         (value, annotationMetadata, context) -> value != null;
