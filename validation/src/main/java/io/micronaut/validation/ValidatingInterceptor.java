@@ -119,18 +119,18 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                     throw new ConstraintViolationException(constraintViolations);
                 }
             }
-            if (micronautValidator instanceof ReactiveValidator) {
+            if (micronautValidator instanceof ReactiveValidator reactiveValidator) {
                 InterceptedMethod interceptedMethod = InterceptedMethod.of(context, conversionService);
                 try {
                     return switch (interceptedMethod.resultType()) {
                         case PUBLISHER -> interceptedMethod.handleResult(
-                            ((ReactiveValidator) micronautValidator).validatePublisher(
+                            reactiveValidator.validatePublisher(
                                 context.getReturnType(),
                                 interceptedMethod.interceptResultAsPublisher(),
                                 getValidationGroups(context))
                         );
                         case COMPLETION_STAGE -> interceptedMethod.handleResult(
-                            ((ReactiveValidator) micronautValidator).validateCompletionStage(
+                            reactiveValidator.validateCompletionStage(
                                 (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),
                                 (Argument<Object>) context.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT),
                                 getValidationGroups(context))

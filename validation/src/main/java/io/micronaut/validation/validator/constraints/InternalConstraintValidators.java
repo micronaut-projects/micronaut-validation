@@ -91,8 +91,8 @@ final class InternalConstraintValidators {
     final DecimalMinValidator<Number> decimalMinValidatorNumber = InternalConstraintValidators::compareNumber;
 
     final DigitsValidator<Number> digitsValidatorNumber = value -> {
-        if (value instanceof BigDecimal) {
-            return (BigDecimal) value;
+        if (value instanceof BigDecimal decimalValue) {
+            return decimalValue;
         }
         return new BigDecimal(value.toString());
     };
@@ -109,10 +109,10 @@ final class InternalConstraintValidators {
                 new ValidationException("@Max annotation specified without value")
             );
 
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).compareTo(BigInteger.valueOf(max)) <= 0;
-            } else if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).compareTo(BigDecimal.valueOf(max)) <= 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.compareTo(BigInteger.valueOf(max)) <= 0;
+            } else if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.compareTo(BigDecimal.valueOf(max)) <= 0;
             }
             return value.longValue() <= max;
         };
@@ -126,10 +126,10 @@ final class InternalConstraintValidators {
                 new ValidationException("@Min annotation specified without value")
             );
 
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).compareTo(BigInteger.valueOf(max)) >= 0;
-            } else if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).compareTo(BigDecimal.valueOf(max)) >= 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.compareTo(BigInteger.valueOf(max)) >= 0;
+            } else if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.compareTo(BigDecimal.valueOf(max)) >= 0;
             }
             return value.longValue() >= max;
         };
@@ -140,11 +140,11 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true;
             }
-            if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).signum() < 0;
+            if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.signum() < 0;
             }
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).signum() < 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.signum() < 0;
             }
             if (value instanceof Double ||
                 value instanceof Float ||
@@ -161,11 +161,11 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true;
             }
-            if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).signum() <= 0;
+            if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.signum() <= 0;
             }
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).signum() <= 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.signum() <= 0;
             }
             if (value instanceof Double ||
                 value instanceof Float ||
@@ -182,11 +182,11 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true;
             }
-            if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).signum() > 0;
+            if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.signum() > 0;
             }
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).signum() > 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.signum() > 0;
             }
             if (value instanceof Double ||
                 value instanceof Float ||
@@ -203,11 +203,11 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true;
             }
-            if (value instanceof BigDecimal) {
-                return ((BigDecimal) value).signum() >= 0;
+            if (value instanceof BigDecimal decimalValue) {
+                return decimalValue.signum() >= 0;
             }
-            if (value instanceof BigInteger) {
-                return ((BigInteger) value).signum() >= 0;
+            if (value instanceof BigInteger intValue) {
+                return intValue.signum() >= 0;
             }
             if (value instanceof Double ||
                 value instanceof Float ||
@@ -410,10 +410,10 @@ final class InternalConstraintValidators {
      */
     private static int compareNumber(@NonNull Number value, @NonNull BigDecimal bigDecimal) {
         int result;
-        if (value instanceof BigDecimal) {
-            result = ((BigDecimal) value).compareTo(bigDecimal);
-        } else if (value instanceof BigInteger) {
-            result = new BigDecimal((BigInteger) value).compareTo(bigDecimal);
+        if (value instanceof BigDecimal decimalValue) {
+            result = decimalValue.compareTo(bigDecimal);
+        } else if (value instanceof BigInteger intValue) {
+            result = new BigDecimal(intValue).compareTo(bigDecimal);
         } else {
             result = BigDecimal.valueOf(value.doubleValue()).compareTo(bigDecimal);
         }

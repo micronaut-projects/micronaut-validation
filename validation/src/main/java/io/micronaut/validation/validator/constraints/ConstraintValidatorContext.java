@@ -39,6 +39,7 @@ public interface ConstraintValidatorContext extends jakarta.validation.Constrain
      *
      * @since 2.0
      */
+    @Override
     @NonNull ClockProvider getClockProvider();
 
     /**

@@ -510,6 +510,7 @@ final class ValidationPath implements Path {
         /**
          * Not in a container context.
          */
+        @SuppressWarnings("StaticVariableName")
         static DefaultContainerContext NONE = new DefaultContainerContext(null, null, null, false, null);
 
         /**
