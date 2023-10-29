@@ -27,7 +27,7 @@ import java.util.Optional;
 
 /**
  * Constraint validator that can be used at either runtime or compilation time and
- * is capable of validation {@link jakarta.validation.Constraint} instances. Allows defining validators that work with both Hibernate validator and Micronaut's validator.
+ * is capable of validation {@link Constraint} instances. Allows defining validators that work with both Hibernate validator and Micronaut's validator.
  *
  * <p>Unlike the specification's interface this one can uses as a functional interface. Implementor should not implement the {@link #initialize(Annotation)} method and should instead read the passed {@link AnnotationValue}.</p>
  *

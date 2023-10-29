@@ -1,16 +1,13 @@
-package io.micronaut.validation
+package io.micronaut.validation.visitor
 
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.inject.BeanDefinition
-import io.micronaut.inject.ValidatedBeanDefinition
-import io.micronaut.inject.validation.RequiresValidation
 import io.micronaut.inject.writer.BeanDefinitionVisitor
-import jakarta.validation.Valid
 
 import java.time.LocalDate
 
 class ValidatedParseSpec extends AbstractTypeElementSpec {
-    final static String VALIDATED_ANN = "io.micronaut.validation.Validated";
+    final static String VALIDATED_ANN = "io.micronaut.validation.Validated"
 
     void "test constraints on beans make them @Validated"() {
         given:
@@ -77,7 +74,7 @@ class Test {
 }
 ''')
         when:
-        def method = definition.getRequiredMethod("setList", List<String>);
+        def method = definition.getRequiredMethod("setList", List<String>)
 
         then:
         method.hasStereotype(VALIDATED_ANN)

@@ -72,7 +72,7 @@ import java.util.Optional;
 @ConfigurationProperties("foo.bar")
 @Executable
 interface MyConfig {
-    @javax.annotation.Nullable
+    @jakarta.annotation.Nullable
     String getHost();
 
     @jakarta.validation.constraints.Min(10L)
@@ -278,7 +278,7 @@ interface MyConfig {
 ''')
         then:
         def e = thrown(RuntimeException)
-        e.message.contains('Only getter methods are allowed on @ConfigurationProperties interfaces: junk(java.lang.String). You can change the accessors using @AccessorsStyle annotation');
+        e.message.contains('Only getter methods are allowed on @ConfigurationProperties interfaces: junk(java.lang.String). You can change the accessors using @AccessorsStyle annotation')
     }
 
     void "test getter that returns void method"() {

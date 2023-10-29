@@ -44,20 +44,20 @@ public final class DomainNameUtil {
     private static final String IP_V6_DOMAIN = "(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,7}:|([0-9a-fA-F]{1,4}:){1,6}:[0-9a-fA-F]{1,4}|([0-9a-fA-F]{1,4}:){1,5}(:[0-9a-fA-F]{1,4}){1,2}|([0-9a-fA-F]{1,4}:){1,4}(:[0-9a-fA-F]{1,4}){1,3}|([0-9a-fA-F]{1,4}:){1,3}(:[0-9a-fA-F]{1,4}){1,4}|([0-9a-fA-F]{1,4}:){1,2}(:[0-9a-fA-F]{1,4}){1,5}|[0-9a-fA-F]{1,4}:((:[0-9a-fA-F]{1,4}){1,6})|:((:[0-9a-fA-F]{1,4}){1,7}|:)|fe80:(:[0-9a-fA-F]{0,4}){0,4}%[0-9a-zA-Z]{1,}|::(ffff(:0{1,4}){0,1}:){0,1}((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])|([0-9a-fA-F]{1,4}:){1,4}:((25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9])\\.){3,3}(25[0-5]|(2[0-4]|1{0,1}[0-9]){0,1}[0-9]))";
 
     /**
-     * Regular expression for the domain part of an URL
+     * Regular expression for the domain part of a URL
      * <p>
      * A host string must be a domain string, an IPv4 address string, or "[", followed by an IPv6 address string,
      * followed by "]".
      */
     private static final Pattern DOMAIN_PATTERN = Pattern.compile(
-            DOMAIN + "|\\[" + IP_V6_DOMAIN + "\\]", CASE_INSENSITIVE
+            DOMAIN + "|\\[" + IP_V6_DOMAIN + "]", CASE_INSENSITIVE
     );
 
     /**
      * Regular expression for the domain part of an email address (everything after '@').
      */
     private static final Pattern EMAIL_DOMAIN_PATTERN = Pattern.compile(
-            DOMAIN + "|\\[" + IP_DOMAIN + "\\]|" + "\\[IPv6:" + IP_V6_DOMAIN + "\\]", CASE_INSENSITIVE
+            DOMAIN + "|\\[" + IP_DOMAIN + "]|" + "\\[IPv6:" + IP_V6_DOMAIN + "]", CASE_INSENSITIVE
     );
 
     private DomainNameUtil() {

@@ -45,7 +45,7 @@ import java.util.Optional;
 
 /**
  * A factory bean that contains implementation for many of the default validations.
- * This approach is preferred as it generates less classes and smaller byte code than defining a
+ * This approach is preferred as it generates fewer classes and smaller byte code than defining a
  * validator class for each case.
  *
  * @author graemerocher

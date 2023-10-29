@@ -175,7 +175,6 @@ public class DefaultValidator implements
      * @return The constraint violations
      */
     @Override
-    @SuppressWarnings("ConstantConditions")
     @NonNull
     public <T> Set<ConstraintViolation<T>> validate(@NonNull BeanIntrospection<T> introspection,
                                                     @NonNull T object,
@@ -511,7 +510,6 @@ public class DefaultValidator implements
                                                                          @NonNull Class<?>[] groups) {
         requireNonNull("groups", groups);
 
-        //noinspection ConstantConditions
         parameterValues = parameterValues != null ? parameterValues : ArrayUtils.EMPTY_OBJECT_ARRAY;
         final int argLength = constructorArguments.length;
         if (parameterValues.length != argLength) {
@@ -730,7 +728,6 @@ public class DefaultValidator implements
     @Nullable
     protected <T> BeanIntrospection<T> getBeanIntrospection(@NonNull T object,
                                                             @NonNull Class<T> definedClass) {
-        //noinspection ConstantConditions
         if (object == null) {
             return null;
         }
@@ -748,7 +745,6 @@ public class DefaultValidator implements
     @SuppressWarnings({"WeakerAccess", "unchecked"})
     @Nullable
     protected <T> BeanIntrospection<T> getBeanIntrospection(@NonNull T object) {
-        //noinspection ConstantConditions
         if (object == null) {
             return null;
         }
@@ -1471,10 +1467,7 @@ public class DefaultValidator implements
                         (AnnotationValue<Annotation>) annotationValue,
                         annotationMetadata
                     ))
-                    .filter(annotationValue -> {
-                        boolean constraintIncluded = isConstraintIncluded(context, annotationValue);
-                        return constraintIncluded;
-                    });
+                    .filter(annotationValue -> isConstraintIncluded(context, annotationValue));
             })
             .toList();
     }
