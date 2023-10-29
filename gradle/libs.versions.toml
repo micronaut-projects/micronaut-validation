@@ -13,7 +13,6 @@ spotbugs = "4.8.0"
 arquillian-container = "1.7.1.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
-
 managed-validation = "3.0.2"
 
 # Gradle plugins
