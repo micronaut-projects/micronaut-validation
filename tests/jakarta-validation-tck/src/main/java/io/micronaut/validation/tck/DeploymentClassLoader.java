@@ -26,7 +26,6 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Internal
@@ -45,7 +44,7 @@ final class DeploymentClassLoader extends URLClassLoader {
         result.add(deploymentDir.target.toUri().toURL());
 
         try (Stream<Path> stream = Files.walk(deploymentDir.lib)) {
-            List<Path> jars = stream.filter(p -> p.toString().endsWith(".jar")).collect(Collectors.toList());
+            List<Path> jars = stream.filter(p -> p.toString().endsWith(".jar")).toList();
             for (Path jar : jars) {
                 result.add(jar.toUri().toURL());
             }
