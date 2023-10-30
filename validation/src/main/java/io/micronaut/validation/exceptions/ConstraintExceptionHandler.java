@@ -16,6 +16,7 @@
 package io.micronaut.validation.exceptions;
 
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
@@ -33,7 +34,6 @@ import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import java.util.Iterator;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Default {@link ExceptionHandler} for {@link ConstraintViolationException}.
@@ -62,7 +62,7 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
         Set<ConstraintViolation<?>> constraintViolations = exception.getConstraintViolations();
         MutableHttpResponse<?> response = HttpResponse.badRequest();
         final ErrorContext.Builder contextBuilder = ErrorContext.builder(request).cause(exception);
-        if (constraintViolations == null || constraintViolations.isEmpty()) {
+        if (CollectionUtils.isEmpty(constraintViolations)) {
             return responseProcessor.processResponse(contextBuilder.errorMessage(
                     exception.getMessage() == null ? HttpStatus.BAD_REQUEST.getReason() : exception.getMessage()
             ).build(), response);
@@ -72,7 +72,7 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
                             .stream()
                             .map(this::buildMessage)
                             .sorted()
-                            .collect(Collectors.toList())
+                            .toList()
             ).build(), response);
         }
     }

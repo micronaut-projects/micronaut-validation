@@ -347,7 +347,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     @Override
     public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
-        return new DefaultConstraintViolationBuilder(messageTemplate, this, defaultValidator.messageInterpolator);
+        return new DefaultConstraintViolationBuilder<>(messageTemplate, this, defaultValidator.messageInterpolator);
     }
 
     @Override

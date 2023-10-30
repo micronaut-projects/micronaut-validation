@@ -1353,8 +1353,8 @@ public class DefaultValidator implements
                         } catch (Exception e) {
                             throw new ValidationException("Cannot initialize validator: " + beanIntrospection.getBeanType().getName());
                         }
-                        if (constraintValidator instanceof ConstraintValidator<Annotation, E>) {
-                            validator = (ConstraintValidator<Annotation, E>) constraintValidator;
+                        if (constraintValidator instanceof ConstraintValidator<Annotation, E> cv) {
+                            validator = cv;
                         } else {
                             validator = new ConstraintValidator<>() {
 

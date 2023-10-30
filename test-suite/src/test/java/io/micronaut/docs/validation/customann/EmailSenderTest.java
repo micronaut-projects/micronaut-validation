@@ -7,7 +7,6 @@ import org.junit.jupiter.api.function.Executable;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import java.util.Collections;
-import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -19,6 +18,6 @@ class EmailSenderTest {
     void defaultMessageIsUsed(EmailSender emailSender) {
         Executable e = () -> emailSender.send(new Email("", ""));
         ConstraintViolationException thrown = assertThrows(ConstraintViolationException.class, e);
-        assertEquals(Collections.singletonList(EmailMessages.ANY_RECIPIENT_MESSAGE), thrown.getConstraintViolations().stream().map(ConstraintViolation::getMessage).collect(Collectors.toList()));
+        assertEquals(Collections.singletonList(EmailMessages.ANY_RECIPIENT_MESSAGE), thrown.getConstraintViolations().stream().map(ConstraintViolation::getMessage).toList());
     }
 }
