@@ -25,7 +25,7 @@ import jakarta.validation.Valid;
 import java.util.Set;
 
 /**
- * Extended version of the {@link jakarta.validation.Valid} interface for Micronaut's implementation.
+ * Extended version of the {@link Valid} interface for Micronaut's implementation.
  *
  * <p>The {@link #getConstraintsForClass(Class)} method is not supported by the implementation.</p>
  *

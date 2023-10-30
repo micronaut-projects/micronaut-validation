@@ -13,10 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.validation.custom;
+package io.micronaut.docs.validation.custom
 
 // tag::imports[]
-import io.micronaut.docs.validation.custom.DurationPattern
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.constraints.ConstraintValidator

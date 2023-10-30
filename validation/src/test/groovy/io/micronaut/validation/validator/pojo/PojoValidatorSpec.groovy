@@ -147,9 +147,9 @@ class Search {
 @Introspected
 class SearchAny {
     @Valid
-    List<Search> searches;
+    List<Search> searches
     SearchAny(Search... searches) {
-        this.searches = searches;
+        this.searches = searches
     }
 }
 

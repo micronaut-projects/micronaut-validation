@@ -1,12 +1,8 @@
 package io.micronaut.validation.visitor
 
-import io.micronaut.aop.Around
 import io.micronaut.ast.transform.test.AbstractBeanDefinitionSpec
 import io.micronaut.core.beans.BeanIntrospection
-import io.micronaut.inject.ProxyBeanDefinition
 import io.micronaut.inject.writer.BeanDefinitionVisitor
-import io.micronaut.inject.writer.BeanDefinitionWriter
-import io.micronaut.validation.ValidatedParseSpec
 
 import java.time.LocalDate
 

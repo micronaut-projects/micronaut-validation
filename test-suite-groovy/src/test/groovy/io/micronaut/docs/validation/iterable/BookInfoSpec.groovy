@@ -9,7 +9,7 @@ import spock.lang.Specification
 class BookInfoSpec extends Specification {
 
     @Inject
-    BookInfoService bookInfoService;
+    BookInfoService bookInfoService
 
     // tag::validate-iterables[]
     void testAuthorNamesAreValidated() {

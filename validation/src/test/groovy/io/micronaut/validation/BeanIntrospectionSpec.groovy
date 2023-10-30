@@ -1,10 +1,10 @@
 package io.micronaut.validation
 
-
 import io.micronaut.annotation.processing.TypeElementVisitorProcessor
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.annotation.processing.test.JavaParser
 import io.micronaut.context.annotation.Replaces
+import io.micronaut.context.annotation.Requires
 import io.micronaut.context.visitor.ConfigurationReaderVisitor
 import io.micronaut.core.beans.BeanIntrospection
 import io.micronaut.core.beans.BeanIntrospectionReference
@@ -692,7 +692,7 @@ interface GroupTwo {}
 interface GroupThree {}
 ''')
         def clazz = context.classLoader.loadClass('test.$Address$IntrospectionRef')
-        BeanIntrospectionReference reference = clazz.newInstance()
+        BeanIntrospectionReference reference = clazz.getDeclaredConstructor().newInstance()
 
 
         expect:
@@ -767,7 +767,7 @@ class Book {
 
     @Singleton
     @Replaces(BeanIntrospectionModule)
-    @io.micronaut.context.annotation.Requires(property = "bean.introspection.test")
+    @Requires(property = "bean.introspection.test")
     static class StaticBeanIntrospectionModule extends BeanIntrospectionModule {
         Map<Class<?>, BeanIntrospection> introspectionMap = [:]
         @Override

@@ -105,7 +105,7 @@ final class ValidationPath implements Path {
     ContextualPath withContainerContext(ContainerContext containerContext) {
         ContainerContext prevContainerContext = this.containerContext;
         this.containerContext = containerContext;
-        return () -> ValidationPath.this.containerContext = prevContainerContext;
+        return () -> this.containerContext = prevContainerContext;
     }
 
     ContextualPath addBeanNode() {

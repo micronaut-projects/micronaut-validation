@@ -55,7 +55,7 @@ class FavoriteWebs {
 @Requires(property = "spec.name", value = "customValidatorField")
 class ValidURLsValidatorFactory {
 
-    private static final Pattern URL = Pattern.compile("(http:\\/\\/|https:\\/\\/)?(www.)?([a-zA-Z0-9]+).[a-zA-Z0-9]*.[a-z]{3}.?([a-z]+)?");
+    private static final Pattern URL = Pattern.compile("(http:\\/\\/|https:\\/\\/)?(www.)?([a-zA-Z0-9]+).[a-zA-Z0-9]*.[a-z]{3}.?([a-z]+)?")
 
     @Singleton
     ConstraintValidator<ValidURLs, List<String>> validURLValidator() {

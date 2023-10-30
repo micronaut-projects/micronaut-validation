@@ -31,7 +31,7 @@ import java.util.Collection;
 import java.util.Set;
 
 /**
- * Extended version of {@link ExecutableValidator} that operates on {@link io.micronaut.inject.ExecutableMethod} instances.
+ * Extended version of {@link ExecutableValidator} that operates on {@link ExecutableMethod} instances.
  *
  * @author graemerocher
  * @since 1.2

@@ -103,10 +103,9 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static JavaArchive buildSupportLibrary() {
-        JavaArchive supportLib = ShrinkWrap.create(JavaArchive.class, "micronaut-validation-tck-support.jar")
+        return ShrinkWrap.create(JavaArchive.class, "micronaut-validation-tck-support.jar")
             .addAsManifestResource("META-INF/services/io.micronaut.inject.visitor.TypeElementVisitor")
             .addPackage(TestClassVisitor.class.getPackage());
-        return supportLib;
     }
 
     @Override
