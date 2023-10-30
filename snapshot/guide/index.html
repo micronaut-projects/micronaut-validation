@@ -537,7 +537,7 @@ data class Person(
 <i class="fa icon-tip" title="Tip"></i>
 </td>
 <td class="content">
-The <a href="https://docs.micronaut.io/latest/api/io/micronaut/core/annotation/Introspected">@Introspected</a> annotation can be used as a meta-annotation; common annotations like <code>@javax.persistence.Entity</code> are treated as <code>@Introspected</code>
+The <a href="https://docs.micronaut.io/latest/api/io/micronaut/core/annotation/Introspected">@Introspected</a> annotation can be used as a meta-annotation; common annotations like <code>@jakarta.persistence.Entity</code> are treated as <code>@Introspected</code>
 </td>
 </tr>
 </table>
@@ -1090,8 +1090,7 @@ class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Validator Bean</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.docs.validation.custom.DurationPattern
-import io.micronaut.core.annotation.AnnotationValue
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
