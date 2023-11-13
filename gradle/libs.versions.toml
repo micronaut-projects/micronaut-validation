@@ -9,7 +9,7 @@ micronaut-kotlin = "4.1.0"
 micronaut-logging = "1.1.2"
 
 groovy = "4.0.15"
-spotbugs = "4.8.0"
+spotbugs = "4.8.1"
 arquillian-container = "1.7.1.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
