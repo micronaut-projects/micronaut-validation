@@ -41,3 +41,5 @@ snippet::io.micronaut.docs.validation.custom.DurationPatternValidatorSpec[tags="
 
 <1> A validated method is invoked
 <2> THe constraint violations are verified
+
+TIP: See the guide for https://guides.micronaut.io/latest/micronaut-custom-validation-annotation.html[Custom Constraint Annotation for Validation] to learn more.
