@@ -19,7 +19,7 @@ managed-validation = "3.0.2"
 
 micronaut-gradle-plugin = "4.2.0"
 kotlin-gradle-plugin = "1.9.21"
-ksp-gradle-plugin = "1.9.21-1.0.15"
+ksp-gradle-plugin = "1.9.22-1.0.16"
 
 [libraries]
 # Core
