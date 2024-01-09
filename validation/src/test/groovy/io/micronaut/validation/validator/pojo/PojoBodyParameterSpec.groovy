@@ -195,7 +195,7 @@ class PojoBodyParameterSpec extends Specification {
     @JsonSubTypes.Type(value = ByNullableValue.class, name = "NULLABLE")])
 abstract class SearchBy {
     @NotEmpty
-    String requiredVal;
+    String requiredVal
 
 }
 
@@ -208,13 +208,13 @@ class ByName extends SearchBy {
 @Introspected
 class ByAge extends SearchBy {
     @NotNull
-    Integer age;
+    Integer age
 }
 
 @Introspected
 class ByNullableValue extends SearchBy {
     @NotNull(groups = TestGroup)
-    String nullableValue;
+    String nullableValue
 }
 
 interface TestGroup extends Default {}

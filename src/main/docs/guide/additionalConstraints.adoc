@@ -11,9 +11,16 @@ TIP: You can add messages and message bundles using the {coreDocsUrl}context/Mes
 
 Once you have defined the annotation, implement a api:validation.validator.constraints.ConstraintValidator[] that validates the annotation. You can either create a bean class that implements the interface directly or define a factory that returns one or more validators.
 
+The former approach can be taken for single bean:
+
+.Example Constraint Validator Bean
+snippet::io.micronaut.docs.validation.custom.MyValidatorBean[tags="imports,class", indent="0"]
+
+<1> Override the default message template with an inline call for more control over the validation error message. (Since `2.5.0`)
+
 The latter approach is recommended if you plan to define multiple validators:
 
-.Example Constraint Validator
+.Example Constraint Validator Factory
 snippet::io.micronaut.docs.validation.custom.MyValidatorFactory[tags="imports,class", indent="0"]
 
 <1> Override the default message template with an inline call for more control over the validation error message. (Since `2.5.0`)
@@ -34,3 +41,5 @@ snippet::io.micronaut.docs.validation.custom.DurationPatternValidatorSpec[tags="
 
 <1> A validated method is invoked
 <2> THe constraint violations are verified
+
+TIP: See the guide for https://guides.micronaut.io/latest/micronaut-custom-validation-annotation.html[Custom Constraint Annotation for Validation] to learn more.

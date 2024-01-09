@@ -134,7 +134,7 @@ class ValidatorSpec extends Specification {
 
     void "test validate bean property doesn't cascade"() {
         given:
-        Book b = new Book(primaryAuthor: new Author(name: "", age: 200));
+        Book b = new Book(primaryAuthor: new Author(name: "", age: 200))
         def violations = validator.validateProperty(b, "primaryAuthor")
 
         expect:
@@ -319,7 +319,7 @@ class ValidatorSpec extends Specification {
     void "test validate property argument cascade"() {
         given:
         def book = new ValidatorSpecClasses.Book("LOTR", [new ValidatorSpecClasses.Author("")])
-        def violations = validator.validate(book);
+        def violations = validator.validate(book)
 
         expect:
         violations.size() == 1
@@ -409,7 +409,7 @@ class ValidatorSpec extends Specification {
         given:
         var matrix = new ValidatorSpecClasses.PositiveMatrix([[1, -1], [-3, 4]])
         var violations = validator.validate(matrix)
-        violations = violations.sort{it -> it.getPropertyPath().toString(); }
+        violations = violations.sort{it -> it.getPropertyPath().toString() }
 
         expect:
         violations.size() == 2

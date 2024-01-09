@@ -141,6 +141,47 @@ class CustomConstraintsSpec extends Specification {
         violations.size() == 1
         violations[0].message == "custom invalid"
     }
+
+    void "test intercepted validation if BeanWithConstraintAndPrivateMethods"() {
+        given:
+        BeanWithConstraintAndPrivateMethods abean = new BeanWithConstraintAndPrivateMethods()
+
+        when:
+        def violations = validator.validate(abean)
+
+        then:
+        violations.size() == 1
+        violations[0].message == "custom invalid"
+    }
+
+    void "test bean validation if BeanWithConstraintAndPrivateMethods"() {
+        given:
+        BeanWithConstraintAndPrivateMethods abean = applicationContext.getBean(BeanWithConstraintAndPrivateMethods)
+
+        when:
+        def result = abean.publicCombine1("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine2("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine3("A", "B")
+
+        then:
+        result == "AB"
+
+        when:
+        result = abean.publicCombine4("A", "B")
+
+        then:
+        result == "AB"
+    }
 }
 
 @Introspected

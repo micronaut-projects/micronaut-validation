@@ -103,16 +103,15 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static JavaArchive buildSupportLibrary() {
-        JavaArchive supportLib = ShrinkWrap.create(JavaArchive.class, "micronaut-validation-tck-support.jar")
+        return ShrinkWrap.create(JavaArchive.class, "micronaut-validation-tck-support.jar")
             .addAsManifestResource("META-INF/services/io.micronaut.inject.visitor.TypeElementVisitor")
             .addPackage(TestClassVisitor.class.getPackage());
-        return supportLib;
     }
 
     @Override
     public ProtocolMetaData deploy(Archive<?> archive) {
-        if (archive instanceof LibraryContainer) {
-            ((LibraryContainer<?>) archive).addAsLibrary(buildSupportLibrary());
+        if (archive instanceof LibraryContainer<?> libraryContainer) {
+            libraryContainer.addAsLibrary(buildSupportLibrary());
         } else {
             throw new IllegalStateException("Expected library container!");
         }
@@ -120,7 +119,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         if (testClass.get() == null) {
             throw new IllegalStateException("Test class not available");
         }
-        Class testJavaClass = testClass.get().getJavaClass();
+        Class<?> testJavaClass = testClass.get().getJavaClass();
         Objects.requireNonNull(testJavaClass);
 
         try {

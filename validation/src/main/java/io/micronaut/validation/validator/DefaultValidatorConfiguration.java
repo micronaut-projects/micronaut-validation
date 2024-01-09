@@ -454,11 +454,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     public static Class<?> getClassFromType(Type type) {
-        if (type instanceof Class) {
-            return (Class<?>) type;
+        if (type instanceof Class<?> classType) {
+            return classType;
         }
-        if (type instanceof ParameterizedType) {
-            return getClassFromType(((ParameterizedType) type).getRawType());
+        if (type instanceof ParameterizedType parameterizedType) {
+            return getClassFromType(parameterizedType.getRawType());
         }
         if (type instanceof GenericArrayType) {
             return Object[].class;

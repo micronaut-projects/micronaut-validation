@@ -1,4 +1,4 @@
-package io.micronaut.validation.properties;
+package io.micronaut.validation.properties
 
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.exceptions.BeanInstantiationException

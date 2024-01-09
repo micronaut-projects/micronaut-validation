@@ -13,20 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.custom
+package io.micronaut.docs.validation.custom
 
-import java.time.Duration
-import jakarta.inject.Singleton
-import jakarta.validation.constraints.NotBlank
+// tag::imports[]
+import kotlin.annotation.AnnotationRetention.RUNTIME
+// end::imports[]
 
 // tag::class[]
-@Singleton
-open class HolidayService {
-
-    open fun startHoliday(@NotBlank person: String,
-                          @DurationPattern duration: String): String {
-        val d = Duration.parse(duration)
-        return "Person $person is off on holiday for ${d.toMinutes()} minutes"
-    }
-}
+@Retention(RUNTIME)
+annotation class TimeOff(
+    @DurationPattern val duration: String
+)
 // end::class[]

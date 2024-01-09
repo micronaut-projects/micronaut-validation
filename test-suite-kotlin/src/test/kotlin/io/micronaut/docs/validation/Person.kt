@@ -13,33 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation.itfce
-
-// tag::imports[]
-import io.micronaut.context.annotation.ConfigurationProperties
-import io.micronaut.core.bind.annotation.Bindable
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
-import jakarta.validation.constraints.NotNull
-// end::imports[]
+package io.micronaut.docs.validation
 
 // tag::class[]
-@ConfigurationProperties("my.engine") // <1>
-interface EngineConfig {
+import io.micronaut.core.annotation.Introspected
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
 
-    @get:Bindable(defaultValue = "Ford") // <2>
-    @get:NotBlank // <3>
-    val manufacturer: String
-
-    @get:Min(1L)
-    val cylinders: Int
-
-    @get:NotNull
-    val crankShaft: CrankShaft // <4>
-
-    @ConfigurationProperties("crank-shaft")
-    interface CrankShaft { // <5>
-        val rodLength: Double? // <6>
-    }
-}
+@Introspected
+data class Person(
+    @field:NotBlank var name: String,
+    @field:Min(18) var age: Int
+)
 // end::class[]

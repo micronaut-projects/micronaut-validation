@@ -48,10 +48,10 @@ class NullablePrimitiveSpec extends AbstractTypeElementSpec {
 
         where:
         deprecated | annotation
-        false       | 'javax.annotation.Nullable'
+        false      | 'jakarta.annotation.Nullable'
         false      | 'io.micronaut.core.annotation.Nullable'
         false      | 'edu.umd.cs.findbugs.annotations.Nullable'
-        false       | 'javax.annotation.Nonnull'
+        false      | 'jakarta.annotation.Nonnull'
         false      | 'io.micronaut.core.annotation.NonNull'
         false      | 'edu.umd.cs.findbugs.annotations.NonNull'
     }
@@ -81,7 +81,9 @@ class NullablePrimitiveSpec extends AbstractTypeElementSpec {
         output.contains(warning)
 
         where:
-        annotation << ['@javax.annotation.Nullable', '@io.micronaut.core.annotation.Nullable', '@edu.umd.cs.findbugs.annotations.Nullable']
+        annotation << ['@jakarta.annotation.Nullable',
+                       '@io.micronaut.core.annotation.Nullable',
+                       '@edu.umd.cs.findbugs.annotations.Nullable']
     }
 
     @Unroll
@@ -109,7 +111,9 @@ class NullablePrimitiveSpec extends AbstractTypeElementSpec {
         !output.contains(warning)
 
         where:
-        annotation << ['@javax.annotation.Nullable', '@io.micronaut.core.annotation.Nullable', '@edu.umd.cs.findbugs.annotations.Nullable']
+        annotation << ['@jakarta.annotation.Nullable',
+                       '@io.micronaut.core.annotation.Nullable',
+                       '@edu.umd.cs.findbugs.annotations.Nullable']
     }
 
     @Unroll
@@ -132,7 +136,9 @@ class NullablePrimitiveSpec extends AbstractTypeElementSpec {
         !output.contains(warning)
 
         where:
-        annotation << ['@javax.annotation.Nullable', '@io.micronaut.core.annotation.Nullable', '@edu.umd.cs.findbugs.annotations.Nullable']
+        annotation << ['@jakarta.annotation.Nullable',
+                       '@io.micronaut.core.annotation.Nullable',
+                       '@edu.umd.cs.findbugs.annotations.Nullable']
     }
 
 }

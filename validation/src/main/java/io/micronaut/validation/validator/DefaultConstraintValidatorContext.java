@@ -166,13 +166,13 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
     public ValidationCloseable withExecutableParameterValues(Object[] executableParameterValues) {
         Object[] prevExecutableParameterValues = this.executableParameterValues;
         this.executableParameterValues = executableParameterValues;
-        return () -> DefaultConstraintValidatorContext.this.executableParameterValues = prevExecutableParameterValues;
+        return () -> this.executableParameterValues = prevExecutableParameterValues;
     }
 
     public ValidationCloseable withExecutableReturnValue(Object executableReturnValue) {
         Object prevExecutableReturnValue = this.executableReturnValue;
         this.executableReturnValue = executableReturnValue;
-        return () -> DefaultConstraintValidatorContext.this.executableReturnValue = prevExecutableReturnValue;
+        return () -> this.executableReturnValue = prevExecutableReturnValue;
     }
 
     public GroupsValidation withGroupSequence(@NonNull ValidationGroup validationGroup) {
@@ -347,7 +347,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     @Override
     public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
-        return new DefaultConstraintViolationBuilder(messageTemplate, this, defaultValidator.messageInterpolator);
+        return new DefaultConstraintViolationBuilder<>(messageTemplate, this, defaultValidator.messageInterpolator);
     }
 
     @Override

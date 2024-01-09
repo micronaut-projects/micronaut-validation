@@ -25,7 +25,7 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
 /**
- * The default implementation {@link jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder}.
+ * The default implementation {@link ConstraintValidatorContext.ConstraintViolationBuilder}.
  *
  * @param <R> The result type
  * @author Denis Stepnov

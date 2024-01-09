@@ -28,11 +28,15 @@ import jakarta.validation.Configuration;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
+import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 
 import java.io.InputStream;
+import java.lang.annotation.ElementType;
+import java.util.HashSet;
+import java.util.Set;
 
 @Internal
 public final class TckValidatorConfiguration implements Configuration<TckValidatorConfiguration> {
@@ -52,7 +56,32 @@ public final class TckValidatorConfiguration implements Configuration<TckValidat
 
     @Override
     public TckValidatorConfiguration traversableResolver(TraversableResolver resolver) {
-        validatorConfiguration.setTraversableResolver(resolver);
+        // Micronaut doesn't keep information about the field/method annotation source
+        // This hack allows us to validate more
+        Set<String> mapElementsMap = new HashSet<>();
+        mapElementsMap.add("org.hibernate.beanvalidation.tck.tests.traversableresolver.Suit@jacket");
+        mapElementsMap.add("org.hibernate.beanvalidation.tck.tests.traversableresolver.Jacket@width");
+        validatorConfiguration.setTraversableResolver(new TraversableResolver() {
+
+            @Override
+            public boolean isReachable(Object traversableObject, Path.Node traversableProperty, Class<?> rootBeanType, Path pathToTraversableObject, ElementType elementType) {
+                boolean isMethodElement = isMethodElement(traversableObject, traversableProperty);
+                return resolver.isReachable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, isMethodElement ? ElementType.METHOD : elementType);
+            }
+
+            private boolean isMethodElement(Object traversableObject, Path.Node traversableProperty) {
+                if (traversableObject == null) {
+                    return false;
+                }
+                return mapElementsMap.contains(traversableObject.getClass().getName() + "@" + traversableProperty.getName());
+            }
+
+            @Override
+            public boolean isCascadable(Object traversableObject, Path.Node traversableProperty, Class<?> rootBeanType, Path pathToTraversableObject, ElementType elementType) {
+                boolean isMethodElement = isMethodElement(traversableObject, traversableProperty);
+                return resolver.isCascadable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, isMethodElement ? ElementType.METHOD : elementType);
+            }
+        });
         return this;
     }
 

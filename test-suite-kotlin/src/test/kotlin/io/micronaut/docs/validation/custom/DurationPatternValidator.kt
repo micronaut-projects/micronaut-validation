@@ -13,18 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.docs.ioc.validation
+package io.micronaut.docs.validation.custom
 
 // tag::imports[]
-import jakarta.inject.Singleton
-import jakarta.validation.constraints.NotBlank
+import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
 // end::imports[]
 
 // tag::class[]
-@Singleton
-open class PersonService {
-    open fun sayHello(@NotBlank name: String) {
-        println("Hello $name")
+class DurationPatternValidator : ConstraintValidator<DurationPattern, CharSequence> {
+    override fun isValid(
+        value: CharSequence?,
+        annotationMetadata: AnnotationValue<DurationPattern>,
+        context: ConstraintValidatorContext): Boolean {
+        return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
     }
 }
 // end::class[]

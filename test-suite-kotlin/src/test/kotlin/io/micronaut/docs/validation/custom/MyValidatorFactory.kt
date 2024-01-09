@@ -17,7 +17,6 @@ package io.micronaut.docs.validation.custom
 
 // tag::imports[]
 import io.micronaut.context.annotation.Factory
-import io.micronaut.docs.ioc.validation.custom.DurationPattern
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import jakarta.inject.Singleton
 // end::imports[]

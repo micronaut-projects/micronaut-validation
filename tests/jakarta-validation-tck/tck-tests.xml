@@ -79,10 +79,10 @@
                     <exclude name="testSuccessfulInterpolationOfValidationMessagesValue"/>
                 </methods>
             </class>
-            <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <!-- Hack to support correct resolver element -->
+                    <exclude name="testTraversableResolverFromValidatorFactory"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
@@ -161,14 +161,15 @@
             </class>
             <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest">
-
                 <methods>
+                    <!-- Annotations from the class hierarchy are combined -->
                     <exclude name="testClassLevelConstraints"/>
+                    <!-- Annotations from the field and property are combined into one -->
                     <exclude name="testConstraintAppliedOnFieldAndProperty"/>
+                    <!-- Micronaut does the property access by default -->
                     <exclude name="testFieldAccess"/>
                 </methods>
             </class>
-
 
             <!-- TODO -->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">

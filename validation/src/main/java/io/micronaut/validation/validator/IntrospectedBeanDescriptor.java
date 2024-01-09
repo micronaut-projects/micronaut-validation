@@ -197,12 +197,11 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             return beanProperty.getAnnotationTypesByStereotype(Constraint.class)
                 .stream().flatMap(type -> beanProperty.getAnnotationValuesByType(type).stream().map(annotationValue -> {
                     AnnotationValue<? extends Annotation> annotation = beanProperty.getAnnotation(type);
-                    DefaultConstraintDescriptor<?> descriptor = new DefaultConstraintDescriptor(
+                        return (DefaultConstraintDescriptor<?>) new DefaultConstraintDescriptor(
                         type,
                         annotation,
                         beanProperty
                     );
-                    return descriptor;
                 })).collect(Collectors.toSet());
         }
 

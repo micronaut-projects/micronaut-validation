@@ -105,7 +105,7 @@ final class ValidationPath implements Path {
     ContextualPath withContainerContext(ContainerContext containerContext) {
         ContainerContext prevContainerContext = this.containerContext;
         this.containerContext = containerContext;
-        return () -> ValidationPath.this.containerContext = prevContainerContext;
+        return () -> this.containerContext = prevContainerContext;
     }
 
     ContextualPath addBeanNode() {
@@ -203,6 +203,15 @@ final class ValidationPath implements Path {
 
     public Node last() {
         return nodes.peekLast();
+    }
+
+    public ValidationPath previousPath() {
+        ValidationPath path = new ValidationPath(this);
+        path.nodes.removeLast();
+        if (path.nodes.isEmpty()) {
+            path.nodes.add(new DefaultBeanNode(containerContext));
+        }
+        return path;
     }
 
     public ConstraintTarget getConstraintTarget() {
@@ -501,6 +510,7 @@ final class ValidationPath implements Path {
         /**
          * Not in a container context.
          */
+        @SuppressWarnings("StaticVariableName")
         static DefaultContainerContext NONE = new DefaultContainerContext(null, null, null, false, null);
 
         /**
