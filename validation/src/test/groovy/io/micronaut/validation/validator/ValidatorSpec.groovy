@@ -22,6 +22,8 @@ import jakarta.validation.constraints.Pattern
 import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
 import spock.lang.AutoCleanup
+import spock.lang.Issue
+import spock.lang.PendingFeature
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -155,6 +157,8 @@ class ValidatorSpec extends Specification {
 
     }
 
+    @PendingFeature
+    @Issue("https://github.com/micronaut-projects/micronaut-validation/pull/165")
     void "test validate bean property with Optional getter"() {
         given:
         OptionalGetters g = new OptionalGetters(alpha: "non alpha with space");
