@@ -1408,6 +1408,7 @@ public class DefaultValidator implements
             }
             context.messageTemplate(null);
             context.constraint = null;
+            context.disableDefaultConstraintViolation = false;
         }
     }
 
@@ -1497,14 +1498,14 @@ public class DefaultValidator implements
         }
     }
 
-    public static <T> T requireNonNull(String name, T value) {
+    private static <T> T requireNonNull(String name, T value) {
         if (value == null) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be null");
         }
         return value;
     }
 
-    public static String requireNonEmpty(String name, String value) {
+    private static String requireNonEmpty(String name, String value) {
         if (StringUtils.isEmpty(value)) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be empty");
         }
