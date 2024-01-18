@@ -129,21 +129,11 @@
                     <exclude name="testCrossParameterConstraintWithoutValidatorCausesConstraintDefinitionException"/>
                     <!-- INVESTIGATE -->
                     <exclude name="testResolutionOfMinMaxForDifferentTypes"/>
-                    <exclude name="testClassLevelValidatorForSubTypeHasPredenceOverValidatorForSuperClass"/>
 
                     <!-- TODO Support selecting validators by the generic type -->
                     <exclude name="testSeveralCrossParameterValidatorsCauseConstraintDefinitionException"/>
-                    <exclude name="testTargetTypeIsClass"/>
-                    <exclude name="testTargetTypeIsInterface"/>
                     <exclude name="testTargetedTypeIsConstructor"/>
-                    <exclude name="testTargetedTypeIsConstructorParameter"/>
-                    <exclude name="testTargetedTypeIsField"/>
-                    <exclude name="testTargetedTypeIsGetter"/>
-                    <exclude name="testTargetedTypeIsMethod"/>
-                    <exclude name="testTargetedTypeIsMethodParameter"/>
-                    <exclude name="testTargetedTypeIsTypeArgument"/>
                     <exclude name="testTargetedTypeIsTypeArgumentForNonGenericContainerInheritingFromGenericTypeWithValueExtractor"/>
-                    <exclude name="testTargetedTypeIsTypeArgumentForNonGenericContainerWithValueExtractorWithExtractedType"/>
                     <exclude name="testTwoValidatorsForSameTypeCauseUnexpectedTypeException"/>
                 </methods>
             </class>

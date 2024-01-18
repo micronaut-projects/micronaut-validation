@@ -203,7 +203,8 @@ final class ArchiveCompiler {
             importBeans.add(ValidatorResolutionTest.class.getName() + "$AnotherSubClass");
             importBeans.add(ValidatorResolutionTest.class.getName() + "$CustomClass");
             importBeans.add(ValidatorResolutionTest.class.getName() + "$SubClassF");
-            packageName = NestedCascadingOnContainerElementsTest.class.getPackageName();
+            importBeans.add(ValidatorResolutionTest.class.getName() + "CustomInterface");
+            packageName = ValidatorResolutionTest.class.getPackageName();
         }
         if (!importBeans.isEmpty()) {
             annotations += "@" + Introspected.class.getName() + "(" +
