@@ -19,11 +19,13 @@ import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.util.CollectionUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintTarget;
@@ -38,7 +40,6 @@ import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -100,32 +101,16 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         return null;
     }
 
+    @Nullable
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry findConstraintValidator(Class<T> type) {
         ConstraintValidatorEntry entry = validators.get(type);
         if (entry != null) {
             return entry;
         }
         try {
-            Optional<? extends BeanIntrospection<T>> introspection = beanIntrospector.findIntrospection(type);
-            if (introspection.isPresent()) {
-                BeanIntrospection<T> beanIntrospection = introspection.get();
-                entry = new ConstraintValidatorEntry(
-                    beanIntrospection.instantiate(),
-                    getBeanType(beanIntrospection),
-                    getValidationTarget(beanIntrospection),
-                    null);
-            } else if (beanContext != null) {
-                Collection<BeanRegistration<T>> beanRegistrations = beanContext.getBeanRegistrations(type);
-                if (!beanRegistrations.isEmpty()) {
-                    BeanRegistration<T> beanRegistration = beanRegistrations.iterator().next();
-                    List<Argument<?>> typeArguments = beanRegistration.getBeanDefinition().getTypeArguments(ConstraintValidator.class);
-                    entry = new ConstraintValidatorEntry(
-                        beanRegistration.bean(),
-                        typeArguments.size() == 2 ? typeArguments.get(1).getType() : Object.class,
-                        getValidationTarget(beanRegistration.getAnnotationMetadata()),
-                        beanRegistration);
-                }
-            }
+            entry = beanIntrospector.findIntrospection(type)
+                    .map(this::instantiateConstraintValidatorEntry)
+                    .orElseGet(() -> instantiateConstraintValidatorEntryOfBeanRegistration(type));
         } catch (Exception e) {
             throw new ValidationException("Cannot initialize validator: " + type.getName());
         }
@@ -133,6 +118,26 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             validators.put(type, entry);
         }
         return entry;
+    }
+
+    @NonNull
+    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection) {
+        return new ConstraintValidatorEntry(beanIntrospection.instantiate(), getBeanType(beanIntrospection), getValidationTarget(beanIntrospection), null);
+    }
+
+    @Nullable
+    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfBeanRegistration(Class<T> type) {
+        Collection<BeanRegistration<T>> beanRegistrations = beanContext.getBeanRegistrations(type);
+        if (CollectionUtils.isEmpty(beanRegistrations)) {
+            return null;
+        }
+        BeanRegistration<T> beanRegistration = beanRegistrations.iterator().next();
+        List<Argument<?>> typeArguments = beanRegistration.getBeanDefinition().getTypeArguments(ConstraintValidator.class);
+        return new ConstraintValidatorEntry(
+                beanRegistration.bean(),
+                typeArguments.size() == 2 ? typeArguments.get(1).getType() : Object.class,
+                getValidationTarget(beanRegistration.getAnnotationMetadata()),
+                beanRegistration);
     }
 
     private Class<?> getBeanType(BeanIntrospection<?> beanIntrospection) {
