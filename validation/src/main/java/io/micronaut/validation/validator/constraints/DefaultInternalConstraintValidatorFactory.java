@@ -92,10 +92,10 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         if (entry == null) {
             return null;
         }
-        if (targetType.isPrimitive()) {
-            targetType = ReflectionUtils.getWrapperType(targetType);
-        }
-        if (allowsConstraintTarget(entry.target, constraintTarget) && entry.targetType.isAssignableFrom(targetType)) {
+        Class<?> resolvedTargetType = targetType.isPrimitive()
+                ? ReflectionUtils.getWrapperType(targetType)
+                : targetType;
+        if (allowsConstraintTarget(entry.target, constraintTarget) && entry.targetType.isAssignableFrom(resolvedTargetType)) {
             return (T) entry.constraintValidator;
         }
         return null;
