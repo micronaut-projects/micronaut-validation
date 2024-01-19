@@ -19,6 +19,7 @@ import io.micronaut.context.BeanContext;
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -32,6 +33,8 @@ import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
+import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
@@ -74,6 +77,9 @@ import java.util.Optional;
  */
 @ConfigurationProperties(ValidatorConfiguration.PREFIX)
 public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware {
+
+    @Nullable
+    private InternalConstraintValidatorFactory constraintValidatorFactory;
 
     @Nullable
     private ConstraintValidatorRegistry constraintValidatorRegistry;
@@ -131,6 +137,24 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             constraintValidatorRegistry = new DefaultConstraintValidators();
         }
         return constraintValidatorRegistry;
+    }
+
+    @Override
+    public ConstraintValidatorFactory getConstraintValidatorFactory() {
+        if (constraintValidatorFactory == null) {
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
+        }
+        return constraintValidatorFactory;
+    }
+
+    /**
+     * Inject internal {@link InternalConstraintValidatorFactory}.
+     * @param constraintValidatorFactory the factory
+     */
+    @Internal
+    @Inject
+    public void setInternalConstraintValidatorFactory(InternalConstraintValidatorFactory constraintValidatorFactory) {
+        this.constraintValidatorFactory = constraintValidatorFactory;
     }
 
     @Override

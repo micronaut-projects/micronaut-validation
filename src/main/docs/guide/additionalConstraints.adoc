@@ -9,6 +9,8 @@ snippet::io.micronaut.docs.validation.custom.DurationPattern[tags="imports,class
 
 TIP: You can add messages and message bundles using the {coreDocsUrl}context/MessageSource[MessageSource] and {coreDocsUrl}context/i18n/ResourceBundleMessageSource[ResourceBundleMessageSource] classes. See {guideUrl}#bundle[Resource Bundles] documentation.
 
+NOTE: A constraint with an empty `validatedBy = {}` will use the bean context to find a bean of api:validation.validator.constraints.ConstraintValidator[] with a generic value of your annotation, or it's possible to set `validatedBy = MyConstraintValidator.class` and in this case the validator can be an introspected bean or a simple bean in loaded from the bean context.
+
 Once you have defined the annotation, implement a api:validation.validator.constraints.ConstraintValidator[] that validates the annotation. You can either create a bean class that implements the interface directly or define a factory that returns one or more validators.
 
 The former approach can be taken for single bean:

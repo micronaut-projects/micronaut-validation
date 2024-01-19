@@ -53,6 +53,7 @@ import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Singleton;
@@ -68,8 +69,6 @@ import jakarta.validation.TraversableResolver;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
-import jakarta.validation.constraintvalidation.SupportedValidationTarget;
-import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
@@ -122,6 +121,7 @@ public class DefaultValidator implements
     private final ExecutionHandleLocator executionHandleLocator;
     private final ConversionService conversionService;
     private final BeanIntrospector beanIntrospector;
+    private final InternalConstraintValidatorFactory constraintValidatorFactory;
 
     /**
      * Default constructor.
@@ -138,6 +138,7 @@ public class DefaultValidator implements
         this.messageInterpolator = configuration.getMessageInterpolator();
         this.conversionService = configuration.getConversionService();
         this.beanIntrospector = configuration.getBeanIntrospector();
+        this.constraintValidatorFactory = (InternalConstraintValidatorFactory) configuration.getConstraintValidatorFactory();
     }
 
     /**
@@ -1331,24 +1332,13 @@ public class DefaultValidator implements
             ConstraintValidator<Annotation, E> validator = null;
             if (!validatorClasses.isEmpty()) {
                 for (Class<?> validatedBy : validatorClasses) {
-                    Optional<? extends BeanIntrospection<?>> introspection = beanIntrospector.findIntrospection(validatedBy);
-                    if (introspection.isPresent()) {
-                        BeanIntrospection<?> beanIntrospection = introspection.get();
-                        Set<ValidationTarget> validationTarget = Set.of(beanIntrospection.enumValues(SupportedValidationTarget.class, ValidationTarget.class));
-                        if (constraintTarget == ConstraintTarget.PARAMETERS && !validationTarget.contains(ValidationTarget.PARAMETERS)) {
-                            continue;
-                        }
-                        if (constraintTarget != ConstraintTarget.PARAMETERS && (!validationTarget.isEmpty() && !validationTarget.contains(ValidationTarget.ANNOTATED_ELEMENT))) {
-                            continue;
-                        }
-
-                        jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator;
-                        try {
-                            constraintValidator =
-                                (jakarta.validation.ConstraintValidator<Annotation, E>) beanIntrospection.instantiate();
-                        } catch (Exception e) {
-                            throw new ValidationException("Cannot initialize validator: " + beanIntrospection.getBeanType().getName());
-                        }
+                    Class<jakarta.validation.ConstraintValidator<Annotation, E>> validatedByConstraint = (Class<jakarta.validation.ConstraintValidator<Annotation, E>>) validatedBy;
+                    jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = constraintValidatorFactory.getInstance(
+                        validatedByConstraint,
+                        elementArgument.getType(),
+                        constraintTarget
+                    );
+                    if (constraintValidator != null) {
                         if (constraintValidator instanceof ConstraintValidator<Annotation, E> cv) {
                             validator = cv;
                         } else {
