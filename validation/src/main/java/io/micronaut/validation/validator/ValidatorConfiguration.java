@@ -20,9 +20,9 @@ import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
-import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.TraversableResolver;
 
@@ -54,7 +54,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * @return The constraint factory to use.
      */
     @NonNull
-    InternalConstraintValidatorFactory getConstraintValidatorFactory();
+    ConstraintValidatorFactory getConstraintValidatorFactory();
 
     /**
      * @return The value extractor registry

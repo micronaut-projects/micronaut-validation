@@ -138,7 +138,7 @@ public class DefaultValidator implements
         this.messageInterpolator = configuration.getMessageInterpolator();
         this.conversionService = configuration.getConversionService();
         this.beanIntrospector = configuration.getBeanIntrospector();
-        this.constraintValidatorFactory = configuration.getConstraintValidatorFactory();
+        this.constraintValidatorFactory = (InternalConstraintValidatorFactory) configuration.getConstraintValidatorFactory();
     }
 
     /**
