@@ -1031,6 +1031,18 @@ You can add messages and message bundles using the <a href="https://docs.microna
 </tr>
 </table>
 </div>
+<div class="admonitionblock note">
+<table>
+<tr>
+<td class="icon">
+<i class="fa icon-note" title="Note"></i>
+</td>
+<td class="content">
+A constraint with an empty <code>validatedBy = {}</code> will use the bean context to find a bean of <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> with a generic value of your annotation, or it&#8217;s possible to set <code>validatedBy = MyConstraintValidator.class</code> and in this case the validator can be an introspected bean or a simple bean in loaded from the bean context.
+</td>
+</tr>
+</table>
+</div>
 <div class="paragraph">
 <p>Once you have defined the annotation, implement a <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> that validates the annotation. You can either create a bean class that implements the interface directly or define a factory that returns one or more validators.</p>
 </div>
