@@ -23,6 +23,7 @@ import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
+import java.util.Optional;
 
 /**
  * Constraint validator that can be used at either runtime or compilation time and
@@ -99,6 +100,14 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
             public void messageTemplate(@Nullable final String messageTemplate) {
             }
 
+            /**
+             *
+             * @deprecated not being used.
+             */
+            @Deprecated(since = "4.3.0", forRemoval = true)
+            public Optional<String> getMessageTemplate() {
+                return Optional.empty();
+            }
         });
     }
 }
