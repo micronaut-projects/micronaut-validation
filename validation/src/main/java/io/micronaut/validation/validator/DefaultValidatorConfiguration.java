@@ -140,7 +140,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    public InternalConstraintValidatorFactory getConstraintValidatorFactory() {
+    public ConstraintValidatorFactory getConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
             constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
         }

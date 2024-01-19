@@ -52,6 +52,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
 
     /**
      * @return The constraint factory to use.
+     * @since 4.3.0
      */
     @NonNull
     ConstraintValidatorFactory getConstraintValidatorFactory();
