@@ -170,10 +170,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         if (constraintTarget == ConstraintTarget.PARAMETERS && !validationTarget.contains(ValidationTarget.PARAMETERS)) {
             return false;
         }
-        if (constraintTarget != ConstraintTarget.PARAMETERS && (!validationTarget.isEmpty() && !validationTarget.contains(ValidationTarget.ANNOTATED_ELEMENT))) {
-            return false;
-        }
-        return true;
+        return constraintTarget == ConstraintTarget.PARAMETERS || (validationTarget.isEmpty() || validationTarget.contains(ValidationTarget.ANNOTATED_ELEMENT));
     }
 
     private record ConstraintValidatorEntry(ConstraintValidator<?, ?> constraintValidator,
