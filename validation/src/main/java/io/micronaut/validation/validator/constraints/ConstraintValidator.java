@@ -19,9 +19,9 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Indexed;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
-
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
+
 import java.lang.annotation.Annotation;
 import java.util.Optional;
 
@@ -64,15 +64,14 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
         // simply adapt the interfaces for now.
         return isValid(value, new AnnotationValue<>(Constraint.class.getName()), new ConstraintValidatorContext() {
 
-            private String messageTemplate = context.getDefaultConstraintMessageTemplate();
-
             @Override
             public void disableDefaultConstraintViolation() {
+                context.disableDefaultConstraintViolation();
             }
 
             @Override
             public String getDefaultConstraintMessageTemplate() {
-                return null;
+                return context.getDefaultConstraintMessageTemplate();
             }
 
             @NonNull
@@ -83,12 +82,12 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
 
             @Override
             public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
-                return null;
+                return context.buildConstraintViolationWithTemplate(messageTemplate);
             }
 
             @Override
             public <K> K unwrap(Class<K> type) {
-                return null;
+                return context.unwrap(type);
             }
 
             @Nullable
@@ -99,13 +98,16 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
 
             @Override
             public void messageTemplate(@Nullable final String messageTemplate) {
-                this.messageTemplate = messageTemplate;
             }
 
+            /**
+             *
+             * @deprecated not being used.
+             */
+            @Deprecated(since = "4.3.0", forRemoval = true)
             public Optional<String> getMessageTemplate() {
-                return Optional.ofNullable(messageTemplate);
+                return Optional.empty();
             }
-
         });
     }
 }
