@@ -33,10 +33,7 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -110,7 +107,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
 
-        getOverriddenMethods(element).forEach(m -> inheritAnnotationsForMethod(element, m));
+        element.getOverriddenMethods().forEach(m -> inheritAnnotationsForMethod(element, m));
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
@@ -231,21 +228,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
                 );
             }
         }
-    }
-
-    /**
-     * Get all the methods that current method overrides.
-     */
-    private Collection<MethodElement> getOverriddenMethods(MethodElement element) {
-        List<MethodElement> results = new ArrayList<>();
-        ClassElement classElement = element.getOwningType();
-        classElement.getSuperType()
-                .flatMap(t -> t.getMethods().stream().filter(element::overrides).findFirst())
-                .ifPresent(results::add);
-        classElement.getInterfaces().forEach(i ->
-                i.getMethods().stream().filter(element::overrides).findFirst().ifPresent(results::add)
-        );
-        return results;
     }
 
 }
