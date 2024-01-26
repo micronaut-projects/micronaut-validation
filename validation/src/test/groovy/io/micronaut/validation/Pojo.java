@@ -20,6 +20,7 @@ import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+@ValidPojo
 @Introspected
 public class Pojo {
 

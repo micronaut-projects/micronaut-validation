@@ -106,7 +106,7 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
                 }
                 message.append(']');
             }
-            if (node.getKind() != ElementKind.CONTAINER_ELEMENT) {
+            if (node.getKind() != ElementKind.CONTAINER_ELEMENT && node.getName() != null) {
                 if (!firstNode) {
                     message.append('.');
                 }
