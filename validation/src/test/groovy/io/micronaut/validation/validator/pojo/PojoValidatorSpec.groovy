@@ -108,7 +108,7 @@ class PojoValidatorSpec extends Specification {
 
         then:
         ex = thrown(ConstraintViolationException)
-        ex.constraintViolations.size() == 1
+        ex.constraintViolations.size() == 2
     }
 
     void "test don't cascade to iterable without @Valid"() {
