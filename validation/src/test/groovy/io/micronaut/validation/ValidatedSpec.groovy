@@ -212,6 +212,36 @@ class ValidatedSpec extends Specification {
         server.close()
     }
 
+    def "test validated controller validates @Valid classes with validation annotation set on class"() {
+        given:
+        ApplicationContext context = ApplicationContext.run([
+                'spec.name': getClass().simpleName
+        ])
+        EmbeddedServer embeddedServer = context.getBean(EmbeddedServer).start()
+        HttpClient client = context.createBean(HttpClient, embeddedServer.getURL())
+        EmbeddedServer server = ApplicationContext.run(EmbeddedServer)
+
+        when:
+        HttpResponse<String> response = client.toBlocking().exchange(
+                HttpRequest.POST("/validated/pojo", '{"email":"test@example.com","name":"test@example.com"}')
+                        .contentType(MediaType.APPLICATION_JSON_TYPE),
+                String
+        )
+
+        then:
+        def e = thrown(HttpClientResponseException)
+        e.response.code() == HttpStatus.BAD_REQUEST.code
+
+        when:
+        def result = new JsonSlurper().parseText((String) e.response.getBody().get())
+
+        then:
+        result._embedded.errors[0].message == 'pojo: Email and Name can not be identical'
+
+        cleanup:
+        server.close()
+    }
+
     def "test validated controller validates @Valid classes with standard embedded errors"() {
         given:
         ApplicationContext context = ApplicationContext.run([
