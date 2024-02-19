@@ -283,9 +283,9 @@ final class InternalConstraintValidators {
 
     final SizeValidator<CharSequence> sizeCharSequenceValidator = CharSequence::length;
 
-    final SizeValidator<Collection> sizeCollectionValidator = Collection::size;
+    final SizeValidator<Collection<?>> sizeCollectionValidator = Collection::size;
 
-    final SizeValidator<Map> sizeMapValidator = Map::size;
+    final SizeValidator<Map<?, ?>> sizeMapValidator = Map::size;
 
     final ConstraintValidator<Past, TemporalAccessor> pastTemporalAccessorConstraintValidator =
         (value, annotationMetadata, context) -> {

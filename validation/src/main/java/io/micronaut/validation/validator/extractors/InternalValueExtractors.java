@@ -47,7 +47,7 @@ final class InternalValueExtractors {
      */
     private static final String LIST_ELEMENT_NODE_NAME = "<list element>";
     /**
-     * Node name for an key element of a map.
+     * Node name for a key element of a map.
      */
     private static final String MAP_KEY_NODE_NAME = "<map key>";
     /**
