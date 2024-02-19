@@ -4,7 +4,6 @@ plugins {
 }
 
 dependencies {
-    runtimeOnly(mnLogging.logback.classic)
     implementation mn.micronaut.inject.java
     implementation mn.micronaut.inject
     implementation mn.micronaut.aop
@@ -15,6 +14,9 @@ dependencies {
 
     implementation libs.arquillian.container
     implementation libs.jakarta.validation.tck.tests
+
+    runtimeOnly(mnLogging.logback.classic)
+
     testImplementation(libs.jakarta.validation.tck.tests) {
         artifact {
             classifier = "sources"

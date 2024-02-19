@@ -1489,7 +1489,7 @@ public class DefaultValidator implements
     }
 
     /**
-     * Throws a {@link IllegalArgumentException} if the {@value} is null.
+     * Throws a {@link IllegalArgumentException} if the value is null.
      * @param name check name
      * @param value value being checked
      * @return the value
@@ -1505,7 +1505,7 @@ public class DefaultValidator implements
     }
 
     /**
-     * Throws a {@link IllegalArgumentException} if the {@value} null or an empty string.
+     * Throws a {@link IllegalArgumentException} if the value null or an empty string.
      * @param name check name
      * @param value value being checked
      * @return the value

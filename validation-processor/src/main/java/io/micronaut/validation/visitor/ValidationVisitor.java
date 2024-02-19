@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 original authors
+ * Copyright 2017-2024 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,6 +15,10 @@
  */
 package io.micronaut.validation.visitor;
 
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
@@ -32,9 +36,6 @@ import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
-
-import java.util.HashSet;
-import java.util.Set;
 
 /**
  * The visitor creates annotations utilized by the Validator.
@@ -78,7 +79,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             classElement.annotate(Introspected.class);
         }
         classElement.getMethods().forEach(m -> visitMethod(m, context));
-//        classElement.getFields().forEach(f -> visitField(f, context));
     }
 
     @Override
@@ -105,6 +105,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!visited.add(element)) {
             return;
         }
+
+        element.getOverriddenMethods().forEach(m -> inheritAnnotationsForMethod(element, m));
+
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
         boolean requireOnConstraint = isAbstract || !isPrivate;
@@ -181,5 +184,46 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             requires |= visitElementValidationAndMarkForValidationIfNeeded(genericType, requireOnConstraint);
         }
         return requires;
+    }
+
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForMethod(MethodElement method, MethodElement parent) {
+        ParameterElement[] methodParameters = method.getParameters();
+        ParameterElement[] parentParameters = parent.getParameters();
+
+        for (int i = 0; i < methodParameters.length; ++i) {
+            inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
+        }
+        inheritAnnotationsForParameter(method.getReturnType(), parent.getReturnType());
+    }
+
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForParameter(TypedElement element, TypedElement parentElement) {
+        if (!element.getType().equals(parentElement.getType())) {
+            return;
+        }
+        Stream<String> parentAnnotations = Stream.concat(
+            parentElement.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
+            parentElement.getAnnotationNamesByStereotype(ANN_VALID).stream()
+        );
+        parentAnnotations
+            .filter(name -> !element.hasAnnotation(name))
+            .flatMap(name -> parentElement.getAnnotationValuesByName(name).stream())
+            .forEach(element::annotate);
+
+        Map<String, ClassElement> typeArguments = element.getGenericType().getTypeArguments();
+        Map<String, ClassElement> parentTypeArguments = parentElement.getGenericType().getTypeArguments();
+        if (typeArguments.size() != parentTypeArguments.size()) {
+            return;
+        }
+        for (var entry : typeArguments.entrySet()) {
+            inheritAnnotationsForParameter(entry.getValue(), parentTypeArguments.get(entry.getKey()));
+        }
     }
 }
