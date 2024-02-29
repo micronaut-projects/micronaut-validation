@@ -17,6 +17,7 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
+import io.micronaut.context.annotation.Bean;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
@@ -49,6 +50,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Denis Stepanov
  * @since 4.3.0
  */
+@Bean(typed = InternalConstraintValidatorFactory.class)
 @Singleton
 @Internal
 public class DefaultInternalConstraintValidatorFactory implements InternalConstraintValidatorFactory {

@@ -21,8 +21,22 @@ import io.micronaut.context.env.PropertySource
 import io.micronaut.context.exceptions.BeanInstantiationException
 import io.micronaut.inject.BeanDefinition
 import io.micronaut.inject.ValidatedBeanDefinition
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory
+import jakarta.validation.ConstraintValidatorFactory
 
 class ValidatedConfigurationSpec extends AbstractTypeElementSpec {
+
+    void "test internal ConstraintValidatorFactory is not exposed"() {
+        when:
+            ApplicationContext applicationContext = ApplicationContext.run()
+
+        then:
+            applicationContext.findBean(ConstraintValidatorFactory).isEmpty()
+            applicationContext.findBean(InternalConstraintValidatorFactory).isPresent()
+
+        cleanup:
+            applicationContext.close()
+    }
 
     void "test validated config with invalid config"() {
         given:

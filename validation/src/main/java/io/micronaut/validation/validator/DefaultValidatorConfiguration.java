@@ -153,7 +153,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Internal
     @Inject
-    public void setInternalConstraintValidatorFactory(InternalConstraintValidatorFactory constraintValidatorFactory) {
+    void setInternalConstraintValidatorFactory(InternalConstraintValidatorFactory constraintValidatorFactory) {
         this.constraintValidatorFactory = constraintValidatorFactory;
     }
 
