@@ -60,11 +60,11 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
-    private final BeanValidationContext validationContext;
 
     boolean disableDefaultConstraintViolation;
     ConstraintDescriptor<Annotation> constraint;
 
+    private final BeanValidationContext validationContext;
     private final DefaultValidator defaultValidator;
     private final BeanIntrospection<R> beanIntrospection;
     private final R rootBean;
