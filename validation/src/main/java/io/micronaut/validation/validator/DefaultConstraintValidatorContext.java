@@ -22,7 +22,7 @@ import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.util.ArgumentUtils;
-import io.micronaut.core.util.ArrayUtils;
+import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintViolation;
@@ -60,6 +60,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
 
     private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
+    private final BeanValidationContext validationContext;
 
     boolean disableDefaultConstraintViolation;
     ConstraintDescriptor<Annotation> constraint;
@@ -84,33 +85,41 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
     private Set<ConstraintViolation<R>> currentViolations = new LinkedHashSet<>();
 
-    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, BeanIntrospection<R> beanIntrospection, R rootBean, Class<?>... groups) {
-        this(defaultValidator, beanIntrospection, rootBean, null, null, new ValidationPath(), new LinkedHashSet<>(), processGroups(groups), Collections.emptyList());
+    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, BeanIntrospection<R> beanIntrospection, R rootBean, BeanValidationContext validationContext) {
+        this(defaultValidator, beanIntrospection, validationContext, rootBean, null, new ValidationPath(), new LinkedHashSet<>(), null, Collections.emptyList());
     }
 
     private DefaultConstraintValidatorContext(DefaultValidator defaultValidator,
                                               BeanIntrospection<R> beanIntrospection,
-                                              R rootBean,
-                                              Object[] executableParameterValues,
+                                              BeanValidationContext validationContext, R rootBean,
                                               Object executableReturnValue,
                                               ValidationPath path,
                                               Set<ConstraintViolation<R>> overallViolations,
-                                              List<Class<?>> definedGroups,
+                                              Object[] executableParameterValues,
                                               List<Class<?>> currentGroups) {
+        this.validationContext = validationContext;
         this.defaultValidator = defaultValidator;
         this.beanIntrospection = beanIntrospection;
         this.rootBean = rootBean;
         this.rootClass = beanIntrospection == null ? (rootBean == null ? null : (Class<R>) rootBean.getClass()) : beanIntrospection.getBeanType();
         this.executableParameterValues = executableParameterValues;
         this.executableReturnValue = executableReturnValue;
-        this.definedGroups = definedGroups;
+        this.definedGroups = processGroups(validationContext.groups());
         this.currentGroups = currentGroups;
         this.currentPath = path != null ? path : new ValidationPath();
         this.overallViolations = overallViolations;
     }
 
-    private static List<Class<?>> processGroups(Class<?>[] definedGroups) {
-        if (ArrayUtils.isEmpty(definedGroups)) {
+    /**
+     * The validation context.
+     * @return The context
+     */
+    public @NonNull BeanValidationContext getValidationContext() {
+        return validationContext;
+    }
+
+    private static List<Class<?>> processGroups(List<Class<?>> definedGroups) {
+        if (CollectionUtils.isEmpty(definedGroups)) {
             return DEFAULT_GROUPS;
         }
         sanityCheckGroups(definedGroups);
@@ -121,7 +130,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
         return Collections.unmodifiableList(groupList);
     }
 
-    private static void sanityCheckGroups(Class<?>[] groups) {
+    private static void sanityCheckGroups(List<Class<?>> groups) {
         ArgumentUtils.requireNonNull("groups", groups);
 
         for (Class<?> clazz : groups) {
@@ -365,7 +374,7 @@ final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorC
     }
 
     DefaultConstraintValidatorContext<R> copy() {
-        return new DefaultConstraintValidatorContext<>(defaultValidator, beanIntrospection, rootBean, executableParameterValues, executableReturnValue, new ValidationPath(currentPath), new LinkedHashSet<>(overallViolations), definedGroups, currentGroups);
+        return new DefaultConstraintValidatorContext<>(defaultValidator, beanIntrospection, validationContext, rootBean, executableReturnValue, new ValidationPath(currentPath), new LinkedHashSet<>(overallViolations), executableParameterValues, currentGroups);
     }
 
     @Internal

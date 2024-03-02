@@ -163,7 +163,17 @@ public class DefaultValidator implements
         if (introspection == null) {
             throw new ValidationException("Bean introspection not found for the class: " + object.getClass());
         }
-        return validate(introspection, object, groups);
+        return validate(introspection, object, BeanValidationContext.fromGroups(groups));
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validate(T object, BeanValidationContext validationContext) {
+        requireNonNull("object", object);
+        final BeanIntrospection<T> introspection = getBeanIntrospection(object);
+        if (introspection == null) {
+            throw new ValidationException("Bean introspection not found for the class: " + object.getClass());
+        }
+        return validate(introspection, object, validationContext);
     }
 
     /**
@@ -180,12 +190,26 @@ public class DefaultValidator implements
     public <T> Set<ConstraintViolation<T>> validate(@NonNull BeanIntrospection<T> introspection,
                                                     @NonNull T object,
                                                     @NonNull Class<?>... groups) {
+        return validate(
+            introspection,
+            object,
+            BeanValidationContext.fromGroups(groups)
+        );
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validate(BeanIntrospection<T> introspection, T object, BeanValidationContext context) {
         if (introspection == null) {
             throw new ValidationException("Passed object [" + object + "] cannot be introspected. Please annotate with @Introspected");
         }
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, introspection, object, groups);
-        doValidate(context, introspection, object);
-        return context.getOverallViolations();
+        DefaultConstraintValidatorContext<T> constraintValidatorContext = new DefaultConstraintValidatorContext<>(
+            this,
+            introspection,
+            object,
+            context
+        );
+        doValidate(constraintValidatorContext, introspection, object);
+        return constraintValidatorContext.getOverallViolations();
     }
 
     @NonNull
@@ -193,9 +217,18 @@ public class DefaultValidator implements
     public <T> Set<ConstraintViolation<T>> validateProperty(@NonNull T object,
                                                             @NonNull String propertyName,
                                                             @NonNull Class<?>... groups) {
+        return validateProperty(
+            object,
+            propertyName,
+            BeanValidationContext.fromGroups(groups)
+        );
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateProperty(T object, String propertyName, BeanValidationContext context) {
         requireNonNull("object", object);
         requireNonEmpty("propertyName", propertyName);
-        requireNonNull("groups", groups);
+        context = context != null ? context : BeanValidationContext.DEFAULT;
         final BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection == null) {
             throw new ValidationException("Passed object [" + object + "] cannot be introspected. Please annotate with @Introspected");
@@ -206,18 +239,18 @@ public class DefaultValidator implements
             throw new IllegalArgumentException("Cannot find property with name: " + property);
         }
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, introspection, object, groups);
+        DefaultConstraintValidatorContext<T> constraintValidationContext = new DefaultConstraintValidatorContext<>(this, introspection, object, context);
 
-        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(introspection)) {
-            try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                visitProperty(context, object, property.get(), false);
+        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : constraintValidationContext.findGroupSequences(introspection)) {
+            try (DefaultConstraintValidatorContext.GroupsValidation validation = constraintValidationContext.withGroupSequence(groupSequence)) {
+                visitProperty(constraintValidationContext, object, property.get(), false);
                 if (validation.isFailed()) {
-                    return Collections.unmodifiableSet(context.getOverallViolations());
+                    return Collections.unmodifiableSet(constraintValidationContext.getOverallViolations());
                 }
             }
         }
 
-        return Collections.unmodifiableSet(context.getOverallViolations());
+        return Collections.unmodifiableSet(constraintValidationContext.getOverallViolations());
     }
 
     @NonNull
@@ -226,9 +259,14 @@ public class DefaultValidator implements
                                                          @NonNull String propertyName,
                                                          @Nullable Object value,
                                                          @NonNull Class<?>... groups) {
+        requireNonNull("groups", groups);
+        return validateValue(beanType, propertyName, value, BeanValidationContext.fromGroups(groups));
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, Object value, BeanValidationContext context) {
         requireNonNull("beanType", beanType);
         requireNonEmpty("propertyName", propertyName);
-        requireNonNull("groups", groups);
 
         final BeanIntrospection<T> introspection = getBeanIntrospection(beanType);
         if (introspection == null) {
@@ -238,25 +276,25 @@ public class DefaultValidator implements
         final BeanProperty<T, Object> beanProperty = introspection.getProperty(propertyName)
             .orElseThrow(() -> new IllegalArgumentException("No property [" + propertyName + "] found on type: " + beanType));
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, introspection, null, groups);
+        DefaultConstraintValidatorContext<T> constraintContext = new DefaultConstraintValidatorContext<>(this, introspection, null, context);
 
-        try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(beanProperty.getName())) {
-            if (isNotReachable(context, null)) {
-                return Collections.unmodifiableSet(context.getOverallViolations());
+        try (ValidationPath.ContextualPath ignored = constraintContext.getCurrentPath().addPropertyNode(beanProperty.getName())) {
+            if (isNotReachable(constraintContext, null)) {
+                return Collections.unmodifiableSet(constraintContext.getOverallViolations());
             }
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(introspection)) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
+            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : constraintContext.findGroupSequences(introspection)) {
+                try (DefaultConstraintValidatorContext.GroupsValidation validation = constraintContext.withGroupSequence(groupSequence)) {
 
-                    visitElement(context, null, beanProperty.asArgument(), beanProperty.asArgument().getAnnotationMetadata(), value, false);
+                    visitElement(constraintContext, null, beanProperty.asArgument(), beanProperty.asArgument().getAnnotationMetadata(), value, false);
 
                     if (validation.isFailed()) {
-                        return Collections.unmodifiableSet(context.getOverallViolations());
+                        return Collections.unmodifiableSet(constraintContext.getOverallViolations());
                     }
                 }
             }
         }
 
-        return Collections.unmodifiableSet(context.getOverallViolations());
+        return Collections.unmodifiableSet(constraintContext.getOverallViolations());
     }
 
     @NonNull
@@ -267,7 +305,7 @@ public class DefaultValidator implements
             return Collections.emptySet();
         }
 
-        final DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, value);
+        final DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, value, BeanValidationContext.DEFAULT);
 
         Argument<Object> type = value != null ? Argument.of((Class<Object>) value.getClass(), element.getAnnotationMetadata()) : Argument.OBJECT_ARGUMENT;
 
@@ -349,7 +387,7 @@ public class DefaultValidator implements
             throw new IllegalArgumentException("The method parameter array must have exactly " + argLen + " elements.");
         }
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, groups);
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, BeanValidationContext.fromGroups(groups));
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = method.getAnnotationMetadata().getDeclaredMetadata();
@@ -378,7 +416,7 @@ public class DefaultValidator implements
 
         Object[] parameters = argumentValues.stream().map(ArgumentValue::getValue).toArray();
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, groups);
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, BeanValidationContext.fromGroups(groups));
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameters)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = method.getAnnotationMetadata().getDeclaredMetadata();
@@ -431,7 +469,7 @@ public class DefaultValidator implements
         requireNonNull("groups", groups);
 
         final ReturnType<Object> returnType = executableMethod.getReturnType();
-        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, groups);
+        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, BeanValidationContext.fromGroups(groups));
 
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod)) {
@@ -516,7 +554,7 @@ public class DefaultValidator implements
         if (parameterValues.length != argLength) {
             throw new IllegalArgumentException("Expected exactly [" + argLength + "] constructor arguments");
         }
-        DefaultConstraintValidatorContext<T> context = (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, groups);
+        DefaultConstraintValidatorContext<T> context = (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, BeanValidationContext.fromGroups(groups));
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(beanType.getSimpleName(), constructorArguments)) {
                 validateParametersInternal(context, null, AnnotationMetadata.EMPTY_METADATA, parameterValues, constructorArguments, argLength);
@@ -581,7 +619,7 @@ public class DefaultValidator implements
                                                                                 E value,
                                                                                 boolean canCascade
     ) {
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, publisher, groups);
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, publisher, BeanValidationContext.fromGroups(groups));
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addReturnValueNode()) {
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addContainerElementNode("<publisher element>",
                 ValidationPath.DefaultContainerContext.ofIterableContainer(publisherArgument.getType()))) {
@@ -603,7 +641,7 @@ public class DefaultValidator implements
         requireNonNull("completionStage", completionStage);
         requireNonNull("groups", groups);
 
-        DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, groups);
+        DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, null, BeanValidationContext.fromGroups(groups));
         for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
             try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
                 return instrumentCompletionStage(context, completionStage, argument, true);
@@ -626,7 +664,7 @@ public class DefaultValidator implements
             return;
         }
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, value);
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, value, BeanValidationContext.DEFAULT);
 
         final Class<?> rootClass = injectionPoint.getDeclaringBean().getBeanType();
 
@@ -672,7 +710,7 @@ public class DefaultValidator implements
             if (CollectionUtils.isEmpty(executableMethods)) {
                 return;
             }
-            final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean);
+            final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, BeanValidationContext.DEFAULT);
             final Class<?>[] interfaces = beanType.getInterfaces();
             String constructorName;
             if (ArrayUtils.isNotEmpty(interfaces)) {
@@ -971,7 +1009,8 @@ public class DefaultValidator implements
         }
 
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(property.getName())) {
-            if (isNotReachable(context, object)) {
+            if (isNotReachable(context, object) ||
+                !context.getValidationContext().isPropertyValidated(object, property)) {
                 return;
             }
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(property.getAnnotationMetadata())) {
