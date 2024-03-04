@@ -248,44 +248,60 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument%5B%5D,java.lang.Object%5B%5D,java.lang.Class%5B%5D)" class="member-name-link">validateConstructorParameters</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;? extends T&gt;&nbsp;beanType,
- io.micronaut.core.type.Argument&lt;?&gt;[]&nbsp;constructorArguments,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument%5B%5D,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateConstructorParameters</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;? extends T&gt;&nbsp;beanType,
+ @NonNull io.micronaut.core.type.Argument&lt;?&gt;[]&nbsp;constructorArguments,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
- @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;[]&nbsp;groups)</code></div>
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Validates arguments for the given bean type and constructor arguments.</div>
 </div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateConstructorReturnValue(java.lang.reflect.Constructor,T,java.lang.Class...)" class="member-name-link">validateConstructorReturnValue</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Constructor.html" title="class or interface in java.lang.reflect" class="external-link">Constructor</a>&lt;? extends T&gt;&nbsp;constructor,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument%5B%5D,java.lang.Object%5B%5D,java.lang.Class%5B%5D)" class="member-name-link">validateConstructorParameters</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;? extends T&gt;&nbsp;beanType,
+ io.micronaut.core.type.Argument&lt;?&gt;[]&nbsp;constructorArguments,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;[]&nbsp;groups)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Validates arguments for the given bean type and constructor arguments.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateConstructorReturnValue(java.lang.reflect.Constructor,T,java.lang.Class...)" class="member-name-link">validateConstructorReturnValue</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Constructor.html" title="class or interface in java.lang.reflect" class="external-link">Constructor</a>&lt;? extends T&gt;&nbsp;constructor,
  T&nbsp;createdObject,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validatedAnnotatedElement(io.micronaut.core.annotation.AnnotatedElement,java.lang.Object)" class="member-name-link">validatedAnnotatedElement</a><wbr>(@NonNull io.micronaut.core.annotation.AnnotatedElement&nbsp;element,
- @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object%5B%5D,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validatedAnnotatedElement(io.micronaut.core.annotation.AnnotatedElement,java.lang.Object)" class="member-name-link">validatedAnnotatedElement</a><wbr>(@NonNull io.micronaut.core.annotation.AnnotatedElement&nbsp;element,
+ @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object%5B%5D,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
  @NonNull io.micronaut.inject.ExecutableMethod&nbsp;method,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Validate the parameter values of the given <code>ExecutableMethod</code>.</div>
+</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.util.Collection,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
+ @NonNull io.micronaut.inject.ExecutableMethod&nbsp;method,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Collection.html" title="class or interface in java.util" class="external-link">Collection</a>&lt;io.micronaut.core.type.MutableArgumentValue&lt;?&gt;&gt;&nbsp;argumentValues,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Validate the parameter values of the given <code>ExecutableMethod</code>.</div>
 </div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.util.Collection,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
- @NonNull io.micronaut.inject.ExecutableMethod&nbsp;method,
- @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Collection.html" title="class or interface in java.util" class="external-link">Collection</a>&lt;io.micronaut.core.type.MutableArgumentValue&lt;?&gt;&gt;&nbsp;argumentValues,
- @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
-<div class="block">Validate the parameter values of the given <code>ExecutableMethod</code>.</div>
-</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,java.lang.reflect.Method,java.lang.Object%5B%5D,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,java.lang.reflect.Method,java.lang.Object%5B%5D,java.lang.Class...)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/reflect/Method.html" title="class or interface in java.lang.reflect" class="external-link">Method</a>&nbsp;method,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateParameters</a><wbr>(T&nbsp;object,
+ io.micronaut.inject.ExecutableMethod&nbsp;method,
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Validate the parameter values of the given <code>ExecutableMethod</code>.</div>
+</div>
 <div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
 <div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateProperty(T,java.lang.String,java.lang.Class...)" class="member-name-link">validateProperty</a><wbr>(T&nbsp;object,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;propertyName,
@@ -320,18 +336,26 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
  @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;returnValue,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
 <div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateValue(java.lang.Class,java.lang.String,java.lang.Object,java.lang.Class...)" class="member-name-link">validateValue</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;beanType,
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateReturnValue(T,io.micronaut.inject.ExecutableMethod,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateReturnValue</a><wbr>(T&nbsp;bean,
+ io.micronaut.inject.ExecutableMethod&lt;?,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;executableMethod,
+ <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;returnValue,
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</code></div>
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="block">Validates the return value of a <code>ExecutableMethod</code>.</div>
+</div>
+<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateValue(java.lang.Class,java.lang.String,java.lang.Object,java.lang.Class...)" class="member-name-link">validateValue</a><wbr>(@NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;beanType,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;propertyName,
  @Nullable <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value,
  @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;?&gt;...&nbsp;groups)</code></div>
-<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
-<div class="col-first odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
-<div class="col-second odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateValue(java.lang.Class,java.lang.String,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateValue</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;beanType,
+<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">&nbsp;</div>
+<div class="col-first even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code>&lt;T&gt;&nbsp;<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</code></div>
+<div class="col-second even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4"><code><a href="#validateValue(java.lang.Class,java.lang.String,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateValue</a><wbr>(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;T&gt;&nbsp;beanType,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/String.html" title="class or interface in java.lang" class="external-link">String</a>&nbsp;propertyName,
  <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;value,
  <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;context)</code></div>
-<div class="col-last odd-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
+<div class="col-last even-row-color method-summary-table method-summary-table-tab2 method-summary-table-tab4">
 <div class="block">Validates all constraints placed on the property named <code>propertyName</code>
  of the class <code>beanType</code> would the property value be <code>value</code>.</div>
 </div>
@@ -670,6 +694,32 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
 </section>
 </li>
 <li>
+<section class="detail" id="validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object[],io.micronaut.validation.validator.BeanValidationContext)">
+<h3 id="validateParameters(java.lang.Object,io.micronaut.inject.ExecutableMethod,java.lang.Object[],io.micronaut.validation.validator.BeanValidationContext)">validateParameters</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>
+<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">validateParameters</span><wbr><span class="parameters">(T&nbsp;object,
+ io.micronaut.inject.ExecutableMethod&nbsp;method,
+ @NonNull
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</span></div>
+<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ExecutableMethodValidator.html#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)">ExecutableMethodValidator</a></code></span></div>
+<div class="block">Validate the parameter values of the given <code>ExecutableMethod</code>.</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="ExecutableMethodValidator.html#validateParameters(T,io.micronaut.inject.ExecutableMethod,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)">validateParameters</a></code>&nbsp;in interface&nbsp;<code><a href="ExecutableMethodValidator.html" title="interface in io.micronaut.validation.validator">ExecutableMethodValidator</a></code></dd>
+<dt>Type Parameters:</dt>
+<dd><code>T</code> - The object type</dd>
+<dt>Parameters:</dt>
+<dd><code>object</code> - The object</dd>
+<dd><code>method</code> - The method</dd>
+<dd><code>parameterValues</code> - The values</dd>
+<dd><code>validationContext</code> - The context</dd>
+<dt>Returns:</dt>
+<dd>The constraint violations.</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="validateParameters(T,io.micronaut.inject.ExecutableMethod,java.util.Collection,java.lang.Class...)">
 <h3 id="validateParameters(java.lang.Object,io.micronaut.inject.ExecutableMethod,java.util.Collection,java.lang.Class[])">validateParameters</h3>
 <div class="member-signature"><span class="annotations">@NonNull
@@ -772,6 +822,31 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
 </section>
 </li>
 <li>
+<section class="detail" id="validateReturnValue(T,io.micronaut.inject.ExecutableMethod,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)">
+<h3 id="validateReturnValue(java.lang.Object,io.micronaut.inject.ExecutableMethod,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)">validateReturnValue</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>
+<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">validateReturnValue</span><wbr><span class="parameters">(T&nbsp;bean,
+ io.micronaut.inject.ExecutableMethod&lt;?,<wbr><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;&nbsp;executableMethod,
+ <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&nbsp;returnValue,
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</span></div>
+<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ExecutableMethodValidator.html#validateReturnValue(T,io.micronaut.inject.ExecutableMethod,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)">ExecutableMethodValidator</a></code></span></div>
+<div class="block">Validates the return value of a <code>ExecutableMethod</code>.</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="ExecutableMethodValidator.html#validateReturnValue(T,io.micronaut.inject.ExecutableMethod,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)">validateReturnValue</a></code>&nbsp;in interface&nbsp;<code><a href="ExecutableMethodValidator.html" title="interface in io.micronaut.validation.validator">ExecutableMethodValidator</a></code></dd>
+<dt>Type Parameters:</dt>
+<dd><code>T</code> - The object type</dd>
+<dt>Parameters:</dt>
+<dd><code>bean</code> - The object</dd>
+<dd><code>executableMethod</code> - The method</dd>
+<dd><code>returnValue</code> - The return value</dd>
+<dd><code>validationContext</code> - The validation context</dd>
+<dt>Returns:</dt>
+<dd>A set of contstraint violations</dd>
+</dl>
+</section>
+</li>
+<li>
 <section class="detail" id="validateConstructorParameters(java.lang.reflect.Constructor,java.lang.Object[],java.lang.Class...)">
 <h3>validateConstructorParameters</h3>
 <div class="member-signature"><span class="annotations">@NonNull
@@ -839,6 +914,33 @@ implements <a href="Validator.html" title="interface in io.micronaut.validation.
 <dd><code>constructorArguments</code> - The constructor arguments</dd>
 <dd><code>parameterValues</code> - The parameter values</dd>
 <dd><code>groups</code> - The validation groups</dd>
+<dt>Returns:</dt>
+<dd>A set of constraint violations, if any</dd>
+</dl>
+</section>
+</li>
+<li>
+<section class="detail" id="validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument[],java.lang.Object[],io.micronaut.validation.validator.BeanValidationContext)">
+<h3>validateConstructorParameters</h3>
+<div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="type-parameters">&lt;T&gt;</span>
+<span class="return-type"><a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/util/Set.html" title="class or interface in java.util" class="external-link">Set</a>&lt;jakarta.validation.ConstraintViolation&lt;T&gt;&gt;</span>&nbsp;<span class="element-name">validateConstructorParameters</span><wbr><span class="parameters">(<a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Class.html" title="class or interface in java.lang" class="external-link">Class</a>&lt;? extends T&gt;&nbsp;beanType,
+ @NonNull
+ @NonNull io.micronaut.core.type.Argument&lt;?&gt;[]&nbsp;constructorArguments,
+ @NonNull
+ @NonNull <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>[]&nbsp;parameterValues,
+ <a href="BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a>&nbsp;validationContext)</span></div>
+<div class="block"><span class="descfrm-type-label">Description copied from interface:&nbsp;<code><a href="ExecutableMethodValidator.html#validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument%5B%5D,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)">ExecutableMethodValidator</a></code></span></div>
+<div class="block">Validates arguments for the given bean type and constructor arguments.</div>
+<dl class="notes">
+<dt>Specified by:</dt>
+<dd><code><a href="ExecutableMethodValidator.html#validateConstructorParameters(java.lang.Class,io.micronaut.core.type.Argument%5B%5D,java.lang.Object%5B%5D,io.micronaut.validation.validator.BeanValidationContext)">validateConstructorParameters</a></code>&nbsp;in interface&nbsp;<code><a href="ExecutableMethodValidator.html" title="interface in io.micronaut.validation.validator">ExecutableMethodValidator</a></code></dd>
+<dt>Type Parameters:</dt>
+<dd><code>T</code> - The generic type of the bean</dd>
+<dt>Parameters:</dt>
+<dd><code>beanType</code> - The bean type</dd>
+<dd><code>constructorArguments</code> - The constructor arguments</dd>
+<dd><code>parameterValues</code> - The parameter values</dd>
+<dd><code>validationContext</code> - The validation context</dd>
 <dt>Returns:</dt>
 <dd>A set of constraint violations, if any</dd>
 </dl>
