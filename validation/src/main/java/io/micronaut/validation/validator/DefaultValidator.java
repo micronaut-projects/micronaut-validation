@@ -377,17 +377,23 @@ public class DefaultValidator implements
                                                               @NonNull ExecutableMethod method,
                                                               @NonNull Object[] parameterValues,
                                                               @NonNull Class<?>... groups) {
+        requireNonNull("groups", groups);
+        return validateParameters(object, method, parameterValues, BeanValidationContext.fromGroups(groups));
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateParameters(T object, ExecutableMethod method, @NonNull Object[] parameterValues, BeanValidationContext validationContext) {
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("object", object);
         requireNonNull("method", method);
-        requireNonNull("groups", groups);
+        requireNonNull("context", validationContext);
         final Argument<?>[] arguments = method.getArguments();
         final int argLen = arguments.length;
         if (argLen != parameterValues.length) {
             throw new IllegalArgumentException("The method parameter array must have exactly " + argLen + " elements.");
         }
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, BeanValidationContext.fromGroups(groups));
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, validationContext);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = method.getAnnotationMetadata().getDeclaredMetadata();
@@ -468,8 +474,18 @@ public class DefaultValidator implements
                                                                         @NonNull Class<?>... groups) {
         requireNonNull("groups", groups);
 
+        return validateReturnValue(
+            bean,
+            executableMethod,
+            returnValue,
+            BeanValidationContext.fromGroups(groups)
+        );
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, Object returnValue, BeanValidationContext validationContext) {
         final ReturnType<Object> returnType = executableMethod.getReturnType();
-        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, BeanValidationContext.fromGroups(groups));
+        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, validationContext);
 
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod)) {
@@ -549,12 +565,22 @@ public class DefaultValidator implements
                                                                          @NonNull Class<?>[] groups) {
         requireNonNull("groups", groups);
 
+        return validateConstructorParameters(
+            beanType,
+            constructorArguments,
+            parameterValues,
+            BeanValidationContext.fromGroups(groups)
+        );
+    }
+
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Class<? extends T> beanType, @NonNull Argument<?>[] constructorArguments, @NonNull Object[] parameterValues, BeanValidationContext validationContext) {
         parameterValues = parameterValues != null ? parameterValues : ArrayUtils.EMPTY_OBJECT_ARRAY;
         final int argLength = constructorArguments.length;
         if (parameterValues.length != argLength) {
             throw new IllegalArgumentException("Expected exactly [" + argLength + "] constructor arguments");
         }
-        DefaultConstraintValidatorContext<T> context = (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, BeanValidationContext.fromGroups(groups));
+        DefaultConstraintValidatorContext<T> context = (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, validationContext);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(beanType.getSimpleName(), constructorArguments)) {
                 validateParametersInternal(context, null, AnnotationMetadata.EMPTY_METADATA, parameterValues, constructorArguments, argLength);
