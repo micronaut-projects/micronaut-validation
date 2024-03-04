@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.util.ArrayUtils;
 import java.util.Arrays;
 import java.util.List;
 
@@ -43,9 +44,13 @@ public interface BeanValidationContext {
      * @return The context
      */
     static @NonNull BeanValidationContext fromGroups(Class<?>... groups) {
-        return new DefaultBeanValidationContext(
-            groups != null ? Arrays.asList(groups) : List.of()
-        );
+        if (ArrayUtils.isEmpty(groups)) {
+            return DEFAULT;
+        } else {
+            return new DefaultBeanValidationContext(
+                    Arrays.asList(groups)
+            );
+        }
     }
 
     /**

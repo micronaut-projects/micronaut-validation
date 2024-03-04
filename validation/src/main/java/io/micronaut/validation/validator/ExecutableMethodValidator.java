@@ -70,6 +70,21 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * Validate the parameter values of the given {@link ExecutableMethod}.
      * @param object The object
      * @param method The method
+     * @param parameterValues The values
+     * @param context The context
+     * @param <T> The object type
+     * @return The constraint violations.
+     */
+    @NonNull <T> Set<ConstraintViolation<T>> validateParameters(
+        @NonNull T object,
+        @NonNull ExecutableMethod method,
+        @NonNull Object[] parameterValues,
+        @Nullable BeanValidationContext context);
+
+    /**
+     * Validate the parameter values of the given {@link ExecutableMethod}.
+     * @param object The object
+     * @param method The method
      * @param argumentValues The values
      * @param groups The groups
      * @param <T> The object type
@@ -95,6 +110,22 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
             @NonNull ExecutableMethod<?, Object> executableMethod,
             @Nullable Object returnValue,
             @Nullable Class<?>... groups);
+
+
+    /**
+     * Validates the return value of a {@link ExecutableMethod}.
+     * @param object The object
+     * @param executableMethod The method
+     * @param returnValue The return value
+     * @param validationContext The validation context
+     * @param <T> The object type
+     * @return A set of contstraint violations
+     */
+    @NonNull <T> Set<ConstraintViolation<T>> validateReturnValue(
+        @NonNull T object,
+        @NonNull ExecutableMethod<?, Object> executableMethod,
+        @Nullable Object returnValue,
+        @Nullable BeanValidationContext validationContext);
 
     /**
      * Validates parameters for the given introspection and values.
@@ -124,6 +155,22 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
             @NonNull Argument<?>[] constructorArguments,
             @NonNull Object[] parameterValues,
             @Nullable Class<?>[] groups
+    );
+
+    /**
+     * Validates arguments for the given bean type and constructor arguments.
+     * @param beanType The bean type
+     * @param constructorArguments The constructor arguments
+     * @param parameterValues The parameter values
+     * @param validationContext The validation context
+     * @param <T> The generic type of the bean
+     * @return A set of constraint violations, if any
+     */
+    <T> Set<ConstraintViolation<T>> validateConstructorParameters(
+        @NonNull Class<? extends T> beanType,
+        @NonNull Argument<?>[] constructorArguments,
+        @NonNull Object[] parameterValues,
+        @Nullable BeanValidationContext validationContext
     );
 
     @Override
