@@ -20,7 +20,7 @@ micronaut-logging = "1.2.3"
 
 micronaut-gradle-plugin = "4.3.4"
 kotlin-gradle-plugin = "1.9.22"
-ksp-gradle-plugin = "1.9.22-1.0.17"
+ksp-gradle-plugin = "1.9.22-1.0.18"
 
 [libraries]
 # Core
