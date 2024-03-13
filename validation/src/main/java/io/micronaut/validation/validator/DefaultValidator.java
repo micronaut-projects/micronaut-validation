@@ -1559,10 +1559,8 @@ public class DefaultValidator implements
      * @param value value being checked
      * @return the value
      * @param <T> value Type
-     * @deprecated It will be private in a future version.
      */
-    @Deprecated(since = "4.3.0")
-    public static <T> T requireNonNull(String name, T value) {
+    private static <T> T requireNonNull(String name, T value) {
         if (value == null) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be null");
         }
@@ -1574,10 +1572,8 @@ public class DefaultValidator implements
      * @param name check name
      * @param value value being checked
      * @return the value
-     * @deprecated It will be private in a future version.
      */
-    @Deprecated(since = "4.3.0")
-    public static String requireNonEmpty(String name, String value) {
+    private static String requireNonEmpty(String name, String value) {
         if (StringUtils.isEmpty(value)) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be empty");
         }
