@@ -1,4 +1,4 @@
-This section documents breaking changes between Micronaut Neo4J versions:
+This section documents breaking changes between Micronaut Validation versions:
 
 === Micronaut Validation 5.0.0
 
