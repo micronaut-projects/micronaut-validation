@@ -13,5 +13,6 @@ additionalConstraints:
   title: Defining Additional Constraints
 compileTimeValidation:
   title: Validating Annotations at Compile Time
+breaks: Breaking Changes
 repository: Repository
 

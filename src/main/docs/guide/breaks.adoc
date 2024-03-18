@@ -1,0 +1,8 @@
+This section documents breaking changes between Micronaut Validation versions:
+
+=== Micronaut Validation 5.0.0
+
+- The api:validation.validator.DefaultValidator[] methods `requireNonNull(String, T)` and `requireNonEmpty(String, String)` deprecated previously and are no longer exposed as part of the public API.
+
+- The api:validation.validator.constraints.ConstraintValidator[] method `getMessageTemplate())` and `requireNonEmpty(String, String)`  deprecated previously is removed. It was unused and has no replacement.
+

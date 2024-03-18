@@ -99,15 +99,6 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
             @Override
             public void messageTemplate(@Nullable final String messageTemplate) {
             }
-
-            /**
-             *
-             * @deprecated not being used.
-             */
-            @Deprecated(since = "4.3.0", forRemoval = true)
-            public Optional<String> getMessageTemplate() {
-                return Optional.empty();
-            }
         });
     }
 }
