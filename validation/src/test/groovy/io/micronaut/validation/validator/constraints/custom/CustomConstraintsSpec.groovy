@@ -4,6 +4,7 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.Validator
 import jakarta.validation.Valid
+import jakarta.validation.ValidatorFactory
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
@@ -15,6 +16,8 @@ class CustomConstraintsSpec extends Specification {
     ApplicationContext applicationContext = ApplicationContext.run()
     @Shared
     Validator validator = applicationContext.getBean(Validator)
+    @Shared
+    ValidatorFactory validatorFactory = applicationContext.getBean(ValidatorFactory)
 
     void "test validation where pojo with inner custom constraint fails"() {
         given:
@@ -193,6 +196,19 @@ class CustomConstraintsSpec extends Specification {
 
         then:
         result == "AB"
+    }
+
+    void "test custom validator bean can be invoked when using jakarta validation ValidatorFactory.usingContext"() {
+        given:
+        TestInvalid testInvalid = new TestInvalid(invalidInner: new TestInvalid.InvalidInner())
+        Validator contextualValidator = validatorFactory.usingContext().getValidator() as Validator
+
+        when:
+        def violations = contextualValidator.validate(testInvalid)
+
+        then:
+        violations.size() == 1
+        violations[0].message == "invalid"
     }
 }
 

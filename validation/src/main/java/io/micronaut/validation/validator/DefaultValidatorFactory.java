@@ -75,9 +75,13 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public ValidatorContext usingContext() {
-        DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
-        newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
-        return newValidatorConfiguration;
+        if (configuration != null && configuration instanceof ValidatorContext) {
+            return (ValidatorContext) configuration;
+        } else {
+            DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
+            newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
+            return newValidatorConfiguration;
+        }
     }
 
     @Override
