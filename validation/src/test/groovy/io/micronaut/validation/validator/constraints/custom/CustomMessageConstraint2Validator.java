@@ -1,6 +1,5 @@
 package io.micronaut.validation.validator.constraints.custom;
 
-import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
