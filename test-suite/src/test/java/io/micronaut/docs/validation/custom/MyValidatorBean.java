@@ -28,7 +28,6 @@ import jakarta.inject.Singleton;
 
 // tag::class[]
 @Singleton
-@Introspected
 public class MyValidatorBean implements ConstraintValidator<DurationPattern, Object> {
 
     @Override
