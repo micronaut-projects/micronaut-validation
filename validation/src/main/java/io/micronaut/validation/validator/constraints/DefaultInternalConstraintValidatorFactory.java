@@ -114,7 +114,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
                     .map(this::instantiateConstraintValidatorEntry)
                     .orElseGet(() -> instantiateConstraintValidatorEntryOfBeanRegistration(type));
         } catch (Exception e) {
-            throw new ValidationException("Cannot initialize validator: " + type.getName());
+            throw new ValidationException("Cannot initialize validator: " + type.getName(), e);
         }
         if (entry != null) {
             validators.put(type, entry);
