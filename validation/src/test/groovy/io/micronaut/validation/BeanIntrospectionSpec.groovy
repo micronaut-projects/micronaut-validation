@@ -691,7 +691,7 @@ interface GroupOne {}
 interface GroupTwo {}
 interface GroupThree {}
 ''')
-        def clazz = context.classLoader.loadClass('test.$Address$IntrospectionRef')
+        def clazz = context.classLoader.loadClass('test.$Address$Introspection')
         BeanIntrospectionReference reference = clazz.getDeclaredConstructor().newInstance()
 
 
