@@ -6,6 +6,8 @@ dependency:micronaut-validation[groupId="io.micronaut.validation"]
 
 You can validate types, fields and parameters by applying `jakarta.validation` annotations to arguments. The `jakarta.validation-api` library exposes those annotations, but it unnecessary to specify it as a direct dependency. It is included transitively when using `micronaut-validation`.
 
+NOTE: For Kotlin, add the `micronaut-validation-processor` dependency in https://docs.micronaut.io/4.4.3/guide/#kaptOrKsp[kapt or ksp scope], and for Groovy add `micronaut-validation-processor` in compileOnly scope.
+
 == Supported Features
 
 Note that Micronaut's implementation is not currently fully compliant with the https://beanvalidation.org/2.0/spec/[Bean Validator specification] as the specification heavily relies on reflection-based APIs.
