@@ -2,8 +2,10 @@ package io.micronaut.validation.validator.constraints.custom
 
 import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
+import io.micronaut.core.reflect.exception.InstantiationException
 import io.micronaut.validation.validator.Validator
 import jakarta.validation.Valid
+import jakarta.validation.ValidationException
 import jakarta.validation.ValidatorFactory
 import spock.lang.AutoCleanup
 import spock.lang.Shared
@@ -169,6 +171,18 @@ class CustomConstraintsSpec extends Specification {
         violations[0].message == "custom invalid"
     }
 
+    void "test misconfigured validator throws ValidationException with source exception"() {
+        given:
+        CustomMisconfigured bean = new CustomMisconfigured()
+
+        when:
+        validator.validate(bean)
+
+        then:
+        def ex = thrown(ValidationException)
+        ex.getCause() instanceof InstantiationException
+    }
+
     void "test bean validation if BeanWithConstraintAndPrivateMethods"() {
         given:
         BeanWithConstraintAndPrivateMethods abean = applicationContext.getBean(BeanWithConstraintAndPrivateMethods)
@@ -249,3 +263,7 @@ class CustomInvalidOuter {}
 @Introspected
 @CustomMessageConstraint2
 class CustomInvalidOuter2 {}
+
+@Introspected
+@MisconfiguredConstraint
+class CustomMisconfigured {}
