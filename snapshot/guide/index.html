@@ -1057,7 +1057,6 @@ A constraint with an empty <code>validatedBy = {}</code> will use the bean conte
 <div class="title">Example Constraint Validator Bean</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
@@ -1065,7 +1064,6 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import jakarta.inject.Singleton;
 
 @Singleton
-@Introspected
 public class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
 
     @Override
