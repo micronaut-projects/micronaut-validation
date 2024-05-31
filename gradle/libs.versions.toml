@@ -1,5 +1,5 @@
 [versions]
-managed-validation = "3.0.2"
+managed-validation = "3.1.0"
 
 groovy = "4.0.20"
 spotbugs = "4.8.3"
