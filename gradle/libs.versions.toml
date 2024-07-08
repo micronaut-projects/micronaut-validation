@@ -13,7 +13,7 @@ micronaut-docs = "2.0.0"
 micronaut-test = "4.3.0"
 micronaut-reactor = "3.4.0"
 micronaut-rxjava2 = "2.4.0"
-micronaut-kotlin = "4.2.0"
+micronaut-kotlin = "4.3.0"
 micronaut-logging = "1.2.3"
 
 # Gradle plugins
