@@ -1,17 +1,11 @@
 package io.micronaut.validation.validator.constraints
 
-import io.micronaut.annotation.processing.TypeElementVisitorProcessor
+
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.context.ApplicationContext
-import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
-import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.validation.validator.Validator
-import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
-import io.micronaut.validation.visitor.ValidationVisitor
 import spock.lang.AutoCleanup
 import spock.lang.Shared
-
-import javax.annotation.processing.SupportedAnnotationTypes
 
 class ConstraintUnwrapSpec extends AbstractTypeElementSpec {
 
@@ -259,11 +253,4 @@ class Test {
         constraintViolations.iterator().next().message == "must not be null"
     }
 
-    @SupportedAnnotationTypes("*")
-    static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
-        @Override
-        protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
-        }
-    }
 }
