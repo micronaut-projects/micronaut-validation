@@ -23,6 +23,7 @@ import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
+import io.micronaut.inject.BeanDefinition;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.valueextraction.ValueExtractor;
@@ -78,10 +79,23 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
             final Collection<BeanRegistration<ValueExtractor>> valueExtractors = beanContext.getBeanRegistrations(ValueExtractor.class);
             if (CollectionUtils.isNotEmpty(valueExtractors)) {
                 for (BeanRegistration<ValueExtractor> reg : valueExtractors) {
-                    addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
-                        reg.getBeanDefinition().asArgument(),
-                        reg.getBean()
-                    ));
+                    BeanDefinition<ValueExtractor> beanDefinition = reg.getBeanDefinition();
+                    Argument<ValueExtractor> argument = beanDefinition.asArgument();
+                    if (argument.getType().equals(ValueExtractor.class)) {
+                        addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
+                            argument,
+                            reg.getBean()
+                        ));
+                    } else {
+                        List<Argument<?>> typeArguments = beanDefinition.getTypeArguments(ValueExtractor.class);
+                        if (typeArguments.isEmpty()) {
+                            throw new IllegalStateException("No value-extractors found for bean definition: " + beanDefinition);
+                        }
+                        addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
+                            Argument.of(ValueExtractor.class, beanDefinition.getAnnotationMetadata(), typeArguments.toArray(new Argument[0])),
+                            reg.getBean()
+                        ));
+                    }
                 }
             }
         }
