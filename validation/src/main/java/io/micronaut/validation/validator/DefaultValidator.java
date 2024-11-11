@@ -1359,7 +1359,7 @@ public class DefaultValidator implements
         final BeanIntrospection<E> beanIntrospection = getBeanIntrospection(elementValue, elementType.getType());
         if (beanIntrospection == null) {
             // Error if not introspected
-            ConstraintDescriptor<Annotation> constraintDescriptor = notIntrospectedConstraint(elementType);
+            ConstraintDescriptor<Annotation> constraintDescriptor = notIntrospectedConstraint(elementType, elementValue);
             DefaultConstraintViolation<R> violation = createConstraintViolation(context, leftBean, elementValue, constraintDescriptor);
             context.addViolation(violation);
             return;
@@ -1586,7 +1586,7 @@ public class DefaultValidator implements
         return value;
     }
 
-    private static ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<?> notIntrospectedArgument) {
+    private static <E> ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<E> notIntrospectedArgument, E elementValue) {
         return new ConstraintDescriptor<>() {
 
             @Override
@@ -1621,7 +1621,11 @@ public class DefaultValidator implements
 
             @Override
             public Map<String, Object> getAttributes() {
-                return Collections.singletonMap("type", notIntrospectedArgument.getType().getName());
+                var argType = notIntrospectedArgument.getType().getName();
+                if (notIntrospectedArgument.isTypeVariable()) {
+                    argType = elementValue.getClass().getName();
+                }
+                return Collections.singletonMap("type", argType);
             }
 
             @Override
