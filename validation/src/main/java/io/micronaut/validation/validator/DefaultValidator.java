@@ -1442,7 +1442,7 @@ public class DefaultValidator implements
                 }
                 validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
             }
-            if (validator == null) {
+            if (validator == null || validator == ConstraintValidator.VALID) {
                 throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
             }
             try {
