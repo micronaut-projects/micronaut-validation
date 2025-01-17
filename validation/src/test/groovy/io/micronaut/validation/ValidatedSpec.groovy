@@ -39,6 +39,7 @@ import io.micronaut.http.client.HttpClient
 import io.micronaut.http.client.annotation.Client
 import io.micronaut.http.client.exceptions.HttpClientResponseException
 import io.micronaut.runtime.server.EmbeddedServer
+import io.micronaut.validation.validator.DefaultValidatorConfiguration
 import reactor.core.publisher.Flux
 import spock.lang.Specification
 
@@ -71,7 +72,7 @@ class ValidatedSpec extends Specification {
             Object intercept(InvocationContext context) {
                 return null
             }
-        }, new ValidatingInterceptor(null, null, ConversionService.SHARED)]
+        }, new ValidatingInterceptor(null, null, ConversionService.SHARED, new DefaultValidatorConfiguration())]
         OrderUtil.sort(list)
 
         expect:

@@ -107,6 +107,15 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     ExecutionHandleLocator getExecutionHandleLocator();
 
     /**
+     * If true, then the path to the property will be automatically added to the error message.
+     * <p>
+     * Default: true
+     *
+     * @return prependPropertyPath flag value
+     */
+    boolean isPrependPropertyPath();
+
+    /**
      * The bean introspector.
      * @return The introspector
      */

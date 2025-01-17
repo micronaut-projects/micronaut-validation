@@ -12,6 +12,7 @@ import io.micronaut.validation.Validated
 import io.micronaut.validation.ValidatingInterceptor
 import io.micronaut.validation.validator.BeanValidationContext
 import io.micronaut.validation.validator.Validator
+import io.micronaut.validation.validator.ValidatorConfiguration
 import jakarta.inject.Inject
 import jakarta.inject.Singleton
 import jakarta.validation.ConstraintViolation
@@ -38,8 +39,8 @@ class ReplaceInterceptorSpec extends Specification {
     @InterceptorBean(Validated)
     static class MyInterceptor extends ValidatingInterceptor {
         Validator micronautValidator
-        MyInterceptor(Validator micronautValidator, ValidatorFactory validatorFactory, ConversionService conversionService) {
-            super(micronautValidator, validatorFactory, conversionService)
+        MyInterceptor(Validator micronautValidator, ValidatorFactory validatorFactory, ConversionService conversionService, ValidatorConfiguration validatorConfiguration) {
+            super(micronautValidator, validatorFactory, conversionService, validatorConfiguration)
             this.micronautValidator = micronautValidator;
         }
 

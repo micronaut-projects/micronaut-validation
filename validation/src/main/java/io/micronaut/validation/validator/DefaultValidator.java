@@ -92,6 +92,8 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
+
 /**
  * Default implementation of the {@link Validator} interface.
  *
@@ -122,6 +124,7 @@ public class DefaultValidator implements
     private final ConversionService conversionService;
     private final BeanIntrospector beanIntrospector;
     private final InternalConstraintValidatorFactory constraintValidatorFactory;
+    private final boolean isPrependPropertyPath;
 
     /**
      * Default constructor.
@@ -139,6 +142,7 @@ public class DefaultValidator implements
         this.conversionService = configuration.getConversionService();
         this.beanIntrospector = configuration.getBeanIntrospector();
         this.constraintValidatorFactory = (InternalConstraintValidatorFactory) configuration.getConstraintValidatorFactory();
+        this.isPrependPropertyPath = configuration.isPrependPropertyPath();
     }
 
     /**
@@ -339,7 +343,7 @@ public class DefaultValidator implements
 
         final Set<ConstraintViolation<T>> constraintViolations = validateConstructorParameters(introspection, arguments);
         if (!constraintViolations.isEmpty()) {
-            throw new ConstraintViolationException(constraintViolations);
+            throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
         }
 
         final T instance = introspection.instantiate(arguments);
@@ -347,7 +351,7 @@ public class DefaultValidator implements
         if (errors.isEmpty()) {
             return instance;
         }
-        throw new ConstraintViolationException(errors);
+        throw createConstraintViolationException(isPrependPropertyPath, errors);
     }
 
     @Override
@@ -912,7 +916,7 @@ public class DefaultValidator implements
             }
 
             if (!context.getOverallViolations().isEmpty()) {
-                throw new ConstraintViolationException(context.getOverallViolations());
+                throw createConstraintViolationException(isPrependPropertyPath, context.getOverallViolations());
             }
 
             return value;

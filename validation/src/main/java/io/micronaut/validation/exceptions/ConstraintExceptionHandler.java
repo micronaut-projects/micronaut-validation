@@ -25,6 +25,7 @@ import io.micronaut.http.annotation.Produces;
 import io.micronaut.http.server.exceptions.ExceptionHandler;
 import io.micronaut.http.server.exceptions.response.ErrorContext;
 import io.micronaut.http.server.exceptions.response.ErrorResponseProcessor;
+import io.micronaut.validation.validator.ValidatorConfiguration;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -47,14 +48,18 @@ import java.util.Set;
 public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintViolationException, HttpResponse<?>> {
 
     private final ErrorResponseProcessor<?> responseProcessor;
+    private final ValidatorConfiguration validatorConfiguration;
 
     /**
      * Constructor.
+     *
      * @param responseProcessor Error Response Processor
+     * @param validatorConfiguration validator configuration bean
      */
     @Inject
-    public ConstraintExceptionHandler(ErrorResponseProcessor<?> responseProcessor) {
+    public ConstraintExceptionHandler(ErrorResponseProcessor<?> responseProcessor, ValidatorConfiguration validatorConfiguration) {
         this.responseProcessor = responseProcessor;
+        this.validatorConfiguration = validatorConfiguration;
     }
 
     @Override
@@ -85,38 +90,42 @@ public class ConstraintExceptionHandler implements ExceptionHandler<ConstraintVi
      */
     protected String buildMessage(ConstraintViolation<?> violation) {
         Path propertyPath = violation.getPropertyPath();
-        StringBuilder message = new StringBuilder();
-        Iterator<Path.Node> i = propertyPath.iterator();
+        var message = new StringBuilder();
 
-        boolean firstNode = true;
+        if (validatorConfiguration.isPrependPropertyPath()) {
+            Iterator<Path.Node> i = propertyPath.iterator();
 
-        while (i.hasNext()) {
-            Path.Node node = i.next();
+            boolean firstNode = true;
 
-            if (node.getKind() == ElementKind.METHOD || node.getKind() == ElementKind.CONSTRUCTOR) {
-                continue;
-            }
+            while (i.hasNext()) {
+                Path.Node node = i.next();
 
-            if (node.isInIterable()) {
-                message.append('[');
-                if (node.getKey() != null) {
-                    message.append(node.getKey());
-                } else if (node.getIndex() != null) {
-                    message.append(node.getIndex());
+                if (node.getKind() == ElementKind.METHOD || node.getKind() == ElementKind.CONSTRUCTOR) {
+                    continue;
                 }
-                message.append(']');
-            }
-            if (node.getKind() != ElementKind.CONTAINER_ELEMENT && node.getName() != null) {
-                if (!firstNode) {
-                    message.append('.');
+
+                if (node.isInIterable()) {
+                    message.append('[');
+                    if (node.getKey() != null) {
+                        message.append(node.getKey());
+                    } else if (node.getIndex() != null) {
+                        message.append(node.getIndex());
+                    }
+                    message.append(']');
                 }
-                message.append(node.getName());
+                if (node.getKind() != ElementKind.CONTAINER_ELEMENT && node.getName() != null) {
+                    if (!firstNode) {
+                        message.append('.');
+                    }
+                    message.append(node.getName());
+                }
+
+                firstNode = false;
             }
 
-            firstNode = false;
+            message.append(": ");
         }
-
-        message.append(": ").append(violation.getMessage());
+        message.append(violation.getMessage());
 
         return message.toString();
     }
