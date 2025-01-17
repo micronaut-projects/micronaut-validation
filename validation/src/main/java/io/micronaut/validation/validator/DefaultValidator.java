@@ -55,6 +55,7 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
@@ -1474,22 +1475,7 @@ public class DefaultValidator implements
                                                                         Object elementValue,
                                                                         ConstraintDescriptor<Annotation> constraint) {
         final String messageTemplate = buildMessageTemplate(context, constraint);
-        final String message = messageInterpolator.interpolate(messageTemplate, new MessageInterpolator.Context() {
-            @Override
-            public ConstraintDescriptor<?> getConstraintDescriptor() {
-                return constraint;
-            }
-
-            @Override
-            public Object getValidatedValue() {
-                return elementValue;
-            }
-
-            @Override
-            public <T> T unwrap(Class<T> type) {
-                throw new ValidationException("Not supported!");
-            }
-        });
+        final String message = messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(context, constraint, elementValue));
 
         return new DefaultConstraintViolation<>(
             context.getRootBean(),

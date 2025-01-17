@@ -23,7 +23,6 @@ import jakarta.validation.MessageInterpolator;
 
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 
 /**
  * The default error messages.
@@ -49,8 +48,8 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
         ArgumentUtils.requireNonNull("template", template);
         ArgumentUtils.requireNonNull("context", context);
 
-        StringBuilder messageBuilder = new StringBuilder();
-        StringBuilder variableBuilder = new StringBuilder();
+        var messageBuilder = new StringBuilder();
+        var variableBuilder = new StringBuilder();
         StringBuilder builder = messageBuilder;
         boolean isVariable = false;
         for (int i = 0; i < template.length(); i++) {
@@ -108,8 +107,11 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
 
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
-        Map<String, Object> attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
+        var attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
         attributes.put("validatedValue", context.getValidatedValue());
+        if (context instanceof DefaultMessageInterpolatorContext interpolatorContext) {
+            attributes.put("validatedPath", interpolatorContext.getValidatorContext().getCurrentPath());
+        }
         return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes));
     }
 }

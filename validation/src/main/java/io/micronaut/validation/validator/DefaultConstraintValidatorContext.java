@@ -56,7 +56,7 @@ import java.util.stream.Stream;
  * @param <R> The root bean type
  */
 @Internal
-final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorContext {
+public final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorContext {
 
     private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);

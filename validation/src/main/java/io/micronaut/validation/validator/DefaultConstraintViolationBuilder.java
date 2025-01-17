@@ -17,12 +17,11 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ElementKind;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.Path;
-import jakarta.validation.ValidationException;
-import jakarta.validation.metadata.ConstraintDescriptor;
 
 /**
  * The default implementation {@link ConstraintValidatorContext.ConstraintViolationBuilder}.
@@ -121,22 +120,11 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
             constraintValidatorContext.getRootClass(),
             null,
             null,
-            messageInterpolator.interpolate(messageTemplate, new MessageInterpolator.Context() {
-                @Override
-                public ConstraintDescriptor<?> getConstraintDescriptor() {
-                    return constraintValidatorContext.constraint;
-                }
-
-                @Override
-                public Object getValidatedValue() {
-                    return null;
-                }
-
-                @Override
-                public <T> T unwrap(Class<T> type) {
-                    throw new ValidationException("Not supported!");
-                }
-            }),
+            messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
+                constraintValidatorContext,
+                constraintValidatorContext.constraint,
+                null
+            )),
             messageTemplate,
             validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
             constraintValidatorContext.constraint,

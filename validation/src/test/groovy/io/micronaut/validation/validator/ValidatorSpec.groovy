@@ -920,6 +920,15 @@ class ValidatorSpec extends Specification {
             Exception e = thrown()
             e.message.contains('''myMethod2.bean.number: must be less than or equal to 20''')
     }
+
+    void "test message interpolator context attributes"() {
+        when:
+        def service = applicationContext.getBean(MyBookService)
+        def book = service.saveBook(new MyBook(title: "too long name"))
+        then:
+        Exception e = thrown()
+        e.message.contains('''saveBook.book.title: Check path: saveBook.book.title with value: too long name''')
+    }
 }
 
 class Bean extends AbstractMap<String, Integer> {
@@ -1115,3 +1124,11 @@ class BookService {
     }
 }
 
+@Validated
+@Singleton
+class MyBookService {
+
+    MyBook saveBook(@Valid MyBook book) {
+        book
+    }
+}
