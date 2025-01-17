@@ -76,7 +76,7 @@ final class ValidationPath implements Path {
         boolean dontAddDot = true;
         while (i.hasNext()) {
             final Node node = i.next();
-            if (node.getKind() == ElementKind.BEAN) {
+            if (node.getKind() == ElementKind.BEAN && i.hasNext()) {
                 continue;
             }
             if (node.isInIterable()) {
@@ -92,7 +92,7 @@ final class ValidationPath implements Path {
                 if (!i.hasNext()) {
                     builder.append(node.getName());
                 }
-            } else {
+            } else if (node.getName() != null) {
                 builder.append(dontAddDot ? "" : ".");
                 builder.append(node.getName());
             }
