@@ -6,13 +6,12 @@ import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Singleton;
 import jakarta.validation.Valid;
 import org.junit.jupiter.api.Test;
-import spock.lang.Specification;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 @Property(name = "spec.name", value = "PojoOptionalGetterSpec")
 @MicronautTest
-class PojoOptionalGetterTest extends Specification {
+class PojoOptionalGetterSpec {
 
     @Test
     void pojoCanHaveGetterWhichReturnsAnOptional(MockService service) {
