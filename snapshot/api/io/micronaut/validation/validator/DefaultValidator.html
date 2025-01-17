@@ -86,6 +86,9 @@ loadScripts(document, 'script');</script>
 <hr>
 <div class="type-signature"><span class="annotations">@Singleton
 @Primary
+@Requires(property="micronaut.validator.enabled",
+          value="true",
+          defaultValue="true")
 </span><span class="modifiers">public class </span><span class="element-name type-name-label">DefaultValidator</span>
 <span class="extends-implements">extends <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>
 implements <a href="Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>, <a href="ExecutableMethodValidator.html" title="interface in io.micronaut.validation.validator">ExecutableMethodValidator</a>, <a href="ReactiveValidator.html" title="interface in io.micronaut.validation.validator">ReactiveValidator</a>, io.micronaut.inject.annotation.AnnotatedElementValidator, io.micronaut.inject.validation.BeanDefinitionValidator</span></div>
