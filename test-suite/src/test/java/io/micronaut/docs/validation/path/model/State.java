@@ -3,8 +3,7 @@ package io.micronaut.docs.validation.path.model;
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import lombok.Value;
-import lombok.extern.slf4j.Slf4j;
+import org.slf4j.Logger;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -13,14 +12,15 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
-@Value
-@Slf4j
 @Introspected
-public class State {
+public final class State {
+    private static final Logger log = org.slf4j.LoggerFactory.getLogger(State.class);
     @NotNull
+    private final
     Type current;
 
     @Valid
+    private final
     List<History> histories;
 
     public State() {
@@ -122,6 +122,18 @@ public class State {
         return this.current.isFailed() || this.isPaused();
     }
 
+    public @NotNull Type getCurrent() {
+        return this.current;
+    }
+
+    public @Valid List<History> getHistories() {
+        return this.histories;
+    }
+
+    public String toString() {
+        return "State(current=" + this.getCurrent() + ", histories=" + this.getHistories() + ")";
+    }
+
 
     @Introspected
     public enum Type {
@@ -156,12 +168,30 @@ public class State {
         }
     }
 
-    @Value
-    public static class History {
+    public static final class History {
         @NotNull
+        private final
         Type state;
 
         @NotNull
+        private final
         Instant date;
+
+        public History(@NotNull Type state, @NotNull Instant date) {
+            this.state = state;
+            this.date = date;
+        }
+
+        public @NotNull Type getState() {
+            return this.state;
+        }
+
+        public @NotNull Instant getDate() {
+            return this.date;
+        }
+
+        public String toString() {
+            return "State.History(state=" + this.getState() + ", date=" + this.getDate() + ")";
+        }
     }
 }

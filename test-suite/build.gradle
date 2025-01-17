@@ -3,11 +3,8 @@ plugins {
 }
 
 dependencies {
-    testAnnotationProcessor("org.projectlombok:lombok")
     testAnnotationProcessor projects.micronautValidationProcessor
     testAnnotationProcessor mn.micronaut.inject.java
-
-    testCompileOnly("org.projectlombok:lombok")
 
     testImplementation mn.micronaut.inject
     testImplementation mn.micronaut.core.reactive

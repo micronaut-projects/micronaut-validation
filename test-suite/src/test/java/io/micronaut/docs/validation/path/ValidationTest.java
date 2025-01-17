@@ -57,4 +57,32 @@ public class ValidationTest {
         assertEquals("tasks[0].dagTasks", violation.getPropertyPath().toString());
         assertEquals("Cyclic dependency detected: cycle", violation.getMessage());
     }
+
+    @Test
+    void testRootError() {
+        Flow f = Flow.builder()
+            .id("id")
+            .namespace("namespace")
+            .tasks(List.of(
+                Dag.builder()
+                    .id("dag")
+                    .type(Dag.class.getName())
+                    .dagTasks(List.of(
+                        Dag.DagTask.builder()
+                            .task(Log.builder()
+                                .id("cycle")
+                                .type(Log.class.getName())
+                                .message("")
+                                .build())
+                            .dependsOn(List.of("xyz"))
+                            .build()
+                    ))
+                .build())
+            )
+            .build();
+
+        var violation = validator.validate(f).stream().findFirst().get();
+        assertEquals("tasks[0]", violation.getPropertyPath().toString());
+        assertEquals("Not existing task id in dependency: xyz", violation.getMessage());
+    }
 }

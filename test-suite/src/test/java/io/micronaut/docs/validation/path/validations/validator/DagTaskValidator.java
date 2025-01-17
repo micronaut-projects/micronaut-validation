@@ -43,8 +43,9 @@ public class DagTaskValidator implements ConstraintValidator<DagTaskValidation, 
         // Check for cyclic dependencies
         ArrayList<String> cyclicDependency = value.dagCheckCyclicDependencies(taskDepends);
         if (!cyclicDependency.isEmpty()) {
-            context.messageTemplate("Cyclic dependency detected: " + String.join(", ", cyclicDependency));
-
+            context.buildConstraintViolationWithTemplate("Cyclic dependency detected: " + String.join(", ", cyclicDependency))
+                .addPropertyNode("dagTasks")
+                .addConstraintViolation();
             return false;
         }
 
