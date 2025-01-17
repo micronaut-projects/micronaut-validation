@@ -125,9 +125,10 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <div class="summary-table two-column-summary">
 <div class="table-header col-first">Constructor</div>
 <div class="table-header col-last">Description</div>
-<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)" class="member-name-link">ValidatingInterceptor</a><wbr>(@Nullable <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
+<div class="col-constructor-name even-row-color"><code><a href="#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService,io.micronaut.validation.validator.ValidatorConfiguration)" class="member-name-link">ValidatingInterceptor</a><wbr>(@Nullable <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
  @Nullable jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
- io.micronaut.core.convert.ConversionService&nbsp;conversionService)</code></div>
+ io.micronaut.core.convert.ConversionService&nbsp;conversionService,
+ <a href="validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;validatorConfiguration)</code></div>
 <div class="col-last even-row-color">
 <div class="block">Creates ValidatingInterceptor from the validatorFactory.</div>
 </div>
@@ -187,19 +188,21 @@ implements io.micronaut.aop.MethodInterceptor&lt;<a href="https://docs.oracle.co
 <h2>Constructor Details</h2>
 <ul class="member-list">
 <li>
-<section class="detail" id="&lt;init&gt;(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)">
+<section class="detail" id="&lt;init&gt;(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService,io.micronaut.validation.validator.ValidatorConfiguration)">
 <h3>ValidatingInterceptor</h3>
 <div class="member-signature"><span class="modifiers">public</span>&nbsp;<span class="element-name">ValidatingInterceptor</span><wbr><span class="parameters">(@Nullable
  @Nullable <a href="validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a>&nbsp;micronautValidator,
  @Nullable
  @Nullable jakarta.validation.ValidatorFactory&nbsp;validatorFactory,
- io.micronaut.core.convert.ConversionService&nbsp;conversionService)</span></div>
+ io.micronaut.core.convert.ConversionService&nbsp;conversionService,
+ <a href="validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a>&nbsp;validatorConfiguration)</span></div>
 <div class="block">Creates ValidatingInterceptor from the validatorFactory.</div>
 <dl class="notes">
 <dt>Parameters:</dt>
 <dd><code>micronautValidator</code> - The micronaut validator use if no factory is available</dd>
 <dd><code>validatorFactory</code> - Factory returning initialized <code>Validator</code> instances</dd>
 <dd><code>conversionService</code> - The conversion service</dd>
+<dd><code>validatorConfiguration</code> - validator configuration instance</dd>
 </dl>
 </section>
 </li>
