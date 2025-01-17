@@ -50,7 +50,7 @@ loadScripts(document, 'script');</script>
 <div class="header">
 <h1>Index</h1>
 </div>
-<a href="#I:A">A</a>&nbsp;<a href="#I:B">B</a>&nbsp;<a href="#I:C">C</a>&nbsp;<a href="#I:D">D</a>&nbsp;<a href="#I:E">E</a>&nbsp;<a href="#I:F">F</a>&nbsp;<a href="#I:G">G</a>&nbsp;<a href="#I:H">H</a>&nbsp;<a href="#I:I">I</a>&nbsp;<a href="#I:M">M</a>&nbsp;<a href="#I:P">P</a>&nbsp;<a href="#I:R">R</a>&nbsp;<a href="#I:S">S</a>&nbsp;<a href="#I:T">T</a>&nbsp;<a href="#I:U">U</a>&nbsp;<a href="#I:V">V</a>&nbsp;<br><a href="allclasses-index.html">All&nbsp;Classes&nbsp;and&nbsp;Interfaces</a><span class="vertical-separator">|</span><a href="allpackages-index.html">All&nbsp;Packages</a><span class="vertical-separator">|</span><a href="constant-values.html">Constant&nbsp;Field&nbsp;Values</a>
+<a href="#I:A">A</a>&nbsp;<a href="#I:B">B</a>&nbsp;<a href="#I:C">C</a>&nbsp;<a href="#I:D">D</a>&nbsp;<a href="#I:E">E</a>&nbsp;<a href="#I:F">F</a>&nbsp;<a href="#I:G">G</a>&nbsp;<a href="#I:H">H</a>&nbsp;<a href="#I:I">I</a>&nbsp;<a href="#I:M">M</a>&nbsp;<a href="#I:P">P</a>&nbsp;<a href="#I:R">R</a>&nbsp;<a href="#I:S">S</a>&nbsp;<a href="#I:T">T</a>&nbsp;<a href="#I:U">U</a>&nbsp;<a href="#I:V">V</a>&nbsp;<a href="#I:W">W</a>&nbsp;<br><a href="allclasses-index.html">All&nbsp;Classes&nbsp;and&nbsp;Interfaces</a><span class="vertical-separator">|</span><a href="allpackages-index.html">All&nbsp;Packages</a><span class="vertical-separator">|</span><a href="constant-values.html">Constant&nbsp;Field&nbsp;Values</a>
 <h2 class="title" id="I:A">A</h2>
 <dl class="index">
 <dt><a href="io/micronaut/validation/validator/extractors/DefaultValueExtractors.html#addValueExtractor(io.micronaut.validation.validator.extractors.ValueExtractorDefinition)" class="member-name-link">addValueExtractor(ValueExtractorDefinition&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.extractors.<a href="io/micronaut/validation/validator/extractors/DefaultValueExtractors.html" title="class in io.micronaut.validation.validator.extractors">DefaultValueExtractors</a></dt>
@@ -58,6 +58,8 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/micronaut/validation/validator/extractors/ValueExtractorRegistry.html#addValueExtractor(io.micronaut.validation.validator.extractors.ValueExtractorDefinition)" class="member-name-link">addValueExtractor(ValueExtractorDefinition&lt;T&gt;)</a> - Method in interface io.micronaut.validation.validator.extractors.<a href="io/micronaut/validation/validator/extractors/ValueExtractorRegistry.html" title="interface in io.micronaut.validation.validator.extractors">ValueExtractorRegistry</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#addValueExtractor(jakarta.validation.valueextraction.ValueExtractor)" class="member-name-link">addValueExtractor(ValueExtractor&lt;?&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#addViolation(io.micronaut.validation.validator.DefaultConstraintViolation)" class="member-name-link">addViolation(DefaultConstraintViolation&lt;R&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/Validator.html#ANN_CONSTRAINT" class="member-name-link">ANN_CONSTRAINT</a> - Static variable in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/Validator.html" title="interface in io.micronaut.validation.validator">Validator</a></dt>
 <dd>
@@ -74,6 +76,8 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Context object to allow configuring validation behaviour.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#buildConstraintViolationWithTemplate(java.lang.String)" class="member-name-link">buildConstraintViolationWithTemplate(String)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html#buildMessage(jakarta.validation.ConstraintViolation)" class="member-name-link">buildMessage(ConstraintViolation&lt;?&gt;)</a> - Method in class io.micronaut.validation.exceptions.<a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html" title="class in io.micronaut.validation.exceptions">ConstraintExceptionHandler</a></dt>
 <dd>
 <div class="block">Builds a message based on the provided violation.</div>
@@ -99,7 +103,7 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Default <code>ExceptionHandler</code> for <code>ConstraintViolationException</code>.</div>
 </dd>
-<dt><a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html#%3Cinit%3E(io.micronaut.http.server.exceptions.response.ErrorResponseProcessor)" class="member-name-link">ConstraintExceptionHandler(ErrorResponseProcessor&lt;?&gt;)</a> - Constructor for class io.micronaut.validation.exceptions.<a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html" title="class in io.micronaut.validation.exceptions">ConstraintExceptionHandler</a></dt>
+<dt><a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html#%3Cinit%3E(io.micronaut.http.server.exceptions.response.ErrorResponseProcessor,io.micronaut.validation.validator.ValidatorConfiguration)" class="member-name-link">ConstraintExceptionHandler(ErrorResponseProcessor&lt;?&gt;, ValidatorConfiguration)</a> - Constructor for class io.micronaut.validation.exceptions.<a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html" title="class in io.micronaut.validation.exceptions">ConstraintExceptionHandler</a></dt>
 <dd>
 <div class="block">Constructor.</div>
 </dd>
@@ -122,9 +126,21 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Interface for a class that is a registry of contraint validator.</div>
 </dd>
+<dt><a href="io/micronaut/validation/ConstraintViolationExceptionUtil.html" class="type-name-link" title="class in io.micronaut.validation">ConstraintViolationExceptionUtil</a> - Class in <a href="io/micronaut/validation/package-summary.html">io.micronaut.validation</a></dt>
+<dd>
+<div class="block">Utility class for ConstraintViolationException.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html#containerType()" class="member-name-link">containerType()</a> - Method in record class io.micronaut.validation.validator.extractors.<a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html" title="class in io.micronaut.validation.validator.extractors">ValueExtractorDefinition</a></dt>
 <dd>
 <div class="block">Returns the value of the <a href="./io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html#param-containerType"><code>containerType</code></a> record component.</div>
+</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#containsGroup(java.util.Collection)" class="member-name-link">containsGroup(Collection&lt;Class&lt;?&gt;&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#convertGroups(io.micronaut.core.annotation.AnnotationMetadata)" class="member-name-link">convertGroups(AnnotationMetadata)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/ConstraintViolationExceptionUtil.html#createConstraintViolationException(boolean,java.util.Set)" class="member-name-link">createConstraintViolationException(boolean, Set&lt;? extends ConstraintViolation&lt;?&gt;&gt;)</a> - Static method in class io.micronaut.validation.<a href="io/micronaut/validation/ConstraintViolationExceptionUtil.html" title="class in io.micronaut.validation">ConstraintViolationExceptionUtil</a></dt>
+<dd>
+<div class="block">Method to create ConstraintViolationException with custom message.</div>
 </dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidator.html#createValid(java.lang.Class,java.lang.Object...)" class="member-name-link">createValid(Class&lt;T&gt;, Object...)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidator.html" title="class in io.micronaut.validation.validator">DefaultValidator</a></dt>
 <dd>&nbsp;</dd>
@@ -161,6 +177,10 @@ loadScripts(document, 'script');</script>
 </dd>
 <dt><a href="io/micronaut/validation/validator/DefaultClockProvider.html#%3Cinit%3E()" class="member-name-link">DefaultClockProvider()</a> - Constructor for class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultClockProvider.html" title="class in io.micronaut.validation.validator">DefaultClockProvider</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" class="type-name-link" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a>&lt;<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="type parameter in DefaultConstraintValidatorContext">R</a>&gt; - Class in <a href="io/micronaut/validation/validator/package-summary.html">io.micronaut.validation.validator</a></dt>
+<dd>
+<div class="block">The implementation of <a href="io/micronaut/validation/validator/constraints/ConstraintValidatorContext.html" title="interface in io.micronaut.validation.validator.constraints"><code>ConstraintValidatorContext</code></a>.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.html" class="type-name-link" title="class in io.micronaut.validation.validator.constraints">DefaultConstraintValidators</a> - Class in <a href="io/micronaut/validation/validator/constraints/package-summary.html">io.micronaut.validation.validator.constraints</a></dt>
 <dd>
 <div class="block">A factory bean that contains implementation for many of the default validations.</div>
@@ -190,6 +210,10 @@ loadScripts(document, 'script');</script>
 <div class="block">The default error messages.</div>
 </dd>
 <dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolator.html#%3Cinit%3E(io.micronaut.context.MessageSource)" class="member-name-link">DefaultMessageInterpolator(MessageSource)</a> - Constructor for class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolator.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolator</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" class="type-name-link" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a> - Class in <a href="io/micronaut/validation/validator/messages/package-summary.html">io.micronaut.validation.validator.messages</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html#%3Cinit%3E(io.micronaut.validation.validator.DefaultConstraintValidatorContext,jakarta.validation.metadata.ConstraintDescriptor,java.lang.Object)" class="member-name-link">DefaultMessageInterpolatorContext(DefaultConstraintValidatorContext&lt;?&gt;, ConstraintDescriptor&lt;Annotation&gt;, Object)</a> - Constructor for class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/messages/DefaultMessages.html" class="type-name-link" title="class in io.micronaut.validation.validator.messages">DefaultMessages</a> - Class in <a href="io/micronaut/validation/validator/messages/package-summary.html">io.micronaut.validation.validator.messages</a></dt>
 <dd>
@@ -245,6 +269,8 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Abstract <code>Digits</code> validator implementation.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#disableDefaultConstraintViolation()" class="member-name-link">disableDefaultConstraintViolation()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DecimalMaxValidator.html#doComparison(T,java.math.BigDecimal)" class="member-name-link">doComparison(T, BigDecimal)</a> - Method in interface io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/DecimalMaxValidator.html" title="interface in io.micronaut.validation.validator.constraints">DecimalMaxValidator</a></dt>
 <dd>
 <div class="block">Perform the comparison for the given value.</div>
@@ -290,6 +316,10 @@ loadScripts(document, 'script');</script>
 <div class="block">Finds a constraint validator for the given type and target type.</div>
 </dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.html#findConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">findConstraintValidator(Class&lt;A&gt;, Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.html" title="class in io.micronaut.validation.validator.constraints">DefaultConstraintValidators</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#findGroupSequences()" class="member-name-link">findGroupSequences()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#findGroupSequences(io.micronaut.core.beans.BeanIntrospection)" class="member-name-link">findGroupSequences(BeanIntrospection&lt;?&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.html#findLocalConstraintValidator(java.lang.Class,java.lang.Class)" class="member-name-link">findLocalConstraintValidator(Class&lt;A&gt;, Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.html" title="class in io.micronaut.validation.validator.constraints">DefaultConstraintValidators</a></dt>
 <dd>
@@ -347,11 +377,15 @@ loadScripts(document, 'script');</script>
 <div class="block">Returns the provider for obtaining the current time in the form of a <a href="https://docs.oracle.com/en/java/javase/17/docs/api/java.base/java/time/Clock.html" title="class or interface in java.time" class="external-link"><code>Clock</code></a>,
  e.g.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getClockProvider()" class="member-name-link">getClockProvider()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getClockProvider()" class="member-name-link">getClockProvider()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorFactory.html#getClockProvider()" class="member-name-link">getClockProvider()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorFactory.html" title="class in io.micronaut.validation.validator">DefaultValidatorFactory</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/ValidatorConfiguration.html#getClockProvider()" class="member-name-link">getClockProvider()</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html#getConstraintDescriptor()" class="member-name-link">getConstraintDescriptor()</a> - Method in class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidator.html#getConstraintsForClass(java.lang.Class)" class="member-name-link">getConstraintsForClass(Class&lt;?&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidator.html" title="class in io.micronaut.validation.validator">DefaultValidator</a></dt>
 <dd>&nbsp;</dd>
@@ -371,9 +405,13 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getConversionService()" class="member-name-link">getConversionService()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getCurrentPath()" class="member-name-link">getCurrentPath()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getDefaultClockProvider()" class="member-name-link">getDefaultClockProvider()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/ValidatorConfiguration.html#getDefaultClockProvider()" class="member-name-link">getDefaultClockProvider()</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getDefaultConstraintMessageTemplate()" class="member-name-link">getDefaultConstraintMessageTemplate()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getDefaultMessageInterpolator()" class="member-name-link">getDefaultMessageInterpolator()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
@@ -382,6 +420,10 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getDefaultTraversableResolver()" class="member-name-link">getDefaultTraversableResolver()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/ValidatorConfiguration.html#getDefaultTraversableResolver()" class="member-name-link">getDefaultTraversableResolver()</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getExecutableParameterValues()" class="member-name-link">getExecutableParameterValues()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getExecutableReturnValue()" class="member-name-link">getExecutableReturnValue()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getExecutionHandleLocator()" class="member-name-link">getExecutionHandleLocator()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
@@ -413,6 +455,8 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/visitor/ValidationVisitor.html#getOrder()" class="member-name-link">getOrder()</a> - Method in class io.micronaut.validation.visitor.<a href="io/micronaut/validation/visitor/ValidationVisitor.html" title="class in io.micronaut.validation.visitor">ValidationVisitor</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getOverallViolations()" class="member-name-link">getOverallViolations()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/transformer/ValidationAnnotationRemapper.html#getPackageName()" class="member-name-link">getPackageName()</a> - Method in class io.micronaut.validation.transformer.<a href="io/micronaut/validation/transformer/ValidationAnnotationRemapper.html" title="class in io.micronaut.validation.transformer">ValidationAnnotationRemapper</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorFactory.html#getParameterNameProvider()" class="member-name-link">getParameterNameProvider()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorFactory.html" title="class in io.micronaut.validation.validator">DefaultValidatorFactory</a></dt>
@@ -422,6 +466,10 @@ loadScripts(document, 'script');</script>
 <div class="block">In case of using this constraint validator with <code>jakarta.validation.ConstraintValidator</code> returns null, because JRS-303 doesn't
  support passing a root bean in their validation context.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getRootBean()" class="member-name-link">getRootBean()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getRootClass()" class="member-name-link">getRootClass()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/SizeValidator.html#getSize(T)" class="member-name-link">getSize(T)</a> - Method in interface io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/SizeValidator.html" title="interface in io.micronaut.validation.validator.constraints">SizeValidator</a></dt>
 <dd>
 <div class="block">Evaluate the size for the given value.</div>
@@ -436,9 +484,17 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/ValidatorConfiguration.html#getTraversableResolver()" class="member-name-link">getTraversableResolver()</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html#getValidatedValue()" class="member-name-link">getValidatedValue()</a> - Method in class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#getValidationContext()" class="member-name-link">getValidationContext()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>
+<div class="block">The validation context.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getValidator()" class="member-name-link">getValidator()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorFactory.html#getValidator()" class="member-name-link">getValidator()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorFactory.html" title="class in io.micronaut.validation.validator">DefaultValidatorFactory</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html#getValidatorContext()" class="member-name-link">getValidatorContext()</a> - Method in class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#getValueExtractorRegistry()" class="member-name-link">getValueExtractorRegistry()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
@@ -460,6 +516,8 @@ loadScripts(document, 'script');</script>
 <h2 class="title" id="I:H">H</h2>
 <dl class="index">
 <dt><a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html#handle(io.micronaut.http.HttpRequest,jakarta.validation.ConstraintViolationException)" class="member-name-link">handle(HttpRequest, ConstraintViolationException)</a> - Method in class io.micronaut.validation.exceptions.<a href="io/micronaut/validation/exceptions/ConstraintExceptionHandler.html" title="class in io.micronaut.validation.exceptions">ConstraintExceptionHandler</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#hasDefaultGroup()" class="member-name-link">hasDefaultGroup()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.ValidatorKey.html#hashCode()" class="member-name-link">hashCode()</a> - Method in record class io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/DefaultConstraintValidators.ValidatorKey.html" title="class in io.micronaut.validation.validator.constraints">DefaultConstraintValidators.ValidatorKey</a></dt>
 <dd>
@@ -490,7 +548,7 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/package-summary.html">io.micronaut.validation</a> - package io.micronaut.validation</dt>
 <dd>
-<div class="block">Validation advice and interceptors.</div>
+<div class="block">Package annotations.</div>
 </dd>
 <dt><a href="io/micronaut/validation/annotation/package-summary.html">io.micronaut.validation.annotation</a> - package io.micronaut.validation.annotation</dt>
 <dd>&nbsp;</dd>
@@ -501,21 +559,37 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/micronaut/validation/transformer/package-summary.html">io.micronaut.validation.transformer</a> - package io.micronaut.validation.transformer</dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/package-summary.html">io.micronaut.validation.validator</a> - package io.micronaut.validation.validator</dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Package annotations.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/package-summary.html">io.micronaut.validation.validator.constraints</a> - package io.micronaut.validation.validator.constraints</dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Package annotations.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/extractors/package-summary.html">io.micronaut.validation.validator.extractors</a> - package io.micronaut.validation.validator.extractors</dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Package annotations.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/messages/package-summary.html">io.micronaut.validation.validator.messages</a> - package io.micronaut.validation.validator.messages</dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Package annotations.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/resolver/package-summary.html">io.micronaut.validation.validator.resolver</a> - package io.micronaut.validation.validator.resolver</dt>
-<dd>&nbsp;</dd>
+<dd>
+<div class="block">Package annotations.</div>
+</dd>
 <dt><a href="io/micronaut/validation/visitor/package-summary.html">io.micronaut.validation.visitor</a> - package io.micronaut.validation.visitor</dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/resolver/CompositeTraversableResolver.html#isCascadable(java.lang.Object,jakarta.validation.Path.Node,java.lang.Class,jakarta.validation.Path,java.lang.annotation.ElementType)" class="member-name-link">isCascadable(Object, Path.Node, Class&lt;?&gt;, Path, ElementType)</a> - Method in class io.micronaut.validation.validator.resolver.<a href="io/micronaut/validation/validator/resolver/CompositeTraversableResolver.html" title="class in io.micronaut.validation.validator.resolver">CompositeTraversableResolver</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#isEnabled()" class="member-name-link">isEnabled()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#isPrependPropertyPath()" class="member-name-link">isPrependPropertyPath()</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/ValidatorConfiguration.html#isPrependPropertyPath()" class="member-name-link">isPrependPropertyPath()</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/ValidatorConfiguration.html" title="interface in io.micronaut.validation.validator">ValidatorConfiguration</a></dt>
+<dd>
+<div class="block">If true, then the path to the property will be automatically added to the error message.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/BeanValidationContext.html#isPropertyValidated(T,io.micronaut.core.beans.BeanProperty)" class="member-name-link">isPropertyValidated(T, BeanProperty&lt;T, Object&gt;)</a> - Method in interface io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/BeanValidationContext.html" title="interface in io.micronaut.validation.validator">BeanValidationContext</a></dt>
 <dd>
 <div class="block">Hook to allow exclusion of properties during validation.</div>
@@ -540,6 +614,8 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/ConstraintValidator.html#isValid(T,jakarta.validation.ConstraintValidatorContext)" class="member-name-link">isValid(T, ConstraintValidatorContext)</a> - Method in interface io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#isValidated(java.lang.Object)" class="member-name-link">isValidated(Object)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/constraints/DomainNameUtil.html#isValidDomainAddress(java.lang.String)" class="member-name-link">isValidDomainAddress(String)</a> - Static method in class io.micronaut.validation.validator.constraints.<a href="io/micronaut/validation/validator/constraints/DomainNameUtil.html" title="class in io.micronaut.validation.validator.constraints">DomainNameUtil</a></dt>
 <dd>
 <div class="block">Checks validity of a domain name.</div>
@@ -557,6 +633,8 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Sets a message template to be used for the validation error message.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#messageTemplate(java.lang.String)" class="member-name-link">messageTemplate(String)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 </dl>
 <h2 class="title" id="I:P">P</h2>
 <dl class="index">
@@ -628,6 +706,10 @@ loadScripts(document, 'script');</script>
 <dd>
 <div class="block">Sets the message interpolator to use.</div>
 </dd>
+<dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#setPrependPropertyPath(boolean)" class="member-name-link">setPrependPropertyPath(boolean)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
+<dd>
+<div class="block">If true, then the path to the property will be automatically added to the error message.</div>
+</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html#setTraversableResolver(jakarta.validation.TraversableResolver)" class="member-name-link">setTraversableResolver(TraversableResolver)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorConfiguration.html" title="class in io.micronaut.validation.validator">DefaultValidatorConfiguration</a></dt>
 <dd>
 <div class="block">Sets the traversable resolver to use.</div>
@@ -664,9 +746,13 @@ loadScripts(document, 'script');</script>
 </dl>
 <h2 class="title" id="I:U">U</h2>
 <dl class="index">
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#unwrap(java.lang.Class)" class="member-name-link">unwrap(Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidator.html#unwrap(java.lang.Class)" class="member-name-link">unwrap(Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidator.html" title="class in io.micronaut.validation.validator">DefaultValidator</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidatorFactory.html#unwrap(java.lang.Class)" class="member-name-link">unwrap(Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidatorFactory.html" title="class in io.micronaut.validation.validator">DefaultValidatorFactory</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html#unwrap(java.lang.Class)" class="member-name-link">unwrap(Class&lt;T&gt;)</a> - Method in class io.micronaut.validation.validator.messages.<a href="io/micronaut/validation/validator/messages/DefaultMessageInterpolatorContext.html" title="class in io.micronaut.validation.validator.messages">DefaultMessageInterpolatorContext</a></dt>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html#unwrapByDefault()" class="member-name-link">unwrapByDefault()</a> - Method in record class io.micronaut.validation.validator.extractors.<a href="io/micronaut/validation/validator/extractors/ValueExtractorDefinition.html" title="class in io.micronaut.validation.validator.extractors">ValueExtractorDefinition</a></dt>
 <dd>
@@ -817,11 +903,13 @@ loadScripts(document, 'script');</script>
 <dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/validator/DefaultValidator.html#validateValue(java.lang.Class,java.lang.String,java.lang.Object,io.micronaut.validation.validator.BeanValidationContext)" class="member-name-link">validateValue(Class&lt;T&gt;, String, Object, BeanValidationContext)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultValidator.html" title="class in io.micronaut.validation.validator">DefaultValidator</a></dt>
 <dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#validating(java.lang.Object)" class="member-name-link">validating(Object)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
 <dt><a href="io/micronaut/validation/ValidatingInterceptor.html" class="type-name-link" title="class in io.micronaut.validation">ValidatingInterceptor</a> - Class in <a href="io/micronaut/validation/package-summary.html">io.micronaut.validation</a></dt>
 <dd>
 <div class="block">A <code>MethodInterceptor</code> that validates method invocations.</div>
 </dd>
-<dt><a href="io/micronaut/validation/ValidatingInterceptor.html#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService)" class="member-name-link">ValidatingInterceptor(Validator, ValidatorFactory, ConversionService)</a> - Constructor for class io.micronaut.validation.<a href="io/micronaut/validation/ValidatingInterceptor.html" title="class in io.micronaut.validation">ValidatingInterceptor</a></dt>
+<dt><a href="io/micronaut/validation/ValidatingInterceptor.html#%3Cinit%3E(io.micronaut.validation.validator.Validator,jakarta.validation.ValidatorFactory,io.micronaut.core.convert.ConversionService,io.micronaut.validation.validator.ValidatorConfiguration)" class="member-name-link">ValidatingInterceptor(Validator, ValidatorFactory, ConversionService, ValidatorConfiguration)</a> - Constructor for class io.micronaut.validation.<a href="io/micronaut/validation/ValidatingInterceptor.html" title="class in io.micronaut.validation">ValidatingInterceptor</a></dt>
 <dd>
 <div class="block">Creates ValidatingInterceptor from the validatorFactory.</div>
 </dd>
@@ -886,7 +974,16 @@ loadScripts(document, 'script');</script>
 <dt><a href="io/micronaut/validation/visitor/ValidationVisitor.html#visitMethod(io.micronaut.inject.ast.MethodElement,io.micronaut.inject.visitor.VisitorContext)" class="member-name-link">visitMethod(MethodElement, VisitorContext)</a> - Method in class io.micronaut.validation.visitor.<a href="io/micronaut/validation/visitor/ValidationVisitor.html" title="class in io.micronaut.validation.visitor">ValidationVisitor</a></dt>
 <dd>&nbsp;</dd>
 </dl>
-<a href="#I:A">A</a>&nbsp;<a href="#I:B">B</a>&nbsp;<a href="#I:C">C</a>&nbsp;<a href="#I:D">D</a>&nbsp;<a href="#I:E">E</a>&nbsp;<a href="#I:F">F</a>&nbsp;<a href="#I:G">G</a>&nbsp;<a href="#I:H">H</a>&nbsp;<a href="#I:I">I</a>&nbsp;<a href="#I:M">M</a>&nbsp;<a href="#I:P">P</a>&nbsp;<a href="#I:R">R</a>&nbsp;<a href="#I:S">S</a>&nbsp;<a href="#I:T">T</a>&nbsp;<a href="#I:U">U</a>&nbsp;<a href="#I:V">V</a>&nbsp;<br><a href="allclasses-index.html">All&nbsp;Classes&nbsp;and&nbsp;Interfaces</a><span class="vertical-separator">|</span><a href="allpackages-index.html">All&nbsp;Packages</a><span class="vertical-separator">|</span><a href="constant-values.html">Constant&nbsp;Field&nbsp;Values</a></main>
+<h2 class="title" id="I:W">W</h2>
+<dl class="index">
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#withExecutableParameterValues(java.lang.Object%5B%5D)" class="member-name-link">withExecutableParameterValues(Object[])</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#withExecutableReturnValue(java.lang.Object)" class="member-name-link">withExecutableReturnValue(Object)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+<dt><a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html#withGroupSequence(io.micronaut.validation.validator.DefaultConstraintValidatorContext.ValidationGroup)" class="member-name-link">withGroupSequence(DefaultConstraintValidatorContext.ValidationGroup)</a> - Method in class io.micronaut.validation.validator.<a href="io/micronaut/validation/validator/DefaultConstraintValidatorContext.html" title="class in io.micronaut.validation.validator">DefaultConstraintValidatorContext</a></dt>
+<dd>&nbsp;</dd>
+</dl>
+<a href="#I:A">A</a>&nbsp;<a href="#I:B">B</a>&nbsp;<a href="#I:C">C</a>&nbsp;<a href="#I:D">D</a>&nbsp;<a href="#I:E">E</a>&nbsp;<a href="#I:F">F</a>&nbsp;<a href="#I:G">G</a>&nbsp;<a href="#I:H">H</a>&nbsp;<a href="#I:I">I</a>&nbsp;<a href="#I:M">M</a>&nbsp;<a href="#I:P">P</a>&nbsp;<a href="#I:R">R</a>&nbsp;<a href="#I:S">S</a>&nbsp;<a href="#I:T">T</a>&nbsp;<a href="#I:U">U</a>&nbsp;<a href="#I:V">V</a>&nbsp;<a href="#I:W">W</a>&nbsp;<br><a href="allclasses-index.html">All&nbsp;Classes&nbsp;and&nbsp;Interfaces</a><span class="vertical-separator">|</span><a href="allpackages-index.html">All&nbsp;Packages</a><span class="vertical-separator">|</span><a href="constant-values.html">Constant&nbsp;Field&nbsp;Values</a></main>
 </div>
 </div>
 </body>
