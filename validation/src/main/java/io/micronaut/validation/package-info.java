@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 /**
- * Validation advice and interceptors.
+ * Package annotations.
  *
- * @author graemerocher
- * @since 1.0
+ * @since 4.9.0
  */
+@Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
 package io.micronaut.validation;
 
+import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.util.StringUtils;
+import io.micronaut.validation.validator.ValidatorConfiguration;

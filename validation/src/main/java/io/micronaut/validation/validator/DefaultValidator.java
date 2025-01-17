@@ -21,7 +21,6 @@ import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.annotation.ConfigurationReader;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Property;
-import io.micronaut.context.annotation.Requires;
 import io.micronaut.context.exceptions.BeanInstantiationException;
 import io.micronaut.core.annotation.AnnotatedElement;
 import io.micronaut.core.annotation.AnnotationMetadata;
@@ -103,7 +102,6 @@ import static io.micronaut.validation.ConstraintViolationExceptionUtil.createCon
  */
 @Singleton
 @Primary
-@Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
 public class DefaultValidator implements
     Validator, ExecutableMethodValidator, ReactiveValidator, AnnotatedElementValidator, BeanDefinitionValidator {
 
