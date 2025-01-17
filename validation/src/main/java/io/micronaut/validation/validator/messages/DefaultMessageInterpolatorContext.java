@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.validator.messages;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.DefaultConstraintValidatorContext;
 import jakarta.validation.MessageInterpolator;
@@ -23,7 +24,8 @@ import jakarta.validation.metadata.ConstraintDescriptor;
 
 import java.lang.annotation.Annotation;
 
-public class DefaultMessageInterpolatorContext implements MessageInterpolator.Context {
+@Internal
+public final class DefaultMessageInterpolatorContext implements MessageInterpolator.Context {
 
     private final DefaultConstraintValidatorContext<?> validatorContext;
     private final ConstraintDescriptor<Annotation> constraintDescriptor;
