@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2020 original authors
+ * Copyright 2017-2025 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,15 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * Validation exceptions.
- *
- * @author graemerocher
- * @since 1.0
- */
-@Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
-package io.micronaut.validation.exceptions;
+package io.micronaut.validation.validator.messages;
 
-import io.micronaut.context.annotation.Requires;
-import io.micronaut.core.util.StringUtils;
-import io.micronaut.validation.validator.ValidatorConfiguration;
+import io.micronaut.core.annotation.NonNull;
+
+import java.util.Locale;
+import java.util.Optional;
+
+/**
+ * Resolves the Locale for the {@link DefaultMessageInterpolator}.
+ * @author Sergio del Amo
+ * @since 4.9.
+ */
+public interface InterpolatorLocaleResolver {
+    /**
+     *
+     * @return If the locale could be resolved.
+     */
+    @NonNull
+    Optional<Locale> resolve();
+}
