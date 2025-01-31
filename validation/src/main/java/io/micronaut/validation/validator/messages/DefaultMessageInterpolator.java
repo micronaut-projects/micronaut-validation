@@ -19,6 +19,7 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.util.ArgumentUtils;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
 
@@ -50,6 +51,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
      * @param messageSource Message Source
      * @param interpolatorLocaleResolver Interpolator Locale Resolver
      */
+    @Inject
     public DefaultMessageInterpolator(MessageSource messageSource,
                                       @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver) {
         this.messageSource = messageSource;
