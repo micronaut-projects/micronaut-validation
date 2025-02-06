@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import java.util.*;
 import java.util.function.Predicate;
 
+import static io.micronaut.core.order.Ordered.HIGHEST_PRECEDENCE;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Property(name = "spec.name", value = "DefaultMessageInterpolatorTest")
@@ -73,24 +74,7 @@ class DefaultMessageInterpolatorTest {
 
         @Singleton
         MessageSource createMessageSource() {
-            return new MessageSource() {
-                private final MessageSource delegate = new ResourceBundleMessageSource("i18n.messages");
-
-                @Override
-                public @NonNull Optional<String> getRawMessage(@NonNull String code, @NonNull MessageContext context) {
-                    return delegate.getRawMessage(code, context);
-                }
-
-                @Override
-                public @NonNull String interpolate(@NonNull String template, @NonNull MessageContext context) {
-                    return delegate.interpolate(template, context);
-                }
-
-                @Override
-                public int getOrder() {
-                    return HIGHEST_PRECEDENCE;
-                }
-            };
+            return new ResourceBundleMessageSource("i18n.messages", HIGHEST_PRECEDENCE);
         }
     }
 
