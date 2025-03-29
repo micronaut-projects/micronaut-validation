@@ -15,11 +15,6 @@
  */
 package io.micronaut.validation.visitor;
 
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Stream;
-
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
@@ -36,6 +31,11 @@ import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
+
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
@@ -78,7 +78,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
             classElement.annotate(Introspected.class);
         }
-        classElement.getMethods().forEach(m -> visitMethod(m, context));
     }
 
     @Override
