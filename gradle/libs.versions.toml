@@ -3,7 +3,7 @@ managed-validation = "3.1.1"
 
 groovy = "4.0.27"
 spotbugs = "4.9.3"
-arquillian-container = "1.9.5.Final"
+arquillian-container = "1.9.5.final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
 
@@ -16,17 +16,18 @@ micronaut-rxjava2 = "2.7.0"
 micronaut-kotlin = "4.6.0"
 micronaut-logging = "1.7.0"
 
-# Gradle plugins
+# gradle plugins
 
 micronaut-gradle-plugin = "4.5.3"
 kotlin-gradle-plugin = "1.9.25"
 ksp-gradle-plugin = "1.9.25-1.0.20"
+sonatype-scan = "3.0.0"
 
 [libraries]
-# Core
+# core
 micronaut-core = { module = 'io.micronaut:micronaut-core-bom', version.ref = 'micronaut' }
 
-# BOMS
+# boms
 micronaut-reactor = { module = 'io.micronaut.reactor:micronaut-reactor-bom', version.ref = "micronaut-reactor" }
 micronaut-rxjava2 = { module = 'io.micronaut.rxjava2:micronaut-rxjava2-bom', version.ref = "micronaut-rxjava2" }
 micronaut-kotlin = { module = 'io.micronaut.kotlin:micronaut-kotlin-bom', version.ref = "micronaut-kotlin" }
@@ -34,7 +35,7 @@ micronaut-test = { module = 'io.micronaut.test:micronaut-test-bom', version.ref 
 
 groovy-bom = { module = "org.apache.groovy:groovy-bom", version.ref = "groovy" }
 
-# TESTING
+# testing
 
 junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 kotlin-kotest-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm" }
@@ -44,13 +45,13 @@ spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = 
 arquillian-container = { module = "org.jboss.arquillian.container:arquillian-container-test-spi", version.ref = "arquillian-container" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
 
-# MANAGED DEPENDENCIES
+# managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 
-# GRADLE PLUGINS
-
+# gradle plugins
+sonatype-scan = { module = "org.sonatype.gradle.plugins:scan-gradle-plugin", version.ref = "sonatype-scan" }
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle-plugin" }
 gradle-kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin-gradle-plugin" }
