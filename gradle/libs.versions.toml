@@ -3,17 +3,17 @@ managed-validation = "3.1.1"
 
 groovy = "4.0.27"
 spotbugs = "4.9.3"
-arquillian-container = "1.9.5.final"
+arquillian-container = "1.9.5.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
 
-micronaut = "4.9.0"
-micronaut-platform = "4.7.5"
+micronaut = "4.9.3"
+micronaut-platform = "4.8.3"
 micronaut-docs = "2.0.0"
 micronaut-test = "4.7.0"
-micronaut-reactor = "3.7.0"
-micronaut-rxjava2 = "2.7.0"
-micronaut-kotlin = "4.6.0"
+micronaut-reactor = "3.8.0"
+micronaut-rxjava2 = "2.8.0"
+micronaut-kotlin = "4.7.0"
 micronaut-logging = "1.7.0"
 
 # gradle plugins
