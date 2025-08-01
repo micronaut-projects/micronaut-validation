@@ -83,7 +83,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private Object executableReturnValue;
     private List<Class<?>> currentGroups;
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
-    private Set<ConstraintViolation<R>> currentViolations = new LinkedHashSet<>();
+    private boolean hasCurrentViolations = false;
 
     DefaultConstraintValidatorContext(DefaultValidator defaultValidator, BeanIntrospection<R> beanIntrospection, R rootBean, BeanValidationContext validationContext) {
         this(defaultValidator, beanIntrospection, validationContext, rootBean, null, new ValidationPath(), new LinkedHashSet<>(), null, Collections.emptyList());
@@ -186,9 +186,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     public GroupsValidation withGroupSequence(@NonNull ValidationGroup validationGroup) {
         List<Class<?>> prevGroups = currentGroups;
-        Set<ConstraintViolation<R>> prevViolations = currentViolations;
+        boolean prevViolations = hasCurrentViolations;
         currentGroups = validationGroup.groups();
-        currentViolations = new LinkedHashSet<>();
+        hasCurrentViolations = false;
 
         return new GroupsValidation() {
 
@@ -200,13 +200,13 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 if (validationGroup.isRedefinedDefaultGroupSequence()) {
                     return !overallViolations.isEmpty();
                 }
-                return !currentViolations.isEmpty();
+                return hasCurrentViolations;
             }
 
             @Override
             public void close() {
                 currentGroups = prevGroups;
-                currentViolations = prevViolations;
+                hasCurrentViolations = prevViolations;
             }
         };
     }
@@ -304,9 +304,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public void addViolation(DefaultConstraintViolation<R> violation) {
-        if (currentViolations != null) {
-            currentViolations.add(violation);
-        }
+        hasCurrentViolations = true;
         overallViolations.add(violation);
     }
 
