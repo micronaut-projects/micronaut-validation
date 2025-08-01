@@ -48,13 +48,13 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         this.constraintValidatorContext = constraintValidatorContext;
         this.messageInterpolator = messageInterpolator;
         this.validationPath = new ValidationPath(constraintValidatorContext.getCurrentPath());
-        Path.Node last = validationPath.nodes.peekLast();
+        Path.Node last = validationPath.peekLast();
         ElementKind kind = last == null ? null : last.getKind();
         if (kind == ElementKind.CROSS_PARAMETER) {
-            validationPath.nodes.pollLast();
+            validationPath.removeLast();
         }
         if (kind == ElementKind.BEAN) {
-            Path.Node node = validationPath.nodes.pollLast();
+            Path.Node node = validationPath.removeLast();
             ValidationPath.DefaultNode defaultNode = (ValidationPath.DefaultNode) node;
             next = new ValidationPath.MutableContainerContext(defaultNode.containerContext);
         }
@@ -99,7 +99,7 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
 
     @Override
     public NodeBuilderDefinedContext addParameterNode(int index) {
-        Path.Node node = validationPath.nodes.peekLast();
+        Path.Node node = validationPath.peekLast();
         if (node == null || node.getKind() != ElementKind.METHOD) {
             throw new IllegalStateException("Cannot add parameter at path kind: " + (node == null ? "null" : node.getKind()));
         }
