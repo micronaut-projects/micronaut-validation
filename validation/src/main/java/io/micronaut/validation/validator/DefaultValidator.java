@@ -1218,8 +1218,13 @@ public class DefaultValidator implements
             || Object[].class.isAssignableFrom(containerArgument.getType())
         );
 
-        final List<DefaultConstraintDescriptor<Annotation>> skipUnwrappingConstraints = constraints.stream().filter(c -> c.getValueUnwrapping() == ValidateUnwrappedValue.SKIP).toList();
-        final List<DefaultConstraintDescriptor<Annotation>> explicitUnwrappingConstraints = constraints.stream().filter(c -> c.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP).toList();
+        boolean anyExplicitUnwrapping = false;
+        for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+            if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP) {
+                anyExplicitUnwrapping = true;
+                break;
+            }
+        }
 
         List<ValueExtractorDefinition<E>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(containerArgument.getType());
         if (valueExtractorDefinitions.isEmpty()) {
@@ -1230,38 +1235,56 @@ public class DefaultValidator implements
                     (ValueExtractorDefinition<E>) new ValueExtractorDefinition<>(Object[].class, Object.class, null, false, LEGACY_ARRAY_EXTRACTOR)
                 );
             } else {
-                if (!explicitUnwrappingConstraints.isEmpty()) {
+                if (anyExplicitUnwrapping) {
                     throw new ConstraintDeclarationException("Cannot unwrap the constraint no extractors are present!");
                 }
                 return false;
             }
         }
 
-        if (!explicitUnwrappingConstraints.isEmpty() && valueExtractorDefinitions.size() > 1) {
+        if (anyExplicitUnwrapping && valueExtractorDefinitions.size() > 1) {
             throw new ConstraintDeclarationException("Cannot unwrap the constraint when multiple value extractors are present!");
         }
 
-        long unwrappedCount = valueExtractorDefinitions.stream().filter(ValueExtractorDefinition::unwrapByDefault).count();
-        if (unwrappedCount > 1) {
-            throw new ConstraintDeclarationException("Multiple unwrap by default value extractors aren't allowed!");
+        ValueExtractorDefinition<E> singleUnwrapByDefault = null;
+        for (ValueExtractorDefinition<E> definition : valueExtractorDefinitions) {
+            if (definition.unwrapByDefault()) {
+                if (singleUnwrapByDefault != null) {
+                    throw new ConstraintDeclarationException("Multiple unwrap by default value extractors aren't allowed!");
+                }
+                singleUnwrapByDefault = definition;
+            }
         }
 
         List<DefaultConstraintDescriptor<Annotation>> containerElementConstraints;
 
-        if (unwrappedCount > 0) {
-            if (valueExtractorDefinitions.size() != unwrappedCount) {
+        if (singleUnwrapByDefault != null) {
+            if (valueExtractorDefinitions.size() != 1) {
                 // Only allow one unwrapped by default value extractor
-                valueExtractorDefinitions = valueExtractorDefinitions.stream().filter(ValueExtractorDefinition::unwrapByDefault).toList();
+                valueExtractorDefinitions = List.of(singleUnwrapByDefault);
             }
-            containerElementConstraints = new ArrayList<>(constraints);
-            containerElementConstraints.removeAll(skipUnwrappingConstraints);
+            containerElementConstraints = new ArrayList<>();
+            List<DefaultConstraintDescriptor<Annotation>> skipUnwrappingConstraints = new ArrayList<>();
+            for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.SKIP) {
+                    skipUnwrappingConstraints.add(constraint);
+                } else {
+                    containerElementConstraints.add(constraint);
+                }
+            }
 
             validateConstrains(context, leftBean, containerArgument, containerValue, skipUnwrappingConstraints);
         } else {
-            containerElementConstraints = explicitUnwrappingConstraints;
+            containerElementConstraints = new ArrayList<>();
 
-            List<DefaultConstraintDescriptor<Annotation>> containerConstraints = new ArrayList<>(constraints);
-            containerConstraints.removeAll(explicitUnwrappingConstraints);
+            List<DefaultConstraintDescriptor<Annotation>> containerConstraints = new ArrayList<>();
+            for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP) {
+                    containerElementConstraints.add(constraint);
+                } else {
+                    containerConstraints.add(constraint);
+                }
+            }
 
             validateConstrains(context, leftBean, containerArgument, containerValue, containerConstraints);
         }
