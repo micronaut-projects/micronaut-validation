@@ -48,7 +48,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 /**
  * The implementation of {@link ConstraintValidatorContext}.
@@ -152,7 +151,12 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }
-        return currentGroups.stream().anyMatch(constraintGroups::contains);
+        for (Class<?> group : currentGroups) {
+            if (constraintGroups.contains(group)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public Object[] getExecutableParameterValues() {
