@@ -1498,22 +1498,24 @@ public class DefaultValidator implements
 
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints(DefaultConstraintValidatorContext<R> context,
                                                                              AnnotationMetadata annotationMetadata) {
-        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class)
-            .stream().
-            flatMap(constraintType -> {
-                List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
-                if (annotationValuesByType.isEmpty()) {
-                    annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+        List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
+        for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class)) {
+            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
+            if (annotationValuesByType.isEmpty()) {
+                annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+            }
+            for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
+                DefaultConstraintDescriptor<Annotation> descriptor = new DefaultConstraintDescriptor<>(
+                    (Class<Annotation>) constraintType,
+                    (AnnotationValue<Annotation>) annotationValue,
+                    annotationMetadata
+                );
+                if (isConstraintIncluded(context, descriptor)) {
+                    descriptors.add(descriptor);
                 }
-                return annotationValuesByType.stream()
-                    .map(annotationValue -> new DefaultConstraintDescriptor<>(
-                        (Class<Annotation>) constraintType,
-                        (AnnotationValue<Annotation>) annotationValue,
-                        annotationMetadata
-                    ))
-                    .filter(annotationValue -> isConstraintIncluded(context, annotationValue));
-            })
-            .toList();
+            }
+        }
+        return descriptors;
     }
 
     private <R> String buildMessageTemplate(DefaultConstraintValidatorContext<R> context,
