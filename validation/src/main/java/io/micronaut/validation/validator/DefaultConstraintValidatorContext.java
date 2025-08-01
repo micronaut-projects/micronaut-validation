@@ -240,28 +240,27 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
                     throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
                 }
-                return Arrays.stream(classGroupSequence)
-                    .flatMap(group -> {
-                        if (group == beanIntrospection.getBeanType()) {
-                            return Stream.of(new ValidationGroup(true, true, List.of(Default.class)));
-                        }
-                        return findGroupSequence(Collections.singletonList(group), new HashSet<>()).stream();
-                    })
-                    .toList();
+                List<ValidationGroup> dest = new ArrayList<>();
+                for (Class<Object> group : classGroupSequence) {
+                    if (group == beanIntrospection.getBeanType()) {
+                        dest.add(new ValidationGroup(true, true, List.of(Default.class)));
+                    } else {
+                        findGroups(dest, List.of(group), new HashSet<>());
+                    }
+                }
+                return dest;
             }
         }
-        return findGroupSequence(definedGroups, new HashSet<>());
+        return findGroupSequences();
     }
 
     public List<ValidationGroup> findGroupSequences() {
-        return findGroupSequence(definedGroups, new HashSet<>());
+        List<ValidationGroup> dest = new ArrayList<>();
+        findGroups(dest, definedGroups, new HashSet<>());
+        return dest;
     }
 
-    private List<ValidationGroup> findGroupSequence(List<Class<?>> groups, Set<Class<?>> processedGroups) {
-        return findGroups(groups, processedGroups).stream().toList();
-    }
-
-    private List<ValidationGroup> findGroups(Class<?> group, Set<Class<?>> processedGroups) {
+    private void findGroups(List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
         if (convertedGroups != null) {
             group = convertGroup(group);
         }
@@ -275,10 +274,17 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 .toList();
         });
         if (groupSequence.isEmpty()) {
-            return List.of(new ValidationGroup(false, false, List.of(group)));
+            dest.add(new ValidationGroup(false, false, List.of(group)));
+            return;
         }
-        return groupSequence.stream()
-            .flatMap(g -> findGroups(g, processedGroups).stream().map(vg -> new ValidationGroup(true, true, vg.groups))).toList();
+        int start = dest.size();
+        for (Class<?> g : groupSequence) {
+            findGroups(dest, g, processedGroups);
+        }
+        for (int i = start; i < groupSequence.size(); i++) {
+            ValidationGroup vg = dest.get(i);
+            dest.set(i, new ValidationGroup(true, true, vg.groups));
+        }
     }
 
     private Class<?> convertGroup(Class<?> group) {
@@ -289,18 +295,24 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return newGroup;
     }
 
-    private List<ValidationGroup> findGroups(List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
-        List<ValidationGroup> innerGroups = groupSequence.stream().flatMap(g -> findGroups(g, processedGroups).stream()).toList();
-        if (innerGroups.stream().noneMatch(validationGroup -> validationGroup.isSequence)) {
-            return List.of(
-                new ValidationGroup(
-                    false,
-                    false,
-                    innerGroups.stream().flatMap(validationGroup -> validationGroup.groups.stream()).toList()
-                )
-            );
+    private void findGroups(List<ValidationGroup> dest, List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
+        int start = dest.size();
+        for (Class<?> g : groupSequence) {
+            findGroups(dest, g, processedGroups);
         }
-        return innerGroups;
+        boolean anySequence = false;
+        for (int i = start; i < groupSequence.size() && !anySequence; i++) {
+            anySequence |= dest.get(i).isSequence;
+        }
+        if (!anySequence) {
+            List<ValidationGroup> subList = dest.subList(start, dest.size());
+            List<Class<?>> copy = new ArrayList<>();
+            for (ValidationGroup validationGroup : subList) {
+                copy.addAll(validationGroup.groups);
+            }
+            subList.clear();
+            dest.add(new ValidationGroup(false, false, copy));
+        }
     }
 
     public void addViolation(DefaultConstraintViolation<R> violation) {
