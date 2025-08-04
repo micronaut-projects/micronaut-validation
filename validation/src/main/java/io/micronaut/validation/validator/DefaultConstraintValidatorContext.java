@@ -143,7 +143,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
     }
 
-    public boolean hasDefaultGroup() {
+    private static boolean hasDefaultGroup(List<Class<?>> definedGroups) {
         return definedGroups.equals(DEFAULT_GROUPS);
     }
 
@@ -230,7 +230,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             av -> av.classValue("to").orElseThrow())
         );
         convertedGroups.putAll(newConvertGroups);
-        currentGroups = prevGroups.stream().<Class<?>>map(this::convertGroup).toList();
+        currentGroups = prevGroups.stream().<Class<?>>map(c -> convertGroup(convertedGroups, c)).toList();
         return () -> {
             convertedGroups = prevConvertedGroups;
             currentGroups = prevGroups;
@@ -238,7 +238,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        if (hasDefaultGroup()) {
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        if (ctx.isDefault()) {
+            return defaultValidator.findGroupSequencesCache.computeIfAbsent(beanIntrospection, bi -> List.copyOf(findGroupSequences(ctx, bi)));
+        } else {
+            return findGroupSequences(ctx, beanIntrospection);
+        }
+    }
+
+    private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
+        if (hasDefaultGroup(ctx.definedGroups)) {
             Class<Object>[] classGroupSequence = beanIntrospection.classValues(GroupSequence.class);
             if (classGroupSequence.length > 0) {
                 if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
@@ -249,31 +258,40 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                     if (group == beanIntrospection.getBeanType()) {
                         dest.add(new ValidationGroup(true, true, List.of(Default.class)));
                     } else {
-                        findGroups(dest, List.of(group), new HashSet<>());
+                        findGroups(ctx, dest, List.of(group), new HashSet<>());
                     }
                 }
                 return dest;
             }
         }
-        return findGroupSequences();
+        return findGroupSequences(ctx);
     }
 
     public List<ValidationGroup> findGroupSequences() {
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        if (ctx.isDefault()) {
+            return defaultValidator.findGroupSequencesCache.computeIfAbsent(null, ignored -> List.copyOf(findGroupSequences(ctx)));
+        } else {
+            return findGroupSequences(ctx);
+        }
+    }
+
+    private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx) {
         List<ValidationGroup> dest = new ArrayList<>();
-        findGroups(dest, definedGroups, new HashSet<>());
+        findGroups(ctx, dest, ctx.definedGroups, new HashSet<>());
         return dest;
     }
 
-    private void findGroups(List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
-        if (convertedGroups != null) {
-            group = convertGroup(group);
+    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
+        if (ctx.convertedGroups != null) {
+            group = convertGroup(ctx.convertedGroups, group);
         }
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
         Class<?> finalGroup = group;
         List<Class<?>> groupSequence = GROUP_SEQUENCES.computeIfAbsent(group, ignore -> {
-            return defaultValidator.getBeanIntrospector().findIntrospection(finalGroup).stream()
+            return ctx.defaultValidator.getBeanIntrospector().findIntrospection(finalGroup).stream()
                 .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
                 .toList();
         });
@@ -283,7 +301,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
         int start = dest.size();
         for (Class<?> g : groupSequence) {
-            findGroups(dest, g, processedGroups);
+            findGroups(ctx, dest, g, processedGroups);
         }
         for (int i = start; i < groupSequence.size(); i++) {
             ValidationGroup vg = dest.get(i);
@@ -291,7 +309,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
     }
 
-    private Class<?> convertGroup(Class<?> group) {
+    private static Class<?> convertGroup(Map<Class<?>, Class<?>> convertedGroups, Class<?> group) {
         Class<?> newGroup = convertedGroups.get(group);
         if (newGroup == null) {
             return group;
@@ -299,10 +317,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return newGroup;
     }
 
-    private void findGroups(List<ValidationGroup> dest, List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
+    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
         int start = dest.size();
         for (Class<?> g : groupSequence) {
-            findGroups(dest, g, processedGroups);
+            findGroups(ctx, dest, g, processedGroups);
         }
         boolean anySequence = false;
         for (int i = start; i < groupSequence.size() && !anySequence; i++) {
@@ -407,5 +425,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     @Internal
     record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence,
                            List<Class<?>> groups) {
+    }
+
+    private record FindGroupContext(
+        DefaultValidator defaultValidator,
+        Map<Class<?>, Class<?>> convertedGroups,
+        List<Class<?>> definedGroups
+    ) {
+        boolean isDefault() {
+            return definedGroups == DEFAULT_GROUPS && convertedGroups.isEmpty();
+        }
     }
 }

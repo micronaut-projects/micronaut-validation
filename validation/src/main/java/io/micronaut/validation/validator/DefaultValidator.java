@@ -116,6 +116,7 @@ public class DefaultValidator implements
     };
 
     final MessageInterpolator messageInterpolator;
+    final ConcurrentMap<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> findGroupSequencesCache = new CopyOnWriteMap<>(16 * 1024);
 
     private final ConstraintValidatorRegistry constraintValidatorRegistry;
     private final ClockProvider clockProvider;
