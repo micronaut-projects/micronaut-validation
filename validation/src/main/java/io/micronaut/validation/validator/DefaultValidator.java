@@ -502,17 +502,7 @@ public class DefaultValidator implements
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod)) {
                 try (ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
-                    List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences;
-                    if (bean == null) {
-                        groupSequences = context.findGroupSequences();
-                    } else {
-                        BeanIntrospection<T> beanIntrospection = getBeanIntrospection(bean);
-                        if (beanIntrospection == null) {
-                            groupSequences = context.findGroupSequences();
-                        } else {
-                            groupSequences = context.findGroupSequences(beanIntrospection);
-                        }
-                    }
+                    List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences = context.findGroupSequences(bean);
 
                     boolean canCascade = true;
                     for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : groupSequences) {
@@ -940,17 +930,7 @@ public class DefaultValidator implements
                                                 @NonNull Argument<?>[] arguments,
                                                 int argLen) {
 
-        List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences;
-        if (bean == null) {
-            groupSequences = context.findGroupSequences();
-        } else {
-            BeanIntrospection<T> beanIntrospection = getBeanIntrospection(bean);
-            if (beanIntrospection == null) {
-                groupSequences = context.findGroupSequences();
-            } else {
-                groupSequences = context.findGroupSequences(beanIntrospection);
-            }
-        }
+        List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences = context.findGroupSequences(bean);
         boolean canCascade = true;
         for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : groupSequences) {
             try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {

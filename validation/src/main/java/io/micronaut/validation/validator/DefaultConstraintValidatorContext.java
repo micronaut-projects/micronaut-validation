@@ -237,6 +237,19 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         };
     }
 
+    List<DefaultConstraintValidatorContext.ValidationGroup> findGroupSequences(@Nullable Object bean) {
+        if (bean == null) {
+            return findGroupSequences();
+        } else {
+            BeanIntrospection<?> beanIntrospection = defaultValidator.getBeanIntrospection(bean);
+            if (beanIntrospection == null) {
+                return findGroupSequences();
+            } else {
+                return findGroupSequences(beanIntrospection);
+            }
+        }
+    }
+
     public List<ValidationGroup> findGroupSequences(BeanIntrospection<?> beanIntrospection) {
         FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
         if (ctx.isDefault()) {
