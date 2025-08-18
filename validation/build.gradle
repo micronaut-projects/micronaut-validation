@@ -1,5 +1,6 @@
 plugins {
     id "io.micronaut.build.internal.validation-module"
+    alias(libs.plugins.jmh)
 }
 
 dependencies {
@@ -33,11 +34,19 @@ dependencies {
 
     testImplementation(mnTest.micronaut.test.junit5)
     testRuntimeOnly(libs.junit.jupiter.engine)
+
+    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.36")
+    jmhAnnotationProcessor(projects.micronautValidationProcessor)
+    jmhAnnotationProcessor(mn.micronaut.inject.java)
 }
 
 spotless {
     java {
         targetExclude '**/io/micronaut/validation/validator/constraints/EmailValidator.java'
     }
+}
+
+tasks.getByName("checkstyleJmh").configure {
+    enabled = false
 }
 

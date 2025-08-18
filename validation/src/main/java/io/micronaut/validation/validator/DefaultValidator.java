@@ -39,6 +39,7 @@ import io.micronaut.core.type.MutableArgumentValue;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
+import io.micronaut.core.util.CopyOnWriteMap;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
@@ -89,6 +90,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -114,6 +116,7 @@ public class DefaultValidator implements
     };
 
     final MessageInterpolator messageInterpolator;
+    final ConcurrentMap<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> findGroupSequencesCache = new CopyOnWriteMap<>(16 * 1024);
 
     private final ConstraintValidatorRegistry constraintValidatorRegistry;
     private final ClockProvider clockProvider;
@@ -124,6 +127,12 @@ public class DefaultValidator implements
     private final BeanIntrospector beanIntrospector;
     private final InternalConstraintValidatorFactory constraintValidatorFactory;
     private final boolean isPrependPropertyPath;
+
+    // The advantage of CopyOnWriteMap over ConcurrentHashMap is that here we can define a maximum
+    // size after which entries are evicted. This can save us from a memory leak if we cache more
+    // than we should. We still set it comfortably high to avoid unnecessary evictions.
+    private final ConcurrentMap<AnnotationMetadata, List<DefaultConstraintDescriptor<Annotation>>> constraintCache =
+        new CopyOnWriteMap<>(65536);
 
     /**
      * Default constructor.
@@ -493,34 +502,26 @@ public class DefaultValidator implements
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod)) {
                 try (ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
-                    List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences;
-                    if (bean == null) {
-                        groupSequences = context.findGroupSequences();
-                    } else {
-                        BeanIntrospection<T> beanIntrospection = getBeanIntrospection(bean);
-                        if (beanIntrospection == null) {
-                            groupSequences = context.findGroupSequences();
-                        } else {
-                            groupSequences = context.findGroupSequences(beanIntrospection);
-                        }
-                    }
+                    List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences = context.findGroupSequences(bean);
 
                     boolean canCascade = true;
                     for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : groupSequences) {
                         try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
                             // Strip class annotations
                             AnnotationMetadata returnAm = returnType.asArgument().getAnnotationMetadata();
+                            boolean cacheConstraints = true;
                             if (returnAm instanceof AnnotationMetadataHierarchy annotationMetadataHierarchy) {
                                 if (returnAm.getDeclaredMetadata() instanceof AnnotationMetadataHierarchy) {
                                     returnAm = new AnnotationMetadataHierarchy(
                                         annotationMetadataHierarchy.getRootMetadata(),
                                         annotationMetadataHierarchy.getDeclaredMetadata().getDeclaredMetadata()
                                     );
+                                    cacheConstraints = false;
                                 } else {
                                     returnAm = annotationMetadataHierarchy.getDeclaredMetadata();
                                 }
                             }
-                            visitElement(context, bean, returnType.asArgument(), returnAm, returnValue, canCascade, false);
+                            visitElement(context, bean, returnType.asArgument(), returnAm, returnValue, canCascade, false, cacheConstraints);
 
                             if (validation.isFailed()) {
                                 return context.getOverallViolations();
@@ -929,24 +930,14 @@ public class DefaultValidator implements
                                                 @NonNull Argument<?>[] arguments,
                                                 int argLen) {
 
-        List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences;
-        if (bean == null) {
-            groupSequences = context.findGroupSequences();
-        } else {
-            BeanIntrospection<T> beanIntrospection = getBeanIntrospection(bean);
-            if (beanIntrospection == null) {
-                groupSequences = context.findGroupSequences();
-            } else {
-                groupSequences = context.findGroupSequences(beanIntrospection);
-            }
-        }
+        List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences = context.findGroupSequences(bean);
         boolean canCascade = true;
         for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : groupSequences) {
             try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
 
                 if (methodAnnotationMetadata.hasStereotype(Constraint.class)) {
                     try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addCrossParameterNode()) {
-                        validateConstrains(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters);
+                        validateConstrains(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters, true);
                     }
                 }
 
@@ -981,7 +972,8 @@ public class DefaultValidator implements
                                 argument,
                                 parameterValue,
                                 canCascade,
-                                false
+                                false,
+                                true
                             );
                         }
                     }
@@ -1129,7 +1121,8 @@ public class DefaultValidator implements
                                      Argument<E> elementArgument,
                                      E elementValue,
                                      boolean canCascade,
-                                     boolean needsCanCascadeCheck) {
+                                     boolean needsCanCascadeCheck,
+                                     boolean cacheConstraints) {
         AnnotationMetadata annotationMetadata = elementArgument.getAnnotationMetadata();
         visitElement(context,
             bean,
@@ -1137,7 +1130,8 @@ public class DefaultValidator implements
             annotationMetadata,
             elementValue,
             canCascade,
-            needsCanCascadeCheck
+            needsCanCascadeCheck,
+            cacheConstraints
         );
     }
 
@@ -1147,7 +1141,8 @@ public class DefaultValidator implements
                                      AnnotationMetadata annotationMetadata,
                                      E elementValue,
                                      boolean canCascade,
-                                     boolean needsCanCascadeCheck) {
+                                     boolean needsCanCascadeCheck,
+                                     boolean cacheConstraints) {
         visitElement(context,
             bean,
             elementArgument,
@@ -1155,7 +1150,8 @@ public class DefaultValidator implements
             elementValue,
             canCascade,
             canCascade && annotationMetadata.hasStereotype(Valid.class),
-            needsCanCascadeCheck
+            needsCanCascadeCheck,
+            cacheConstraints
         );
     }
 
@@ -1166,9 +1162,10 @@ public class DefaultValidator implements
                                      E elementValue,
                                      boolean canCascade,
                                      boolean hasValid,
-                                     boolean needsCanCascadeCheck) {
+                                     boolean needsCanCascadeCheck,
+                                     boolean cacheConstraints) {
 
-        List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata);
+        List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata, cacheConstraints);
 
         if (visitContainer(context, leftBean, elementArgument, annotationMetadata, elementValue, constraints, canCascade)) {
             return;
@@ -1202,8 +1199,13 @@ public class DefaultValidator implements
             || Object[].class.isAssignableFrom(containerArgument.getType())
         );
 
-        final List<DefaultConstraintDescriptor<Annotation>> skipUnwrappingConstraints = constraints.stream().filter(c -> c.getValueUnwrapping() == ValidateUnwrappedValue.SKIP).toList();
-        final List<DefaultConstraintDescriptor<Annotation>> explicitUnwrappingConstraints = constraints.stream().filter(c -> c.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP).toList();
+        boolean anyExplicitUnwrapping = false;
+        for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+            if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP) {
+                anyExplicitUnwrapping = true;
+                break;
+            }
+        }
 
         List<ValueExtractorDefinition<E>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(containerArgument.getType());
         if (valueExtractorDefinitions.isEmpty()) {
@@ -1214,38 +1216,56 @@ public class DefaultValidator implements
                     (ValueExtractorDefinition<E>) new ValueExtractorDefinition<>(Object[].class, Object.class, null, false, LEGACY_ARRAY_EXTRACTOR)
                 );
             } else {
-                if (!explicitUnwrappingConstraints.isEmpty()) {
+                if (anyExplicitUnwrapping) {
                     throw new ConstraintDeclarationException("Cannot unwrap the constraint no extractors are present!");
                 }
                 return false;
             }
         }
 
-        if (!explicitUnwrappingConstraints.isEmpty() && valueExtractorDefinitions.size() > 1) {
+        if (anyExplicitUnwrapping && valueExtractorDefinitions.size() > 1) {
             throw new ConstraintDeclarationException("Cannot unwrap the constraint when multiple value extractors are present!");
         }
 
-        long unwrappedCount = valueExtractorDefinitions.stream().filter(ValueExtractorDefinition::unwrapByDefault).count();
-        if (unwrappedCount > 1) {
-            throw new ConstraintDeclarationException("Multiple unwrap by default value extractors aren't allowed!");
+        ValueExtractorDefinition<E> singleUnwrapByDefault = null;
+        for (ValueExtractorDefinition<E> definition : valueExtractorDefinitions) {
+            if (definition.unwrapByDefault()) {
+                if (singleUnwrapByDefault != null) {
+                    throw new ConstraintDeclarationException("Multiple unwrap by default value extractors aren't allowed!");
+                }
+                singleUnwrapByDefault = definition;
+            }
         }
 
         List<DefaultConstraintDescriptor<Annotation>> containerElementConstraints;
 
-        if (unwrappedCount > 0) {
-            if (valueExtractorDefinitions.size() != unwrappedCount) {
+        if (singleUnwrapByDefault != null) {
+            if (valueExtractorDefinitions.size() != 1) {
                 // Only allow one unwrapped by default value extractor
-                valueExtractorDefinitions = valueExtractorDefinitions.stream().filter(ValueExtractorDefinition::unwrapByDefault).toList();
+                valueExtractorDefinitions = List.of(singleUnwrapByDefault);
             }
-            containerElementConstraints = new ArrayList<>(constraints);
-            containerElementConstraints.removeAll(skipUnwrappingConstraints);
+            containerElementConstraints = new ArrayList<>();
+            List<DefaultConstraintDescriptor<Annotation>> skipUnwrappingConstraints = new ArrayList<>();
+            for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.SKIP) {
+                    skipUnwrappingConstraints.add(constraint);
+                } else {
+                    containerElementConstraints.add(constraint);
+                }
+            }
 
             validateConstrains(context, leftBean, containerArgument, containerValue, skipUnwrappingConstraints);
         } else {
-            containerElementConstraints = explicitUnwrappingConstraints;
+            containerElementConstraints = new ArrayList<>();
 
-            List<DefaultConstraintDescriptor<Annotation>> containerConstraints = new ArrayList<>(constraints);
-            containerConstraints.removeAll(explicitUnwrappingConstraints);
+            List<DefaultConstraintDescriptor<Annotation>> containerConstraints = new ArrayList<>();
+            for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
+                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP) {
+                    containerElementConstraints.add(constraint);
+                } else {
+                    containerConstraints.add(constraint);
+                }
+            }
 
             validateConstrains(context, leftBean, containerArgument, containerValue, containerConstraints);
         }
@@ -1318,7 +1338,9 @@ public class DefaultValidator implements
                             value,
                             canCascade,
                             containerValueArgument.getAnnotationMetadata().hasStereotype(Valid.class) || isLegacyValid,
-                            true);
+                            true,
+                            false // might be possible to cache, investigate if there's a perf problem here
+                        );
                     }
 
                     private <RX, EX> void validateContainerValue(DefaultConstraintValidatorContext<RX> context,
@@ -1375,9 +1397,10 @@ public class DefaultValidator implements
     private <R, E> void validateConstrains(DefaultConstraintValidatorContext<R> context,
                                            @Nullable Object leftBean,
                                            @NonNull Argument<E> elementArgument,
-                                           @Nullable E elementValue) {
+                                           @Nullable E elementValue,
+                                           boolean cacheConstraints) {
         AnnotationMetadata annotationMetadata = elementArgument.getAnnotationMetadata();
-        List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata);
+        List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata, cacheConstraints);
         validateConstrains(context, leftBean, elementArgument, elementValue, constraints);
     }
 
@@ -1497,23 +1520,40 @@ public class DefaultValidator implements
     }
 
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints(DefaultConstraintValidatorContext<R> context,
-                                                                             AnnotationMetadata annotationMetadata) {
-        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class)
-            .stream().
-            flatMap(constraintType -> {
-                List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
-                if (annotationValuesByType.isEmpty()) {
-                    annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+                                                                             AnnotationMetadata annotationMetadata,
+                                                                             boolean cache) {
+        if (cache) {
+            List<DefaultConstraintDescriptor<Annotation>> cached = constraintCache.computeIfAbsent(annotationMetadata, m -> getConstraints0(null, m));
+            if (!cached.isEmpty()) {
+                cached = new ArrayList<>(cached);
+                cached.removeIf(descriptor -> !isConstraintIncluded(context, descriptor));
+            }
+            return cached;
+        } else {
+            return getConstraints0(context, annotationMetadata);
+        }
+    }
+
+    private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints0(@Nullable DefaultConstraintValidatorContext<R> context,
+                                                                              AnnotationMetadata annotationMetadata) {
+        List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
+        for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class)) {
+            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
+            if (annotationValuesByType.isEmpty()) {
+                annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+            }
+            for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
+                DefaultConstraintDescriptor<Annotation> descriptor = new DefaultConstraintDescriptor<>(
+                    (Class<Annotation>) constraintType,
+                    (AnnotationValue<Annotation>) annotationValue,
+                    annotationMetadata
+                );
+                if (context == null || isConstraintIncluded(context, descriptor)) {
+                    descriptors.add(descriptor);
                 }
-                return annotationValuesByType.stream()
-                    .map(annotationValue -> new DefaultConstraintDescriptor<>(
-                        (Class<Annotation>) constraintType,
-                        (AnnotationValue<Annotation>) annotationValue,
-                        annotationMetadata
-                    ))
-                    .filter(annotationValue -> isConstraintIncluded(context, annotationValue));
-            })
-            .toList();
+            }
+        }
+        return descriptors;
     }
 
     private <R> String buildMessageTemplate(DefaultConstraintValidatorContext<R> context,

@@ -25,7 +25,7 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
-import io.micronaut.core.util.clhm.ConcurrentLinkedHashMap;
+import io.micronaut.core.util.CopyOnWriteMap;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import jakarta.inject.Inject;
@@ -55,8 +55,7 @@ import java.util.Optional;
 @Introspected
 public class DefaultConstraintValidators implements ConstraintValidatorRegistry {
 
-    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new ConcurrentLinkedHashMap.
-            Builder<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>>().initialCapacity(10).maximumWeightedCapacity(40).build();
+    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new CopyOnWriteMap<>(16 * 1024);
 
     @Nullable
     private final BeanContext beanContext;
@@ -118,6 +117,7 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
                 new EmailValidator()
         );
         this.internalValidators = validatorMap;
+        this.validatorCache.putAll(validatorMap);
     }
 
     @SuppressWarnings("unchecked")
@@ -129,12 +129,12 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
         final var key = new ValidatorKey(constraintType, targetType);
         targetType = (Class<T>) ReflectionUtils.getWrapperType(targetType);
 
-        ConstraintValidator<?, ?> constraintValidator = internalValidators.get(key);
+        ConstraintValidator<?, ?> constraintValidator = validatorCache.get(key);
         if (constraintValidator != null) {
             return Optional.of((ConstraintValidator<A, T>) constraintValidator);
         }
 
-        constraintValidator = validatorCache.get(key);
+        constraintValidator = internalValidators.get(key);
         if (constraintValidator != null) {
             return Optional.of((ConstraintValidator<A, T>) constraintValidator);
         }

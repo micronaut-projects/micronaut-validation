@@ -15,7 +15,7 @@ class DisableDefaultConstraintViolationSpec extends Specification {
         when:
             def results = validator.validate(new ValueObject(null, null, null));
             def violations = results.stream()
-                    .map(x -> "" + x.getPropertyPath() + ": " + x.getMessage())
+                    .map(x -> "" + x.getPropertyPath().toString() + ": " + x.getMessage())
                     .toList()
         then:
             violations == ["car: must not be null",
