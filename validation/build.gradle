@@ -46,3 +46,7 @@ spotless {
     }
 }
 
+tasks.getByName("checkstyleJmh").configure {
+    enabled = false
+}
+
