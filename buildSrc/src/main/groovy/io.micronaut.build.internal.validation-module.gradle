@@ -13,3 +13,6 @@ if (sonatypePluginConfigured) {
     }
 }
 
+dependencies {
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
