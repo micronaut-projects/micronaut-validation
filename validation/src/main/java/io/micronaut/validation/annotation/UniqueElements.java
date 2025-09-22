@@ -29,7 +29,7 @@ import io.micronaut.validation.validator.constraints.UniqueElementsValidator;
  */
 @Documented
 @Constraint(validatedBy = UniqueElementsValidator.class)
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface UniqueElements {
 

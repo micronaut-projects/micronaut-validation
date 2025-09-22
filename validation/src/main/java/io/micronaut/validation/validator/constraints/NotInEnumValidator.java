@@ -21,7 +21,6 @@ import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.annotation.NotInEnum;
 import jakarta.inject.Singleton;
 
-import java.util.Objects;
 
 /**
  * Validator for the {@link NotInEnum} constraint.
@@ -36,31 +35,31 @@ public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object
         if (value == null) {
             return true;
         }
-        if (!(value instanceof String) && !(value instanceof Enum<?>)) {
-            return true;
-        }
-        if (value instanceof Enum<?>) {
-            return true; // Always pass for enum types as per specification
-        }
 
-        Class<? extends Enum<?>> enumClass = (Class<? extends Enum<?>>) annotationMetadata.classValue("value", Enum.class).orElse(null);
+        @SuppressWarnings("unchecked") Class<? extends Enum<?>> enumClass =
+            (Class<? extends Enum<?>>) annotationMetadata.classValue("value", Enum.class).orElse(null);
         if (enumClass == null) {
             return true; // Invalid configuration, pass validation
         }
 
-        boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
+        if (value instanceof Enum<?> && enumClass.isInstance(value)) {
+            return true;
+        } else if (value instanceof String stringValue) {
+            boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
 
-        String stringValue = (String) value;
-        Enum<?>[] constants = enumClass.getEnumConstants();
-        if (constants == null) {
-            return true; // Invalid enum class, pass validation
-        }
-        for (Enum<?> constant : constants) {
-            String name = constant.name();
-            if (caseSensitive ? Objects.equals(name, stringValue) : name.equalsIgnoreCase(stringValue)) {
-                return false; // Match found, validation fails
+            Enum<?>[] constants = enumClass.getEnumConstants();
+            if (constants == null) {
+                return true; // Invalid enum class, pass validation
             }
+            for (Enum<?> constant : constants) {
+                String name = constant.name();
+                if (caseSensitive ? name.equals(stringValue) : name.equalsIgnoreCase(stringValue)) {
+                    return false; // Match found, validation fails
+                }
+            }
+            return true; // No match, validation passes
+        } else {
+            return true;
         }
-        return true; // No match, validation passes
     }
 }

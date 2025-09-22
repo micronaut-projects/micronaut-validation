@@ -29,7 +29,7 @@ import io.micronaut.validation.validator.constraints.InEnumValidator;
  */
 @Documented
 @Constraint(validatedBy = InEnumValidator.class)
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface InEnum {
 

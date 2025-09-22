@@ -29,7 +29,7 @@ import io.micronaut.validation.validator.constraints.NotInListValidator;
  */
 @Documented
 @Constraint(validatedBy = NotInListValidator.class)
-@Target({ElementType.FIELD, ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface NotInList {
 
