@@ -19,9 +19,11 @@ import io.micronaut.aop.InterceptPhase;
 import io.micronaut.aop.InterceptedMethod;
 import io.micronaut.aop.MethodInterceptor;
 import io.micronaut.aop.MethodInvocationContext;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.util.memo.MemoizedReference;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
@@ -51,6 +53,9 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
      * The position of the interceptor. See {@link io.micronaut.core.order.Ordered}
      */
     public static final int POSITION = InterceptPhase.VALIDATE.getPosition();
+
+    private static final MemoizedReference<AnnotationMetadata, Class<?>[]> VALIDATION_GROUPS =
+        AnnotationMetadata.MEMOIZER_NAMESPACE.newReference(m -> m.classValues(Validated.class, "groups"));
 
     private final @Nullable ExecutableValidator executableValidator;
     private final @Nullable ExecutableMethodValidator micronautValidator;
@@ -183,6 +188,6 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     }
 
     private Class<?>[] getValidationGroups(MethodInvocationContext<Object, Object> context) {
-      return context.classValues(Validated.class, "groups");
+        return VALIDATION_GROUPS.get(context);
     }
 }
