@@ -8,7 +8,6 @@ repositories {
 }
 
 dependencies {
-    implementation(libs.sonatype.scan)
     implementation libs.gradle.micronaut
     implementation libs.gradle.kotlin
     implementation libs.gradle.kotlin.allopen
