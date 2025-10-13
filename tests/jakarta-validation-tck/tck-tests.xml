@@ -368,6 +368,13 @@
                     <exclude name="testUnexpectedType"/>
                 </methods>
             </class>
+
+            <!-- Select first value extractor type argument by default -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.InvalidValueExtractorTest">
+                <methods>
+                    <exclude name="noExtractedValueThrowsException"/>
+                </methods>
+            </class>
         </classes>
 
     </test>

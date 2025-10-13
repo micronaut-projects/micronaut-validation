@@ -25,7 +25,7 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
-import io.micronaut.core.util.clhm.ConcurrentLinkedHashMap;
+import io.micronaut.core.util.CopyOnWriteMap;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import jakarta.inject.Inject;
@@ -55,8 +55,7 @@ import java.util.Optional;
 @Introspected
 public class DefaultConstraintValidators implements ConstraintValidatorRegistry {
 
-    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new ConcurrentLinkedHashMap.
-            Builder<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>>().initialCapacity(10).maximumWeightedCapacity(40).build();
+    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new CopyOnWriteMap<>(16 * 1024);
 
     @Nullable
     private final BeanContext beanContext;
@@ -118,6 +117,7 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
                 new EmailValidator()
         );
         this.internalValidators = validatorMap;
+        this.validatorCache.putAll(validatorMap);
     }
 
     @SuppressWarnings("unchecked")
@@ -126,45 +126,48 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
     public <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
         ArgumentUtils.requireNonNull("constraintType", constraintType);
         ArgumentUtils.requireNonNull("targetType", targetType);
-        final ValidatorKey key = new ValidatorKey(constraintType, targetType);
+        final var key = new ValidatorKey(constraintType, targetType);
         targetType = (Class<T>) ReflectionUtils.getWrapperType(targetType);
-        ConstraintValidator<?, ?> constraintValidator = internalValidators.get(key);
+
+        ConstraintValidator<?, ?> constraintValidator = validatorCache.get(key);
         if (constraintValidator != null) {
             return Optional.of((ConstraintValidator<A, T>) constraintValidator);
+        }
+
+        constraintValidator = internalValidators.get(key);
+        if (constraintValidator != null) {
+            return Optional.of((ConstraintValidator<A, T>) constraintValidator);
+        }
+
+        Optional<ConstraintValidator<A, T>> local = findInternalConstraintValidator(constraintType, targetType);
+        if (local.isPresent()) {
+            validatorCache.put(key, local.get());
+            return local;
+        }
+
+        if (beanContext != null) {
+            Argument<ConstraintValidator<A, T>> argument = (Argument) Argument.of(ConstraintValidator.class);
+            final Qualifier<ConstraintValidator<A, T>> qualifier = Qualifiers.byTypeArguments(
+                    constraintType,
+                    targetType
+            );
+            Optional<ConstraintValidator<A, T>> bean = beanContext.findBean(argument, qualifier);
+            if (bean.isPresent()) {
+                validatorCache.put(key, bean.get());
+                return bean;
+            }
+
         } else {
-            constraintValidator = validatorCache.get(key);
-            if (constraintValidator != null) {
-                return Optional.of((ConstraintValidator<A, T>) constraintValidator);
-            } else {
-                Optional<ConstraintValidator<A, T>> local = findInternalConstraintValidator(constraintType, targetType);
-                if (local.isPresent()) {
-                    validatorCache.put(key, local.get());
-                    return local;
-                } else if (beanContext != null) {
-                    Argument<ConstraintValidator<A, T>> argument = (Argument) Argument.of(ConstraintValidator.class);
-                    final Qualifier<ConstraintValidator<A, T>> qualifier = Qualifiers.byTypeArguments(
-                            constraintType,
-                            targetType
-                    );
-                    Optional<ConstraintValidator<A, T>> bean = beanContext.findBean(argument, qualifier);
-                    if (bean.isEmpty()) {
-                        validatorCache.put(key, ConstraintValidator.VALID);
-                    } else {
-                        ConstraintValidator<A, T> found = bean.get();
-                        validatorCache.put(key, found);
-                        return Optional.of(found);
-                    }
-                } else {
-                    // last chance lookup
-                    final ConstraintValidator<A, T> cv = findLocalConstraintValidator(constraintType, targetType)
-                            .orElse((ConstraintValidator<A, T>) ConstraintValidator.VALID);
-                    validatorCache.put(key, cv);
-                    if (cv != ConstraintValidator.VALID) {
-                        return Optional.of(cv);
-                    }
-                }
+            // last chance lookup
+            Optional<ConstraintValidator<A, T>> cv = findLocalConstraintValidator(constraintType, targetType);
+            if (cv.isPresent()) {
+                validatorCache.put(key, cv.get());
+                return cv;
             }
         }
+
+        validatorCache.put(key, ConstraintValidator.VALID);
+
         return Optional.empty();
     }
 

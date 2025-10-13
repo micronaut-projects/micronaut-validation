@@ -17,12 +17,11 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
+import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ElementKind;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.Path;
-import jakarta.validation.ValidationException;
-import jakarta.validation.metadata.ConstraintDescriptor;
 
 /**
  * The default implementation {@link ConstraintValidatorContext.ConstraintViolationBuilder}.
@@ -49,13 +48,13 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         this.constraintValidatorContext = constraintValidatorContext;
         this.messageInterpolator = messageInterpolator;
         this.validationPath = new ValidationPath(constraintValidatorContext.getCurrentPath());
-        Path.Node last = validationPath.nodes.peekLast();
+        Path.Node last = validationPath.peekLast();
         ElementKind kind = last == null ? null : last.getKind();
         if (kind == ElementKind.CROSS_PARAMETER) {
-            validationPath.nodes.pollLast();
+            validationPath.removeLast();
         }
         if (kind == ElementKind.BEAN) {
-            Path.Node node = validationPath.nodes.pollLast();
+            Path.Node node = validationPath.removeLast();
             ValidationPath.DefaultNode defaultNode = (ValidationPath.DefaultNode) node;
             next = new ValidationPath.MutableContainerContext(defaultNode.containerContext);
         }
@@ -100,7 +99,7 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
 
     @Override
     public NodeBuilderDefinedContext addParameterNode(int index) {
-        Path.Node node = validationPath.nodes.peekLast();
+        Path.Node node = validationPath.peekLast();
         if (node == null || node.getKind() != ElementKind.METHOD) {
             throw new IllegalStateException("Cannot add parameter at path kind: " + (node == null ? "null" : node.getKind()));
         }
@@ -121,23 +120,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
             constraintValidatorContext.getRootClass(),
             null,
             null,
+            messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
+                constraintValidatorContext,
+                constraintValidatorContext.constraint,
+                null
+            )),
             messageTemplate,
-            messageInterpolator.interpolate(messageTemplate, new MessageInterpolator.Context() {
-                @Override
-                public ConstraintDescriptor<?> getConstraintDescriptor() {
-                    return constraintValidatorContext.constraint;
-                }
-
-                @Override
-                public Object getValidatedValue() {
-                    return null;
-                }
-
-                @Override
-                public <T> T unwrap(Class<T> type) {
-                    throw new ValidationException("Not supported!");
-                }
-            }),
             validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
             constraintValidatorContext.constraint,
             null,

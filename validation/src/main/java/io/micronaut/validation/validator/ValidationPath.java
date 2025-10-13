@@ -26,10 +26,9 @@ import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Deque;
 import java.util.Iterator;
-import java.util.LinkedList;
 import java.util.List;
 
 /**
@@ -38,16 +37,16 @@ import java.util.List;
  * @author Denis Stepanov
  * @since 4.0.0
  */
+// opportunistically extend ArrayList
 @Internal
-final class ValidationPath implements Path {
+final class ValidationPath extends ArrayList<Path.Node> implements Path {
 
-    final Deque<Node> nodes;
     private ContainerContext containerContext = DefaultContainerContext.NONE;
 
     private final ContextualPath popPath = new ContextualPath() {
         @Override
         public void close() {
-            nodes.removeLast();
+            removeLast();
         }
     };
 
@@ -57,26 +56,29 @@ final class ValidationPath implements Path {
      * @param nodes The nodes
      */
     ValidationPath(ValidationPath nodes) {
-        this.nodes = new LinkedList<>(nodes.nodes);
+        super(nodes.size());
+        addAll(nodes);
     }
 
     ValidationPath() {
-        this.nodes = new LinkedList<>();
     }
 
-    @Override
-    public Iterator<Node> iterator() {
-        return nodes.iterator();
+    Node removeLast() {
+        return remove(size() - 1);
+    }
+
+    Node peekLast() {
+        return isEmpty() ? null : get(size() - 1);
     }
 
     @Override
     public String toString() {
         StringBuilder builder = new StringBuilder();
-        final Iterator<Node> i = nodes.iterator();
+        final Iterator<Node> i = iterator();
         boolean dontAddDot = true;
         while (i.hasNext()) {
             final Node node = i.next();
-            if (node.getKind() == ElementKind.BEAN) {
+            if (node.getKind() == ElementKind.BEAN && i.hasNext()) {
                 continue;
             }
             if (node.isInIterable()) {
@@ -92,7 +94,7 @@ final class ValidationPath implements Path {
                 if (!i.hasNext()) {
                     builder.append(node.getName());
                 }
-            } else {
+            } else if (node.getName() != null) {
                 builder.append(dontAddDot ? "" : ".");
                 builder.append(node.getName());
             }
@@ -145,7 +147,7 @@ final class ValidationPath implements Path {
     }
 
     private ContextualPath addNode(Node node) {
-        nodes.add(node);
+        add(node);
         ContextualPath contextualPath = withContainerContext(DefaultContainerContext.NONE);
 
         return () -> {
@@ -182,18 +184,18 @@ final class ValidationPath implements Path {
                 return simpleName;
             }
         });
-        nodes.add(node);
+        add(node);
         return popPath;
     }
 
     public ContextualPath cascaded() {
-        Node last = nodes.peekLast();
+        Node last = peekLast();
         if (containerContext.containerClass() == null && last != null && last.getKind() == ElementKind.CONTAINER_ELEMENT) {
-            DefaultContainerElementNode removed = (DefaultContainerElementNode) nodes.removeLast();
+            DefaultContainerElementNode removed = (DefaultContainerElementNode) removeLast();
             ContainerContext prevContainerContext = containerContext;
             containerContext = removed.containerContext;
             return () -> {
-                nodes.add(removed);
+                add(removed);
                 containerContext = prevContainerContext;
             };
         }
@@ -202,20 +204,20 @@ final class ValidationPath implements Path {
     }
 
     public Node last() {
-        return nodes.peekLast();
+        return peekLast();
     }
 
     public ValidationPath previousPath() {
         ValidationPath path = new ValidationPath(this);
-        path.nodes.removeLast();
-        if (path.nodes.isEmpty()) {
-            path.nodes.add(new DefaultBeanNode(containerContext));
+        path.removeLast();
+        if (path.isEmpty()) {
+            path.add(new DefaultBeanNode(containerContext));
         }
         return path;
     }
 
     public ConstraintTarget getConstraintTarget() {
-        DefaultNode node = (DefaultNode) nodes.peekLast();
+        DefaultNode node = (DefaultNode) peekLast();
         return node == null ? ConstraintTarget.IMPLICIT : node.getConstraintTarget();
     }
 

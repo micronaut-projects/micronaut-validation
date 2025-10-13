@@ -38,8 +38,8 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
-import io.micronaut.validation.validator.messages.DefaultMessages;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
+import io.micronaut.validation.validator.messages.DefaultMessages;
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
@@ -113,6 +113,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
 
     private boolean enabled = true;
+    private boolean prependPropertyPath = true;
 
     /**
      * Sets the conversion service.
@@ -170,6 +171,24 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     public DefaultValidatorConfiguration setEnabled(boolean enabled) {
         this.enabled = enabled;
+        return this;
+    }
+
+    @Override
+    public boolean isPrependPropertyPath() {
+        return prependPropertyPath;
+    }
+
+    /**
+     * If true, then the path to the property will be automatically added to the error message.
+     * <p>
+     * Default: true
+     *
+     * @param prependPropertyPath If true, then the path to the property will be automatically added to the error message.
+     * @return this configuration
+     */
+    public DefaultValidatorConfiguration setPrependPropertyPath(boolean prependPropertyPath) {
+        this.prependPropertyPath = prependPropertyPath;
         return this;
     }
 

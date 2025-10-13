@@ -26,15 +26,17 @@ import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.Validator;
+import io.micronaut.validation.validator.ValidatorConfiguration;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableValidator;
 
 import java.lang.reflect.Method;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+
+import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
 
 /**
  * A {@link MethodInterceptor} that validates method invocations.
@@ -53,6 +55,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     private final @Nullable ExecutableValidator executableValidator;
     private final @Nullable ExecutableMethodValidator micronautValidator;
     private final ConversionService conversionService;
+    private final boolean isPrependPropertyPath;
 
     /**
      * Creates ValidatingInterceptor from the validatorFactory.
@@ -60,11 +63,14 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
      * @param micronautValidator The micronaut validator use if no factory is available
      * @param validatorFactory   Factory returning initialized {@code Validator} instances
      * @param conversionService  The conversion service
+     * @param validatorConfiguration validator configuration instance
      */
     public ValidatingInterceptor(@Nullable Validator micronautValidator,
                                  @Nullable ValidatorFactory validatorFactory,
-                                 ConversionService conversionService) {
+                                 ConversionService conversionService,
+                                 ValidatorConfiguration validatorConfiguration) {
         this.conversionService = conversionService;
+        isPrependPropertyPath = validatorConfiguration.isPrependPropertyPath();
 
         if (validatorFactory != null) {
             jakarta.validation.Validator validator = validatorFactory.getValidator();
@@ -103,7 +109,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 getValidationGroups(context)
                         );
                 if (!constraintViolations.isEmpty()) {
-                    throw new ConstraintViolationException(constraintViolations);
+                    throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
                 }
             }
             return validateReturnExecutableValidator(context, targetMethod);
@@ -116,7 +122,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                         context.getParameterValues(),
                         getValidationGroups(context));
                 if (!constraintViolations.isEmpty()) {
-                    throw new ConstraintViolationException(constraintViolations);
+                    throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
                 }
             }
             if (micronautValidator instanceof ReactiveValidator reactiveValidator) {
@@ -157,7 +163,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                 result,
                 getValidationGroups(context));
         if (!constraintViolations.isEmpty()) {
-            throw new ConstraintViolationException(constraintViolations);
+            throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
         }
         return result;
     }
@@ -171,7 +177,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                 getValidationGroups(context)
         );
         if (!constraintViolations.isEmpty()) {
-            throw new ConstraintViolationException(constraintViolations);
+            throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
         }
         return result;
     }

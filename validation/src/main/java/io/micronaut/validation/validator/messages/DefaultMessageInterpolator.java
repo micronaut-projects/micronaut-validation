@@ -17,13 +17,15 @@ package io.micronaut.validation.validator.messages;
 
 import io.micronaut.context.MessageSource;
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.util.ArgumentUtils;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
 
 import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
+import java.util.Optional;
 
 /**
  * The default error messages.
@@ -39,18 +41,39 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
     private static final char R_BRACE = '}';
     private static final char DOLL_BRACE = '$';
 
+    @Nullable
+    private final InterpolatorLocaleResolver interpolatorLocaleResolver;
+
     private final MessageSource messageSource;
 
-    public DefaultMessageInterpolator(MessageSource messageSource) {
+    /**
+     *
+     * @param messageSource Message Source
+     * @param interpolatorLocaleResolver Interpolator Locale Resolver
+     */
+    @Inject
+    public DefaultMessageInterpolator(MessageSource messageSource,
+                                      @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver) {
         this.messageSource = messageSource;
+        this.interpolatorLocaleResolver = interpolatorLocaleResolver;
+    }
+
+    /**
+     *
+     * @param messageSource Message Source
+     * @deprecated Use {@link #DefaultMessageInterpolator(MessageSource, InterpolatorLocaleResolver)} instead.
+     */
+    @Deprecated(forRemoval = true, since = "4.9.0")
+    public DefaultMessageInterpolator(MessageSource messageSource) {
+        this(messageSource, Optional::empty);
     }
 
     private String interpolate(@NonNull String template, @NonNull MessageSource.MessageContext context) {
         ArgumentUtils.requireNonNull("template", template);
         ArgumentUtils.requireNonNull("context", context);
 
-        StringBuilder messageBuilder = new StringBuilder();
-        StringBuilder variableBuilder = new StringBuilder();
+        var messageBuilder = new StringBuilder();
+        var variableBuilder = new StringBuilder();
         StringBuilder builder = messageBuilder;
         boolean isVariable = false;
         for (int i = 0; i < template.length(); i++) {
@@ -103,13 +126,19 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
 
     @Override
     public String interpolate(String messageTemplate, Context context) {
-        return interpolate(messageTemplate, context, Locale.ENGLISH);
+        Locale locale = interpolatorLocaleResolver != null
+            ? interpolatorLocaleResolver.resolve().orElseGet(Locale::getDefault)
+            : Locale.getDefault();
+        return interpolate(messageTemplate, context, locale);
     }
 
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
-        Map<String, Object> attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
+        var attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
         attributes.put("validatedValue", context.getValidatedValue());
+        if (context instanceof DefaultMessageInterpolatorContext interpolatorContext) {
+            attributes.put("validatedPath", interpolatorContext.getValidatorContext().getCurrentPath());
+        }
         return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes));
     }
 }
