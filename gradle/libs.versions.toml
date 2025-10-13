@@ -21,7 +21,6 @@ micronaut-logging = "1.7.0"
 micronaut-gradle-plugin = "4.5.4"
 kotlin-gradle-plugin = "1.9.25"
 ksp-gradle-plugin = "1.9.25-1.0.20"
-sonatype-scan = "3.1.4"
 
 [libraries]
 # core
@@ -52,7 +51,6 @@ managed-validation = { module = "jakarta.validation:jakarta.validation-api", ver
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 
 # gradle plugins
-sonatype-scan = { module = "org.sonatype.gradle.plugins:scan-gradle-plugin", version.ref = "sonatype-scan" }
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle-plugin" }
 gradle-kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin-gradle-plugin" }
