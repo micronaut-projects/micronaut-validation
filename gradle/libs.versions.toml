@@ -36,7 +36,6 @@ groovy-bom = { module = "org.apache.groovy:groovy-bom", version.ref = "groovy" }
 
 # testing
 
-junit-jupiter-engine = { module = "org.junit.jupiter:junit-jupiter-engine" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 kotlin-kotest-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm" }
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test" }
