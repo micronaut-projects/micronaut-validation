@@ -24,6 +24,9 @@ import jakarta.validation.metadata.ConstraintDescriptor;
 
 import java.lang.annotation.Annotation;
 
+/**
+ * Default implementation of {@link MessageInterpolator.Context}.
+ */
 @Internal
 public final class DefaultMessageInterpolatorContext implements MessageInterpolator.Context {
 

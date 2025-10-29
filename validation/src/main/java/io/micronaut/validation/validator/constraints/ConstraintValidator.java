@@ -23,7 +23,6 @@ import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
-import java.util.Optional;
 
 /**
  * Constraint validator that can be used at either runtime or compilation time and
