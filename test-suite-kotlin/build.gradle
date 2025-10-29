@@ -2,12 +2,7 @@ plugins {
     id 'io.micronaut.build.internal.validation-test-suite'
     id 'org.jetbrains.kotlin.jvm'
     id 'com.google.devtools.ksp'
-}
-
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
-    }
+    id "io.micronaut.build.internal.kotlin-base"
 }
 
 dependencies {
