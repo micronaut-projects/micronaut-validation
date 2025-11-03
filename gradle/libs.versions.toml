@@ -8,7 +8,7 @@ javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
 
 micronaut = "4.10.8"
-micronaut-platform = "4.9.3"
+micronaut-platform = "4.10.1"
 micronaut-docs = "3.0.0"
 micronaut-test = "4.10.2"
 micronaut-reactor = "3.8.0"
@@ -17,7 +17,6 @@ micronaut-kotlin = "4.7.0"
 micronaut-logging = "1.7.0"
 
 # gradle plugins
-
 micronaut-gradle-plugin = "4.6.1"
 kotlin-gradle-plugin = "2.2.20"
 ksp-gradle-plugin = "2.2.20-2.0.4"
