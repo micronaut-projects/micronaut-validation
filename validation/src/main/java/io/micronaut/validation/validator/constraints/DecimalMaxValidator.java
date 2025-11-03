@@ -57,7 +57,6 @@ public interface DecimalMaxValidator<T> extends ConstraintValidator<DecimalMax, 
         return inclusive ? result <= 0 : result < 0;
     }
 
-
     /**
      * Perform the comparison for the given value.
      * @param value The value

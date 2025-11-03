@@ -2,12 +2,7 @@ plugins {
     id 'io.micronaut.build.internal.validation-test-suite'
     id 'org.jetbrains.kotlin.jvm'
     id 'com.google.devtools.ksp'
-}
-
-kotlin {
-    jvmToolchain {
-        languageVersion.set(JavaLanguageVersion.of(17))
-    }
+    id "io.micronaut.build.internal.kotlin-base"
 }
 
 dependencies {
@@ -28,5 +23,5 @@ dependencies {
     testImplementation mn.micronaut.http.server.netty
     testImplementation mn.micronaut.jackson.databind
 
-    testRuntimeOnly libs.junit.jupiter.engine
+    testRuntimeOnly mnTest.junit.jupiter.engine
 }
