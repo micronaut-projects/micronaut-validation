@@ -13,7 +13,6 @@ micronaut-test = "4.10.2"
 micronaut-reactor = "3.9.1"
 micronaut-rxjava2 = "2.9.0"
 micronaut-kotlin = "4.7.0"
-micronaut-logging = "1.7.0"
 
 # gradle plugins
 micronaut-gradle-plugin = "4.6.1"
