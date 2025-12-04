@@ -63,7 +63,8 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
     ValidationPath() {
     }
 
-    Node removeLast() {
+    @Override
+    public Node removeLast() {
         return remove(size() - 1);
     }
 
