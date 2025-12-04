@@ -3,19 +3,15 @@ package io.micronaut.validation
 import io.micronaut.annotation.processing.TypeElementVisitorProcessor
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.annotation.processing.test.JavaParser
-import io.micronaut.context.annotation.Replaces
-import io.micronaut.context.annotation.Requires
 import io.micronaut.context.visitor.ConfigurationReaderVisitor
 import io.micronaut.core.beans.BeanIntrospection
 import io.micronaut.core.beans.BeanIntrospectionReference
 import io.micronaut.core.beans.BeanProperty
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
-import io.micronaut.jackson.modules.BeanIntrospectionModule
 import io.micronaut.validation.annotation.ValidatedElement
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
-import jakarta.inject.Singleton
 
 import javax.annotation.processing.SupportedAnnotationTypes
 import jakarta.validation.Constraint
@@ -762,17 +758,6 @@ class Book {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
             return [new ValidationVisitor(), new ConfigurationReaderVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
-        }
-    }
-
-    @Singleton
-    @Replaces(BeanIntrospectionModule)
-    @Requires(property = "bean.introspection.test")
-    static class StaticBeanIntrospectionModule extends BeanIntrospectionModule {
-        Map<Class<?>, BeanIntrospection> introspectionMap = [:]
-        @Override
-        protected BeanIntrospection<Object> findIntrospection(Class<?> beanClass) {
-            return introspectionMap.get(beanClass)
         }
     }
 }
