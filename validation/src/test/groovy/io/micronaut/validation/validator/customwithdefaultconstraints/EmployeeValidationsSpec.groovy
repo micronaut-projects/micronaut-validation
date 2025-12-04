@@ -3,7 +3,7 @@ package io.micronaut.validation.validator.customwithdefaultconstraints
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Executable
 import io.micronaut.core.annotation.Introspected
-import org.jspecify.annotations.Nullable
+import io.micronaut.core.annotation.Nullable
 import io.micronaut.validation.validator.Validator
 import jakarta.inject.Singleton
 import spock.lang.AutoCleanup
@@ -18,7 +18,6 @@ import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotEmpty
 import jakarta.validation.constraints.NotNull
 import java.util.stream.Collectors
-
 
 @Issue("https://github.com/micronaut-projects/micronaut-core/issues/6519")
 class EmployeeValidationsSpec extends Specification {
