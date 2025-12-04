@@ -1,7 +1,6 @@
 [versions]
 managed-validation = "3.1.1"
 
-groovy = "5.0.3"
 spotbugs = "4.9.5"
 arquillian-container = "1.9.5.Final"
 javax-annotation-api = "1.3.2"
@@ -26,7 +25,6 @@ micronaut-core = { module = 'io.micronaut:micronaut-core-bom', version.ref = 'mi
 micronaut-reactor = { module = 'io.micronaut.reactor:micronaut-reactor-bom', version.ref = "micronaut-reactor" }
 micronaut-rxjava2 = { module = 'io.micronaut.rxjava2:micronaut-rxjava2-bom', version.ref = "micronaut-rxjava2" }
 micronaut-kotlin = { module = 'io.micronaut.kotlin:micronaut-kotlin-bom', version.ref = "micronaut-kotlin" }
-groovy-bom = { module = "org.apache.groovy:groovy-bom", version.ref = "groovy" }
 
 # testing
 

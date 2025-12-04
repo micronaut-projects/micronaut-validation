@@ -23,12 +23,11 @@ dependencies {
     testImplementation libs.spotbugs
     testImplementation mn.micronaut.inject
 
-    testImplementation platform(libs.groovy.bom)
-
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.http.server.netty
     testImplementation mnRxjava2.micronaut.rxjava2
-    testImplementation libs.groovy.json
+    testImplementation(platform(mn.boms.groovy))
+    testImplementation(libs.groovy.json)
     testImplementation mn.micronaut.inject.java.test
     testImplementation mn.micronaut.jackson.databind
 
