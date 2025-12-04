@@ -16,7 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ElementKind;
@@ -38,8 +38,7 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
     private final ValidationPath validationPath;
     private final ContainerElementNodeBuilderDefinedContext nodeBuilderDefinedContext = new DefaultContainerElementNodeBuilderDefinedContext();
 
-    @Nullable
-    private ValidationPath.MutableContainerContext next;
+    private ValidationPath.@Nullable MutableContainerContext next;
 
     DefaultConstraintViolationBuilder(String messageTemplate,
                                       DefaultConstraintValidatorContext<R> constraintValidatorContext,

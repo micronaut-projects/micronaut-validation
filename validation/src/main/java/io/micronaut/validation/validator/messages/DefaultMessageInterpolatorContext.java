@@ -16,7 +16,7 @@
 package io.micronaut.validation.validator.messages;
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.DefaultConstraintValidatorContext;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ValidationException;

@@ -23,7 +23,7 @@ import io.micronaut.aop.MethodInvocationContext
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.ConfigurationProperties
 import io.micronaut.context.exceptions.BeanInstantiationException
-import io.micronaut.core.annotation.Nullable
+import org.jspecify.annotations.Nullable
 import io.micronaut.core.convert.ConversionService
 import io.micronaut.core.order.OrderUtil
 import io.micronaut.core.type.Argument

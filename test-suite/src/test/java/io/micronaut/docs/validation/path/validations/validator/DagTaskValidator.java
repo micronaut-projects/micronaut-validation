@@ -1,8 +1,8 @@
 package io.micronaut.docs.validation.path.validations.validator;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.NonNull;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.docs.validation.path.model.Dag;
 import io.micronaut.docs.validation.path.validations.DagTaskValidation;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;

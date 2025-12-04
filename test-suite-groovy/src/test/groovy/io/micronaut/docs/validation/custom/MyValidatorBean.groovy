@@ -19,8 +19,8 @@ package io.micronaut.docs.validation.custom
 
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.annotation.Introspected
-import io.micronaut.core.annotation.NonNull
-import io.micronaut.core.annotation.Nullable
+import org.jspecify.annotations.NonNull
+import org.jspecify.annotations.Nullable
 import io.micronaut.validation.validator.constraints.ConstraintValidator
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
 import jakarta.inject.Singleton

@@ -15,7 +15,7 @@
  */
 package io.micronaut.validation.validator.messages;
 
-import io.micronaut.core.annotation.NonNull;
+import org.jspecify.annotations.NonNull;
 
 import java.util.Locale;
 import java.util.Optional;

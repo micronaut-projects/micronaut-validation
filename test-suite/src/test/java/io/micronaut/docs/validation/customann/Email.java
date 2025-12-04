@@ -1,7 +1,7 @@
 package io.micronaut.docs.validation.customann;
 
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.Nullable;
 
 @AnyRecipient
 @Introspected

@@ -15,7 +15,7 @@
  */
 package io.micronaut.validation.validator;
 
-import io.micronaut.core.annotation.NonNull;
+import org.jspecify.annotations.NonNull;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import org.reactivestreams.Publisher;

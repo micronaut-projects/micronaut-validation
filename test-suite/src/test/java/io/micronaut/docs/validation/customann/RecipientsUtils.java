@@ -1,6 +1,6 @@
 package io.micronaut.docs.validation.customann;
 
-import io.micronaut.core.annotation.NonNull;
+import org.jspecify.annotations.NonNull;
 import io.micronaut.core.util.StringUtils;
 
 public final class RecipientsUtils {
