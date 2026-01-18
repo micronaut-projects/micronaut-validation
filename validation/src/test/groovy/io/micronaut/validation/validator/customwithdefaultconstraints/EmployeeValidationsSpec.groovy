@@ -135,14 +135,13 @@ class Employee {
 
     private int experience
 
-    private Employee alternateRepresentative
+    private @Nullable Employee alternateRepresentative
 
     @Valid
     @NotNull
     private Designation designation
 
     @EmployeeExperienceConstraint
-    @Nullable
     Employee getAlternateRepresentative() {
         return alternateRepresentative
     }
