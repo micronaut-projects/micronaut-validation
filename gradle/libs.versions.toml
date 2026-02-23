@@ -14,7 +14,7 @@ micronaut-kotlin = "4.7.0"
 
 # gradle plugins
 micronaut-gradle-plugin = "4.6.2"
-kotlin-gradle-plugin = "2.2.21"
+kotlin-gradle-plugin = "2.3.10"
 ksp-gradle-plugin = "2.3.6"
 
 [libraries]
