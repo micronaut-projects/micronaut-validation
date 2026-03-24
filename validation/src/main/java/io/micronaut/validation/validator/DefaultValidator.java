@@ -615,7 +615,7 @@ public class DefaultValidator implements
         if (returnType.getTypeParameters().length == 0) {
             return publisher;
         }
-        Argument<Object> typeParameter = returnType.getTypeParameters()[0];
+        Argument<Object> typeParameter = (Argument<Object>) returnType.getTypeParameters()[0];
         Argument<Publisher<T>> publisherArgument = Argument.of((Class<Publisher<T>>) publisher.getClass());
 
         Publisher<Object> output;
@@ -872,18 +872,17 @@ public class DefaultValidator implements
                                                E value,
                                                @NonNull Object publisherInstance,
                                                boolean canCascade) {
-        // noinspection unchecked
-        Argument<Object>[] typeParameters = publisherArgument.getTypeParameters();
+        Argument<?>[] typeParameters = publisherArgument.getTypeParameters();
 
         if (typeParameters.length == 0) {
             // No validation if no parameters
             return;
         }
-        Argument<Object> valueArgument = typeParameters[0];
+        Argument<?> valueArgument = typeParameters[0];
 
         try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
             .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(value.getClass()))) {
-            visitElement(context, context.getRootBean(), valueArgument, publisherInstance, canCascade);
+            visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, publisherInstance, canCascade);
         }
     }
 
