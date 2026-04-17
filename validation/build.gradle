@@ -35,7 +35,7 @@ dependencies {
     testRuntimeOnly(mnTest.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.36")
+    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
     jmhAnnotationProcessor(projects.micronautValidationProcessor)
     jmhAnnotationProcessor(mn.micronaut.inject.java)
 }
