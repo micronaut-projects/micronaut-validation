@@ -1,11 +1,12 @@
 package io.micronaut.validation.validator.reactive;
 
 import io.micronaut.context.annotation.Executable;
-import io.reactivex.Completable;
-import io.reactivex.Flowable;
-import io.reactivex.Maybe;
-import io.reactivex.Observable;
-import io.reactivex.Single;
+
+import io.reactivex.rxjava3.core.Completable;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Maybe;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.core.Single;
 import jakarta.inject.Singleton;
 import org.reactivestreams.Publisher;
 
@@ -14,7 +15,7 @@ import jakarta.validation.constraints.NotBlank;
 import java.util.List;
 
 @Singleton
-class BookServiceRxJava2 {
+class BookServiceRxJava3 {
 
     @Executable
     Publisher<@Valid Book> rxSimple(Publisher<@NotBlank String> title) {

@@ -2,17 +2,17 @@ package io.micronaut.validation.validator.reactive
 
 import io.micronaut.context.ApplicationContext
 import io.micronaut.validation.validator.Validator
-import io.reactivex.Flowable
-import io.reactivex.Maybe
-import io.reactivex.Observable
-import io.reactivex.Single
+import io.reactivex.rxjava3.core.Flowable
+import io.reactivex.rxjava3.core.Maybe
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.core.Single
 import jakarta.validation.ConstraintViolationException
 import org.reactivestreams.Publisher
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
 
-class RxJava2MethodValidationSpec extends Specification {
+class RxJava3MethodValidationSpec extends Specification {
 
     @Shared
     @AutoCleanup
@@ -20,7 +20,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive return type validation"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         Single<Book> single = Single.just(new Book("It"))
@@ -34,7 +34,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive return type no validation"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         Single<Book> single = Single.just(new Book("It"))
@@ -46,7 +46,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid simple argument"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         var validator = applicationContext.getBean(Validator)
@@ -73,7 +73,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive validation with valid argument"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         def input = Observable.just(new Book("It"))
@@ -85,7 +85,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive maybe validation with valid argument"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         def input = Maybe.just(new Book("It"))
@@ -97,7 +97,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid argument"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         def input = Observable.just(new Book(""))
@@ -111,7 +111,7 @@ class RxJava2MethodValidationSpec extends Specification {
 
     void "test reactive validation with invalid argument type parameter"() {
         given:
-        BookServiceRxJava2 bookService = applicationContext.getBean(BookServiceRxJava2)
+        BookServiceRxJava3 bookService = applicationContext.getBean(BookServiceRxJava3)
 
         when:
         def input = Single.just([new Book("It"), new Book("")])

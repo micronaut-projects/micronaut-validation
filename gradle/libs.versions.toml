@@ -9,7 +9,7 @@ jakarta-validation-tck = "3.0.1"
 micronaut = "5.0.0-M22"
 micronaut-platform = "4.10.10"
 micronaut-reactor = "4.0.0-M2"
-micronaut-rxjava2 = "2.9.0"
+micronaut-rxjava3 = "4.0.0-M1"
 micronaut-kotlin = "5.0.0-M1"
 
 # gradle plugins
@@ -23,7 +23,7 @@ micronaut-core = { module = 'io.micronaut:micronaut-core-bom', version.ref = 'mi
 
 # boms
 micronaut-reactor = { module = 'io.micronaut.reactor:micronaut-reactor-bom', version.ref = "micronaut-reactor" }
-micronaut-rxjava2 = { module = 'io.micronaut.rxjava2:micronaut-rxjava2-bom', version.ref = "micronaut-rxjava2" }
+micronaut-rxjava3 = { module = 'io.micronaut.rxjava3:micronaut-rxjava3-bom', version.ref = "micronaut-rxjava3" }
 micronaut-kotlin = { module = 'io.micronaut.kotlin:micronaut-kotlin-bom', version.ref = "micronaut-kotlin" }
 
 # testing

@@ -32,7 +32,7 @@ micronautBuild {
     useStandardizedProjectNames.set(true)
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
-    importMicronautCatalog("micronaut-rxjava2")
+    importMicronautCatalog("micronaut-rxjava3")
     importMicronautCatalog("micronaut-kotlin")
 }
 

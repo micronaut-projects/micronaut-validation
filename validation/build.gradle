@@ -25,7 +25,7 @@ dependencies {
 
     testImplementation mn.micronaut.http.client
     testImplementation mn.micronaut.http.server.netty
-    testImplementation mnRxjava2.micronaut.rxjava2
+    testImplementation mnRxjava3.micronaut.rxjava3
     testImplementation(platform(mn.boms.groovy))
     testImplementation(libs.groovy.json)
     testImplementation mn.micronaut.inject.java.test
