@@ -13,7 +13,7 @@ micronaut-rxjava2 = "2.9.0"
 micronaut-kotlin = "5.0.0-M1"
 
 # gradle plugins
-micronaut-gradle-plugin = "4.6.2"
+micronaut-gradle-plugin = "5.0.0-M1"
 kotlin-gradle-plugin = "2.3.20"
 ksp-gradle-plugin = "2.3.6"
 
