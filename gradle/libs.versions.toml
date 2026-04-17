@@ -10,7 +10,7 @@ micronaut = "5.0.0-M22"
 micronaut-platform = "4.10.10"
 micronaut-reactor = "4.0.0-M2"
 micronaut-rxjava2 = "2.9.0"
-micronaut-kotlin = "4.7.0"
+micronaut-kotlin = "5.0.0-M1"
 
 # gradle plugins
 micronaut-gradle-plugin = "4.6.2"
