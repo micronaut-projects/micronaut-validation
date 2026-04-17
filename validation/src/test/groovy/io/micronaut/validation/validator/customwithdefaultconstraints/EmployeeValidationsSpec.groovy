@@ -3,7 +3,7 @@ package io.micronaut.validation.validator.customwithdefaultconstraints
 import io.micronaut.context.ApplicationContext
 import io.micronaut.context.annotation.Executable
 import io.micronaut.core.annotation.Introspected
-import io.micronaut.core.annotation.Nullable
+import org.jspecify.annotations.Nullable
 import io.micronaut.validation.validator.Validator
 import jakarta.inject.Singleton
 import spock.lang.AutoCleanup
@@ -135,14 +135,13 @@ class Employee {
 
     private int experience
 
-    private Employee alternateRepresentative
+    private @Nullable Employee alternateRepresentative
 
     @Valid
     @NotNull
     private Designation designation
 
     @EmployeeExperienceConstraint
-    @Nullable
     Employee getAlternateRepresentative() {
         return alternateRepresentative
     }
