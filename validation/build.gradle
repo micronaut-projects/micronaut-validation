@@ -35,9 +35,10 @@ dependencies {
     testRuntimeOnly(mnTest.junit.jupiter.engine)
     testRuntimeOnly(libs.junit.platform.launcher)
 
-    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:1.37")
+    jmhAnnotationProcessor(libs.jmh.generator.annprocess)
     jmhAnnotationProcessor(projects.micronautValidationProcessor)
     jmhAnnotationProcessor(mn.micronaut.inject.java)
+    jmh(libs.jmh.core)
 }
 
 spotless {

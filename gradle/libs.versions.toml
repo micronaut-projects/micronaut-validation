@@ -12,6 +12,8 @@ micronaut-reactor = "4.0.0-M2"
 micronaut-rxjava3 = "4.0.0-M1"
 micronaut-kotlin = "5.0.0-M1"
 
+jmh = "1.37"
+
 # gradle plugins
 micronaut-gradle-plugin = "5.0.0-M1"
 kotlin-gradle-plugin = "2.3.20"
@@ -40,6 +42,8 @@ javax-annotation-api = { module = "javax.annotation:javax.annotation-api", versi
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
+jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
+jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 
 # gradle plugins
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
