@@ -17,7 +17,6 @@ jmh = "1.37"
 # gradle plugins
 micronaut-gradle-plugin = "5.0.0-M1"
 kotlin-gradle-plugin = "2.3.21"
-ksp-gradle-plugin = "2.3.7"
 
 [libraries]
 # core
@@ -50,7 +49,6 @@ gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", ver
 gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle-plugin" }
 gradle-kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin-gradle-plugin" }
 gradle-kotlin-noarg = { module = "org.jetbrains.kotlin:kotlin-noarg", version.ref = "kotlin-gradle-plugin" }
-gradle-ksp = { module = "com.google.devtools.ksp:symbol-processing-gradle-plugin", version.ref = "ksp-gradle-plugin" }
 
 [plugins]
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
