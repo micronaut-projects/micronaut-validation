@@ -16,7 +16,6 @@ jmh = "1.37"
 
 # gradle plugins
 micronaut-gradle-plugin = "5.0.0-M1"
-kotlin-gradle-plugin = "2.3.21"
 
 [libraries]
 # core
@@ -46,9 +45,6 @@ jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess"
 
 # gradle plugins
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
-gradle-kotlin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle-plugin" }
-gradle-kotlin-allopen = { module = "org.jetbrains.kotlin:kotlin-allopen", version.ref = "kotlin-gradle-plugin" }
-gradle-kotlin-noarg = { module = "org.jetbrains.kotlin:kotlin-noarg", version.ref = "kotlin-gradle-plugin" }
 
 [plugins]
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
