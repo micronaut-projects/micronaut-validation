@@ -72,7 +72,7 @@ loadScripts(document, 'script');</script>
 <main role="main">
 <!-- ======== START OF CLASS DATA ======== -->
 <div class="header">
-<h1 title="Interface ConstraintValidator" class="title">Interface ConstraintValidator&lt;A extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, T&gt;</h1>
+<h1 title="Interface ConstraintValidator" class="title">Interface ConstraintValidator&lt;A extends <a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, T&gt;</h1>
 </div>
 <section class="class-description" id="class-description">
 <dl class="notes">
@@ -99,8 +99,8 @@ loadScripts(document, 'script');</script>
 <hr>
 <div class="horizontal-scroll">
 <div class="type-signature"><span class="annotations">@Indexed(<a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>.class)
-<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/FunctionalInterface.html" title="class or interface in java.lang" class="external-link">@FunctionalInterface</a>
-</span><span class="modifiers">public interface </span><span class="element-name type-name-label">ConstraintValidator&lt;A extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, T&gt;</span><span class="extends-implements">
+<a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/FunctionalInterface.html" title="class or interface in java.lang" class="external-link">@FunctionalInterface</a>
+</span><span class="modifiers">public interface </span><span class="element-name type-name-label">ConstraintValidator&lt;A extends <a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, T&gt;</span><span class="extends-implements">
 extends jakarta.validation.ConstraintValidator&lt;A,<wbr>T&gt;</span></div>
 <div class="block">Constraint validator that can be used at either runtime or compilation time and
 is capable of validation <code>Constraint</code> instances. Allows defining validators that work with both Hibernate validator and Micronaut's validator.
@@ -119,7 +119,7 @@ is capable of validation <code>Constraint</code> instances. Allows defining vali
 <div class="table-header col-first">Modifier and Type</div>
 <div class="table-header col-second">Field</div>
 <div class="table-header col-last">Description</div>
-<div class="col-first even-row-color"><code>static final <a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
+<div class="col-first even-row-color"><code>static final <a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a><wbr>&lt;<a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</code></div>
 <div class="col-second even-row-color"><code><a href="#VALID" class="member-name-link">VALID</a></code></div>
 <div class="col-last even-row-color">
 <div class="block">A constraint validator that just returns the object as being valid.</div>
@@ -170,7 +170,7 @@ is capable of validation <code>Constraint</code> instances. Allows defining vali
 <section class="detail" id="VALID">
 <h3>VALID</h3>
 <div class="horizontal-scroll">
-<div class="member-signature"><span class="modifiers">static final</span>&nbsp;<span class="return-type"><a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;<a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">VALID</span></div>
+<div class="member-signature"><span class="modifiers">static final</span>&nbsp;<span class="return-type"><a href="ConstraintValidator.html" title="interface in io.micronaut.validation.validator.constraints">ConstraintValidator</a>&lt;<a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/Object.html" title="class or interface in java.lang" class="external-link">Object</a>&gt;</span>&nbsp;<span class="element-name">VALID</span></div>
 <div class="block">A constraint validator that just returns the object as being valid.</div>
 </div>
 </section>
@@ -212,7 +212,7 @@ is capable of validation <code>Constraint</code> instances. Allows defining vali
  jakarta.validation.ConstraintValidatorContext&nbsp;context)</span></div>
 <dl class="notes">
 <dt>Specified by:</dt>
-<dd><code>isValid</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ConstraintValidator&lt;<a href="#type-param-A" title="type parameter in ConstraintValidator">A</a> extends <a href="https://docs.oracle.com/en/java/javase/21/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="#type-param-T" title="type parameter in ConstraintValidator">T</a>&gt;</code></dd>
+<dd><code>isValid</code>&nbsp;in interface&nbsp;<code>jakarta.validation.ConstraintValidator&lt;<a href="#type-param-A" title="type parameter in ConstraintValidator">A</a> extends <a href="https://docs.oracle.com/en/java/javase/25/docs/api/java.base/java/lang/annotation/Annotation.html" title="class or interface in java.lang.annotation" class="external-link">Annotation</a>, <a href="#type-param-T" title="type parameter in ConstraintValidator">T</a>&gt;</code></dd>
 </dl>
 </div>
 </section>
