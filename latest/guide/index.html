@@ -15,7 +15,7 @@
     <script>hljs.initHighlightingOnLoad();</script>
     <link rel="stylesheet" href="../css/multi-language-sample.css"/>
     <script src="../js/docs.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/1.5.13/clipboard.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/clipboard.js/2.0.11/clipboard.min.js"></script>
     <script type="text/javascript">
         function addJsClass(el) {
             var classes = document.body.className.split(" ");
@@ -23,7 +23,9 @@
             document.body.className = classes.join(" ");
         }
     </script>
-
+    <style type="text/css">
+        .lang-java { display: block }; .lang-python { display: block }; .lang-kotlin { display: block }; .lang-groovy { display: block }; 
+    </style>
 </head>
 
 <body class="body" id="docs" onload="addJsClass();" onhashchange="highlightMenu()">
@@ -60,7 +62,9 @@
                                 
                                 <div class="toc-item" style="margin-left:0"><a href="#compileTimeValidation"><strong>8</strong><span>Validating Annotations at Compile Time</span></a></div>
                                 
-                                <div class="toc-item" style="margin-left:0"><a href="#repository"><strong>9</strong><span>Repository</span></a></div>
+                                <div class="toc-item" style="margin-left:0"><a href="#breaks"><strong>9</strong><span>Breaking Changes</span></a></div>
+                                
+                                <div class="toc-item" style="margin-left:0"><a href="#repository"><strong>10</strong><span>Repository</span></a></div>
                                 
                             </div>
                         </div>
@@ -107,7 +111,9 @@
         
         <div class="toc-item" style="margin-left:0px" id="toc-item-compileTimeValidation"><a href="#compileTimeValidation"><strong>8</strong><span>Validating Annotations at Compile Time</span></a></div>
         
-        <div class="toc-item" style="margin-left:0px" id="toc-item-repository"><a href="#repository"><strong>9</strong><span>Repository</span></a></div>
+        <div class="toc-item" style="margin-left:0px" id="toc-item-breaks"><a href="#breaks"><strong>9</strong><span>Breaking Changes</span></a></div>
+        
+        <div class="toc-item" style="margin-left:0px" id="toc-item-repository"><a href="#repository"><strong>10</strong><span>Repository</span></a></div>
         
         </div>
     </div>
@@ -117,13 +123,13 @@
         <h1>Micronaut Validation</h1>
         <p></p>
         <p>Validation support for Micronaut</p>
-        <p><strong>Version:</strong> 4.11.0 </p>
+        <p><strong>Version:</strong> 5.0.0 </p>
     </div>
     
 <h1 id="introduction"><a class="anchor" href="#introduction"></a>1 Introduction</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/introduction.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/introduction.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -148,7 +154,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="releaseHistory"><a class="anchor" href="#releaseHistory"></a>2 Release History</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/releaseHistory.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/releaseHistory.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -164,7 +170,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="quickStart"><a class="anchor" href="#quickStart"></a>3 Quick Start</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/quickStart.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/quickStart.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -190,7 +196,8 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
     &lt;/path&gt;
 &lt;/annotationProcessorPaths&gt;</code></pre>
 </div>
-</div></p>
+</div>
+</p>
 </div>
 <div class="paragraph">
 <p>        <div class="listingblock multi-language-sample">
@@ -206,7 +213,8 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
     &lt;artifactId&gt;micronaut-validation&lt;/artifactId&gt;
 &lt;/dependency&gt;</code></pre>
 </div>
-</div></p>
+</div>
+</p>
 </div>
 <div class="paragraph">
 <p>You can validate types, fields and parameters by applying <code>jakarta.validation</code> annotations to arguments. The <code>jakarta.validation-api</code> library exposes those annotations, but it unnecessary to specify it as a direct dependency. It is included transitively when using <code>micronaut-validation</code>.</p>
@@ -278,7 +286,8 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
     &lt;artifactId&gt;micronaut-hibernate-validator&lt;/artifactId&gt;
 &lt;/dependency&gt;</code></pre>
 </div>
-</div></p>
+</div>
+</p>
 </div>
 </div>
 </div>
@@ -286,7 +295,7 @@ Micronaut Validation was moved to a separate module for Micronaut version 4.0.0.
 <h1 id="methodsValidation"><a class="anchor" href="#methodsValidation"></a>4 Validating Bean Methods</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/methodsValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/methodsValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -313,20 +322,6 @@ public class PersonService {
 <div class="listingblock multi-language-sample">
 <div class="title">Validating Methods</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import jakarta.inject.Singleton
-import jakarta.validation.constraints.NotBlank
-
-@Singleton
-class PersonService {
-    void sayHello(@NotBlank String name) {
-        println "Hello $name"
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Validating Methods</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import jakarta.inject.Singleton
 import jakarta.validation.constraints.NotBlank
 
@@ -334,6 +329,20 @@ import jakarta.validation.constraints.NotBlank
 open class PersonService {
     open fun sayHello(@NotBlank name: String) {
         println("Hello $name")
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Validating Methods</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import jakarta.inject.Singleton
+import jakarta.validation.constraints.NotBlank
+
+@Singleton
+class PersonService {
+    void sayHello(@NotBlank String name) {
+        println "Hello $name"
     }
 }</code></pre>
 </div>
@@ -388,31 +397,6 @@ class PersonServiceSpec {
 <div class="listingblock multi-language-sample">
 <div class="title">ConstraintViolationException Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.test.extensions.spock.annotation.MicronautTest
-import spock.lang.Specification
-
-import jakarta.inject.Inject
-import jakarta.validation.ConstraintViolationException
-
-@MicronautTest
-class PersonServiceSpec extends Specification {
-
-    @Inject PersonService personService
-
-    void "test person name is validated"() {
-        when:"The sayHello method is called with a blank string"
-        personService.sayHello("") // <b class="conum">(1)</b>
-
-        then:"A validation error occurs"
-        def e = thrown(ConstraintViolationException)
-        e.message == "sayHello.name: must not be blank" //  <b class="conum">(2)</b>
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">ConstraintViolationException Example</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.test.extensions.junit5.annotation.MicronautTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -437,6 +421,31 @@ class PersonServiceSpec {
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">ConstraintViolationException Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.test.extensions.spock.annotation.MicronautTest
+import spock.lang.Specification
+
+import jakarta.inject.Inject
+import jakarta.validation.ConstraintViolationException
+
+@MicronautTest
+class PersonServiceSpec extends Specification {
+
+    @Inject PersonService personService
+
+    void "test person name is validated"() {
+        when:"The sayHello method is called with a blank string"
+        personService.sayHello("") // <b class="conum">(1)</b>
+
+        then:"A validation error occurs"
+        def e = thrown(ConstraintViolationException)
+        e.message == "sayHello.name: must not be blank" //  <b class="conum">(2)</b>
+    }
+}</code></pre>
+</div>
+</div>
 <div class="colist arabic">
 <table>
 <tr>
@@ -453,7 +462,7 @@ class PersonServiceSpec {
 <h1 id="dataClassesValidation"><a class="anchor" href="#dataClassesValidation"></a>5 Validating Data Classes</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/dataClassesValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/dataClassesValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -500,6 +509,20 @@ public class Person {
 <div class="listingblock multi-language-sample">
 <div class="title">POJO Validation Example</div>
 <div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.core.annotation.Introspected
+import jakarta.validation.constraints.Min
+import jakarta.validation.constraints.NotBlank
+
+@Introspected
+data class Person(
+    @field:NotBlank var name: String,
+    @field:Min(18) var age: Int
+)</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">POJO Validation Example</div>
+<div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.Introspected
 
 import jakarta.validation.constraints.Min
@@ -514,20 +537,6 @@ class Person {
     @Min(18L)
     int age
 }</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">POJO Validation Example</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.core.annotation.Introspected
-import jakarta.validation.constraints.Min
-import jakarta.validation.constraints.NotBlank
-
-@Introspected
-data class Person(
-    @field:NotBlank var name: String,
-    @field:Min(18) var age: Int
-)</code></pre>
 </div>
 </div>
 <div class="admonitionblock tip">
@@ -569,20 +578,6 @@ void testThatPersonIsValidWithValidator() {
 <div class="listingblock multi-language-sample">
 <div class="title">Manual Validation Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Inject Validator validator
-
-void "test person is validated with validator"() {
-    when:"The person is validated"
-    def constraintViolations = validator.validate(new Person(name: "", age: 10)) // <b class="conum">(1)</b>
-
-    then:"A validation error occurs"
-    constraintViolations.size() == 2 //  <b class="conum">(2)</b>
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Manual Validation Example</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
 lateinit var validator: Validator
 
@@ -592,6 +587,20 @@ fun testThatPersonIsValidWithValidator() {
     val constraintViolations = validator.validate(person) // <b class="conum">(1)</b>
 
     assertEquals(2, constraintViolations.size) // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Manual Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Inject Validator validator
+
+void "test person is validated with validator"() {
+    when:"The person is validated"
+    def constraintViolations = validator.validate(new Person(name: "", age: 10)) // <b class="conum">(1)</b>
+
+    then:"A validation error occurs"
+    constraintViolations.size() == 2 //  <b class="conum">(2)</b>
 }</code></pre>
 </div>
 </div>
@@ -624,10 +633,10 @@ public class PersonService {
 <div class="listingblock multi-language-sample">
 <div class="title">ConstraintViolationException Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
-class PersonService {
-    void sayHello(@Valid Person person) {
-        println "Hello $person.name"
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
+open class PersonService {
+    open fun sayHello(@Valid person: Person) {
+        println("Hello ${person.name}")
     }
 }</code></pre>
 </div>
@@ -635,10 +644,10 @@ class PersonService {
 <div class="listingblock multi-language-sample">
 <div class="title">ConstraintViolationException Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
-open class PersonService {
-    open fun sayHello(@Valid person: Person) {
-        println("Hello ${person.name}")
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
+class PersonService {
+    void sayHello(@Valid Person person) {
+        println "Hello $person.name"
     }
 }</code></pre>
 </div>
@@ -670,21 +679,6 @@ void testThatPersonIsValid() {
 <div class="listingblock multi-language-sample">
 <div class="title">Manual Validation Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Inject PersonService personService
-
-void "test person name is validated"() {
-    when:"The sayHello method is called with an invalid person"
-    personService.sayHello(new Person(name: "", age: 10)) // <b class="conum">(1)</b>
-
-    then:"A validation error occurs"
-    def e = thrown(ConstraintViolationException)
-    e.constraintViolations.size() == 2 //  <b class="conum">(2)</b>
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Manual Validation Example</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
 lateinit var personService: PersonService
 
@@ -696,6 +690,21 @@ fun testThatPersonIsValid() {
     }
 
     assertEquals(2, exception.constraintViolations.size) // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Manual Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Inject PersonService personService
+
+void "test person name is validated"() {
+    when:"The sayHello method is called with an invalid person"
+    personService.sayHello(new Person(name: "", age: 10)) // <b class="conum">(1)</b>
+
+    then:"A validation error occurs"
+    def e = thrown(ConstraintViolationException)
+    e.constraintViolations.size() == 2 //  <b class="conum">(2)</b>
 }</code></pre>
 </div>
 </div>
@@ -738,27 +747,6 @@ public class BookInfoService {
 <div class="listingblock multi-language-sample">
 <div class="title">Iterables Validation Example</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
-class BookInfoService {
-    void setBookAuthors(
-        @NotBlank String bookName,
-        List&lt;@NotBlank String&gt; authors // <b class="conum">(1)</b>
-    ) {
-        println("Set book authors for book " + bookName)
-    }
-
-    void setBookSectionPages(
-        @NotBlank String bookName,
-        Map&lt;@NotBlank String, @Min(1) Integer&gt; sectionStartPages // <b class="conum">(2)</b>
-    ) {
-        println("Set the start pages for all sections of book " + bookName)
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Iterables Validation Example</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
 open class BookInfoService {
     open fun setBookAuthors(
@@ -773,6 +761,27 @@ open class BookInfoService {
         sectionStartPages: Map&lt;@NotBlank String, @Min(1) Int&gt;  // <b class="conum">(2)</b>
     ) {
         println("Set the start pages for all sections of book $bookName")
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Iterables Validation Example</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
+class BookInfoService {
+    void setBookAuthors(
+        @NotBlank String bookName,
+        List&lt;@NotBlank String&gt; authors // <b class="conum">(1)</b>
+    ) {
+        println("Set book authors for book " + bookName)
+    }
+
+    void setBookSectionPages(
+        @NotBlank String bookName,
+        Map&lt;@NotBlank String, @Min(1) Integer&gt; sectionStartPages // <b class="conum">(2)</b>
+    ) {
+        println("Set the start pages for all sections of book " + bookName)
     }
 }</code></pre>
 </div>
@@ -821,34 +830,6 @@ void testSectionsAreValidated() {
 </div>
 <div class="listingblock multi-language-sample">
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">void testAuthorNamesAreValidated() {
-    given:
-    List&lt;String&gt; authors = ["Me", ""]
-
-    when:
-    bookInfoService.setBookAuthors("My Book", authors)
-
-    then:
-    ConstraintViolationException exception = thrown()
-    "setBookAuthors.authors[1]&lt;list element&gt;: must not be blank" == exception.message // <b class="conum">(1)</b>
-}
-
-void testSectionsAreValidated() {
-    given:
-    Map&lt;String, Integer&gt; sectionStartPages = new HashMap&lt;&gt;()
-    sectionStartPages.put("", 1)
-
-    when:
-    bookInfoService.setBookSectionPages("My Book", sectionStartPages)
-
-    then:
-    ConstraintViolationException exception = thrown()
-    "setBookSectionPages.sectionStartPages[]&lt;map key&gt;: must not be blank" == exception.message // <b class="conum">(2)</b>
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Test
 fun testAuthorNamesAreValidated() {
     val authors: List&lt;String&gt; = mutableListOf("Me", "")
@@ -879,6 +860,34 @@ fun testSectionsAreValidated() {
     ) // <b class="conum">(2)</b></code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">void testAuthorNamesAreValidated() {
+    given:
+    List&lt;String&gt; authors = ["Me", ""]
+
+    when:
+    bookInfoService.setBookAuthors("My Book", authors)
+
+    then:
+    ConstraintViolationException exception = thrown()
+    "setBookAuthors.authors[1]&lt;list element&gt;: must not be blank" == exception.message // <b class="conum">(1)</b>
+}
+
+void testSectionsAreValidated() {
+    given:
+    Map&lt;String, Integer&gt; sectionStartPages = new HashMap&lt;&gt;()
+    sectionStartPages.put("", 1)
+
+    when:
+    bookInfoService.setBookSectionPages("My Book", sectionStartPages)
+
+    then:
+    ConstraintViolationException exception = thrown()
+    "setBookSectionPages.sectionStartPages[]&lt;map key&gt;: must not be blank" == exception.message // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
 <div class="colist arabic">
 <table>
 <tr>
@@ -907,7 +916,7 @@ This feature is not yet supported in Groovy and Kotlin
 <h1 id="configurationValidation"><a class="anchor" href="#configurationValidation"></a>6 Validating Configuration Properties</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/configurationValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/configurationValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -932,7 +941,7 @@ It is recommended that you annotate <a href="https://docs.micronaut.io/latest/ap
 <h1 id="additionalConstraints"><a class="anchor" href="#additionalConstraints"></a>7 Defining Additional Constraints</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/additionalConstraints.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/additionalConstraints.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -978,6 +987,19 @@ public @interface DurationPattern {
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Annotation</div>
 <div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import jakarta.validation.Constraint
+import kotlin.annotation.AnnotationRetention.RUNTIME
+
+@Retention(RUNTIME)
+@Constraint(validatedBy = []) // <b class="conum">(1)</b>
+annotation class DurationPattern(
+    val message: String = "invalid duration ({validatedValue})" // <b class="conum">(2)</b>
+)</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Annotation</div>
+<div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import jakarta.validation.Constraint
 import java.lang.annotation.Retention
 
@@ -988,19 +1010,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
 @interface DurationPattern {
     String message() default "invalid duration ({validatedValue})" // <b class="conum">(2)</b>
 }</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Annotation</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import jakarta.validation.Constraint
-import kotlin.annotation.AnnotationRetention.RUNTIME
-
-@Retention(RUNTIME)
-@Constraint(validatedBy = []) // <b class="conum">(1)</b>
-annotation class DurationPattern(
-    val message: String = "invalid duration ({validatedValue})" // <b class="conum">(2)</b>
-)</code></pre>
 </div>
 </div>
 <div class="colist arabic">
@@ -1053,15 +1062,13 @@ A constraint with an empty <code>validatedBy = {}</code> will use the bean conte
 <div class="title">Example Constraint Validator Bean</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.Introspected;
-import io.micronaut.core.annotation.NonNull;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import jakarta.inject.Singleton;
 
 @Singleton
-@Introspected
 public class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
 
     @Override
@@ -1070,31 +1077,6 @@ public class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, 
                            @NonNull ConstraintValidatorContext context) {
         context.messageTemplate("invalid duration ({validatedValue}), additional custom message"); // (1)
         return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$");
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator Bean</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.AnnotationValue
-import io.micronaut.core.annotation.Introspected
-import io.micronaut.core.annotation.NonNull
-import io.micronaut.core.annotation.Nullable
-import io.micronaut.validation.validator.constraints.ConstraintValidator
-import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
-import jakarta.inject.Singleton
-
-@Singleton
-@Introspected
-class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
-
-    @Override
-    boolean isValid(@Nullable Object value,
-                    @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
-                    @NonNull ConstraintValidatorContext context) {
-        context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
-        return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
     }
 }</code></pre>
 </div>
@@ -1117,6 +1099,31 @@ class MyValidatorBean : ConstraintValidator&lt;DurationPattern, Any&gt; {
                          context: ConstraintValidatorContext) : Boolean {
         context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // (1)
         return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator Bean</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.core.annotation.Introspected
+import org.jspecify.annotations.NonNull
+import org.jspecify.annotations.Nullable
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
+import jakarta.inject.Singleton
+
+@Singleton
+@Introspected
+class MyValidatorBean implements ConstraintValidator&lt;DurationPattern, Object&gt; {
+
+    @Override
+    boolean isValid(@Nullable Object value,
+                    @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
+                    @NonNull ConstraintValidatorContext context) {
+        context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
+        return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
     }
 }</code></pre>
 </div>
@@ -1155,6 +1162,26 @@ public class MyValidatorFactory {
 <div class="listingblock multi-language-sample">
 <div class="title">Example Constraint Validator Factory</div>
 <div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.context.annotation.Factory
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import jakarta.inject.Singleton
+
+@Factory
+class MyValidatorFactory {
+
+    @Singleton
+    fun durationPatternValidator() : ConstraintValidator&lt;DurationPattern, Any&gt; {
+        return ConstraintValidator { value, _, context -&gt;
+            context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
+            value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
+        }
+    }
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator Factory</div>
+<div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.context.annotation.Factory
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.validation.validator.constraints.ConstraintValidator
@@ -1173,26 +1200,6 @@ class MyValidatorFactory {
             context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
             return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
         } as ConstraintValidator&lt;DurationPattern, CharSequence&gt;
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator Factory</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import io.micronaut.context.annotation.Factory
-import io.micronaut.validation.validator.constraints.ConstraintValidator
-import jakarta.inject.Singleton
-
-@Factory
-class MyValidatorFactory {
-
-    @Singleton
-    fun durationPatternValidator() : ConstraintValidator&lt;DurationPattern, Any&gt; {
-        return ConstraintValidator { value, _, context -&gt;
-            context.messageTemplate("invalid duration ({validatedValue}), additional custom message") // <b class="conum">(1)</b>
-            value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$".toRegex())
-        }
     }
 }</code></pre>
 </div>
@@ -1248,12 +1255,12 @@ public class HolidayService {
 <div class="listingblock multi-language-sample">
 <div class="title">Example Custom Constraint Usage</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
-class HolidayService {
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
+open class HolidayService {
 
-    String startHoliday(@NotBlank String person,
-                        @DurationPattern String duration) {
-        final Duration d = Duration.parse(duration)
+    open fun startHoliday(@NotBlank person: String,
+                          @DurationPattern duration: String): String {
+        val d = Duration.parse(duration)
         return "Person $person is off on holiday for ${d.toMinutes()} minutes"
     }
 }</code></pre>
@@ -1262,12 +1269,12 @@ class HolidayService {
 <div class="listingblock multi-language-sample">
 <div class="title">Example Custom Constraint Usage</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Singleton
-open class HolidayService {
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">@Singleton
+class HolidayService {
 
-    open fun startHoliday(@NotBlank person: String,
-                          @DurationPattern duration: String): String {
-        val d = Duration.parse(duration)
+    String startHoliday(@NotBlank String person,
+                        @DurationPattern String duration) {
+        final Duration d = Duration.parse(duration)
         return "Person $person is off on holiday for ${d.toMinutes()} minutes"
     }
 }</code></pre>
@@ -1311,19 +1318,6 @@ void testCustomAndDefaultValidator() {
 <div class="listingblock multi-language-sample">
 <div class="title">Testing Example Custom Constraint Usage</div>
 <div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">void "test test custom validator"() {
-    when:"A custom validator is used"
-    holidayService.startHoliday("Fred", "junk") // <b class="conum">(1)</b>
-
-    then:"A validation error occurs"
-    def e = thrown(ConstraintViolationException)
-    e.message == "startHoliday.duration: invalid duration (junk), additional custom message" //  <b class="conum">(2)</b>
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Testing Example Custom Constraint Usage</div>
-<div class="content">
 <pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">@Inject
 lateinit var holidayService: HolidayService
 
@@ -1334,6 +1328,19 @@ fun testCustomValidator() {
     }
 
     assertEquals("startHoliday.duration: invalid duration (junk), additional custom message", exception.message) // <b class="conum">(2)</b>
+}</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Testing Example Custom Constraint Usage</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">void "test test custom validator"() {
+    when:"A custom validator is used"
+    holidayService.startHoliday("Fred", "junk") // <b class="conum">(1)</b>
+
+    then:"A validation error occurs"
+    def e = thrown(ConstraintViolationException)
+    e.message == "startHoliday.duration: invalid duration (junk), additional custom message" //  <b class="conum">(2)</b>
 }</code></pre>
 </div>
 </div>
@@ -1365,7 +1372,7 @@ See the guide for <a href="https://guides.micronaut.io/latest/micronaut-custom-v
 <h1 id="compileTimeValidation"><a class="anchor" href="#compileTimeValidation"></a>8 Validating Annotations at Compile Time</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/compileTimeValidation.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/compileTimeValidation.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
@@ -1391,7 +1398,8 @@ See the guide for <a href="https://guides.micronaut.io/latest/micronaut-custom-v
     &lt;/path&gt;
 &lt;/annotationProcessorPaths&gt;</code></pre>
 </div>
-</div></p>
+</div>
+</p>
 </div>
 <div class="paragraph">
 <p>Micronaut Validation will, at compile time, validate annotation values that are themselves annotated with <code>jakarta.validation</code>.
@@ -1414,6 +1422,17 @@ public @interface TimeOff {
 <div class="listingblock multi-language-sample">
 <div class="title">Annotation Validation</div>
 <div class="content">
+<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import kotlin.annotation.AnnotationRetention.RUNTIME
+
+@Retention(RUNTIME)
+annotation class TimeOff(
+    @DurationPattern val duration: String
+)</code></pre>
+</div>
+</div>
+<div class="listingblock multi-language-sample">
+<div class="title">Annotation Validation</div>
+<div class="content">
 <pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import java.lang.annotation.Retention
 
 import static java.lang.annotation.RetentionPolicy.RUNTIME
@@ -1423,17 +1442,6 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME
     @DurationPattern
     String duration()
 }</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Annotation Validation</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-kotlin hljs" data-lang="kotlin">import kotlin.annotation.AnnotationRetention.RUNTIME
-
-@Retention(RUNTIME)
-annotation class TimeOff(
-    @DurationPattern val duration: String
-)</code></pre>
 </div>
 </div>
 <div class="paragraph">
@@ -1458,8 +1466,8 @@ If <code>duration</code> is a property placeholder such as <code>@TimeOff(durati
 <div class="title">Example Constraint Validator</div>
 <div class="content">
 <pre class="highlightjs highlight"><code class="language-java hljs" data-lang="java">import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.NonNull;
-import io.micronaut.core.annotation.Nullable;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 
@@ -1470,26 +1478,6 @@ public class DurationPatternValidator implements ConstraintValidator&lt;Duration
             @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
             @NonNull ConstraintValidatorContext context) {
         return value == null || value.toString().matches("^PT?[\\d]+[SMHD]{1}$");
-    }
-}</code></pre>
-</div>
-</div>
-<div class="listingblock multi-language-sample">
-<div class="title">Example Constraint Validator</div>
-<div class="content">
-<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import io.micronaut.core.annotation.NonNull
-import io.micronaut.core.annotation.Nullable
-import io.micronaut.core.annotation.AnnotationValue
-import io.micronaut.validation.validator.constraints.ConstraintValidator
-import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
-
-class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern, CharSequence&gt; {
-    @Override
-    boolean isValid(
-            @Nullable CharSequence value,
-            @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
-            @NonNull ConstraintValidatorContext context) {
-        return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
     }
 }</code></pre>
 </div>
@@ -1511,6 +1499,26 @@ class DurationPatternValidator : ConstraintValidator&lt;DurationPattern, CharSeq
 }</code></pre>
 </div>
 </div>
+<div class="listingblock multi-language-sample">
+<div class="title">Example Constraint Validator</div>
+<div class="content">
+<pre class="highlightjs highlight"><code class="language-groovy hljs" data-lang="groovy">import org.jspecify.annotations.NonNull
+import org.jspecify.annotations.Nullable
+import io.micronaut.core.annotation.AnnotationValue
+import io.micronaut.validation.validator.constraints.ConstraintValidator
+import io.micronaut.validation.validator.constraints.ConstraintValidatorContext
+
+class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern, CharSequence&gt; {
+    @Override
+    boolean isValid(
+            @Nullable CharSequence value,
+            @NonNull AnnotationValue&lt;DurationPattern&gt; annotationMetadata,
+            @NonNull ConstraintValidatorContext context) {
+        return value == null || value.toString() ==~ /^PT?[\d]+[SMHD]{1}$/
+    }
+}</code></pre>
+</div>
+</div>
 <div class="paragraph">
 <p>Additionally:</p>
 </div>
@@ -1528,10 +1536,36 @@ class DurationPatternValidator : ConstraintValidator&lt;DurationPattern, CharSeq
 </ul>
 </div>
 
-<h1 id="repository"><a class="anchor" href="#repository"></a>9 Repository</h1>
+<h1 id="breaks"><a class="anchor" href="#breaks"></a>9 Breaking Changes</h1>
 
 <div class='contribute-btn'>
-    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/4.11.x/src/main/docs/guide/repository.adoc"'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/breaks.adoc"'>
+        <i class='fa fa-pencil-square-o'></i> Improve this doc
+    </button>
+</div>
+
+
+<div class="paragraph">
+<p>This section documents breaking changes between Micronaut Validation versions:</p>
+</div>
+<div class="sect2">
+<h3 id="_micronaut_validation_5_0_0">Micronaut Validation 5.0.0</h3>
+<div class="ulist">
+<ul>
+<li>
+<p>The <a href="../api/io/micronaut/validation/validator/DefaultValidator.html">DefaultValidator</a> methods <code>requireNonNull(String, T)</code> and <code>requireNonEmpty(String, String)</code> deprecated previously and are no longer exposed as part of the public API.</p>
+</li>
+<li>
+<p>The <a href="../api/io/micronaut/validation/validator/constraints/ConstraintValidator.html">ConstraintValidator</a> method <code>getMessageTemplate())</code> and <code>requireNonEmpty(String, String)</code>  deprecated previously is removed. It was unused and has no replacement.</p>
+</li>
+</ul>
+</div>
+</div>
+
+<h1 id="repository"><a class="anchor" href="#repository"></a>10 Repository</h1>
+
+<div class='contribute-btn'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.0.x/src/main/docs/guide/repository.adoc"'>
         <i class='fa fa-pencil-square-o'></i> Improve this doc
     </button>
 </div>
