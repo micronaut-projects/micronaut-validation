@@ -4,10 +4,11 @@ Captured: 2026-05-15
 
 ## Summary
 
-Target Jakarta Validation 3.1 compliance through an opt-in spec stack, not by
+Target Jakarta Validation 3.1 compliance through an opt-in Jakarta compliance stack, not by
 making `micronaut-validation` heavier. The existing core module remains the
-default reflection-free Micronaut implementation. Full spec behavior is provided
-by optional modules and a composed `micronaut-validation-spec` aggregate.
+default reflection-free Micronaut implementation. Full Jakarta-compliant
+behavior is provided by optional modules and a composed
+`micronaut-validation-jakarta` aggregate.
 
 ## Module Topology
 
@@ -24,7 +25,7 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
   - `micronaut-validation-xml`: `META-INF/validation.xml` and constraint
     mapping XML support, using only JDK XML APIs.
   - `micronaut-validation-el`: Jakarta EL-backed message interpolation.
-  - `micronaut-validation-spec`: aggregate module depending on bootstrap,
+  - `micronaut-validation-jakarta`: aggregate module depending on bootstrap,
     reflection, XML, and EL for TCK/full compliance.
 - Update the BOM so users can depend on individual feature modules or the
   aggregate.
@@ -36,8 +37,8 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
   - XML metadata next when `micronaut-validation-xml` is present;
   - reflection fallback last when `micronaut-validation-reflection` is present.
 - Reflection support is classpath-optional and also runtime-toggleable:
-  - `micronaut.validator.spec.reflection.enabled=true` in the reflection/spec
-    modules;
+  - `micronaut.validator.spec.reflection.enabled=true` in the reflection and
+    Jakarta aggregate modules;
   - `micronaut.validator.spec.reflection-warnings.enabled=true` by default;
   - warnings are emitted once per reflective class/member/reason.
 - Core APIs should implement cheap spec-compatible accessors where possible, but
@@ -55,7 +56,7 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
   `ObjectMapper.getDefault()` pattern:
   - `ApplicationContext.builder()`;
   - narrow `beansPredicate` and `beanConfigurationsPredicate` to
-    validation/spec module packages only;
+    validation/Jakarta module packages only;
   - disable events, eager beans, package deduction, cloud deduction, bootstrap
     environment, and default property sources;
   - use the thread context classloader;
@@ -68,40 +69,41 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
 
 - Split TCK execution into:
   - core TCK profile proving existing lean behavior;
-  - spec TCK profile using `micronaut-validation-spec` with no
+  - Jakarta compliance TCK profile using `micronaut-validation-jakarta` with no
     Micronaut-specific excludes.
 - First fix the current method-validation TCK task so it actually executes.
 - Add module-specific tests for bootstrap-only, reflection-only, XML-only,
   EL-only, and aggregate behavior.
 - Add startup tests proving the bootstrap context only loads the intended
-  validation/spec beans.
+  validation/Jakarta beans.
 - Use generated TestNG single-test tasks for focused TCK development:
   - `singleCoreTck` for the lean core profile;
-  - `singleSpecTck` for the opt-in spec aggregate profile;
+  - `singleJakartaTck` for the opt-in Jakarta aggregate profile;
   - pass `-PtckSingleClass=...` and optionally `-PtckSingleMethod=...` to run a
     single TCK class or method.
 - Commit TCK progress in focused checkpoints: one passing TCK test when practical
   or a small wave of related TCK tests when the same implementation change fixes
   the group. Each checkpoint should include targeted module tests and the
   corresponding single TCK task evidence.
-- Track known spec-profile failures in
+- Track known Jakarta compliance-profile failures in
   `tests/jakarta-validation-tck/failingTests.xml`, runnable with
-  `./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:failingSpecTck`.
+  `./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:failingJakartaTck`.
   Remove entries from that suite in the same focused commit that makes the test
   or wave pass, mirroring the ODI TestNG workflow.
 - Final verification:
-  - spec TCK with no unsupported-functionality excludes;
+  - Jakarta compliance TCK with no unsupported-functionality excludes;
   - `./gradlew check`;
   - `./gradlew docs`;
   - `./gradlew japiCmp` for public API changes.
 
 ## Assumptions
 
-- Full spec compliance means depending on `micronaut-validation-spec`.
+- Full Jakarta Validation compliance means depending on
+  `micronaut-validation-jakarta`.
 - Default Micronaut users depending only on `micronaut-validation` should not pay
   for XML, EL, reflection fallback, or ServiceLoader bootstrap.
-- Jakarta EL support is optional as a module, but included by the aggregate spec
-  module so the full TCK can pass.
+- Jakarta EL support is optional as a module, but included by the aggregate
+  Jakarta module so the full TCK can pass.
 
 ## Versioning Constraint
 

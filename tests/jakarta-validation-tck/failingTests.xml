@@ -2,9 +2,10 @@
 
 <suite name="Jakarta-Bean-Validation-TCK Known Failures" verbose="1" configfailurepolicy="continue">
     <!--
-        Spec TCK progress tracker.
+        Jakarta compliance TCK progress tracker.
 
-        Keep this suite focused on tests that are known to fail in the spec profile.
+        Keep this suite focused on tests that are known to fail in the Jakarta
+        compliance profile.
         When a class or method passes, remove it from this file in the same focused
         commit as the implementation change.
 
