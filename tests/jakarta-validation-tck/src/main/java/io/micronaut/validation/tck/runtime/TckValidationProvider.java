@@ -18,6 +18,7 @@ package io.micronaut.validation.tck.runtime;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
 import jakarta.validation.Configuration;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.spi.BootstrapState;
 import jakarta.validation.spi.ConfigurationState;
@@ -25,6 +26,7 @@ import jakarta.validation.spi.ValidationProvider;
 
 @Internal
 public final class TckValidationProvider implements ValidationProvider<TckValidatorConfiguration> {
+    private static final String VALIDATION_PROVIDER_PROPERTY = "validation.provider";
 
     @Override
     public TckValidatorConfiguration createSpecializedConfiguration(BootstrapState state) {
@@ -33,12 +35,33 @@ public final class TckValidationProvider implements ValidationProvider<TckValida
 
     @Override
     public Configuration<?> createGenericConfiguration(BootstrapState state) {
+        ValidationProvider<?> configuredProvider = configuredProvider();
+        if (configuredProvider != null) {
+            return configuredProvider.createGenericConfiguration(state);
+        }
         return new TckValidatorConfiguration();
     }
 
     @Override
     public ValidatorFactory buildValidatorFactory(ConfigurationState configurationState) {
         return new DefaultValidatorFactory();
+    }
+
+    private static ValidationProvider<?> configuredProvider() {
+        String providerClassName = System.getProperty(VALIDATION_PROVIDER_PROPERTY);
+        if (providerClassName == null || providerClassName.equals(TckValidationProvider.class.getName())) {
+            return null;
+        }
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        if (classLoader == null) {
+            classLoader = TckValidationProvider.class.getClassLoader();
+        }
+        try {
+            Class<?> providerClass = classLoader.loadClass(providerClassName);
+            return (ValidationProvider<?>) providerClass.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot instantiate validation provider configured for the TCK: " + providerClassName, e);
+        }
     }
 
 }
