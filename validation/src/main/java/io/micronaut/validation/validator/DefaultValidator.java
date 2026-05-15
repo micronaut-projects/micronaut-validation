@@ -57,6 +57,7 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
@@ -125,6 +126,7 @@ public class DefaultValidator implements
     private final ExecutionHandleLocator executionHandleLocator;
     private final ConversionService conversionService;
     private final BeanIntrospector beanIntrospector;
+    private final List<ValidationMetadataProvider> metadataProviders;
     private final InternalConstraintValidatorFactory constraintValidatorFactory;
     private final boolean isPrependPropertyPath;
 
@@ -149,6 +151,7 @@ public class DefaultValidator implements
         this.messageInterpolator = configuration.getMessageInterpolator();
         this.conversionService = configuration.getConversionService();
         this.beanIntrospector = configuration.getBeanIntrospector();
+        this.metadataProviders = configuration.getMetadataProviders();
         this.constraintValidatorFactory = (InternalConstraintValidatorFactory) configuration.getConstraintValidatorFactory();
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
     }
@@ -369,7 +372,11 @@ public class DefaultValidator implements
         }
         return beanIntrospector.findIntrospection(clazz)
             .map((Function<BeanIntrospection<?>, BeanDescriptor>) IntrospectedBeanDescriptor::new)
-            .orElseGet(() -> new EmptyDescriptor(clazz));
+            .orElseGet(() -> metadataProviders.stream()
+                .sorted()
+                .flatMap(provider -> provider.getConstraintsForClass(clazz).stream())
+                .findFirst()
+                .orElseGet(() -> new EmptyDescriptor(clazz)));
     }
 
     @Override

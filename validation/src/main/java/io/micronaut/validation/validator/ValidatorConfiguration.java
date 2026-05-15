@@ -16,15 +16,19 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import org.jspecify.annotations.NonNull;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
+import org.jspecify.annotations.NonNull;
+
+import java.util.List;
 
 /**
  * Configuration for the {@link Validator}.
@@ -100,6 +104,24 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     MessageInterpolator getDefaultMessageInterpolator();
 
     /**
+     * @return The parameter name provider
+     * @since 5.1
+     */
+    @NonNull
+    default ParameterNameProvider getParameterNameProvider() {
+        return getDefaultParameterNameProvider();
+    }
+
+    /**
+     * @return The default parameter name provider
+     * @since 5.1
+     */
+    @NonNull
+    default ParameterNameProvider getDefaultParameterNameProvider() {
+        return new DefaultParameterNameProvider();
+    }
+
+    /**
      * The execution handler locator to use.
      * @return The locator
      */
@@ -121,5 +143,14 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      */
     default BeanIntrospector getBeanIntrospector() {
         return BeanIntrospector.SHARED;
+    }
+
+    /**
+     * @return Optional validation metadata providers
+     * @since 5.1
+     */
+    @NonNull
+    default List<ValidationMetadataProvider> getMetadataProviders() {
+        return List.of();
     }
 }

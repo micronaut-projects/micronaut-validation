@@ -1,0 +1,128 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.el;
+
+import io.micronaut.validation.validator.messages.DefaultMessages;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.MessageInterpolator;
+import jakarta.validation.Payload;
+import jakarta.validation.ValidationException;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.ValidateUnwrappedValue;
+import org.junit.jupiter.api.Test;
+
+import java.lang.annotation.Annotation;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class ElMessageInterpolatorTest {
+
+    @Test
+    void interpolatesJakartaElExpressionsAndConstraintAttributes() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate(
+            "value ${validatedValue.toUpperCase()} must be at least {min}",
+            new TestContext("abc", Map.of("min", 3))
+        );
+
+        assertEquals("value ABC must be at least 3", message);
+    }
+
+    private record TestContext(
+        Object value,
+        Map<String, Object> attributes
+    ) implements MessageInterpolator.Context {
+
+        @Override
+        public ConstraintDescriptor<?> getConstraintDescriptor() {
+            return new TestConstraintDescriptor(attributes);
+        }
+
+        @Override
+        public Object getValidatedValue() {
+            return value;
+        }
+
+        @Override
+        public <T> T unwrap(Class<T> type) {
+            throw new ValidationException("Unsupported unwrap");
+        }
+    }
+
+    private record TestConstraintDescriptor(
+        Map<String, Object> attributes
+    ) implements ConstraintDescriptor<Annotation> {
+
+        @Override
+        public Annotation getAnnotation() {
+            return null;
+        }
+
+        @Override
+        public String getMessageTemplate() {
+            return "";
+        }
+
+        @Override
+        public Set<Class<?>> getGroups() {
+            return Set.of();
+        }
+
+        @Override
+        public Set<Class<? extends Payload>> getPayload() {
+            return Set.of();
+        }
+
+        @Override
+        public ConstraintTarget getValidationAppliesTo() {
+            return ConstraintTarget.IMPLICIT;
+        }
+
+        @Override
+        public List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> getConstraintValidatorClasses() {
+            return List.of();
+        }
+
+        @Override
+        public Map<String, Object> getAttributes() {
+            return attributes;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getComposingConstraints() {
+            return Set.of();
+        }
+
+        @Override
+        public boolean isReportAsSingleViolation() {
+            return false;
+        }
+
+        @Override
+        public ValidateUnwrappedValue getValueUnwrapping() {
+            return ValidateUnwrappedValue.DEFAULT;
+        }
+
+        @Override
+        public <U> U unwrap(Class<U> type) {
+            throw new ValidationException("Unsupported unwrap");
+        }
+    }
+}

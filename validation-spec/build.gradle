@@ -1,0 +1,19 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+dependencies {
+    api projects.micronautValidationBootstrap
+    api projects.micronautValidationReflection
+    api projects.micronautValidationXml
+    api projects.micronautValidationEl
+
+    testImplementation mnTest.micronaut.test.junit5
+    testRuntimeOnly mnTest.junit.jupiter.engine
+}
+
+micronautBuild {
+    binaryCompatibility {
+        enabledAfter("5.1.0")
+    }
+}

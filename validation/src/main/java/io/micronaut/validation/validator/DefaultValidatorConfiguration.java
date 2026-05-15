@@ -38,11 +38,13 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.ConstraintTarget;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.Path;
@@ -106,11 +108,18 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private MessageInterpolator messageInterpolator;
 
     @Nullable
+    private ParameterNameProvider defaultParameterNameProvider;
+
+    @Nullable
+    private ParameterNameProvider parameterNameProvider;
+
+    @Nullable
     private ExecutionHandleLocator executionHandleLocator;
 
     private ConversionService conversionService = ConversionService.SHARED;
 
     private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
+    private List<ValidationMetadataProvider> metadataProviders = List.of();
 
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
@@ -324,6 +333,36 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
+    @NonNull
+    @Override
+    public ParameterNameProvider getParameterNameProvider() {
+        if (parameterNameProvider == null) {
+            return getDefaultParameterNameProvider();
+        }
+        return parameterNameProvider;
+    }
+
+    @NonNull
+    @Override
+    public ParameterNameProvider getDefaultParameterNameProvider() {
+        if (defaultParameterNameProvider == null) {
+            defaultParameterNameProvider = new DefaultParameterNameProvider();
+        }
+        return defaultParameterNameProvider;
+    }
+
+    /**
+     * Sets the parameter name provider to use.
+     *
+     * @param parameterNameProvider The parameter name provider
+     * @return this configuration
+     */
+    @Inject
+    public DefaultValidatorConfiguration setParameterNameProvider(@Nullable ParameterNameProvider parameterNameProvider) {
+        this.parameterNameProvider = parameterNameProvider;
+        return this;
+    }
+
     @Override
     @NonNull
     public ExecutionHandleLocator getExecutionHandleLocator() {
@@ -331,6 +370,19 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             executionHandleLocator = ExecutionHandleLocator.EMPTY;
         }
         return executionHandleLocator;
+    }
+
+    /**
+     * Sets the execution handle locator to use.
+     *
+     * @param executionHandleLocator The execution handle locator
+     * @return this configuration
+     * @since 5.1
+     */
+    @Internal
+    public DefaultValidatorConfiguration setExecutionHandleLocator(ExecutionHandleLocator executionHandleLocator) {
+        this.executionHandleLocator = executionHandleLocator;
+        return this;
     }
 
     /**
@@ -384,12 +436,18 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
-        throw new UnsupportedOperationException("Method constraintValidatorFactory(..) not supported");
+        if (factory instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
+            this.constraintValidatorFactory = internalConstraintValidatorFactory;
+        } else {
+            this.constraintValidatorFactory = new DelegatingInternalConstraintValidatorFactory(factory);
+        }
+        return this;
     }
 
     @Override
     public ValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
-        throw new UnsupportedOperationException("Method parameterNameProvider(..) not supported");
+        this.parameterNameProvider = parameterNameProvider;
+        return this;
     }
 
     @Override
@@ -475,6 +533,21 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         this.beanIntrospector = beanIntrospector;
     }
 
+    @Override
+    public List<ValidationMetadataProvider> getMetadataProviders() {
+        return metadataProviders;
+    }
+
+    /**
+     * Sets optional metadata providers.
+     *
+     * @param metadataProviders The metadata providers
+     */
+    @Inject
+    public void setMetadataProviders(List<ValidationMetadataProvider> metadataProviders) {
+        this.metadataProviders = metadataProviders == null ? List.of() : List.copyOf(metadataProviders);
+    }
+
     private static void determineValueExtractorDefinitions(List<AnnotatedType> valueExtractorDefinitions, Class<?> extractorImplementationType) {
         if (!ValueExtractor.class.isAssignableFrom(extractorImplementationType)) {
             return;
@@ -510,5 +583,27 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             return getClassFromType(wildcardType.getUpperBounds()[0]);
         }
         throw new IllegalArgumentException("Unknown type: " + type);
+    }
+
+    private record DelegatingInternalConstraintValidatorFactory(
+        ConstraintValidatorFactory delegate
+    ) implements InternalConstraintValidatorFactory {
+
+        @Override
+        public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+            return delegate.getInstance(key);
+        }
+
+        @Override
+        public void releaseInstance(jakarta.validation.ConstraintValidator<?, ?> instance) {
+            delegate.releaseInstance(instance);
+        }
+
+        @Override
+        public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
+                                                                                      Class<?> targetType,
+                                                                                      ConstraintTarget constraintTarget) {
+            return delegate.getInstance(validatorType);
+        }
     }
 }
