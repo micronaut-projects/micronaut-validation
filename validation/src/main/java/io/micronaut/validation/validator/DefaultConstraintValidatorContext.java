@@ -261,7 +261,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
         if (hasDefaultGroup(ctx.definedGroups)) {
-            Class<Object>[] classGroupSequence = beanIntrospection.classValues(GroupSequence.class);
+            Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
             if (classGroupSequence.length > 0) {
                 if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
                     throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
