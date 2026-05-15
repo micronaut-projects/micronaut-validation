@@ -79,7 +79,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -138,6 +137,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, Class<?>... groups) {
+        requireNonNull("object", object);
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             return super.validate(object, groups);
@@ -147,6 +147,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, BeanValidationContext validationContext) {
+        requireNonNull("object", object);
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             return super.validate(object, validationContext);
@@ -156,12 +157,12 @@ public class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateProperty(T object, String propertyName, BeanValidationContext context) {
+        requireNonNull("object", object);
+        requireNonEmpty("propertyName", propertyName);
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             return super.validateProperty(object, propertyName, context);
         }
-        Objects.requireNonNull(object, "object");
-        Objects.requireNonNull(propertyName, "propertyName");
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
         ReflectionProperty property = metadata.properties.get(propertyName);
         if (property == null) {
@@ -174,12 +175,12 @@ public class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, @Nullable Object value, BeanValidationContext context) {
+        requireNonNull("beanType", beanType);
+        requireNonEmpty("propertyName", propertyName);
         BeanIntrospection<T> introspection = getBeanIntrospection(beanType);
         if (introspection != null) {
             return super.validateValue(beanType, propertyName, value, context);
         }
-        Objects.requireNonNull(beanType, "beanType");
-        Objects.requireNonNull(propertyName, "propertyName");
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(beanType);
         ReflectionProperty property = metadata.properties.get(propertyName);
         if (property == null) {
@@ -192,6 +193,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     @Override
     public BeanDescriptor getConstraintsForClass(Class<?> clazz) {
+        requireNonNull("clazz", clazz);
         if (getBeanIntrospection(clazz) != null) {
             return super.getConstraintsForClass(clazz);
         }
@@ -199,7 +201,6 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object, BeanValidationContext context) {
-        Objects.requireNonNull(object, "object");
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
         warnOnce(object.getClass().getName(), "class", "validating without Micronaut bean introspection");
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
@@ -305,6 +306,20 @@ public class ReflectionValidator extends DefaultValidator {
         if (warningsEnabled && WARNED_REFLECTION_ACCESS.putIfAbsent(type + "#" + member + "#" + reason, Boolean.TRUE) == null) {
             LOG.warn("Micronaut Validation is using reflection fallback for {} {}: {}", type, member, reason);
         }
+    }
+
+    private static <T> T requireNonNull(String name, @Nullable T value) {
+        if (value == null) {
+            throw new IllegalArgumentException("Argument [" + name + "] cannot be null");
+        }
+        return value;
+    }
+
+    private static String requireNonEmpty(String name, @Nullable String value) {
+        if (StringUtils.isEmpty(value)) {
+            throw new IllegalArgumentException("Argument [" + name + "] cannot be empty");
+        }
+        return value;
     }
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element) {
