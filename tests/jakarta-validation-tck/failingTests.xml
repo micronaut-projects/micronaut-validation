@@ -13,21 +13,11 @@
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.ParameterNameProviderSpecifiedInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest
     -->
-    <test name="Known Failing Spec TCK Tests">
+    <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest">
-                <methods>
-                    <include name="testAnnotationDefinedConstraintApplies"/>
-                    <include name="testCascadingConfiguredInXml"/>
-                    <include name="testClassConstraintDefinedInXml"/>
-                    <include name="testElementConversionInXmlConfiguredConstraint"/>
-                    <include name="testFieldConstraintDefinedInXml"/>
-                    <include name="testIllegalAnnotationValueInXmlMappingCausesException"/>
-                    <include name="testMappingFilesAddedViaConfigurationGetAddedToXmlConfiguredMappings"/>
-                    <include name="testPropertyConstraintDefinedInXml"/>
-                </methods>
-            </class>
+            <!-- Add tracked failing classes or methods here as new gaps are identified. -->
         </classes>
     </test>
 </suite>

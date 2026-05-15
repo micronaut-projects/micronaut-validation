@@ -23,6 +23,7 @@ import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Configuration;
@@ -325,6 +326,12 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
         validatorConfiguration.setBeanIntrospector(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
+        xmlMappingMetadataProvider(applicationContext.getClassLoader(), configurationState.getMappingStreams())
+            .ifPresent(provider -> {
+                List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
+                metadataProviders.add(provider);
+                validatorConfiguration.setMetadataProviders(metadataProviders);
+            });
         if (shouldApplyMessageInterpolator(configurationState)) {
             validatorConfiguration.messageInterpolator(configurationState.getMessageInterpolator());
         }
@@ -499,6 +506,22 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             return true;
         } catch (ClassNotFoundException e) {
             return false;
+        }
+    }
+
+    private static Optional<ValidationMetadataProvider> xmlMappingMetadataProvider(ClassLoader classLoader, Set<InputStream> mappingStreams) {
+        if (mappingStreams.isEmpty()) {
+            return Optional.empty();
+        }
+        try {
+            Class<?> providerClass = Class.forName("io.micronaut.validation.xml.XmlValidationMetadataProvider", true, classLoader);
+            return Optional.of((ValidationMetadataProvider) providerClass
+                .getConstructor(ClassLoader.class, Set.class)
+                .newInstance(classLoader, mappingStreams));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot initialize XML validation metadata provider", e);
         }
     }
 

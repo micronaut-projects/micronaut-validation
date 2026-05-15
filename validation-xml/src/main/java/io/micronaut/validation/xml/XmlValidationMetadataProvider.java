@@ -1,0 +1,422 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.xml;
+
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import jakarta.validation.Constraint;
+import jakarta.validation.GroupSequence;
+import jakarta.validation.Valid;
+import jakarta.validation.ValidationException;
+import jakarta.validation.metadata.BeanDescriptor;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
+
+import javax.xml.XMLConstants;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * Loads Jakarta Validation constraint mapping XML as validation metadata.
+ *
+ * @since 5.1
+ */
+@Internal
+public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
+
+    private final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
+    private final ClassLoader classLoader;
+
+    /**
+     * @param classLoader The class loader
+     * @param mappingStreams The mapping streams
+     */
+    public XmlValidationMetadataProvider(ClassLoader classLoader, Set<InputStream> mappingStreams) {
+        this.classLoader = classLoader;
+        for (InputStream mappingStream : mappingStreams) {
+            parse(mappingStream);
+        }
+    }
+
+    @Override
+    public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
+        return Optional.empty();
+    }
+
+    @Override
+    public AnnotationMetadata getBeanAnnotationMetadata(Class<?> beanType) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        return mapping == null ? AnnotationMetadata.EMPTY_METADATA : mapping.classMetadata;
+    }
+
+    @Override
+    public boolean isBeanAnnotationMetadataIgnored(Class<?> beanType) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        return mapping != null && mapping.classAnnotationsIgnored;
+    }
+
+    @Override
+    public AnnotationMetadata getPropertyAnnotationMetadata(Class<?> beanType, String propertyName) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        if (mapping == null) {
+            return AnnotationMetadata.EMPTY_METADATA;
+        }
+        PropertyMapping propertyMapping = mapping.properties.get(propertyName);
+        return propertyMapping == null ? AnnotationMetadata.EMPTY_METADATA : propertyMapping.metadata;
+    }
+
+    @Override
+    public boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        if (mapping == null) {
+            return false;
+        }
+        PropertyMapping propertyMapping = mapping.properties.get(propertyName);
+        return propertyMapping != null && propertyMapping.annotationsIgnored;
+    }
+
+    private void parse(InputStream inputStream) {
+        try (inputStream) {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            factory.setNamespaceAware(true);
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            Document document = factory.newDocumentBuilder().parse(inputStream);
+            Element root = document.getDocumentElement();
+            String defaultPackage = textOfChild(root, "default-package");
+            Map<String, Class<?>[]> constraintDefinitions = constraintDefinitions(root, defaultPackage);
+            NodeList children = root.getChildNodes();
+            for (int i = 0; i < children.getLength(); i++) {
+                Node node = children.item(i);
+                if (node instanceof Element element && "bean".equals(localName(element))) {
+                    parseBean(element, defaultPackage, constraintDefinitions);
+                }
+            }
+        } catch (ParserConfigurationException | SAXException | IOException e) {
+            throw new ValidationException("Cannot parse constraint mapping XML", e);
+        }
+    }
+
+    private Map<String, Class<?>[]> constraintDefinitions(Element root, String defaultPackage) {
+        Map<String, Class<?>[]> definitions = new LinkedHashMap<>();
+        NodeList children = root.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element definition) || !"constraint-definition".equals(localName(definition))) {
+                continue;
+            }
+            String annotationName = resolveClassName(definition.getAttribute("annotation"), defaultPackage);
+            Element validatedBy = child(definition, "validated-by");
+            if (validatedBy == null) {
+                continue;
+            }
+            List<Class<?>> validators = new ArrayList<>();
+            NodeList validatorNodes = validatedBy.getChildNodes();
+            for (int j = 0; j < validatorNodes.getLength(); j++) {
+                Node validatorNode = validatorNodes.item(j);
+                if (validatorNode instanceof Element value && "value".equals(localName(value))) {
+                    validators.add(loadClass(resolveClassName(text(value), defaultPackage)));
+                }
+            }
+            if (!validators.isEmpty()) {
+                definitions.put(annotationName, validators.toArray(Class<?>[]::new));
+            }
+        }
+        return definitions;
+    }
+
+    private void parseBean(Element bean, String defaultPackage, Map<String, Class<?>[]> constraintDefinitions) {
+        Class<?> beanType = loadClass(resolveClassName(bean.getAttribute("class"), defaultPackage));
+        boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", false);
+        MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
+        boolean classAnnotationsIgnored = beanAnnotationsIgnored;
+        Map<String, PropertyMapping> properties = new LinkedHashMap<>();
+        NodeList children = bean.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element element)) {
+                continue;
+            }
+            switch (localName(element)) {
+                case "class" -> {
+                    classAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
+                    parseGroupSequence(element, defaultPackage, classMetadata);
+                    parseConstraints(element, defaultPackage, constraintDefinitions, classMetadata);
+                }
+                case "field", "getter" -> {
+                    MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
+                    parseConstraints(element, defaultPackage, constraintDefinitions, propertyMetadata);
+                    if (child(element, "valid") != null) {
+                        propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
+                    }
+                    boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
+                    properties.put(element.getAttribute("name"), new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
+                }
+                default -> {
+                }
+            }
+        }
+        beanMappings.put(beanType, new BeanMapping(classMetadata, classAnnotationsIgnored, properties));
+    }
+
+    private void parseGroupSequence(Element parent,
+                                    String defaultPackage,
+                                    MutableAnnotationMetadata metadata) {
+        Element groupSequence = child(parent, "group-sequence");
+        if (groupSequence != null) {
+            metadata.addDeclaredAnnotation(
+                GroupSequence.class.getName(),
+                Map.of(AnnotationMetadata.VALUE_MEMBER, classValues(groupSequence, defaultPackage))
+            );
+        }
+    }
+
+    private void parseConstraints(Element parent,
+                                  String defaultPackage,
+                                  Map<String, Class<?>[]> constraintDefinitions,
+                                  MutableAnnotationMetadata metadata) {
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element constraint) || !"constraint".equals(localName(constraint))) {
+                continue;
+            }
+            String annotationName = resolveClassName(constraint.getAttribute("annotation"), defaultPackage);
+            Class<? extends Annotation> annotationType = (Class<? extends Annotation>) loadClass(annotationName);
+            Map<CharSequence, Object> values = constraintValues(constraint, annotationType, defaultPackage);
+            Class<?>[] validators = constraintDefinitions.get(annotationName);
+            if (validators != null) {
+                values.put(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validators);
+            }
+            metadata.addDeclaredAnnotation(annotationName, values);
+            metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
+        }
+    }
+
+    private Map<CharSequence, Object> constraintValues(Element constraint,
+                                                       Class<? extends Annotation> annotationType,
+                                                       String defaultPackage) {
+        Map<CharSequence, Object> values = new LinkedHashMap<>();
+        NodeList children = constraint.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element element)) {
+                continue;
+            }
+            switch (localName(element)) {
+                case "message" -> values.put("message", text(element));
+                case "groups" -> values.put("groups", classValues(element, defaultPackage));
+                case "payload" -> values.put("payload", classValues(element, defaultPackage));
+                case "element" -> {
+                    String name = element.getAttribute("name");
+                    values.put(name, annotationMemberValue(annotationType, name, element, defaultPackage));
+                }
+                default -> {
+                }
+            }
+        }
+        return values;
+    }
+
+    private Object annotationMemberValue(Class<? extends Annotation> annotationType,
+                                         String name,
+                                         Element element,
+                                         String defaultPackage) {
+        try {
+            Method method = annotationType.getDeclaredMethod(name);
+            return convertValue(method.getReturnType(), element, defaultPackage);
+        } catch (NoSuchMethodException e) {
+            throw new ValidationException("Unknown annotation member " + annotationType.getName() + "." + name, e);
+        }
+    }
+
+    private Object convertValue(Class<?> targetType, Element element, String defaultPackage) {
+        try {
+            if (targetType.isArray()) {
+                return arrayValue(targetType.getComponentType(), element, defaultPackage);
+            }
+            String value = singleValue(element);
+            if (targetType == String.class) {
+                return value;
+            }
+            if (targetType == byte.class || targetType == Byte.class) {
+                return Byte.parseByte(value);
+            }
+            if (targetType == short.class || targetType == Short.class) {
+                return Short.parseShort(value);
+            }
+            if (targetType == int.class || targetType == Integer.class) {
+                return Integer.parseInt(value);
+            }
+            if (targetType == long.class || targetType == Long.class) {
+                return Long.parseLong(value);
+            }
+            if (targetType == float.class || targetType == Float.class) {
+                return Float.parseFloat(value);
+            }
+            if (targetType == double.class || targetType == Double.class) {
+                return Double.parseDouble(value);
+            }
+            if (targetType == boolean.class || targetType == Boolean.class) {
+                return Boolean.parseBoolean(value);
+            }
+            if (targetType == char.class || targetType == Character.class) {
+                if (value.length() != 1) {
+                    throw new ValidationException("Value is not a single character: " + value);
+                }
+                return value.charAt(0);
+            }
+            if (targetType == Class.class) {
+                return loadClass(resolveClassName(value, defaultPackage));
+            }
+            if (targetType.isEnum()) {
+                return Enum.valueOf((Class<? extends Enum>) targetType, value);
+            }
+            if (targetType.isAnnotation()) {
+                Element annotationElement = child(element, "annotation");
+                if (annotationElement == null) {
+                    throw new ValidationException("Missing nested annotation value for " + targetType.getName());
+                }
+                return annotationValue((Class<? extends Annotation>) targetType, annotationElement, defaultPackage);
+            }
+            throw new ValidationException("Unsupported XML annotation member type: " + targetType.getName());
+        } catch (RuntimeException e) {
+            if (e instanceof ValidationException validationException) {
+                throw validationException;
+            }
+            throw new ValidationException("Cannot convert XML annotation member value to " + targetType.getName(), e);
+        }
+    }
+
+    private Object arrayValue(Class<?> componentType, Element element, String defaultPackage) {
+        List<Element> valueElements = children(element, componentType.isAnnotation() ? "annotation" : "value");
+        if (componentType.isAnnotation()) {
+            AnnotationValue<?>[] values = valueElements.stream()
+                .map(value -> annotationValue((Class<? extends Annotation>) componentType, value, defaultPackage))
+                .toArray(AnnotationValue[]::new);
+            return values;
+        }
+        Object array = Array.newInstance(componentType, valueElements.size());
+        for (int i = 0; i < valueElements.size(); i++) {
+            Array.set(array, i, convertValue(componentType, valueElements.get(i), defaultPackage));
+        }
+        return array;
+    }
+
+    private AnnotationValue<?> annotationValue(Class<? extends Annotation> annotationType,
+                                               Element annotation,
+                                               String defaultPackage) {
+        Map<CharSequence, Object> values = new LinkedHashMap<>();
+        NodeList children = annotation.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node instanceof Element element && "element".equals(localName(element))) {
+                String name = element.getAttribute("name");
+                values.put(name, annotationMemberValue(annotationType, name, element, defaultPackage));
+            }
+        }
+        return new AnnotationValue<>(annotationType.getName(), values);
+    }
+
+    private Class<?>[] classValues(Element parent, String defaultPackage) {
+        List<Class<?>> values = new ArrayList<>();
+        for (Element value : children(parent, "value")) {
+            values.add(loadClass(resolveClassName(text(value), defaultPackage)));
+        }
+        return values.toArray(Class<?>[]::new);
+    }
+
+    private String resolveClassName(String className, String defaultPackage) {
+        if (className.indexOf('.') >= 0 || defaultPackage == null || defaultPackage.isEmpty()) {
+            return className;
+        }
+        return defaultPackage + "." + className;
+    }
+
+    private Class<?> loadClass(String className) {
+        try {
+            return Class.forName(className, false, classLoader);
+        } catch (ClassNotFoundException e) {
+            throw new ValidationException("Cannot load class from validation XML: " + className, e);
+        }
+    }
+
+    private static Element child(Element parent, String name) {
+        List<Element> children = children(parent, name);
+        return children.isEmpty() ? null : children.get(0);
+    }
+
+    private static List<Element> children(Element parent, String name) {
+        List<Element> elements = new ArrayList<>();
+        NodeList children = parent.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node instanceof Element element && name.equals(localName(element))) {
+                elements.add(element);
+            }
+        }
+        return elements;
+    }
+
+    private static String textOfChild(Element parent, String name) {
+        Element child = child(parent, name);
+        return child == null ? "" : text(child);
+    }
+
+    private static String singleValue(Element element) {
+        Element value = child(element, "value");
+        return value == null ? text(element) : text(value);
+    }
+
+    private static boolean booleanAttribute(Element element, String name, boolean defaultValue) {
+        return element.hasAttribute(name) ? Boolean.parseBoolean(element.getAttribute(name)) : defaultValue;
+    }
+
+    private static String localName(Element element) {
+        String localName = element.getLocalName();
+        return localName == null ? element.getTagName() : localName;
+    }
+
+    private static String text(Element element) {
+        return element.getTextContent().trim();
+    }
+
+    private record BeanMapping(AnnotationMetadata classMetadata,
+                               boolean classAnnotationsIgnored,
+                               Map<String, PropertyMapping> properties) {
+    }
+
+    private record PropertyMapping(AnnotationMetadata metadata,
+                                   boolean annotationsIgnored) {
+    }
+}

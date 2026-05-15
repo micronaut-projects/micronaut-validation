@@ -18,6 +18,7 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.inject.annotation.AnnotationMetadataSupport;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.CollectionUtils;
@@ -108,7 +109,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public T getAnnotation() {
-        return annotationMetadata.synthesize(type);
+        return AnnotationMetadataSupport.buildAnnotation(type, annotationValue);
     }
 
     @Override

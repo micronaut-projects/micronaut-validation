@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
@@ -36,6 +37,8 @@ import jakarta.validation.metadata.Scope;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -49,6 +52,8 @@ import java.util.stream.Collectors;
 class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
     private final BeanIntrospection<?> beanIntrospection;
+    private final AnnotationMetadata beanAnnotationMetadata;
+    private final Map<String, AnnotationMetadata> propertyAnnotationMetadata;
 
     /**
      * Default constructor.
@@ -56,13 +61,26 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      * @param beanIntrospection The bean introspection
      */
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection) {
+        this(beanIntrospection, beanIntrospection.getAnnotationMetadata(), Collections.emptyMap());
+    }
+
+    /**
+     * @param beanIntrospection The bean introspection
+     * @param beanAnnotationMetadata The bean annotation metadata
+     * @param propertyAnnotationMetadata The property annotation metadata
+     */
+    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
+                               AnnotationMetadata beanAnnotationMetadata,
+                               Map<String, AnnotationMetadata> propertyAnnotationMetadata) {
         ArgumentUtils.requireNonNull("beanIntrospection", beanIntrospection);
         this.beanIntrospection = beanIntrospection;
+        this.beanAnnotationMetadata = beanAnnotationMetadata;
+        this.propertyAnnotationMetadata = new LinkedHashMap<>(propertyAnnotationMetadata);
     }
 
     @Override
     public boolean isBeanConstrained() {
-        return hasConstraints();
+        return hasConstraints() || getConstrainedProperties().stream().anyMatch(property -> property.hasConstraints() || property.isCascaded());
     }
 
     @Override
@@ -74,9 +92,10 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public Set<PropertyDescriptor> getConstrainedProperties() {
-        return beanIntrospection.getIndexedProperties(Constraint.class)
+        return beanIntrospection.getBeanProperties()
             .stream()
             .map(IntrospectedPropertyDescriptor::new)
+            .filter(property -> property.hasConstraints() || property.isCascaded())
             .collect(Collectors.toSet());
     }
 
@@ -102,7 +121,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public boolean hasConstraints() {
-        return beanIntrospection.getIndexedProperty(Constraint.class).isPresent();
+        return beanAnnotationMetadata.hasStereotype(Constraint.class);
     }
 
     @Override
@@ -127,7 +146,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-        return Collections.emptySet();
+        return constraintDescriptors(beanAnnotationMetadata);
     }
 
     @Override
@@ -141,9 +160,11 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     private final class IntrospectedPropertyDescriptor implements PropertyDescriptor, ConstraintFinder {
 
         private final BeanProperty<?, ?> beanProperty;
+        private final AnnotationMetadata annotationMetadata;
 
         IntrospectedPropertyDescriptor(BeanProperty<?, ?> beanProperty) {
             this.beanProperty = beanProperty;
+            this.annotationMetadata = propertyAnnotationMetadata.getOrDefault(beanProperty.getName(), beanProperty);
         }
 
         @Override
@@ -153,7 +174,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
         @Override
         public boolean isCascaded() {
-            return beanProperty.hasAnnotation(Valid.class);
+            return annotationMetadata.hasAnnotation(Valid.class);
         }
 
         @Override
@@ -168,7 +189,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
         @Override
         public boolean hasConstraints() {
-            return beanProperty.hasStereotype(Constraint.class);
+            return annotationMetadata.hasStereotype(Constraint.class);
         }
 
         @Override
@@ -194,20 +215,31 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         @SuppressWarnings("unchecked")
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            return beanProperty.getAnnotationTypesByStereotype(Constraint.class)
-                .stream().flatMap(type -> beanProperty.getAnnotationValuesByType(type).stream().map(annotationValue -> {
-                    AnnotationValue<? extends Annotation> annotation = beanProperty.getAnnotation(type);
-                        return (DefaultConstraintDescriptor<?>) new DefaultConstraintDescriptor(
-                        type,
-                        annotation,
-                        beanProperty
-                    );
-                })).collect(Collectors.toSet());
+            return constraintDescriptors(annotationMetadata);
         }
 
         @Override
         public ConstraintFinder findConstraints() {
             return this;
         }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
+        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())
+            .stream()
+            .flatMap(type -> annotationMetadata.getAnnotationValuesByType(type)
+                .stream()
+                .map(annotationValue -> (DefaultConstraintDescriptor<?>) new DefaultConstraintDescriptor(
+                    type,
+                    annotationValue,
+                    annotationMetadata
+                )))
+            .collect(Collectors.toSet());
+    }
+
+    private static ClassLoader currentClassLoader() {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        return classLoader == null ? IntrospectedBeanDescriptor.class.getClassLoader() : classLoader;
     }
 }

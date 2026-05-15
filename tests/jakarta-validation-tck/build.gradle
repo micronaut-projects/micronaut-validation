@@ -101,6 +101,7 @@ def failingJakartaTck = tasks.register('failingJakartaTck', Test) {
     group = 'verification'
     description = "Runs the tracked known failing Jakarta Validation TCK tests against the compliance profile."
     scanForTestClasses false
+    failOnNoDiscoveredTests = false
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath
     shouldRunAfter(jakartaTck)
