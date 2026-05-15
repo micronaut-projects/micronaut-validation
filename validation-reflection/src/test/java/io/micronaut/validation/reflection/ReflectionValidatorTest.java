@@ -60,6 +60,20 @@ class ReflectionValidatorTest {
         }
     }
 
+    @Test
+    void rejectsNullArgumentsWithIllegalArgumentException() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            assertThrows(IllegalArgumentException.class, () -> validator.validate(null));
+            assertThrows(IllegalArgumentException.class, () -> validator.validateProperty(null, "name"));
+            assertThrows(IllegalArgumentException.class, () -> validator.validateValue(null, "name", ""));
+            assertThrows(IllegalArgumentException.class, () -> validator.getConstraintsForClass(null));
+        }
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
