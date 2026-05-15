@@ -91,6 +91,21 @@ tasks.register('specTck', Test) {
     }
 }
 
+tasks.register('failingSpecTck', Test) {
+    group = 'verification'
+    description = "Runs the tracked known failing Jakarta Validation TCK tests against the spec profile."
+    scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + specTckRuntimeClasspath
+    shouldRunAfter(specTck)
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+        ]
+        suites file("failingTests.xml")
+    }
+}
+
 def registerSingleTckTask = { String taskName, String descriptionText, FileCollection runtimeClasspath, String validationProvider ->
     tasks.register(taskName, Test) {
         group = 'verification'

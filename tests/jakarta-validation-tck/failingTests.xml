@@ -1,0 +1,32 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK Known Failures" verbose="1" configfailurepolicy="continue">
+    <!--
+        Spec TCK progress tracker.
+
+        Keep this suite focused on tests that are known to fail in the spec profile.
+        When a class or method passes, remove it from this file in the same focused
+        commit as the implementation change.
+
+        Passing waves already removed from this tracker:
+        - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.ParameterNameProviderSpecifiedInValidationXmlTest
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest
+    -->
+    <test name="Known Failing Spec TCK Tests">
+        <classes>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest">
+                <methods>
+                    <include name="testAnnotationDefinedConstraintApplies"/>
+                    <include name="testCascadingConfiguredInXml"/>
+                    <include name="testClassConstraintDefinedInXml"/>
+                    <include name="testElementConversionInXmlConfiguredConstraint"/>
+                    <include name="testFieldConstraintDefinedInXml"/>
+                    <include name="testIllegalAnnotationValueInXmlMappingCausesException"/>
+                    <include name="testMappingFilesAddedViaConfigurationGetAddedToXmlConfiguredMappings"/>
+                    <include name="testPropertyConstraintDefinedInXml"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>
