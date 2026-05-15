@@ -44,6 +44,7 @@ import io.micronaut.core.util.StringUtils;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.InjectionPoint;
+import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
@@ -68,6 +69,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.Payload;
+import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
@@ -129,6 +131,7 @@ public class DefaultValidator implements
     private final BeanIntrospector beanIntrospector;
     private final List<ValidationMetadataProvider> metadataProviders;
     private final InternalConstraintValidatorFactory constraintValidatorFactory;
+    private final ParameterNameProvider parameterNameProvider;
     private final boolean isPrependPropertyPath;
 
     // The advantage of CopyOnWriteMap over ConcurrentHashMap is that here we can define a maximum
@@ -154,6 +157,7 @@ public class DefaultValidator implements
         this.beanIntrospector = configuration.getBeanIntrospector();
         this.metadataProviders = configuration.getMetadataProviders();
         this.constraintValidatorFactory = internalConstraintValidatorFactory(configuration);
+        this.parameterNameProvider = configuration.getParameterNameProvider();
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
     }
 
@@ -425,7 +429,7 @@ public class DefaultValidator implements
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = method.getAnnotationMetadata().getDeclaredMetadata();
-                validateParametersInternal(context, object, methodAnnotationMetadata, parameterValues, arguments, argLen);
+                validateParametersInternal(context, object, methodAnnotationMetadata, parameterValues, arguments, argLen, getParameterNames(method));
             }
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
@@ -454,7 +458,7 @@ public class DefaultValidator implements
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameters)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = method.getAnnotationMetadata().getDeclaredMetadata();
-                validateParametersInternal(context, object, methodAnnotationMetadata, parameters, arguments, argLen);
+                validateParametersInternal(context, object, methodAnnotationMetadata, parameters, arguments, argLen, getParameterNames(method));
             }
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
@@ -562,7 +566,13 @@ public class DefaultValidator implements
 
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = getBeanIntrospection(declaringClass);
-        return validateConstructorParameters(introspection, parameterValues);
+        return validateConstructorParameters(
+            declaringClass,
+            introspection.getConstructorArguments(),
+            parameterValues,
+            BeanValidationContext.fromGroups(groups),
+            getParameterNames(constructor)
+        );
     }
 
     @Override
@@ -595,6 +605,14 @@ public class DefaultValidator implements
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Class<? extends T> beanType, @NonNull Argument<?>[] constructorArguments, @NonNull Object[] parameterValues, BeanValidationContext validationContext) {
+        return validateConstructorParameters(beanType, constructorArguments, parameterValues, validationContext, null);
+    }
+
+    private <T> Set<ConstraintViolation<T>> validateConstructorParameters(Class<? extends T> beanType,
+                                                                          @NonNull Argument<?>[] constructorArguments,
+                                                                          @NonNull Object[] parameterValues,
+                                                                          BeanValidationContext validationContext,
+                                                                          @Nullable List<String> parameterNames) {
         parameterValues = parameterValues != null ? parameterValues : ArrayUtils.EMPTY_OBJECT_ARRAY;
         final int argLength = constructorArguments.length;
         if (parameterValues.length != argLength) {
@@ -603,7 +621,7 @@ public class DefaultValidator implements
         DefaultConstraintValidatorContext<T> context = (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, validationContext);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(beanType.getSimpleName(), constructorArguments)) {
-                validateParametersInternal(context, null, AnnotationMetadata.EMPTY_METADATA, parameterValues, constructorArguments, argLength);
+                validateParametersInternal(context, null, AnnotationMetadata.EMPTY_METADATA, parameterValues, constructorArguments, argLength, parameterNames);
             }
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
@@ -943,7 +961,8 @@ public class DefaultValidator implements
                                                 @NonNull AnnotationMetadata methodAnnotationMetadata,
                                                 @NonNull Object[] parameters,
                                                 @NonNull Argument<?>[] arguments,
-                                                int argLen) {
+                                                int argLen,
+                                                @Nullable List<String> parameterNames) {
 
         List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences = context.findGroupSequences(bean);
         boolean canCascade = true;
@@ -961,7 +980,7 @@ public class DefaultValidator implements
                     if (!argument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class)) {
                         continue;
                     }
-                    try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addParameterNode(argument.getName(), parameterIndex)) {
+                    try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addParameterNode(parameterName(argument, parameterNames, parameterIndex), parameterIndex)) {
                         try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(argument.getAnnotationMetadata())) {
 
                             final Class<Object> parameterType = argument.getType();
@@ -1000,6 +1019,30 @@ public class DefaultValidator implements
             }
             canCascade = false;
         }
+    }
+
+    @Nullable
+    private List<String> getParameterNames(MethodReference<?, ?> method) {
+        if (parameterNameProvider instanceof DefaultParameterNameProvider) {
+            return null;
+        }
+        Method targetMethod = method.getTargetMethod();
+        return targetMethod == null ? null : parameterNameProvider.getParameterNames(targetMethod);
+    }
+
+    @Nullable
+    private List<String> getParameterNames(Constructor<?> constructor) {
+        if (parameterNameProvider instanceof DefaultParameterNameProvider) {
+            return null;
+        }
+        return parameterNameProvider.getParameterNames(constructor);
+    }
+
+    private static String parameterName(Argument<?> argument, @Nullable List<String> parameterNames, int index) {
+        if (parameterNames != null && parameterNames.size() > index) {
+            return parameterNames.get(index);
+        }
+        return argument.getName();
     }
 
     private <R, T> void doValidate(@NonNull DefaultConstraintValidatorContext<R> context,

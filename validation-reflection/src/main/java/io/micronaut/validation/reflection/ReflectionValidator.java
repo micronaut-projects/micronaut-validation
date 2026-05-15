@@ -71,6 +71,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -200,6 +201,19 @@ public class ReflectionValidator extends DefaultValidator {
         return ReflectionBeanMetadata.of(clazz);
     }
 
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateParameters(T object, Method method, Object[] parameterValues, Class<?>... groups) {
+        requireNonNull("object", object);
+        requireNonNull("method", method);
+        requireNonNull("parameterValues", parameterValues);
+        requireNonNull("groups", groups);
+        Set<ConstraintViolation<T>> violations = super.validateParameters(object, method, parameterValues, groups);
+        if (!violations.isEmpty()) {
+            return violations;
+        }
+        return validateParametersReflectively(object, method, parameterValues, BeanValidationContext.fromGroups(groups));
+    }
+
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object, BeanValidationContext context) {
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
         warnOnce(object.getClass().getName(), "class", "validating without Micronaut bean introspection");
@@ -207,6 +221,59 @@ public class ReflectionValidator extends DefaultValidator {
         validateConstraints(object, object.getClass(), object, null, object, object.getClass(), metadata.constraints, context, violations);
         for (ReflectionProperty property : metadata.properties.values()) {
             validateProperty(object, object, property, context, violations);
+        }
+        return Collections.unmodifiableSet(violations);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> Set<ConstraintViolation<T>> validateParametersReflectively(T object,
+                                                                           Method method,
+                                                                           Object[] parameterValues,
+                                                                           BeanValidationContext context) {
+        Parameter[] parameters = method.getParameters();
+        if (parameters.length != parameterValues.length) {
+            throw new IllegalArgumentException("The method parameter array must have exactly " + parameters.length + " elements.");
+        }
+        warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable parameters without Micronaut executable metadata");
+        List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
+        Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        for (int i = 0; i < parameters.length; i++) {
+            List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
+            if (constraints.isEmpty()) {
+                continue;
+            }
+            Object value = parameterValues[i];
+            for (ReflectionConstraintDescriptor constraint : constraints) {
+                if (!isGroupIncluded(constraint, context)) {
+                    continue;
+                }
+                SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate());
+                boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext);
+                if (!valid && !validatorContext.defaultViolationDisabled) {
+                    violations.add(new ReflectionConstraintViolation<>(
+                        object,
+                        (Class<T>) object.getClass(),
+                        object,
+                        value,
+                        interpolate(constraint.getMessageTemplate(), constraint, value),
+                        constraint.getMessageTemplate(),
+                        new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i),
+                        constraint
+                    ));
+                }
+                for (String messageTemplate : validatorContext.customViolationTemplates) {
+                    violations.add(new ReflectionConstraintViolation<>(
+                        object,
+                        (Class<T>) object.getClass(),
+                        object,
+                        value,
+                        interpolate(messageTemplate, constraint, value),
+                        messageTemplate,
+                        new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i),
+                        constraint
+                    ));
+                }
+            }
         }
         return Collections.unmodifiableSet(violations);
     }
@@ -320,6 +387,13 @@ public class ReflectionValidator extends DefaultValidator {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be empty");
         }
         return value;
+    }
+
+    private static String parameterName(List<String> parameterNames, Parameter parameter, int index) {
+        if (parameterNames.size() > index) {
+            return parameterNames.get(index);
+        }
+        return parameter.getName();
     }
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element) {
@@ -772,6 +846,22 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionExecutablePath(Method method, String parameterName, int parameterIndex) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(
+                new ReflectionMethodNode(method),
+                new ReflectionParameterNode(parameterName, parameterIndex)
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName() + "." + parameterName;
+        }
+    }
+
     private record ReflectionNode(String name) implements jakarta.validation.Path.PropertyNode {
 
         @Override
@@ -812,6 +902,92 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public Integer getTypeArgumentIndex() {
             return null;
+        }
+
+        @Override
+        public String toString() {
+            return name;
+        }
+    }
+
+    private record ReflectionMethodNode(Method method) implements Path.MethodNode {
+
+        @Override
+        public String getName() {
+            return method.getName();
+        }
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.METHOD;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public List<Class<?>> getParameterTypes() {
+            return List.of(method.getParameterTypes());
+        }
+
+        @Override
+        public String toString() {
+            return method.getName();
+        }
+    }
+
+    private record ReflectionParameterNode(String name, int parameterIndex) implements Path.ParameterNode {
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.PARAMETER;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public int getParameterIndex() {
+            return parameterIndex;
         }
 
         @Override
