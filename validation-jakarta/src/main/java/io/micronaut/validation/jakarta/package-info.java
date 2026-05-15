@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 /**
- * Aggregate Jakarta Validation compatibility module.
+ * Aggregate Jakarta Validation compliance module.
  *
  * @since 5.1
  */
 @NullMarked
-package io.micronaut.validation.spec;
+package io.micronaut.validation.jakarta;
 
 import org.jspecify.annotations.NullMarked;

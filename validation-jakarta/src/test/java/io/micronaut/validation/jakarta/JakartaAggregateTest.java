@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.spec;
+package io.micronaut.validation.jakarta;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -25,7 +25,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class SpecAggregateTest {
+class JakartaAggregateTest {
 
     @Test
     void aggregateProvidesBootstrapReflectionAndElInterpolation() {

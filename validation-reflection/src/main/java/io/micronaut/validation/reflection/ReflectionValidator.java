@@ -87,7 +87,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 /**
- * Opt-in reflection fallback validator used by the Jakarta Validation spec stack.
+ * Opt-in reflection fallback validator used by the Jakarta Validation compliance stack.
  *
  * @since 5.1
  */
