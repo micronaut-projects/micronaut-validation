@@ -49,6 +49,7 @@ import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
+import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
@@ -545,6 +546,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
         this.beanIntrospector = beanIntrospector;
+        if (constraintValidatorFactory == null || constraintValidatorFactory instanceof DefaultInternalConstraintValidatorFactory) {
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
+        }
     }
 
     @Override
@@ -605,7 +609,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
         @Override
         public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
-            return delegate.getInstance(key);
+            return getRequiredInstance(key);
         }
 
         @Override
@@ -617,7 +621,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
                                                                                       Class<?> targetType,
                                                                                       ConstraintTarget constraintTarget) {
-            return delegate.getInstance(validatorType);
+            return getRequiredInstance(validatorType);
+        }
+
+        private <T extends jakarta.validation.ConstraintValidator<?, ?>> T getRequiredInstance(Class<T> validatorType) {
+            T validator = delegate.getInstance(validatorType);
+            if (validator == null) {
+                throw new ValidationException("ConstraintValidatorFactory returned null for " + validatorType.getName());
+            }
+            return validator;
         }
     }
 }
