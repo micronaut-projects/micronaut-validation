@@ -325,19 +325,19 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
         validatorConfiguration.setBeanIntrospector(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
-        if (!(configurationState instanceof MicronautValidatorConfiguration configuration) || configuration.messageInterpolatorConfigured) {
+        if (shouldApplyMessageInterpolator(configurationState)) {
             validatorConfiguration.messageInterpolator(configurationState.getMessageInterpolator());
         }
-        if (!(configurationState instanceof MicronautValidatorConfiguration configuration) || configuration.traversableResolverConfigured) {
+        if (shouldApplyTraversableResolver(configurationState)) {
             validatorConfiguration.traversableResolver(configurationState.getTraversableResolver());
         }
-        if (!(configurationState instanceof MicronautValidatorConfiguration configuration) || configuration.constraintValidatorFactoryConfigured) {
+        if (shouldApplyConstraintValidatorFactory(configurationState)) {
             validatorConfiguration.constraintValidatorFactory(configurationState.getConstraintValidatorFactory());
         }
-        if (!(configurationState instanceof MicronautValidatorConfiguration configuration) || configuration.parameterNameProviderConfigured) {
+        if (shouldApplyParameterNameProvider(configurationState)) {
             validatorConfiguration.parameterNameProvider(configurationState.getParameterNameProvider());
         }
-        if (!(configurationState instanceof MicronautValidatorConfiguration configuration) || configuration.clockProviderConfigured) {
+        if (shouldApplyClockProvider(configurationState)) {
             validatorConfiguration.clockProvider(configurationState.getClockProvider());
         }
         for (ValueExtractor<?> valueExtractor : configurationState.getValueExtractors()) {
@@ -348,6 +348,56 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             validatorConfiguration,
             applicationContext
         );
+    }
+
+    private static boolean shouldApplyMessageInterpolator(ConfigurationState configurationState) {
+        return !(configurationState instanceof MicronautValidatorConfiguration configuration)
+            || configuration.messageInterpolatorConfigured
+            || configuration.hasXmlMessageInterpolator();
+    }
+
+    private static boolean shouldApplyTraversableResolver(ConfigurationState configurationState) {
+        return !(configurationState instanceof MicronautValidatorConfiguration configuration)
+            || configuration.traversableResolverConfigured
+            || configuration.hasXmlTraversableResolver();
+    }
+
+    private static boolean shouldApplyConstraintValidatorFactory(ConfigurationState configurationState) {
+        return !(configurationState instanceof MicronautValidatorConfiguration configuration)
+            || configuration.constraintValidatorFactoryConfigured
+            || configuration.hasXmlConstraintValidatorFactory();
+    }
+
+    private static boolean shouldApplyParameterNameProvider(ConfigurationState configurationState) {
+        return !(configurationState instanceof MicronautValidatorConfiguration configuration)
+            || configuration.parameterNameProviderConfigured
+            || configuration.hasXmlParameterNameProvider();
+    }
+
+    private static boolean shouldApplyClockProvider(ConfigurationState configurationState) {
+        return !(configurationState instanceof MicronautValidatorConfiguration configuration)
+            || configuration.clockProviderConfigured
+            || configuration.hasXmlClockProvider();
+    }
+
+    private boolean hasXmlMessageInterpolator() {
+        return !ignoreXmlConfiguration && bootstrapConfiguration.getMessageInterpolatorClassName() != null;
+    }
+
+    private boolean hasXmlTraversableResolver() {
+        return !ignoreXmlConfiguration && bootstrapConfiguration.getTraversableResolverClassName() != null;
+    }
+
+    private boolean hasXmlConstraintValidatorFactory() {
+        return !ignoreXmlConfiguration && bootstrapConfiguration.getConstraintValidatorFactoryClassName() != null;
+    }
+
+    private boolean hasXmlParameterNameProvider() {
+        return !ignoreXmlConfiguration && bootstrapConfiguration.getParameterNameProviderClassName() != null;
+    }
+
+    private boolean hasXmlClockProvider() {
+        return !ignoreXmlConfiguration && bootstrapConfiguration.getClockProviderClassName() != null;
     }
 
     private Optional<ValidatorFactory> buildXmlDefaultProviderFactory() {

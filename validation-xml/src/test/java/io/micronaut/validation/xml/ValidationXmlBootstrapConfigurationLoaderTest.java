@@ -16,6 +16,8 @@
 package io.micronaut.validation.xml;
 
 import jakarta.validation.BootstrapConfiguration;
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableType;
 import io.micronaut.validation.bootstrap.MicronautValidatorConfiguration;
 import org.junit.jupiter.api.Test;
@@ -75,6 +77,13 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
         assertEquals("io.micronaut.validation.xml.TestClockProvider", configuration.getBootstrapConfiguration().getClockProviderClassName());
         assertTrue(configuration.getClockProvider() instanceof TestClockProvider);
         assertTrue(Boolean.parseBoolean(configuration.getProperties().get("micronaut.validator.spec.reflection.enabled")));
+    }
+
+    @Test
+    void validationXmlProvidersAreAppliedToBuiltValidatorFactory() {
+        try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
+            assertTrue(validatorFactory.getClockProvider() instanceof TestClockProvider);
+        }
     }
 
     @Test
