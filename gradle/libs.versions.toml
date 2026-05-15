@@ -1,5 +1,7 @@
 [versions]
 managed-validation = "3.1.1"
+managed-jakarta-el = "5.0.1"
+managed-jakarta-el-impl = "5.0.0-M1"
 
 spotbugs = "4.10.3"
 arquillian-container = "1.10.2.Final"
@@ -39,6 +41,8 @@ javax-annotation-api = { module = "javax.annotation:javax.annotation-api", versi
 # managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
+managed-jakarta-el = { module = "jakarta.el:jakarta.el-api", version.ref = "managed-jakarta-el" }
+managed-jakarta-el-impl = { module = "org.glassfish:jakarta.el", version.ref = "managed-jakarta-el-impl" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }

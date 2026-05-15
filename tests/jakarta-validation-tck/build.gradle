@@ -26,6 +26,16 @@ dependencies {
     testImplementation libs.javax.annotation.api
 }
 
+def specTckRuntimeClasspath = configurations.create("specTckRuntimeClasspath") {
+    canBeConsumed = false
+    canBeResolved = true
+    extendsFrom(configurations.testRuntimeClasspath)
+}
+
+dependencies {
+    add("specTckRuntimeClasspath", projects.micronautValidationSpec)
+}
+
 def methodsTest1 = tasks.register('methodsTest1', Test) {
     scanForTestClasses false
     useTestNG {
@@ -44,11 +54,10 @@ def methodsTest2 = tasks.register('methodsTest2', Test) {
         ]
         suites file("tck-methods.xml")
     }
-// Flaky
-//    dependsOn(methodsTest1)
 }
 
 test {
+    description = "Runs the Jakarta Validation TCK core profile against micronaut-validation."
     scanForTestClasses false
     useTestNG {
         systemProperties = [
@@ -58,24 +67,94 @@ test {
     }
     // Methods tests are extracted to prevent flaky tests caused by class loading issues
     dependsOn(methodsTest2)
+    dependsOn(methodsTest1)
 }
 
-tasks.register('singleTest', Test) {
+tasks.register('coreTck') {
+    group = 'verification'
+    description = "Runs the Jakarta Validation TCK core profile."
+    dependsOn(test)
+}
+
+tasks.register('specTck', Test) {
+    group = 'verification'
+    description = "Runs the Jakarta Validation TCK spec profile with the micronaut-validation-spec aggregate."
     scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + specTckRuntimeClasspath
+    shouldRunAfter(test)
     useTestNG {
-        suiteXmlBuilder().suite(name: 'Sample Suite') {
-            test(name : 'Sample Test') {
-                classes('') {
-//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest') {
-//                        methods() {
-//                            include(name: 'testFullGraphValidationBeforeNextGroupInSequence')
-//                        }
-//                    }
-                }
-            }
-        }
         systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
+                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
         ]
+        suites file("tck-spec-tests.xml")
     }
+}
+
+def registerSingleTckTask = { String taskName, String descriptionText, FileCollection runtimeClasspath, String validationProvider ->
+    tasks.register(taskName, Test) {
+        group = 'verification'
+        description = descriptionText
+        scanForTestClasses false
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = runtimeClasspath
+
+        def suiteFile = layout.buildDirectory.file("generated-testng/${taskName}.xml")
+        def testClass = providers.gradleProperty("tckSingleClass")
+            .orElse("org.hibernate.beanvalidation.tck.tests.bootstrap.CustomMessageInterpolatorTest")
+        def testMethod = providers.gradleProperty("tckSingleMethod")
+
+        inputs.property("tckSingleClass", testClass)
+        inputs.property("tckSingleMethod", testMethod.orElse(""))
+        outputs.file(suiteFile)
+
+        doFirst {
+            def file = suiteFile.get().asFile
+            file.parentFile.mkdirs()
+            def methodFilter = testMethod.present ? """
+                    <methods>
+                        <include name="${testMethod.get()}"/>
+                    </methods>
+            """.stripIndent() : ""
+            file.text = """
+                <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+                <suite name="Jakarta-Bean-Validation-TCK Single" verbose="1">
+                    <test name="Jakarta-Bean-Validation-TCK Single">
+                        <classes>
+                            <class name="${testClass.get()}">
+                ${methodFilter}
+                            </class>
+                        </classes>
+                    </test>
+                </suite>
+            """.stripIndent()
+        }
+
+        useTestNG {
+            systemProperties = [
+                    'validation.provider': validationProvider
+            ]
+            suites suiteFile.get().asFile
+        }
+    }
+}
+
+def singleCoreTck = registerSingleTckTask(
+    'singleCoreTck',
+    'Runs one Jakarta Validation TCK class or method against the core profile. Use -PtckSingleClass=... and optional -PtckSingleMethod=...',
+    sourceSets.test.runtimeClasspath,
+    'io.micronaut.validation.tck.runtime.TckValidationProvider'
+)
+
+registerSingleTckTask(
+    'singleSpecTck',
+    'Runs one Jakarta Validation TCK class or method against the spec profile. Use -PtckSingleClass=... and optional -PtckSingleMethod=...',
+    sourceSets.test.runtimeClasspath + specTckRuntimeClasspath,
+    'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+)
+
+tasks.register('singleTest') {
+    group = 'verification'
+    description = 'Compatibility alias for singleCoreTck.'
+    dependsOn(singleCoreTck)
 }
