@@ -114,6 +114,20 @@ final class ArchiveCompiler {
                 }
 
                 sourceFiles.add(sourceFilePath.toFile());
+            } else if (path.startsWith("/WEB-INF/classes")) {
+                if (entry.getValue().getAsset() == null) {
+                    continue;
+                }
+                String resourceFile = path.replace("/WEB-INF/classes", "");
+                if (resourceFile.isEmpty()) {
+                    continue;
+                }
+                Path resourceFilePath = deploymentDir.target.resolve(resourceFile.substring(1)); // resourceFile begins with `/`
+
+                Files.createDirectories(resourceFilePath.getParent());
+                try (InputStream in = entry.getValue().getAsset().openStream()) {
+                    Files.copy(in, resourceFilePath);
+                }
             } else if (path.startsWith("/WEB-INF/lib") && path.endsWith(".jar")) {
                 String jarFile = path.replace("/WEB-INF/lib", "");
                 Path jarFilePath = deploymentDir.lib.resolve(jarFile.substring(1)); // jarFile begins with `/`
