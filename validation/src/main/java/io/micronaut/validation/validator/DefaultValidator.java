@@ -63,6 +63,7 @@ import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.MessageInterpolator;
@@ -152,8 +153,16 @@ public class DefaultValidator implements
         this.conversionService = configuration.getConversionService();
         this.beanIntrospector = configuration.getBeanIntrospector();
         this.metadataProviders = configuration.getMetadataProviders();
-        this.constraintValidatorFactory = (InternalConstraintValidatorFactory) configuration.getConstraintValidatorFactory();
+        this.constraintValidatorFactory = internalConstraintValidatorFactory(configuration);
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
+    }
+
+    private static InternalConstraintValidatorFactory internalConstraintValidatorFactory(ValidatorConfiguration configuration) {
+        if (configuration instanceof DefaultValidatorConfiguration defaultConfiguration) {
+            return defaultConfiguration.getInternalConstraintValidatorFactory();
+        }
+        ConstraintValidatorFactory factory = configuration.getConstraintValidatorFactory();
+        return DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(factory);
     }
 
     /**

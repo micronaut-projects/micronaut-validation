@@ -84,6 +84,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private InternalConstraintValidatorFactory constraintValidatorFactory;
 
     @Nullable
+    private ConstraintValidatorFactory configuredConstraintValidatorFactory;
+
+    @Nullable
     private ConstraintValidatorRegistry constraintValidatorRegistry;
 
     @Nullable
@@ -151,6 +154,13 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ConstraintValidatorFactory getConstraintValidatorFactory() {
+        if (configuredConstraintValidatorFactory != null) {
+            return configuredConstraintValidatorFactory;
+        }
+        return getInternalConstraintValidatorFactory();
+    }
+
+    InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
             constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
         }
@@ -436,12 +446,16 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
-        if (factory instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
-            this.constraintValidatorFactory = internalConstraintValidatorFactory;
-        } else {
-            this.constraintValidatorFactory = new DelegatingInternalConstraintValidatorFactory(factory);
-        }
+        this.configuredConstraintValidatorFactory = factory;
+        this.constraintValidatorFactory = toInternalConstraintValidatorFactory(factory);
         return this;
+    }
+
+    static InternalConstraintValidatorFactory toInternalConstraintValidatorFactory(ConstraintValidatorFactory factory) {
+        if (factory instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
+            return internalConstraintValidatorFactory;
+        }
+        return new DelegatingInternalConstraintValidatorFactory(factory);
     }
 
     @Override

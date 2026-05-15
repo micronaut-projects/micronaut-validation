@@ -16,6 +16,8 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Introspected;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.constraints.NotNull;
@@ -45,6 +47,17 @@ class DefaultValidatorFactoryTest {
         assertSame(defaultInterpolator, factory.getMessageInterpolator());
     }
 
+    @Test
+    void getConstraintValidatorFactoryReturnsConfiguredFactory() {
+        DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
+        ConstraintValidatorFactory constraintValidatorFactory = new TestConstraintValidatorFactory();
+        configuration.constraintValidatorFactory(constraintValidatorFactory);
+
+        DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
+
+        assertSame(constraintValidatorFactory, factory.getConstraintValidatorFactory());
+    }
+
     @Introspected(accessKind = Introspected.AccessKind.FIELD)
     static final class Person {
         @NotNull
@@ -61,6 +74,18 @@ class DefaultValidatorFactoryTest {
         @Override
         public String interpolate(String messageTemplate, Context context, Locale locale) {
             return "custom";
+        }
+    }
+
+    private static final class TestConstraintValidatorFactory implements ConstraintValidatorFactory {
+
+        @Override
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+            return null;
+        }
+
+        @Override
+        public void releaseInstance(ConstraintValidator<?, ?> instance) {
         }
     }
 }
