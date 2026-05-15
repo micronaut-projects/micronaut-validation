@@ -75,6 +75,15 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
   EL-only, and aggregate behavior.
 - Add startup tests proving the bootstrap context only loads the intended
   validation/spec beans.
+- Use generated TestNG single-test tasks for focused TCK development:
+  - `singleCoreTck` for the lean core profile;
+  - `singleSpecTck` for the opt-in spec aggregate profile;
+  - pass `-PtckSingleClass=...` and optionally `-PtckSingleMethod=...` to run a
+    single TCK class or method.
+- Commit TCK progress in focused checkpoints: one passing TCK test when practical
+  or a small wave of related TCK tests when the same implementation change fixes
+  the group. Each checkpoint should include targeted module tests and the
+  corresponding single TCK task evidence.
 - Final verification:
   - spec TCK with no unsupported-functionality excludes;
   - `./gradlew check`;
