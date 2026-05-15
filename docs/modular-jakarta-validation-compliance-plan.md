@@ -84,6 +84,11 @@ by optional modules and a composed `micronaut-validation-spec` aggregate.
   or a small wave of related TCK tests when the same implementation change fixes
   the group. Each checkpoint should include targeted module tests and the
   corresponding single TCK task evidence.
+- Track known spec-profile failures in
+  `tests/jakarta-validation-tck/failingTests.xml`, runnable with
+  `./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:failingSpecTck`.
+  Remove entries from that suite in the same focused commit that makes the test
+  or wave pass, mirroring the ODI TestNG workflow.
 - Final verification:
   - spec TCK with no unsupported-functionality excludes;
   - `./gradlew check`;
