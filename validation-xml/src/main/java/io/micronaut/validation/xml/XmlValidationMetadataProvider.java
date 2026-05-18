@@ -106,7 +106,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             return false;
         }
         PropertyMapping propertyMapping = mapping.properties.get(propertyName);
-        return propertyMapping != null && propertyMapping.annotationsIgnored;
+        return propertyMapping == null ? mapping.beanAnnotationsIgnored : propertyMapping.annotationsIgnored;
     }
 
     @Override
@@ -182,7 +182,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private void parseBean(Element bean, String defaultPackage) {
         Class<?> beanType = loadClass(resolveClassName(requireAttribute(bean, "class"), defaultPackage));
-        boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", false);
+        boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", true);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
@@ -212,7 +212,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 }
             }
         }
-        beanMappings.put(beanType, new BeanMapping(classMetadata, classAnnotationsIgnored, properties));
+        beanMappings.put(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties));
     }
 
     private void parseGroupSequence(Element parent,
@@ -455,6 +455,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record BeanMapping(AnnotationMetadata classMetadata,
+                               boolean beanAnnotationsIgnored,
                                boolean classAnnotationsIgnored,
                                Map<String, PropertyMapping> properties) {
     }
