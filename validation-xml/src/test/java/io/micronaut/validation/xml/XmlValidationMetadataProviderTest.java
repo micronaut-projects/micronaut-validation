@@ -23,8 +23,22 @@ import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class XmlValidationMetadataProviderTest {
+
+    @Test
+    void xmlConfiguredBeansIgnoreAnnotationsByDefault() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="java.lang.String">
+                </bean>
+            </constraint-mappings>
+            """);
+
+        assertTrue(provider.isBeanAnnotationMetadataIgnored(String.class));
+        assertTrue(provider.isPropertyAnnotationMetadataIgnored(String.class, "value"));
+    }
 
     @Test
     void rejectsFieldWithoutNameAttribute() {
