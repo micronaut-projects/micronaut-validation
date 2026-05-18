@@ -109,6 +109,15 @@ class XmlValidationMetadataProviderTest {
     }
 
     @Test
+    void rejectsUnknownRootElement() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <invalid/>
+            </constraint-mappings>
+            """));
+    }
+
+    @Test
     void parsesPropertyGroupConversions() {
         XmlValidationMetadataProvider provider = metadataProvider("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">

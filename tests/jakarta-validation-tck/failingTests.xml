@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 94 classes, 484 methods,
+        Current tracker shape: 92 classes, 482 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -64,6 +64,8 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testBeanCannotBeDescribedMoreThanOnce
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testFieldMappingCannotOccurMoreThanOnce
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testGetterMappingCannotOccurMoreThanOnce
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidMappingXmlTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidValidationXmlTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -860,16 +862,6 @@
                     <include name="testGroupConversionIsNotExecutedRecursively"/>
                     <include name="testGroupConversionWithSequenceAsTo"/>
                     <include name="testSeveralGroupConversionsAppliedOnField"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidMappingXmlTest">
-                <methods>
-                    <include name="testInvalidConstraintMappingXml"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidValidationXmlTest">
-                <methods>
-                    <include name="testInvalidValidationXml"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.CascadedValidationTest">
