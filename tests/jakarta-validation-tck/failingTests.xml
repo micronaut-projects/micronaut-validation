@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 119 classes, 619 methods,
+        Current tracker shape: 118 classes, 606 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -94,6 +94,7 @@
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testClassLevelConstraintViolation
         - org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
+        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -430,23 +431,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest">
-                <methods>
-                    <include name="testInterpolationUsingAnnotationAttributesInElExpression"/>
-                    <include name="testInterpolationUsingFormatterInElExpression"/>
-                    <include name="testInterpolationUsingFormatterWithSeveralObjectsInElExpression"/>
-                    <include name="testInterpolationUsingGroupsAndPayloadInElExpression"/>
-                    <include name="testInterpolationUsingValidatedValueInElExpression"/>
-                    <include name="testInterpolationWithElExpression"/>
-                    <include name="testInterpolationWithElExpressionThrowingAnException"/>
-                    <include name="testInterpolationWithFormatterUsesDefaultLocaleInElExpression"/>
-                    <include name="testInterpolationWithIncompleteElExpression"/>
-                    <include name="testInterpolationWithInvalidElExpression"/>
-                    <include name="testInterpolationWithSeveralElExpressions"/>
-                    <include name="testInterpolationWithUnknownElExpression"/>
-                    <include name="testOnlyDollarSignIsSupportedForEnclosingElExpressions"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">
