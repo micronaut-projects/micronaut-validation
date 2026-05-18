@@ -9,11 +9,15 @@
         When a class or method passes, remove it from this file in the same focused
         commit as the implementation change.
 
-        Failing entries below were generated from
-        tests/jakarta-validation-tck/build/test-results/jakartaTck and should be
-        refreshed after the next full Jakarta TCK run.
+        Entries are discovered from a full TCK run. If an entry passes in this
+        smaller suite because of ordering or isolation differences, keep it here
+        until a refreshed full discovery run stops reporting it.
 
-        Current tracker shape: 116 classes, 551 methods,
+        Failing entries below were generated from
+        build/test-results/discoverFailingJakartaTck and should be refreshed with:
+        ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
+
+        Current tracker shape: 116 classes, 525 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -45,7 +49,6 @@
                     <include name="testCascadedMethodParameterIsValidatedRecursively"/>
                     <include name="testCascadedMethodReturnValueIsValidatedRecursively"/>
                     <include name="testConstructorParameterAndCrossParameterConstraintsAreEvaluatedAtTheSameTime"/>
-                    <include name="testConstructorParameterConstraintsAreDeclaredByAnnotatingParameters"/>
                     <include name="testConstructorParameterIsMarkedAsCascaded"/>
                     <include name="testConstructorReturnValueIsMarkedAsCascaded"/>
                     <include name="testCrossParameterConstraintsAreDeclaredByAnnotatingConstructors"/>
@@ -53,9 +56,7 @@
                     <include name="testMethodParameterAndCrossParameterConstraintsAreEvaluatedAtTheSameTime"/>
                     <include name="testMethodParameterIsMarkedAsCascaded"/>
                     <include name="testMethodReturnValueIsMarkedAsCascaded"/>
-                    <include name="testPassingNullToCascadedConstructorParameterCausesNoViolation"/>
                     <include name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
-                    <include name="testReturnValueConstraintsAreDeclaredByAnnotatingMethods"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
@@ -129,8 +130,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.GenericAndCrossParameterConstraintTest">
                 <methods>
-                    <include name="testAnnotatedElementIsTargetedByDefault"/>
-                    <include name="testAnnotatedElementIsTargetedUsingSupportedValidationTarget"/>
                     <include name="testOneValidatorSupportsBothValidationTargets"/>
                     <include name="testParametersAreTargetedUsingSupportedValidationTarget"/>
                 </methods>
@@ -225,10 +224,7 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.validdeclarations.ValidMethodConstraintDeclarationTest">
                 <methods>
-                    <include name="testParameterConstraintAddedToConstructorInSubClass"/>
                     <include name="testParameterConstraintMarkedAsCascadedAtConstructorInSubClass"/>
-                    <include name="testReturnValueConstraintAddedInInterfaceImplementation"/>
-                    <include name="testReturnValueConstraintAddedInSubClass"/>
                     <include name="testReturnValueConstraintAddedToConstructorInSubClass"/>
                     <include name="testReturnValueConstraintFromInterfaceAndImplementationAddUp"/>
                     <include name="testReturnValueConstraintFromInterfacesAndImplementationAddUp"/>
@@ -267,7 +263,6 @@
                     <include name="testCrossParameterValidatorIsUsedForConstraintImplicitlyTargetingParameters"/>
                     <include name="testCrossParameterValidatorValidatingObject"/>
                     <include name="testCrossParameterValidatorValidatingObjectArray"/>
-                    <include name="testGenericValidatorIsUsedForConstraintTargetingMethodReturnValue"/>
                     <include name="testResolutionOfMinMaxForDifferentTypes"/>
                     <include name="testSeveralCrossParameterValidatorsCauseConstraintDefinitionException"/>
                     <include name="testTargetedTypeIsConstructor"/>
@@ -516,8 +511,6 @@
                 <methods>
                     <include name="testValidateConstructorReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnExecutableLevel"/>
                     <include name="testValidateConstructorReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnTypeLevel"/>
-                    <include name="testValidateReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnExecutableLevel"/>
-                    <include name="testValidateReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnTypeLevel"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest">
@@ -530,7 +523,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
                 <methods>
-                    <include name="constructorParameterValidationDoesNotIncludeConstraintsFromSuperClass"/>
                     <include name="constructorParameterValidationIsAppliedGroupWise"/>
                     <include name="constructorParameterValidationPerformsGroupConversion"/>
                     <include name="constructorParameterValidationTargetsParameterCrossParameterAndCascadedConstraints"/>
@@ -567,15 +559,10 @@
                     <include name="testContainerElementLeafBean"/>
                     <include name="testCrossParameterConstraintGivenSeveralTimes"/>
                     <include name="testCrossParameterConstraintValidationWithGroup"/>
-                    <include name="testNoViolations"/>
                     <include name="testOneViolation"/>
                     <include name="testOneViolationFromCrossParameterConstraint"/>
                     <include name="testTwoConstraintsOfSameType"/>
-                    <include name="testTwoViolations"/>
-                    <include name="testTwoViolationsOnSameParameter"/>
                     <include name="testUnexpectedType"/>
-                    <include name="testValidationWithGroup"/>
-                    <include name="testValidationWithSeveralGroups"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorReturnValueTest">
@@ -607,11 +594,7 @@
                     <include name="testNullPassedAsSingleGroupCausesException"/>
                     <include name="testOneViolation"/>
                     <include name="testOneViolationForCascadedValidation"/>
-                    <include name="testTwoConstraintsOfSameType"/>
-                    <include name="testTwoViolations"/>
                     <include name="testUnexpectedType"/>
-                    <include name="testValidationWithGroup"/>
-                    <include name="testValidationWithSeveralGroups"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
@@ -629,14 +612,9 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
                 <methods>
-                    <include name="testPassingWrongTypeToAsOnConstructorNodeCausesClassCastException"/>
-                    <include name="testPassingWrongTypeToAsOnParameterNodeCausesClassCastException"/>
                     <include name="testPropertyPathForConstructorCrossParameterConstraint"/>
-                    <include name="testPropertyPathForConstructorParameterConstraint"/>
-                    <include name="testPropertyPathForConstructorParameterConstraintWithCustomParameterNameProvider"/>
                     <include name="testPropertyPathForConstructorReturnValueConstraint"/>
                     <include name="testPropertyPathForMethodCrossParameterConstraint"/>
-                    <include name="testPropertyPathForMethodReturnValueConstraint"/>
                     <include name="testPropertyPathTraversingConstructorArrayParameter"/>
                     <include name="testPropertyPathTraversingConstructorListParameter"/>
                     <include name="testPropertyPathTraversingConstructorMapParameter"/>
