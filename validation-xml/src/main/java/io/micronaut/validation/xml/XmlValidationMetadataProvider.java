@@ -55,6 +55,8 @@ import java.util.Set;
 @Internal
 public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
 
+    private static final Set<String> RESERVED_CONSTRAINT_ELEMENT_NAMES = Set.of("message", "groups", "payload");
+
     private final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
     private final Map<String, ConstraintDefinition> constraintDefinitions = new LinkedHashMap<>();
     private final ClassLoader classLoader;
@@ -159,7 +161,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (!(node instanceof Element definition) || !"constraint-definition".equals(localName(definition))) {
                 continue;
             }
-            String annotationName = resolveClassName(definition.getAttribute("annotation"), defaultPackage);
+            String annotationName = resolveClassName(requireAttribute(definition, "annotation"), defaultPackage);
             Element validatedBy = child(definition, "validated-by");
             if (validatedBy == null) {
                 continue;
@@ -179,7 +181,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private void parseBean(Element bean, String defaultPackage) {
-        Class<?> beanType = loadClass(resolveClassName(bean.getAttribute("class"), defaultPackage));
+        Class<?> beanType = loadClass(resolveClassName(requireAttribute(bean, "class"), defaultPackage));
         boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", false);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
@@ -197,13 +199,14 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parseConstraints(element, defaultPackage, classMetadata);
                 }
                 case "field", "getter" -> {
+                    String propertyName = requireAttribute(element, "name");
                     MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
                     parseConstraints(element, defaultPackage, propertyMetadata);
                     if (child(element, "valid") != null) {
                         propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
                     }
                     boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
-                    properties.put(element.getAttribute("name"), new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
+                    properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
                 }
                 default -> {
                 }
@@ -233,11 +236,22 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (!(node instanceof Element constraint) || !"constraint".equals(localName(constraint))) {
                 continue;
             }
-            String annotationName = resolveClassName(constraint.getAttribute("annotation"), defaultPackage);
+            String annotationName = resolveClassName(requireAttribute(constraint, "annotation"), defaultPackage);
             Class<? extends Annotation> annotationType = (Class<? extends Annotation>) loadClass(annotationName);
             Map<CharSequence, Object> values = constraintValues(constraint, annotationType, defaultPackage);
+            validateMandatoryAnnotationMembers(annotationType, values);
             metadata.addDeclaredAnnotation(annotationName, values);
             metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
+        }
+    }
+
+    private void validateMandatoryAnnotationMembers(Class<? extends Annotation> annotationType, Map<CharSequence, Object> values) {
+        for (Method method : annotationType.getDeclaredMethods()) {
+            if (method.getDefaultValue() == null
+                && !RESERVED_CONSTRAINT_ELEMENT_NAMES.contains(method.getName())
+                && !values.containsKey(method.getName())) {
+                throw new ValidationException("Missing mandatory annotation member in validation XML: " + annotationType.getName() + "." + method.getName());
+            }
         }
     }
 
@@ -256,7 +270,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 case "groups" -> values.put("groups", classValues(element, defaultPackage));
                 case "payload" -> values.put("payload", classValues(element, defaultPackage));
                 case "element" -> {
-                    String name = element.getAttribute("name");
+                    String name = requireAttribute(element, "name");
+                    if (RESERVED_CONSTRAINT_ELEMENT_NAMES.contains(name)) {
+                        throw new ValidationException("Reserved annotation member cannot be configured as an XML element: " + name);
+                    }
                     values.put(name, annotationMemberValue(annotationType, name, element, defaultPackage));
                 }
                 default -> {
@@ -387,6 +404,14 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         } catch (ClassNotFoundException e) {
             throw new ValidationException("Cannot load class from validation XML: " + className, e);
         }
+    }
+
+    private static String requireAttribute(Element element, String name) {
+        String value = element.getAttribute(name);
+        if (value.isBlank()) {
+            throw new ValidationException("Missing required validation XML attribute " + name + " on " + localName(element));
+        }
+        return value;
     }
 
     private static Element child(Element parent, String name) {

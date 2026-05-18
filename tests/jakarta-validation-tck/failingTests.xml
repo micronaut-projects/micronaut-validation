@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 115 classes, 524 methods,
+        Current tracker shape: 112 classes, 519 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -33,6 +33,9 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.customconstraint.CustomConstraintValidatorTest
         - org.hibernate.beanvalidation.tck.tests.util.ConstraintViolationAssertTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfiguredBeanNotInClassPathTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.MandatoryNameAttributeTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.MissingMandatoryElementTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ReservedElementNameTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -742,23 +745,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.DefaultSequenceDefinedInXmlTest">
                 <methods>
                     <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.MandatoryNameAttributeTest">
-                <methods>
-                    <include name="testNameAttributeIsMandatory"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.MissingMandatoryElementTest">
-                <methods>
-                    <include name="testMissingMandatoryElementInConstraintDeclaration"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ReservedElementNameTest">
-                <methods>
-                    <include name="testGroupIsNotAllowedAsElementName"/>
-                    <include name="testMessageIsNotAllowedAsElementName"/>
-                    <include name="testPayloadIsNotAllowedAsElementName"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.clazzlevel.ClassLevelOverridingTest">
