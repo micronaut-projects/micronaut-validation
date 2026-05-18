@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 100 classes, 497 methods,
+        Current tracker shape: 98 classes, 495 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -56,6 +56,8 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest#testGroupConversionsAppliedOnField
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest#testGroupConversionsAppliedOnGetter
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.UnknownConstructorValidationTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.UnknownMethodValidationTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -848,11 +850,6 @@
                     <include name="testIgnoreAnnotationsOnConstructorLevel"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.UnknownConstructorValidationTest">
-                <methods>
-                    <include name="testUnknownConstructorThrowsException"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
@@ -909,11 +906,6 @@
                     <include name="testMethodCrossParameterConstraint"/>
                     <include name="testVarargsMethodParameter"/>
                     <include name="testXmlMethodConfigurationApplied"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.UnknownMethodValidationTest">
-                <methods>
-                    <include name="testUnknownConfiguredMethodThrowsException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.versioning.UnknownVersionInMappingXmlTest">
