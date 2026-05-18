@@ -109,6 +109,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             classLoader = MicronautValidatorConfiguration.class.getClassLoader();
         }
         this.classLoader = classLoader;
+        defaults.setBeanIntrospector(BeanIntrospector.forClassLoader(classLoader));
         bootstrapConfiguration = ServiceLoader.load(BootstrapConfigurationLoader.class, classLoader)
             .stream()
             .map(ServiceLoader.Provider::get)
