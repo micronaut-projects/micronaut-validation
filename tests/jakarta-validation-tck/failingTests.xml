@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 139 classes, 675 methods,
+        Current tracker shape: 138 classes, 673 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -70,6 +70,7 @@
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintdefinition.ConstraintDefinitionsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.AssertConstraintsTests
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -109,12 +110,6 @@
                     <include name="testMethodParameterIsMarkedAsCascaded"/>
                     <include name="testMethodReturnValueIsMarkedAsCascaded"/>
                     <include name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.AssertConstraintsTests">
-                <methods>
-                    <include name="testAssertFalseConstraint"/>
-                    <include name="testAssertTrueConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
