@@ -37,6 +37,7 @@ import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -149,7 +150,7 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
             try {
                 method.setAccessible(true);
                 Object value = method.invoke(annotation);
-                if (value != null) {
+                if (value != null && !Objects.deepEquals(value, method.getDefaultValue())) {
                     values.put(method.getName(), value);
                 }
             } catch (IllegalAccessException | InvocationTargetException e) {

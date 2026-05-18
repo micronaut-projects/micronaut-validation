@@ -16,6 +16,7 @@
 package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
@@ -28,6 +29,7 @@ import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 
@@ -170,6 +172,22 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void doesNotDuplicateGeneratedConstraintsWithReflectionMetadata() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<IntrospectedConstraintBean>> violations = validator.validate(new IntrospectedConstraintBean(false));
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<IntrospectedConstraintBean> violation = violations.iterator().next();
+            assertEquals("enabled", violation.getPropertyPath().toString());
+            assertEquals(false, violation.getInvalidValue());
+        }
+    }
+
+    @Test
     void resolvesReflectiveConstraintValidatorForTargetType() {
         ReflectionConstraintValidatorFactory factory = new ReflectionConstraintValidatorFactory(
             new DefaultInternalConstraintValidatorFactory(BeanIntrospector.SHARED, null)
@@ -226,6 +244,12 @@ class ReflectionValidatorTest {
         @PrivateConstraint
         @PrivateConstraint
         String name
+    ) {
+    }
+
+    @Introspected
+    private record IntrospectedConstraintBean(
+        @AssertTrue boolean enabled
     ) {
     }
 }
