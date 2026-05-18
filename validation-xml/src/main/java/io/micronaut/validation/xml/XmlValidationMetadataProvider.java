@@ -25,6 +25,8 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -207,6 +209,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     if (child(element, "valid") != null) {
                         propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
                     }
+                    parseGroupConversions(element, defaultPackage, propertyMetadata);
                     boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
                     properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
                 }
@@ -287,6 +290,24 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             validateMandatoryAnnotationMembers(annotationType, values);
             metadata.addDeclaredAnnotation(annotationName, values);
             metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
+        }
+    }
+
+    private void parseGroupConversions(Element parent,
+                                       String defaultPackage,
+                                       MutableAnnotationMetadata metadata) {
+        for (Element convertGroup : children(parent, "convert-group")) {
+            Class<?> from = convertGroup.hasAttribute("from")
+                ? loadClass(resolveClassName(convertGroup.getAttribute("from"), defaultPackage))
+                : Default.class;
+            Class<?> to = loadClass(resolveClassName(requireAttribute(convertGroup, "to"), defaultPackage));
+            metadata.addDeclaredRepeatable(
+                ConvertGroup.List.class.getName(),
+                AnnotationValue.builder(ConvertGroup.class)
+                    .member("from", from)
+                    .member("to", to)
+                    .build()
+            );
         }
     }
 

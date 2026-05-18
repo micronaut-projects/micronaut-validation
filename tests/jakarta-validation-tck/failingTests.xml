@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 105 classes, 505 methods,
+        Current tracker shape: 101 classes, 501 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -49,6 +49,10 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testIncludeAnnotations
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.WrongFieldNameTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.WrongPropertyNameTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.FieldLevelOverridingTest#testGroupConversionsAreAdditive
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.InvalidGroupConversionInFieldLevelOverridingTest#testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.InvalidGroupConversionInPropertyLevelOverridingTest#testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testGroupConversionsAreAdditive
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -809,26 +813,6 @@
                     <include name="ignoreAnnotationsOnEncapsulatingGetterAppliesToContainerElementType"/>
                     <include name="ignoreAnnotationsOnEncapsulatingMethodParameterAppliesToContainerElementType"/>
                     <include name="ignoreAnnotationsOnEncapsulatingMethodReturnValueAppliesToContainerElementType"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.FieldLevelOverridingTest">
-                <methods>
-                    <include name="testGroupConversionsAreAdditive"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.InvalidGroupConversionInFieldLevelOverridingTest">
-                <methods>
-                    <include name="testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.InvalidGroupConversionInPropertyLevelOverridingTest">
-                <methods>
-                    <include name="testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest">
-                <methods>
-                    <include name="testGroupConversionsAreAdditive"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest">

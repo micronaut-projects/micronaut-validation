@@ -15,13 +15,18 @@
  */
 package io.micronaut.validation.xml;
 
+import io.micronaut.core.annotation.AnnotationValue;
 import jakarta.validation.ValidationException;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -94,6 +99,28 @@ class XmlValidationMetadataProviderTest {
     }
 
     @Test
+    void parsesPropertyGroupConversions() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <field name="firstname">
+                        <valid/>
+                        <convert-group to="%s"/>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName(), Premium.class.getName()));
+
+        List<AnnotationValue<ConvertGroup>> groupConversions = provider
+            .getPropertyAnnotationMetadata(BeanWithProperties.class, "firstname")
+            .getAnnotationValuesByType(ConvertGroup.class);
+
+        assertEquals(1, groupConversions.size());
+        assertEquals(Default.class, groupConversions.get(0).classValue("from").orElseThrow());
+        assertEquals(Premium.class, groupConversions.get(0).classValue("to").orElseThrow());
+    }
+
+    @Test
     void rejectsMissingMandatoryConstraintAnnotationMember() {
         assertThrows(ValidationException.class, () -> metadataProvider("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
@@ -120,5 +147,8 @@ class XmlValidationMetadataProviderTest {
         String getFirstname() {
             return firstname;
         }
+    }
+
+    private interface Premium {
     }
 }
