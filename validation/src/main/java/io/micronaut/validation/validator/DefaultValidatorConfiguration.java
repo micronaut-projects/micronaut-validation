@@ -161,7 +161,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return getInternalConstraintValidatorFactory();
     }
 
-    InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
+    final InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
             constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
         }

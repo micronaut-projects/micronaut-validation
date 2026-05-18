@@ -28,6 +28,18 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.ConstructorDescriptor;
+import jakarta.validation.metadata.ContainerElementTypeDescriptor;
+import jakarta.validation.metadata.CrossParameterDescriptor;
+import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.GroupConversionDescriptor;
+import jakarta.validation.metadata.MethodDescriptor;
+import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.ParameterDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
+import jakarta.validation.metadata.ReturnValueDescriptor;
+import jakarta.validation.metadata.Scope;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -40,14 +52,19 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Loads Jakarta Validation constraint mapping XML as validation metadata.
@@ -76,7 +93,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     @Override
     public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
-        return Optional.empty();
+        BeanMapping mapping = beanMappings.get(beanType);
+        return mapping == null ? Optional.empty() : Optional.of(new XmlBeanDescriptor(beanType, mapping));
     }
 
     @Override
@@ -188,6 +206,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
+        Map<ExecutableKey, ExecutableMapping> methods = new LinkedHashMap<>();
+        Map<ExecutableKey, ExecutableMapping> constructors = new LinkedHashMap<>();
         NodeList children = bean.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
@@ -213,11 +233,20 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
                     properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
                 }
+                case "constructor" -> {
+                    ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage);
+                    constructors.put(new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes()), constructor);
+                }
+                case "method" -> {
+                    String methodName = requireAttribute(element, "name");
+                    ExecutableMapping method = parseExecutable(methodName, element, defaultPackage);
+                    methods.put(new ExecutableKey(methodName, method.parameterTypes()), method);
+                }
                 default -> {
                 }
             }
         }
-        beanMappings.put(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties));
+        beanMappings.put(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties, methods, constructors));
     }
 
     private static void validatePropertyExists(Class<?> beanType, String elementName, String propertyName) {
@@ -261,6 +290,44 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             currentType = currentType.getSuperclass();
         }
         return false;
+    }
+
+    private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage) {
+        List<ParameterMapping> parameters = new ArrayList<>();
+        ElementMapping returnValue = ElementMapping.EMPTY;
+        NodeList children = executable.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (!(node instanceof Element element)) {
+                continue;
+            }
+            switch (localName(element)) {
+                case "parameter" -> {
+                    MutableAnnotationMetadata parameterMetadata = new MutableAnnotationMetadata();
+                    parseElementMetadata(element, defaultPackage, parameterMetadata);
+                    Class<?> parameterType = loadClass(resolveClassName(requireAttribute(element, "type"), defaultPackage));
+                    parameters.add(new ParameterMapping(parameterType, parameterMetadata));
+                }
+                case "return-value" -> {
+                    MutableAnnotationMetadata returnValueMetadata = new MutableAnnotationMetadata();
+                    parseElementMetadata(element, defaultPackage, returnValueMetadata);
+                    returnValue = new ElementMapping(returnValueMetadata);
+                }
+                default -> {
+                }
+            }
+        }
+        return new ExecutableMapping(name, List.copyOf(parameters), returnValue);
+    }
+
+    private void parseElementMetadata(Element element,
+                                      String defaultPackage,
+                                      MutableAnnotationMetadata metadata) {
+        parseConstraints(element, defaultPackage, metadata);
+        if (child(element, "valid") != null) {
+            metadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
+        }
+        parseGroupConversions(element, defaultPackage, metadata);
     }
 
     private void parseGroupSequence(Element parent,
@@ -520,10 +587,369 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return element.getTextContent().trim();
     }
 
+    private static Set<GroupConversionDescriptor> groupConversions(AnnotationMetadata annotationMetadata) {
+        List<AnnotationValue<ConvertGroup>> conversions = annotationMetadata.getAnnotationValuesByType(ConvertGroup.class);
+        if (conversions.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<GroupConversionDescriptor> descriptors = new LinkedHashSet<>();
+        for (AnnotationValue<ConvertGroup> conversion : conversions) {
+            Class<?> from = conversion.classValue("from").orElse(Default.class);
+            Class<?> to = conversion.classValue("to").orElseThrow();
+            descriptors.add(new XmlGroupConversionDescriptor(from, to));
+        }
+        return descriptors;
+    }
+
+    private final class XmlBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
+
+        private final Class<?> beanType;
+        private final BeanMapping mapping;
+
+        private XmlBeanDescriptor(Class<?> beanType, BeanMapping mapping) {
+            this.beanType = beanType;
+            this.mapping = mapping;
+        }
+
+        @Override
+        public boolean isBeanConstrained() {
+            return !mapping.classMetadata().isEmpty() || !mapping.properties().isEmpty() || !mapping.methods().isEmpty() || !mapping.constructors().isEmpty();
+        }
+
+        @Override
+        public PropertyDescriptor getConstraintsForProperty(String propertyName) {
+            return null;
+        }
+
+        @Override
+        public Set<PropertyDescriptor> getConstrainedProperties() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+            return Optional.ofNullable(mapping.methods().get(new ExecutableKey(methodName, Arrays.asList(parameterTypes))))
+                .map(XmlMethodDescriptor::new)
+                .orElse(null);
+        }
+
+        @Override
+        public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
+            return mapping.methods().values()
+                .stream()
+                .map(XmlMethodDescriptor::new)
+                .collect(Collectors.toSet());
+        }
+
+        @Override
+        public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
+            return Optional.ofNullable(mapping.constructors().get(new ExecutableKey(beanType.getSimpleName(), Arrays.asList(parameterTypes))))
+                .map(XmlConstructorDescriptor::new)
+                .orElse(null);
+        }
+
+        @Override
+        public Set<ConstructorDescriptor> getConstrainedConstructors() {
+            return mapping.constructors().values()
+                .stream()
+                .map(XmlConstructorDescriptor::new)
+                .collect(Collectors.toSet());
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return mapping.classMetadata().hasStereotype(Constraint.class);
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return beanType;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private abstract static class XmlExecutableDescriptor implements ElementDescriptor.ConstraintFinder {
+
+        private final ExecutableMapping executable;
+
+        private XmlExecutableDescriptor(ExecutableMapping executable) {
+            this.executable = executable;
+        }
+
+        public String getName() {
+            return executable.name();
+        }
+
+        public List<ParameterDescriptor> getParameterDescriptors() {
+            List<ParameterDescriptor> descriptors = new ArrayList<>(executable.parameters().size());
+            for (int i = 0; i < executable.parameters().size(); i++) {
+                descriptors.add(new XmlParameterDescriptor(i, executable.parameters().get(i)));
+            }
+            return List.copyOf(descriptors);
+        }
+
+        public CrossParameterDescriptor getCrossParameterDescriptor() {
+            return XmlCrossParameterDescriptor.INSTANCE;
+        }
+
+        public ReturnValueDescriptor getReturnValueDescriptor() {
+            return new XmlReturnValueDescriptor(executable.returnValue());
+        }
+
+        public boolean hasConstrainedParameters() {
+            return executable.parameters().stream().anyMatch(parameter -> !parameter.metadata().isEmpty());
+        }
+
+        public boolean hasConstrainedReturnValue() {
+            return !executable.returnValue().metadata().isEmpty();
+        }
+
+        public boolean hasConstraints() {
+            return false;
+        }
+
+        public Class<?> getElementClass() {
+            return Object.class;
+        }
+
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Collections.emptySet();
+        }
+
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private static final class XmlMethodDescriptor extends XmlExecutableDescriptor implements MethodDescriptor {
+
+        private XmlMethodDescriptor(ExecutableMapping executable) {
+            super(executable);
+        }
+    }
+
+    private static final class XmlConstructorDescriptor extends XmlExecutableDescriptor implements ConstructorDescriptor {
+
+        private XmlConstructorDescriptor(ExecutableMapping executable) {
+            super(executable);
+        }
+    }
+
+    private record XmlParameterDescriptor(int index, ParameterMapping parameter)
+        implements ParameterDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public int getIndex() {
+            return index;
+        }
+
+        @Override
+        public String getName() {
+            return "arg" + index;
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return parameter.metadata().hasAnnotation(Valid.class);
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return groupConversions(parameter.metadata());
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return parameter.metadata().hasStereotype(Constraint.class);
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return parameter.type();
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private record XmlReturnValueDescriptor(ElementMapping returnValue)
+        implements ReturnValueDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public boolean isCascaded() {
+            return returnValue.metadata().hasAnnotation(Valid.class);
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return groupConversions(returnValue.metadata());
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return returnValue.metadata().hasStereotype(Constraint.class);
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return Object.class;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private enum XmlCrossParameterDescriptor implements CrossParameterDescriptor, ElementDescriptor.ConstraintFinder {
+        INSTANCE;
+
+        @Override
+        public Class<?> getElementClass() {
+            return Object[].class;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return false;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private record XmlGroupConversionDescriptor(Class<?> from, Class<?> to) implements GroupConversionDescriptor {
+
+        @Override
+        public Class<?> getFrom() {
+            return from;
+        }
+
+        @Override
+        public Class<?> getTo() {
+            return to;
+        }
+    }
+
     private record BeanMapping(AnnotationMetadata classMetadata,
                                boolean beanAnnotationsIgnored,
                                boolean classAnnotationsIgnored,
-                               Map<String, PropertyMapping> properties) {
+                               Map<String, PropertyMapping> properties,
+                               Map<ExecutableKey, ExecutableMapping> methods,
+                               Map<ExecutableKey, ExecutableMapping> constructors) {
     }
 
     private record ConstraintDefinition(List<Class<?>> validatorClasses,
@@ -532,5 +958,28 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private record PropertyMapping(AnnotationMetadata metadata,
                                    boolean annotationsIgnored) {
+    }
+
+    private record ExecutableKey(String name, List<Class<?>> parameterTypes) {
+    }
+
+    private record ExecutableMapping(String name,
+                                     List<ParameterMapping> parameters,
+                                     ElementMapping returnValue) {
+
+        List<Class<?>> parameterTypes() {
+            return parameters.stream()
+                .map(ParameterMapping::type)
+                .toList();
+        }
+    }
+
+    private record ParameterMapping(Class<?> type,
+                                    AnnotationMetadata metadata) {
+    }
+
+    private record ElementMapping(AnnotationMetadata metadata) {
+
+        private static final ElementMapping EMPTY = new ElementMapping(AnnotationMetadata.EMPTY_METADATA);
     }
 }

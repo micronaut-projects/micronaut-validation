@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 101 classes, 499 methods,
+        Current tracker shape: 100 classes, 497 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -55,6 +55,7 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testGroupConversionsAreAdditive
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest#testGroupConversionsAppliedOnField
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest#testGroupConversionsAppliedOnGetter
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -850,12 +851,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.UnknownConstructorValidationTest">
                 <methods>
                     <include name="testUnknownConstructorThrowsException"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest">
-                <methods>
-                    <include name="testGroupConversionsAppliedOnConstructor"/>
-                    <include name="testGroupConversionsAppliedOnMethod"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
