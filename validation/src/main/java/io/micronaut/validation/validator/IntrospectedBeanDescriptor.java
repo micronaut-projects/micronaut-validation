@@ -125,22 +125,38 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
-        return null;
+        return metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .map(descriptor -> descriptor.getConstraintsForMethod(methodName, parameterTypes))
+            .filter(descriptor -> descriptor != null)
+            .findFirst()
+            .orElse(null);
     }
 
     @Override
     public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-        return Collections.emptySet();
+        return metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .flatMap(descriptor -> descriptor.getConstrainedMethods(methodType, methodTypes).stream())
+            .collect(Collectors.toSet());
     }
 
     @Override
     public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
-        return null;
+        return metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .map(descriptor -> descriptor.getConstraintsForConstructor(parameterTypes))
+            .filter(descriptor -> descriptor != null)
+            .findFirst()
+            .orElse(null);
     }
 
     @Override
     public Set<ConstructorDescriptor> getConstrainedConstructors() {
-        return Collections.emptySet();
+        return metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .flatMap(descriptor -> descriptor.getConstrainedConstructors().stream())
+            .collect(Collectors.toSet());
     }
 
     @Override
@@ -176,6 +192,61 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     @Override
     public ConstraintFinder findConstraints() {
         return this;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
+        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())
+            .stream()
+            .flatMap(type -> annotationMetadata.getAnnotationValuesByType(type)
+                .stream()
+                .map(annotationValue -> constraintDescriptor(type, annotationValue, annotationMetadata)))
+            .collect(Collectors.toSet());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
+                                                               AnnotationValue<? extends Annotation> annotationValue,
+                                                               AnnotationMetadata annotationMetadata) {
+        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
+            (Class<Annotation>) type,
+            (AnnotationValue<Annotation>) annotationValue
+        );
+        return validatorClasses
+            .map(classes -> new DefaultConstraintDescriptor(
+                type,
+                annotationValue,
+                annotationMetadata,
+                classes,
+                true
+            ))
+            .orElseGet(() -> new DefaultConstraintDescriptor(
+                type,
+                annotationValue,
+                annotationMetadata
+            ));
+    }
+
+    private Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
+        Class<Annotation> constraintType,
+        AnnotationValue<Annotation> annotationValue) {
+        List<Class<? extends ConstraintValidator<Annotation, ?>>> validatorClasses =
+            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> providerClasses =
+                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
+            if (providerClasses.isPresent()) {
+                configuredClasses = providerClasses;
+                validatorClasses = providerClasses.get();
+            }
+        }
+        return configuredClasses;
+    }
+
+    private static ClassLoader currentClassLoader() {
+        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
+        return classLoader == null ? IntrospectedBeanDescriptor.class.getClassLoader() : classLoader;
     }
 
     /**
@@ -275,60 +346,5 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         public Class<?> getTo() {
             return to;
         }
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
-        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())
-            .stream()
-            .flatMap(type -> annotationMetadata.getAnnotationValuesByType(type)
-                .stream()
-                .map(annotationValue -> constraintDescriptor(type, annotationValue, annotationMetadata)))
-            .collect(Collectors.toSet());
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
-                                                               AnnotationValue<? extends Annotation> annotationValue,
-                                                               AnnotationMetadata annotationMetadata) {
-        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
-            (Class<Annotation>) type,
-            (AnnotationValue<Annotation>) annotationValue
-        );
-        return validatorClasses
-            .map(classes -> new DefaultConstraintDescriptor(
-                type,
-                annotationValue,
-                annotationMetadata,
-                classes,
-                true
-            ))
-            .orElseGet(() -> new DefaultConstraintDescriptor(
-                type,
-                annotationValue,
-                annotationMetadata
-            ));
-    }
-
-    private Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
-        Class<Annotation> constraintType,
-        AnnotationValue<Annotation> annotationValue) {
-        List<Class<? extends ConstraintValidator<Annotation, ?>>> validatorClasses =
-            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
-        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> providerClasses =
-                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
-            if (providerClasses.isPresent()) {
-                configuredClasses = providerClasses;
-                validatorClasses = providerClasses.get();
-            }
-        }
-        return configuredClasses;
-    }
-
-    private static ClassLoader currentClassLoader() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        return classLoader == null ? IntrospectedBeanDescriptor.class.getClassLoader() : classLoader;
     }
 }

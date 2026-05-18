@@ -1050,7 +1050,7 @@ public class DefaultValidator implements
         return argument.getName();
     }
 
-    AnnotationMetadata beanAnnotationMetadata(BeanIntrospection<?> introspection) {
+    final AnnotationMetadata beanAnnotationMetadata(BeanIntrospection<?> introspection) {
         Class<?> beanType = introspection.getBeanType();
         return additionalAnnotationMetadata(
             introspection.getAnnotationMetadata(),
