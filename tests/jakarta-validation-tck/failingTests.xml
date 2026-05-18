@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 134 classes, 667 methods,
+        Current tracker shape: 127 classes, 643 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -75,6 +75,13 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotBlankConstraintTest
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.PatternConstraintTest
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.SizeConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.EmailConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotEmptyConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.MinMaxConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.DecimalMinDecimalMaxConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.DigitsConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NegativePositiveConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.FuturePastConstraintsTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -119,58 +126,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
                 <methods>
                     <include name="testXmlConfiguredValidatorConfigurationHasPrecedence"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.DecimalMinDecimalMaxConstraintsTest">
-                <methods>
-                    <include name="testDecimalMaxConstraint"/>
-                    <include name="testDecimalMinConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.DigitsConstraintTest">
-                <methods>
-                    <include name="testDigitsConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.EmailConstraintTest">
-                <methods>
-                    <include name="testEmailConstraint"/>
-                    <include name="testEmailConstraintOnStringBuilder"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.FuturePastConstraintsTest">
-                <methods>
-                    <include name="testFutureConstraint"/>
-                    <include name="testFutureConstraintForRelativePartial"/>
-                    <include name="testFutureOrPresentConstraint"/>
-                    <include name="testFutureOrPresentConstraintForRelativePartial"/>
-                    <include name="testPastConstraint"/>
-                    <include name="testPastConstraintForRelativePartial"/>
-                    <include name="testPastOrPresentConstraint"/>
-                    <include name="testPastOrPresentConstraintForRelativePartial"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.MinMaxConstraintsTest">
-                <methods>
-                    <include name="testMaxConstraint"/>
-                    <include name="testMinConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NegativePositiveConstraintsTest">
-                <methods>
-                    <include name="testNegativeConstraint"/>
-                    <include name="testNegativeConstraintInfinityAndNaN"/>
-                    <include name="testNegativeOrZeroConstraint"/>
-                    <include name="testNegativeOrZeroConstraintInfinityAndNaN"/>
-                    <include name="testPositiveConstraint"/>
-                    <include name="testPositiveConstraintInfinityAndNaN"/>
-                    <include name="testPositiveOrZeroConstraint"/>
-                    <include name="testPositiveOrZeroConstraintInfinityAndNaN"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotEmptyConstraintTest">
-                <methods>
-                    <include name="testNotEmptyConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
