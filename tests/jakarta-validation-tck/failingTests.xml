@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 91 classes, 472 methods,
+        Current tracker shape: 90 classes, 470 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -66,17 +66,7 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testGetterMappingCannotOccurMoreThanOnce
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidMappingXmlTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidValidationXmlTest
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithSeveralElExpressions
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithUnknownElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithInvalidElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithIncompleteElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testOnlyDollarSignIsSupportedForEnclosingElExpressions
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationUsingAnnotationAttributesInElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationUsingGroupsAndPayloadInElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationUsingFormatterInElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationUsingFormatterWithSeveralObjectsInElExpression
-        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest#testInterpolationWithFormatterUsesDefaultLocaleInElExpression
+        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
@@ -351,12 +341,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest">
-                <methods>
-                    <include name="testInterpolationUsingValidatedValueInElExpression"/>
-                    <include name="testInterpolationWithElExpressionThrowingAnException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">

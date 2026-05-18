@@ -106,6 +106,27 @@ class ElMessageInterpolatorTest {
         assertEquals("must be 10 at least", interpolator.interpolate("must be ${value * 2} at least", new TestContext(3, Map.of("value", 5))));
     }
 
+    @Test
+    void leavesElExpressionsForValidatedValueToElPass() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        assertEquals("abc", interpolator.interpolate("${validatedValue}", new TestContext("abc", Map.of())));
+    }
+
+    @Test
+    void leavesElExpressionUnchangedWhenValidatedValueToStringThrows() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        assertEquals("${validatedValue}", interpolator.interpolate("${validatedValue}", new TestContext(new ThrowingToString(), Map.of())));
+    }
+
+    private static final class ThrowingToString {
+        @Override
+        public String toString() {
+            throw new IllegalStateException("boom");
+        }
+    }
+
     private record TestContext(
         Object value,
         Map<String, Object> attributes,
