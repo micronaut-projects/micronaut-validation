@@ -91,6 +91,160 @@ def jakartaTck = tasks.register('jakartaTck', Test) {
     }
 }
 
+def writeFailingJakartaTckSuite = { File resultsDir, File suiteFile ->
+    if (!resultsDir.directory) {
+        throw new GradleException("No Jakarta TCK test results found at ${resultsDir}. Run discoverFailingJakartaTck first.")
+    }
+
+    def resultFiles = fileTree(resultsDir) {
+        include 'TEST-*.xml'
+    }.files
+    if (resultFiles.empty) {
+        throw new GradleException("No Jakarta TCK XML test result files found at ${resultsDir}.")
+    }
+
+    def documentBuilderFactory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
+    documentBuilderFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
+    documentBuilderFactory.setFeature("http://xml.org/sax/features/external-general-entities", false)
+    documentBuilderFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
+    documentBuilderFactory.setXIncludeAware(false)
+    documentBuilderFactory.setExpandEntityReferences(false)
+
+    def classLevelFailures = new TreeSet<String>()
+    def methodFailures = new TreeMap<String, TreeSet<String>>()
+    def configurationFailure = { String methodName ->
+        methodName == null || methodName.empty || methodName.startsWith('arquillian') || methodName == 'initializationError'
+    }
+    resultFiles.each { resultFile ->
+        def document = documentBuilderFactory.newDocumentBuilder().parse(resultFile)
+        def testcases = document.getElementsByTagName('testcase')
+        for (int i = 0; i < testcases.length; i++) {
+            def testcase = testcases.item(i)
+            if (testcase.getElementsByTagName('failure').length == 0 && testcase.getElementsByTagName('error').length == 0) {
+                continue
+            }
+            def className = testcase.getAttribute('classname')
+            def methodName = testcase.getAttribute('name')
+            if (configurationFailure(methodName)) {
+                classLevelFailures.add(className)
+                methodFailures.remove(className)
+            } else if (!classLevelFailures.contains(className)) {
+                def methods = methodFailures[className]
+                if (methods == null) {
+                    methods = new TreeSet<String>()
+                    methodFailures[className] = methods
+                }
+                methods.add(methodName)
+            }
+        }
+    }
+
+    def passingWaves = []
+    if (suiteFile.file) {
+        def inPassingWaves = false
+        suiteFile.eachLine { line ->
+            def trimmed = line.trim()
+            if (trimmed == 'Passing waves already removed from this tracker:') {
+                inPassingWaves = true
+            } else if (inPassingWaves && trimmed.startsWith('- ')) {
+                passingWaves.add(trimmed.substring(2))
+            } else if (inPassingWaves && trimmed == '-->') {
+                inPassingWaves = false
+            }
+        }
+    }
+
+    def escapeXml = { String value ->
+        value.replace('&', '&amp;')
+            .replace('<', '&lt;')
+            .replace('>', '&gt;')
+            .replace('"', '&quot;')
+            .replace("'", '&apos;')
+    }
+    def allClasses = new TreeSet<String>()
+    allClasses.addAll(methodFailures.keySet())
+    allClasses.addAll(classLevelFailures)
+    def methodCount = methodFailures.values().sum(0) { it.size() }
+
+    suiteFile.parentFile.mkdirs()
+    def builder = new StringBuilder()
+    builder << '<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >\n\n'
+    builder << '<suite name="Jakarta-Bean-Validation-TCK Known Failures" verbose="1" configfailurepolicy="continue">\n'
+    builder << '    <!--\n'
+    builder << '        Jakarta compliance TCK progress tracker.\n\n'
+    builder << '        Keep this suite focused on tests that are known to fail in the Jakarta\n'
+    builder << '        compliance profile.\n'
+    builder << '        When a class or method passes, remove it from this file in the same focused\n'
+    builder << '        commit as the implementation change.\n\n'
+    builder << '        Entries are discovered from a full TCK run. If an entry passes in this\n'
+    builder << '        smaller suite because of ordering or isolation differences, keep it here\n'
+    builder << '        until a refreshed full discovery run stops reporting it.\n\n'
+    builder << '        Failing entries below were generated from\n'
+    builder << "        ${project.relativePath(resultsDir)} and should be refreshed with:\n"
+    builder << "        ./gradlew ${path}:discoverFailingJakartaTck\n\n"
+    builder << "        Current tracker shape: ${allClasses.size()} classes, ${methodCount} methods,\n"
+    builder << "        and ${classLevelFailures.size()} class-level setup failures.\n"
+    if (!passingWaves.empty) {
+        builder << '\n'
+        builder << '        Passing waves already removed from this tracker:\n'
+        passingWaves.each { passingWave ->
+            builder << "        - ${passingWave}\n"
+        }
+    }
+    builder << '    -->\n'
+    builder << '    <test name="Known Failing Jakarta TCK Tests">\n'
+    builder << '        <classes>\n'
+    allClasses.each { className ->
+        if (classLevelFailures.contains(className)) {
+            builder << "            <class name=\"${escapeXml(className)}\"/>\n"
+        } else {
+            builder << "            <class name=\"${escapeXml(className)}\">\n"
+            builder << '                <methods>\n'
+            methodFailures[className].each { methodName ->
+                builder << "                    <include name=\"${escapeXml(methodName)}\"/>\n"
+            }
+            builder << '                </methods>\n'
+            builder << '            </class>\n'
+        }
+    }
+    builder << '        </classes>\n'
+    builder << '    </test>\n'
+    builder << '</suite>\n'
+    suiteFile.text = builder.toString()
+    logger.lifecycle("Wrote ${suiteFile} with ${allClasses.size()} classes, ${methodCount} methods, and ${classLevelFailures.size()} class-level setup failures.")
+}
+
+def refreshFailingJakartaTckSuite = tasks.register('refreshFailingJakartaTckSuite') {
+    group = 'verification'
+    description = "Regenerates failingTests.xml from the latest discoverFailingJakartaTck XML results."
+
+    def resultsDir = layout.buildDirectory.dir("test-results/discoverFailingJakartaTck")
+    inputs.dir(resultsDir)
+    outputs.file(file("failingTests.xml"))
+
+    doLast {
+        writeFailingJakartaTckSuite(resultsDir.get().asFile, file("failingTests.xml"))
+    }
+}
+
+tasks.register('discoverFailingJakartaTck', Test) {
+    group = 'verification'
+    description = "Runs the full Jakarta Validation TCK compliance profile and refreshes failingTests.xml from the failures."
+    scanForTestClasses false
+    ignoreFailures true
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath
+    shouldRunAfter(jakartaTck)
+    outputs.upToDateWhen { false }
+    finalizedBy(refreshFailingJakartaTckSuite)
+    useTestNG {
+        systemProperties = [
+                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+        ]
+        suites file("tck-spec-tests.xml")
+    }
+}
+
 tasks.register('specTck') {
     group = 'verification'
     description = "Compatibility alias for jakartaTck."
