@@ -1199,7 +1199,7 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public Iterator<Node> iterator() {
             if (propertyName == null) {
-                return Collections.<Node>emptyList().iterator();
+                return List.<Node>of(new ReflectionBeanNode()).iterator();
             }
             return List.<Node>of(new ReflectionNode(propertyName)).iterator();
         }
@@ -1207,6 +1207,49 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return propertyName == null ? "" : propertyName;
+        }
+    }
+
+    private static final class ReflectionBeanNode implements Path.BeanNode {
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.BEAN;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public String getName() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public Class<?> getContainerClass() {
+            return null;
+        }
+
+        @Override
+        public Integer getTypeArgumentIndex() {
+            return null;
         }
     }
 
