@@ -1692,7 +1692,10 @@ public class DefaultValidator implements
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
         for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())) {
-            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
+            if (annotationValuesByType.isEmpty()) {
+                annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
+            }
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
                 Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
                     (Class<Annotation>) constraintType,

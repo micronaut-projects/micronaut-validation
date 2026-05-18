@@ -473,6 +473,21 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
+        addValueExtractor(extractor, false);
+        return this;
+    }
+
+    /**
+     * Replaces a value extractor for the same container type and type argument if present.
+     *
+     * @param extractor The extractor
+     * @since 5.1
+     */
+    public void replaceValueExtractor(ValueExtractor<?> extractor) {
+        addValueExtractor(extractor, true);
+    }
+
+    private void addValueExtractor(ValueExtractor<?> extractor, boolean replace) {
         List<AnnotatedType> annotatedTypes = new ArrayList<>();
         Class<? extends ValueExtractor> extractorClass = extractor.getClass();
         determineValueExtractorDefinitions(annotatedTypes, extractorClass);
@@ -487,11 +502,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
                 new AnnotationMetadataHierarchy(argument.getAnnotationMetadata(), annotationMetadataOf(extractorClass)),
                 argument.getTypeParameters());
         }
-        valueExtractorRegistry1.addValueExtractor(new ValueExtractorDefinition<>(
+        ValueExtractorDefinition<Object> definition = new ValueExtractorDefinition<>(
             argument,
             (ValueExtractor<Object>) extractor
-        ));
-        return this;
+        );
+        if (replace) {
+            valueExtractorRegistry1.replaceValueExtractor(definition);
+        } else {
+            valueExtractorRegistry1.addValueExtractor(definition);
+        }
     }
 
     @NonNull

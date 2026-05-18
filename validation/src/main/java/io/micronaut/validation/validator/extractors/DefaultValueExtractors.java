@@ -73,7 +73,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
             addValueExtractor(internalValueExtractors, new ValueExtractorDefinition(
                 definition,
                 valueExtractor
-            ));
+            ), false);
         }
         if (beanContext != null && beanContext.containsBean(ValueExtractor.class)) {
             final Collection<BeanRegistration<ValueExtractor>> valueExtractors = beanContext.getBeanRegistrations(ValueExtractor.class);
@@ -85,7 +85,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
                         addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
                             argument,
                             reg.getBean()
-                        ));
+                        ), false);
                     } else {
                         List<Argument<?>> typeArguments = beanDefinition.getTypeArguments(ValueExtractor.class);
                         if (typeArguments.isEmpty()) {
@@ -94,7 +94,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
                         addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
                             Argument.of(ValueExtractor.class, beanDefinition.getAnnotationMetadata(), typeArguments.toArray(new Argument[0])),
                             reg.getBean()
-                        ));
+                        ), false);
                     }
                 }
             }
@@ -103,20 +103,31 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
 
     @Override
     public <T> void addValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition) {
-        addValueExtractor(localValueExtractors, valueExtractorDefinition);
+        addValueExtractor(localValueExtractors, valueExtractorDefinition, false);
+    }
+
+    @Override
+    public <T> void replaceValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition) {
+        addValueExtractor(localValueExtractors, valueExtractorDefinition, true);
     }
 
     private <T> void addValueExtractor(Map<Class<?>, List<ValueExtractorDefinition<?>>> collection,
-                                       ValueExtractorDefinition<T> valueExtractorDefinition) {
+                                       ValueExtractorDefinition<T> valueExtractorDefinition,
+                                       boolean replace) {
         List<ValueExtractorDefinition<?>> valueExtractorDefinitions = collection.computeIfAbsent(
             valueExtractorDefinition.containerType(),
             ignore -> new ArrayList<>()
         );
-        if (valueExtractorDefinitions.stream()
-            .anyMatch(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()))) {
+        boolean duplicate = valueExtractorDefinitions.stream()
+            .anyMatch(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()));
+        if (duplicate && !replace) {
             throw new ValueExtractorDeclarationException("Value extractor with this type and type argument is already defined!");
         }
+        if (duplicate) {
+            valueExtractorDefinitions.removeIf(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()));
+        }
         valueExtractorDefinitions.add(valueExtractorDefinition);
+        matchingValueExtractors.clear();
     }
 
     @SuppressWarnings("unchecked")
