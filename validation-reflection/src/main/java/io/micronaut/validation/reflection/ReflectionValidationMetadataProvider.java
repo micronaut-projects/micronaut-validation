@@ -15,12 +15,28 @@
  */
 package io.micronaut.validation.reflection;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.util.StringUtils;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.inject.Singleton;
+import jakarta.validation.Constraint;
 import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.ConstraintValidator;
+import org.jspecify.annotations.Nullable;
 
+import java.lang.annotation.Annotation;
+import java.lang.annotation.Repeatable;
+import java.lang.reflect.AnnotatedElement;
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -38,7 +54,119 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
     }
 
     @Override
+    public AnnotationMetadata getBeanAnnotationMetadata(Class<?> beanType) {
+        return annotationMetadata(beanType);
+    }
+
+    @Override
+    public AnnotationMetadata getPropertyAnnotationMetadata(Class<?> beanType, String propertyName) {
+        MutableAnnotationMetadata metadata = new MutableAnnotationMetadata();
+        for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (field.getName().equals(propertyName)) {
+                    addConstraintAnnotations(metadata, field);
+                }
+            }
+            for (Method method : current.getDeclaredMethods()) {
+                if (propertyName.equals(propertyName(method))) {
+                    addConstraintAnnotations(metadata, method);
+                }
+            }
+        }
+        return metadata.isEmpty() ? AnnotationMetadata.EMPTY_METADATA : metadata;
+    }
+
+    @Override
     public int getOrder() {
         return LOWEST_PRECEDENCE;
+    }
+
+    @Override
+    public <A extends Annotation> Optional<List<Class<? extends ConstraintValidator<A, ?>>>> getConstraintValidatorClasses(
+        Class<A> constraintType,
+        List<Class<? extends ConstraintValidator<A, ?>>> existingValidatorClasses) {
+        Constraint constraint = constraintType.getAnnotation(Constraint.class);
+        if (constraint == null || constraint.validatedBy().length == 0) {
+            return Optional.empty();
+        }
+        return Optional.of((List) List.of(constraint.validatedBy()));
+    }
+
+    private static AnnotationMetadata annotationMetadata(AnnotatedElement element) {
+        MutableAnnotationMetadata metadata = new MutableAnnotationMetadata();
+        addConstraintAnnotations(metadata, element);
+        return metadata.isEmpty() ? AnnotationMetadata.EMPTY_METADATA : metadata;
+    }
+
+    private static void addConstraintAnnotations(MutableAnnotationMetadata metadata, AnnotatedElement element) {
+        for (Annotation annotation : element.getDeclaredAnnotations()) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (annotationType.isAnnotationPresent(Constraint.class)) {
+                addConstraintAnnotation(metadata, annotation, null);
+            } else {
+                containedConstraints(annotation).forEach(contained -> addConstraintAnnotation(metadata, contained, annotationType.getName()));
+            }
+        }
+    }
+
+    private static void addConstraintAnnotation(MutableAnnotationMetadata metadata, Annotation annotation, @Nullable String containerName) {
+        String annotationName = annotation.annotationType().getName();
+        Map<CharSequence, Object> values = annotationValues(annotation);
+        if (containerName == null) {
+            metadata.addDeclaredAnnotation(annotationName, values);
+        } else {
+            metadata.addDeclaredRepeatable(
+                containerName,
+                new AnnotationValue<>(annotationName, values, Map.of())
+            );
+        }
+        metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
+    }
+
+    private static List<Annotation> containedConstraints(Annotation container) {
+        try {
+            Method valueMethod = container.annotationType().getDeclaredMethod("value");
+            if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
+                return List.of();
+            }
+            valueMethod.setAccessible(true);
+            Annotation[] annotations = (Annotation[]) valueMethod.invoke(container);
+            return Arrays.stream(annotations)
+                .filter(annotation -> annotation.annotationType().isAnnotationPresent(Constraint.class))
+                .filter(annotation -> !annotation.annotationType().isAnnotationPresent(Repeatable.class))
+                .toList();
+        } catch (NoSuchMethodException e) {
+            return List.of();
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new jakarta.validation.ValidationException("Cannot read constraint container " + container.annotationType().getName(), e);
+        }
+    }
+
+    private static Map<CharSequence, Object> annotationValues(Annotation annotation) {
+        Map<CharSequence, Object> values = new LinkedHashMap<>();
+        Class<? extends Annotation> annotationType = annotation.annotationType();
+        for (Method method : annotationType.getDeclaredMethods()) {
+            try {
+                method.setAccessible(true);
+                Object value = method.invoke(annotation);
+                if (value != null) {
+                    values.put(method.getName(), value);
+                }
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new jakarta.validation.ValidationException("Cannot read constraint annotation " + annotationType.getName(), e);
+            }
+        }
+        return values;
+    }
+
+    private static String propertyName(Method method) {
+        String name = method.getName();
+        if (name.startsWith("get") && name.length() > 3) {
+            return Character.toLowerCase(name.charAt(3)) + name.substring(4);
+        }
+        if (name.startsWith("is") && name.length() > 2 && method.getReturnType() == boolean.class) {
+            return Character.toLowerCase(name.charAt(2)) + name.substring(3);
+        }
+        return null;
     }
 }

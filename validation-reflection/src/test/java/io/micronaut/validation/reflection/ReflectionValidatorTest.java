@@ -16,21 +16,34 @@
 package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.Validator;
+import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
+import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
+import java.lang.annotation.Repeatable;
 import java.lang.reflect.Constructor;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -129,6 +142,42 @@ class ReflectionValidatorTest {
         }
     }
 
+    @Test
+    void instantiatesPrivateConstraintValidatorReflectively() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<PrivateConstraintBean>> violations = validator.validate(new PrivateConstraintBean("bad"));
+
+            assertEquals(1, violations.size());
+            assertEquals("name", violations.iterator().next().getPropertyPath().toString());
+        }
+    }
+
+    @Test
+    void readsPrivateRepeatableConstraintContainerReflectively() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<RepeatablePrivateConstraintBean>> violations = validator.validate(new RepeatablePrivateConstraintBean("bad"));
+
+            assertEquals(2, violations.size());
+        }
+    }
+
+    @Test
+    void resolvesReflectiveConstraintValidatorForTargetType() {
+        ReflectionConstraintValidatorFactory factory = new ReflectionConstraintValidatorFactory(
+            new DefaultInternalConstraintValidatorFactory(BeanIntrospector.SHARED, null)
+        );
+
+        assertNotNull(factory.getInstance(PrivateConstraintValidator.class, String.class, ConstraintTarget.IMPLICIT));
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
@@ -141,5 +190,42 @@ class ReflectionValidatorTest {
         String displayName() {
             return name;
         }
+    }
+
+    private record PrivateConstraintBean(
+        @PrivateConstraint String name
+    ) {
+    }
+
+    @Target(FIELD)
+    @Retention(RUNTIME)
+    @Repeatable(PrivateConstraints.class)
+    @Constraint(validatedBy = PrivateConstraintValidator.class)
+    private @interface PrivateConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @Target(FIELD)
+    @Retention(RUNTIME)
+    private @interface PrivateConstraints {
+        PrivateConstraint[] value();
+    }
+
+    private static final class PrivateConstraintValidator implements ConstraintValidator<PrivateConstraint, String> {
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    private record RepeatablePrivateConstraintBean(
+        @PrivateConstraint
+        @PrivateConstraint
+        String name
+    ) {
     }
 }

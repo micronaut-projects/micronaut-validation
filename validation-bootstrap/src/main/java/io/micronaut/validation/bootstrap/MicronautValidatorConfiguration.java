@@ -17,12 +17,14 @@ package io.micronaut.validation.bootstrap;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
+import io.micronaut.context.BeanContext;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
@@ -348,6 +350,9 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         }
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
+        reflectionConstraintValidatorFactory(applicationContext.getClassLoader(), applicationContext)
+            .or(() -> applicationContext.findBean(InternalConstraintValidatorFactory.class).map(ConstraintValidatorFactory.class::cast))
+            .ifPresent(validatorConfiguration::constraintValidatorFactory);
         validatorConfiguration.setBeanIntrospector(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
         xmlMappingMetadataProvider(applicationContext.getClassLoader(), configurationState.getMappingStreams())
             .ifPresent(provider -> {
@@ -545,6 +550,28 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             return Optional.empty();
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot initialize Jakarta EL message interpolator", e);
+        }
+    }
+
+    private static Optional<ConstraintValidatorFactory> reflectionConstraintValidatorFactory(ClassLoader classLoader, ApplicationContext applicationContext) {
+        try {
+            Class<?> factoryType = Class.forName("io.micronaut.validation.reflection.ReflectionConstraintValidatorFactory", true, classLoader);
+            Class<? extends ConstraintValidatorFactory> constraintValidatorFactoryType = factoryType.asSubclass(ConstraintValidatorFactory.class);
+            Optional<ConstraintValidatorFactory> factory = applicationContext.findBean(constraintValidatorFactoryType)
+                .map(ConstraintValidatorFactory.class::cast);
+            return factory.isPresent() ? factory : instantiateReflectionConstraintValidatorFactory(constraintValidatorFactoryType, applicationContext);
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        }
+    }
+
+    private static Optional<ConstraintValidatorFactory> instantiateReflectionConstraintValidatorFactory(
+        Class<? extends ConstraintValidatorFactory> factoryType,
+        ApplicationContext applicationContext) {
+        try {
+            return Optional.of(factoryType.getConstructor(BeanContext.class).newInstance(applicationContext));
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot initialize Jakarta reflection constraint validator factory", e);
         }
     }
 
