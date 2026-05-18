@@ -72,6 +72,28 @@ class XmlValidationMetadataProviderTest {
     }
 
     @Test
+    void rejectsUnknownFieldName() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <field name="missing"/>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName())));
+    }
+
+    @Test
+    void rejectsUnknownGetterName() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <getter name="missing"/>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName())));
+    }
+
+    @Test
     void rejectsMissingMandatoryConstraintAnnotationMember() {
         assertThrows(ValidationException.class, () -> metadataProvider("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
@@ -89,5 +111,14 @@ class XmlValidationMetadataProviderTest {
             Thread.currentThread().getContextClassLoader(),
             Set.of(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)))
         );
+    }
+
+    @SuppressWarnings("unused")
+    private static final class BeanWithProperties {
+        private String firstname;
+
+        String getFirstname() {
+            return firstname;
+        }
     }
 }

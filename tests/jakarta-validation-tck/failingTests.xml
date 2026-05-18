@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 107 classes, 507 methods,
+        Current tracker shape: 105 classes, 505 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -47,6 +47,8 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testCascadedConfiguration
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testIgnoreAnnotations
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest#testIncludeAnnotations
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.WrongFieldNameTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.WrongPropertyNameTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -819,11 +821,6 @@
                     <include name="testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.WrongFieldNameTest">
-                <methods>
-                    <include name="testWrongFieldNameThrowsException"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.InvalidGroupConversionInPropertyLevelOverridingTest">
                 <methods>
                     <include name="testGroupConversionsAreAdditiveAndExceptionIsThrownForMultipleConversionWithSameSource"/>
@@ -832,11 +829,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest">
                 <methods>
                     <include name="testGroupConversionsAreAdditive"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.WrongPropertyNameTest">
-                <methods>
-                    <include name="testWrongPropertyNameThrowsException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest">
