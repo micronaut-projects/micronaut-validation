@@ -24,6 +24,8 @@ import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.validation.validator.messages.DefaultMessages;
+import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Configuration;
@@ -80,6 +82,8 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     private boolean ignoreXmlConfiguration;
     @Nullable
     private MessageInterpolator messageInterpolator;
+    @Nullable
+    private MessageInterpolator defaultMessageInterpolator;
     @Nullable
     private TraversableResolver traversableResolver;
     @Nullable
@@ -184,7 +188,10 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
-        return defaults.getDefaultMessageInterpolator();
+        if (defaultMessageInterpolator == null) {
+            defaultMessageInterpolator = createElMessageInterpolator().orElseGet(defaults::getDefaultMessageInterpolator);
+        }
+        return defaultMessageInterpolator;
     }
 
     @Override
@@ -450,19 +457,6 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         return providers;
     }
 
-    private final class DefaultBootstrapState implements BootstrapState {
-
-        @Override
-        public ValidationProviderResolver getValidationProviderResolver() {
-            return bootstrapState == null ? null : bootstrapState.getValidationProviderResolver();
-        }
-
-        @Override
-        public ValidationProviderResolver getDefaultValidationProviderResolver() {
-            return bootstrapState == null ? null : bootstrapState.getDefaultValidationProviderResolver();
-        }
-    }
-
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
         if (classLoader == null) {
@@ -541,12 +535,38 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         }
     }
 
+    private Optional<MessageInterpolator> createElMessageInterpolator() {
+        try {
+            Class<?> interpolatorType = Class.forName("io.micronaut.validation.el.ElMessageInterpolator", true, classLoader);
+            return Optional.of((MessageInterpolator) interpolatorType
+                .getConstructor(io.micronaut.context.MessageSource.class, InterpolatorLocaleResolver.class)
+                .newInstance(new DefaultMessages(), null));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot initialize Jakarta EL message interpolator", e);
+        }
+    }
+
     private <T> T instantiate(String className, Class<T> type) {
         try {
             Class<?> loadedClass = Class.forName(className, true, classLoader);
             return type.cast(loadedClass.getDeclaredConstructor().newInstance());
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot instantiate validation bootstrap class: " + className, e);
+        }
+    }
+
+    private final class DefaultBootstrapState implements BootstrapState {
+
+        @Override
+        public ValidationProviderResolver getValidationProviderResolver() {
+            return bootstrapState == null ? null : bootstrapState.getValidationProviderResolver();
+        }
+
+        @Override
+        public ValidationProviderResolver getDefaultValidationProviderResolver() {
+            return bootstrapState == null ? null : bootstrapState.getDefaultValidationProviderResolver();
         }
     }
 }

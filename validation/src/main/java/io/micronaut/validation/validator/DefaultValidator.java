@@ -1619,7 +1619,14 @@ public class DefaultValidator implements
                                                                         Object elementValue,
                                                                         ConstraintDescriptor<Annotation> constraint) {
         final String messageTemplate = buildMessageTemplate(context, constraint);
-        final String message = messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(context, constraint, elementValue));
+        final String message;
+        try {
+            message = messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(context, constraint, elementValue));
+        } catch (ValidationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ValidationException("Exception during message interpolation", e);
+        }
 
         return new DefaultConstraintViolation<>(
             context.getRootBean(),
