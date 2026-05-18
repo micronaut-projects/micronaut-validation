@@ -75,6 +75,7 @@ import java.util.stream.Collectors;
 public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
 
     private static final Set<String> RESERVED_CONSTRAINT_ELEMENT_NAMES = Set.of("message", "groups", "payload");
+    private static final Set<String> SUPPORTED_MAPPING_VERSIONS = Set.of("1.0", "1.1", "2.0", "3.0", "3.1");
 
     private final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
     private final Map<String, ConstraintDefinition> constraintDefinitions = new LinkedHashMap<>();
@@ -158,6 +159,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             Document document = factory.newDocumentBuilder().parse(inputStream);
             Element root = document.getDocumentElement();
+            validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
             String defaultPackage = textOfChild(root, "default-package");
             Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
             constraintDefinitions.putAll(mappingConstraintDefinitions);
@@ -600,6 +602,13 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private static boolean booleanAttribute(Element element, String name, boolean defaultValue) {
         return element.hasAttribute(name) ? Boolean.parseBoolean(element.getAttribute(name)) : defaultValue;
+    }
+
+    static void validateVersion(Element root, Set<String> supportedVersions, String resourceDescription) {
+        String version = root.getAttribute("version");
+        if (!version.isBlank() && !supportedVersions.contains(version)) {
+            throw new ValidationException("Unsupported " + resourceDescription + " version: " + version);
+        }
     }
 
     private static String localName(Element element) {
