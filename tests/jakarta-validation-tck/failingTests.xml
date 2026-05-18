@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 124 classes, 631 methods,
+        Current tracker shape: 123 classes, 630 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -85,6 +85,7 @@
         - org.hibernate.beanvalidation.tck.tests.util.ConstraintViolationAssertTest
         - org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest
         - org.hibernate.beanvalidation.tck.tests.validation.GetterDefinitionTest
+        - org.hibernate.beanvalidation.tck.tests.validation.ValidatePropertyTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -793,11 +794,6 @@
                     <include name="testPropertyPathTraversingMethodSetParameter"/>
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
                     <include name="testPropertyPathWithConstraintViolationForRootObject"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidatePropertyTest">
-                <methods>
-                    <include name="testValidateProperty"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
