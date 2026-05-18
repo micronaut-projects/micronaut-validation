@@ -1578,6 +1578,9 @@ public class DefaultValidator implements
                     }
                 }
                 if (validator == null) {
+                    if (!validatorClasses.isEmpty()) {
+                        throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
+                    }
                     continue;
                 }
             } else {
