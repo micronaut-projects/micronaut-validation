@@ -168,6 +168,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     @Override
     public MicronautValidatorConfiguration addValueExtractor(ValueExtractor<?> extractor) {
+        defaults.addValueExtractor(extractor);
         valueExtractors.add(extractor);
         return this;
     }

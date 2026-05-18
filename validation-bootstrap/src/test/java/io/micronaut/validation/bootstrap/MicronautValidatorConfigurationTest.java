@@ -18,11 +18,15 @@ package io.micronaut.validation.bootstrap;
 import io.micronaut.context.ApplicationContext;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.valueextraction.ExtractedValue;
+import jakarta.validation.valueextraction.ValueExtractor;
+import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MicronautValidatorConfigurationTest {
@@ -43,11 +47,37 @@ class MicronautValidatorConfigurationTest {
         }
     }
 
+    @Test
+    void duplicateProgrammaticValueExtractorsFailAtConfigurationTime() {
+        MicronautValidatorConfiguration configuration = new MicronautValidatorConfiguration();
+        configuration.addValueExtractor(new BoxValueExtractorOne());
+
+        assertThrows(ValueExtractorDeclarationException.class, () ->
+            configuration.addValueExtractor(new BoxValueExtractorTwo()));
+    }
+
     private static boolean isExpectedBootstrapBean(String beanType) {
         return beanType.startsWith("io.micronaut.validation")
             || beanType.startsWith("io.micronaut.inject")
             || beanType.startsWith("io.micronaut.context")
             || beanType.startsWith("io.micronaut.core.convert")
             || beanType.startsWith("io.micronaut.core.io.service");
+    }
+
+    private static final class Box<T> {
+    }
+
+    private static final class BoxValueExtractorOne implements ValueExtractor<Box<@ExtractedValue ?>> {
+
+        @Override
+        public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
+        }
+    }
+
+    private static final class BoxValueExtractorTwo implements ValueExtractor<Box<@ExtractedValue ?>> {
+
+        @Override
+        public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
+        }
     }
 }
