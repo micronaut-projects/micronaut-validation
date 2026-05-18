@@ -897,11 +897,6 @@
                     <include name="valueExtractorPrecedenceIsAppliedCorrectly"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
-                <methods>
-                    <include name="valuePassedToExtractorRetrievedFromHost"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest">
                 <methods>
                     <include name="customGenericTypeWithCascadingButNoValueExtractorThrowsException"/>
