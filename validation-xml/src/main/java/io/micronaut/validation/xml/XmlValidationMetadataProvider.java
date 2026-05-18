@@ -19,9 +19,9 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
-import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
@@ -56,6 +56,7 @@ import java.util.Set;
 public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
 
     private final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
+    private final Map<String, ConstraintDefinition> constraintDefinitions = new LinkedHashMap<>();
     private final ClassLoader classLoader;
 
     /**
@@ -106,6 +107,28 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return propertyMapping != null && propertyMapping.annotationsIgnored;
     }
 
+    @Override
+    public <A extends Annotation> Optional<List<Class<? extends ConstraintValidator<A, ?>>>> getConstraintValidatorClasses(
+        Class<A> constraintType,
+        List<Class<? extends ConstraintValidator<A, ?>>> existingValidatorClasses) {
+        ConstraintDefinition constraintDefinition = constraintDefinitions.get(constraintType.getName());
+        if (constraintDefinition == null) {
+            return Optional.empty();
+        }
+        List<Class<? extends ConstraintValidator<A, ?>>> validatorClasses = new ArrayList<>();
+        if (constraintDefinition.includeExistingValidators()) {
+            validatorClasses.addAll(existingValidatorClasses);
+            if (validatorClasses.isEmpty()) {
+                Constraint constraint = constraintType.getAnnotation(Constraint.class);
+                if (constraint != null) {
+                    validatorClasses.addAll((List) List.of(constraint.validatedBy()));
+                }
+            }
+        }
+        validatorClasses.addAll((List) constraintDefinition.validatorClasses());
+        return Optional.of(List.copyOf(validatorClasses));
+    }
+
     private void parse(InputStream inputStream) {
         try (inputStream) {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -114,12 +137,13 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             Document document = factory.newDocumentBuilder().parse(inputStream);
             Element root = document.getDocumentElement();
             String defaultPackage = textOfChild(root, "default-package");
-            Map<String, Class<?>[]> constraintDefinitions = constraintDefinitions(root, defaultPackage);
+            Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
+            constraintDefinitions.putAll(mappingConstraintDefinitions);
             NodeList children = root.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
                 Node node = children.item(i);
                 if (node instanceof Element element && "bean".equals(localName(element))) {
-                    parseBean(element, defaultPackage, constraintDefinitions);
+                    parseBean(element, defaultPackage);
                 }
             }
         } catch (ParserConfigurationException | SAXException | IOException e) {
@@ -127,8 +151,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private Map<String, Class<?>[]> constraintDefinitions(Element root, String defaultPackage) {
-        Map<String, Class<?>[]> definitions = new LinkedHashMap<>();
+    private Map<String, ConstraintDefinition> constraintDefinitions(Element root, String defaultPackage) {
+        Map<String, ConstraintDefinition> definitions = new LinkedHashMap<>();
         NodeList children = root.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
@@ -140,6 +164,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (validatedBy == null) {
                 continue;
             }
+            boolean includeExistingValidators = booleanAttribute(validatedBy, "include-existing-validators", true);
             List<Class<?>> validators = new ArrayList<>();
             NodeList validatorNodes = validatedBy.getChildNodes();
             for (int j = 0; j < validatorNodes.getLength(); j++) {
@@ -148,14 +173,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     validators.add(loadClass(resolveClassName(text(value), defaultPackage)));
                 }
             }
-            if (!validators.isEmpty()) {
-                definitions.put(annotationName, validators.toArray(Class<?>[]::new));
-            }
+            definitions.put(annotationName, new ConstraintDefinition(List.copyOf(validators), includeExistingValidators));
         }
         return definitions;
     }
 
-    private void parseBean(Element bean, String defaultPackage, Map<String, Class<?>[]> constraintDefinitions) {
+    private void parseBean(Element bean, String defaultPackage) {
         Class<?> beanType = loadClass(resolveClassName(bean.getAttribute("class"), defaultPackage));
         boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", false);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
@@ -171,11 +194,11 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 case "class" -> {
                     classAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
                     parseGroupSequence(element, defaultPackage, classMetadata);
-                    parseConstraints(element, defaultPackage, constraintDefinitions, classMetadata);
+                    parseConstraints(element, defaultPackage, classMetadata);
                 }
                 case "field", "getter" -> {
                     MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
-                    parseConstraints(element, defaultPackage, constraintDefinitions, propertyMetadata);
+                    parseConstraints(element, defaultPackage, propertyMetadata);
                     if (child(element, "valid") != null) {
                         propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
                     }
@@ -203,7 +226,6 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private void parseConstraints(Element parent,
                                   String defaultPackage,
-                                  Map<String, Class<?>[]> constraintDefinitions,
                                   MutableAnnotationMetadata metadata) {
         NodeList children = parent.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
@@ -214,10 +236,6 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             String annotationName = resolveClassName(constraint.getAttribute("annotation"), defaultPackage);
             Class<? extends Annotation> annotationType = (Class<? extends Annotation>) loadClass(annotationName);
             Map<CharSequence, Object> values = constraintValues(constraint, annotationType, defaultPackage);
-            Class<?>[] validators = constraintDefinitions.get(annotationName);
-            if (validators != null) {
-                values.put(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validators);
-            }
             metadata.addDeclaredAnnotation(annotationName, values);
             metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
         }
@@ -414,6 +432,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private record BeanMapping(AnnotationMetadata classMetadata,
                                boolean classAnnotationsIgnored,
                                Map<String, PropertyMapping> properties) {
+    }
+
+    private record ConstraintDefinition(List<Class<?>> validatorClasses,
+                                        boolean includeExistingValidators) {
     }
 
     private record PropertyMapping(AnnotationMetadata metadata,

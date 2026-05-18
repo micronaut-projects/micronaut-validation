@@ -18,8 +18,11 @@ package io.micronaut.validation.validator.metadata;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.order.Ordered;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.metadata.BeanDescriptor;
 
+import java.lang.annotation.Annotation;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -72,5 +75,18 @@ public interface ValidationMetadataProvider extends Ordered {
      */
     default boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
         return false;
+    }
+
+    /**
+     * @param constraintType The constraint annotation type
+     * @param existingValidatorClasses The existing validator classes declared by the constraint annotation
+     * @param <A> The constraint annotation type
+     * @return The replacement validator classes, or empty if this provider does not override them
+     * @since 5.1
+     */
+    default <A extends Annotation> Optional<List<Class<? extends ConstraintValidator<A, ?>>>> getConstraintValidatorClasses(
+        Class<A> constraintType,
+        List<Class<? extends ConstraintValidator<A, ?>>> existingValidatorClasses) {
+        return Optional.empty();
     }
 }
