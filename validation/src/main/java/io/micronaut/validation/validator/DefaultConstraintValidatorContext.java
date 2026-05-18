@@ -148,6 +148,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public boolean containsGroup(Collection<Class<?>> constraintGroups) {
+        if (constraintGroups.isEmpty()) {
+            return currentGroups.contains(Default.class);
+        }
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }

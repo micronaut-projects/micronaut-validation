@@ -144,6 +144,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     private final class DefaultFactoryValidatorContext implements ValidatorContext {
 
         private final DefaultValidatorConfiguration validatorConfiguration;
+        private final DefaultValidatorConfiguration valueExtractorDuplicateCheck = new DefaultValidatorConfiguration();
 
         private DefaultFactoryValidatorContext(DefaultValidatorConfiguration validatorConfiguration) {
             this.validatorConfiguration = validatorConfiguration;
@@ -181,7 +182,8 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
         @Override
         public ValidatorContext addValueExtractor(jakarta.validation.valueextraction.ValueExtractor<?> extractor) {
-            validatorConfiguration.addValueExtractor(extractor);
+            valueExtractorDuplicateCheck.addValueExtractor(extractor);
+            validatorConfiguration.replaceValueExtractor(extractor);
             return this;
         }
 

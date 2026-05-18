@@ -376,14 +376,39 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         if (shouldApplyClockProvider(configurationState)) {
             validatorConfiguration.clockProvider(configurationState.getClockProvider());
         }
-        for (ValueExtractor<?> valueExtractor : configurationState.getValueExtractors()) {
-            validatorConfiguration.addValueExtractor(valueExtractor);
-        }
+        applyValueExtractors(configurationState, validatorConfiguration);
         return new BootstrapValidatorFactory(
             createValidator(validatorConfiguration),
             validatorConfiguration,
             applicationContext
         );
+    }
+
+    private static void applyValueExtractors(ConfigurationState configurationState,
+                                             DefaultValidatorConfiguration validatorConfiguration) {
+        if (configurationState instanceof MicronautValidatorConfiguration configuration) {
+            configuration.applyValueExtractors(validatorConfiguration);
+            return;
+        }
+        for (ValueExtractor<?> valueExtractor : configurationState.getValueExtractors()) {
+            validatorConfiguration.addValueExtractor(valueExtractor);
+        }
+    }
+
+    private void applyValueExtractors(DefaultValidatorConfiguration validatorConfiguration) {
+        ServiceLoader.load(ValueExtractor.class, classLoader)
+            .forEach(validatorConfiguration::addValueExtractor);
+        if (!ignoreXmlConfiguration) {
+            DefaultValidatorConfiguration xmlDuplicateCheck = new DefaultValidatorConfiguration();
+            for (String valueExtractorClassName : bootstrapConfiguration.getValueExtractorClassNames()) {
+                ValueExtractor<?> valueExtractor = instantiate(valueExtractorClassName, ValueExtractor.class);
+                xmlDuplicateCheck.addValueExtractor(valueExtractor);
+                validatorConfiguration.replaceValueExtractor(valueExtractor);
+            }
+        }
+        for (ValueExtractor<?> valueExtractor : valueExtractors) {
+            validatorConfiguration.replaceValueExtractor(valueExtractor);
+        }
     }
 
     private static boolean shouldApplyMessageInterpolator(ConfigurationState configurationState) {

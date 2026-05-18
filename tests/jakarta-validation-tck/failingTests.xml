@@ -887,16 +887,6 @@
                     <include name="canUseCustomValueExtractorPerValidator"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorFromServiceLoaderTest">
-                <methods>
-                    <include name="canDeclareValueExtractorViaServiceLoader"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorsPrecedenceTest">
-                <methods>
-                    <include name="valueExtractorPrecedenceIsAppliedCorrectly"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest">
                 <methods>
                     <include name="customGenericTypeWithCascadingButNoValueExtractorThrowsException"/>
