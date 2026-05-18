@@ -77,7 +77,6 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
         Map<String, Object> attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
-        attributes.put("validatedValue", context.getValidatedValue());
         return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes), context);
     }
 
