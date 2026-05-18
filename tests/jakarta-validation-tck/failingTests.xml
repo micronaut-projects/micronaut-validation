@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 116 classes, 604 methods,
+        Current tracker shape: 111 classes, 594 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -93,6 +93,8 @@
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testClassLevelConstraintViolation
         - org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
@@ -885,21 +887,6 @@
                 <methods>
                     <include name="canUseCustomExtractor"/>
                     <include name="canUseCustomValueExtractorPerValidator"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest">
-                <methods>
-                    <include name="customGenericTypeWithCascadingButNoValueExtractorThrowsException"/>
-                    <include name="mostSpecificValueExtractorFound"/>
-                    <include name="mostSpecificValueExtractorFoundWithParallelHierarchiesAsRuntimeTypeIsConsidered"/>
-                    <include name="parallelValueExtractorDefinitionsCausesException"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest">
-                <methods>
-                    <include name="customGenericTypeWithContainerElementConstraintButNoValueExtractorThrowsException"/>
-                    <include name="mostSpecificValueExtractorFound"/>
-                    <include name="parallelValueExtractorDefinitionsCausesException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest">

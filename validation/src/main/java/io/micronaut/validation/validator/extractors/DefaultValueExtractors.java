@@ -26,17 +26,18 @@ import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.inject.BeanDefinition;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.valueextraction.ValueExtractor;
 import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Stream;
 
 /**
  * The default value extractors.
@@ -136,22 +137,56 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
     public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType) {
         List<ValueExtractorDefinition<?>> valueExtractorDefinitions = matchingValueExtractors.get(targetType);
         if (valueExtractorDefinitions == null) {
-            valueExtractorDefinitions = localValueExtractors.get(targetType);
-            if (valueExtractorDefinitions == null) {
-                valueExtractorDefinitions = internalValueExtractors.get(targetType);
-            }
-            if (valueExtractorDefinitions == null) {
-                valueExtractorDefinitions = Stream.concat(
-                        localValueExtractors.entrySet().stream(),
-                        internalValueExtractors.entrySet().stream()
-                    )
-                    .filter(entry -> entry.getKey().isAssignableFrom(targetType))
-                    .map(Map.Entry::getValue)
-                    .findFirst().orElseGet(List::of);
-            }
+            valueExtractorDefinitions = findMaximallySpecificValueExtractors(targetType);
             matchingValueExtractors.put(targetType, valueExtractorDefinitions);
         }
         return (List) valueExtractorDefinitions;
+    }
+
+    private List<ValueExtractorDefinition<?>> findMaximallySpecificValueExtractors(Class<?> targetType) {
+        Map<ExtractorKey, ValueExtractorDefinition<?>> candidates = new LinkedHashMap<>();
+        addCandidates(candidates, localValueExtractors, targetType);
+        addCandidates(candidates, internalValueExtractors, targetType);
+        if (candidates.isEmpty()) {
+            return List.of();
+        }
+        Map<Integer, List<ValueExtractorDefinition<?>>> byTypeArgument = new LinkedHashMap<>();
+        for (ValueExtractorDefinition<?> candidate : candidates.values()) {
+            byTypeArgument.computeIfAbsent(candidate.typeArgumentIndex(), ignored -> new ArrayList<>()).add(candidate);
+        }
+
+        List<ValueExtractorDefinition<?>> maximallySpecific = new ArrayList<>(byTypeArgument.size());
+        for (List<ValueExtractorDefinition<?>> definitions : byTypeArgument.values()) {
+            List<ValueExtractorDefinition<?>> mostSpecific = definitions.stream()
+                .filter(candidate -> definitions.stream().noneMatch(other -> isStrictlyMoreSpecific(other, candidate)))
+                .toList();
+            if (mostSpecific.size() > 1) {
+                throw new ConstraintDeclarationException("There are multiple maximally specific value extractors for " + targetType.getName());
+            }
+            maximallySpecific.add(mostSpecific.get(0));
+        }
+        return List.copyOf(maximallySpecific);
+    }
+
+    private void addCandidates(Map<ExtractorKey, ValueExtractorDefinition<?>> candidates,
+                               Map<Class<?>, List<ValueExtractorDefinition<?>>> valueExtractors,
+                               Class<?> targetType) {
+        for (Map.Entry<Class<?>, List<ValueExtractorDefinition<?>>> entry : valueExtractors.entrySet()) {
+            if (entry.getKey().isAssignableFrom(targetType)) {
+                for (ValueExtractorDefinition<?> definition : entry.getValue()) {
+                    candidates.putIfAbsent(new ExtractorKey(definition.containerType(), definition.typeArgumentIndex()), definition);
+                }
+            }
+        }
+    }
+
+    private static boolean isStrictlyMoreSpecific(ValueExtractorDefinition<?> candidate,
+                                                  ValueExtractorDefinition<?> other) {
+        return candidate != other
+            && other.containerType().isAssignableFrom(candidate.containerType());
+    }
+
+    private record ExtractorKey(Class<?> containerType, Integer typeArgumentIndex) {
     }
 
 }
