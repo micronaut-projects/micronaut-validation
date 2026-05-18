@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 127 classes, 643 methods,
+        Current tracker shape: 126 classes, 637 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -82,6 +82,7 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.DigitsConstraintTest
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NegativePositiveConstraintsTest
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.FuturePastConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.util.ConstraintViolationAssertTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -760,16 +761,6 @@
                     <include name="testCorrectCallsToIsReachableAndIsCascadable"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.util.ConstraintViolationAssertTest">
-                <methods>
-                    <include name="testConstraintTypeCorrect"/>
-                    <include name="testInvalidValueCorrect"/>
-                    <include name="testLeafBeanCorrect"/>
-                    <include name="testMessageCorrect"/>
-                    <include name="testPropertyCorrect"/>
-                    <include name="testRootBeanClassCorrect"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
