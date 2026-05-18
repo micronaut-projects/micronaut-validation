@@ -15,15 +15,25 @@
  */
 package io.micronaut.validation.xml;
 
+import io.micronaut.validation.bootstrap.MicronautValidatorConfiguration;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableType;
-import io.micronaut.validation.bootstrap.MicronautValidatorConfiguration;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -83,6 +93,55 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
     void validationXmlProvidersAreAppliedToBuiltValidatorFactory() {
         try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
             assertTrue(validatorFactory.getClockProvider() instanceof TestClockProvider);
+        }
+    }
+
+    @Test
+    void absoluteConstraintMappingResourcePathIsResolved(@TempDir Path temporaryDirectory) throws IOException {
+        Path validationXml = temporaryDirectory.resolve("validation.xml");
+        Path constraintMapping = temporaryDirectory.resolve("constraints.xml");
+        Files.writeString(validationXml, """
+            <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                <constraint-mapping>/constraints.xml</constraint-mapping>
+            </validation-config>
+            """);
+        Files.writeString(constraintMapping, """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <default-package>example.missing</default-package>
+                <bean class="MissingBean" ignore-annotations="false">
+                </bean>
+            </constraint-mappings>
+            """);
+        ClassLoader previousClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader classLoader = new ClassLoader(previousClassLoader) {
+            @Override
+            public java.util.Enumeration<URL> getResources(String name) throws IOException {
+                if ("META-INF/validation.xml".equals(name)) {
+                    return Collections.enumeration(List.of(validationXml.toUri().toURL()));
+                }
+                return super.getResources(name);
+            }
+
+            @Override
+            public InputStream getResourceAsStream(String name) {
+                if ("constraints.xml".equals(name)) {
+                    try {
+                        return Files.newInputStream(constraintMapping);
+                    } catch (IOException e) {
+                        throw new UncheckedIOException(e);
+                    }
+                }
+                return super.getResourceAsStream(name);
+            }
+        };
+
+        Thread.currentThread().setContextClassLoader(classLoader);
+        try {
+            MicronautValidatorConfiguration configuration = new MicronautValidatorConfiguration();
+
+            assertThrows(ValidationException.class, configuration::buildValidatorFactory);
+        } finally {
+            Thread.currentThread().setContextClassLoader(previousClassLoader);
         }
     }
 

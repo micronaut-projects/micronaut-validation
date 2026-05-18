@@ -247,13 +247,19 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         }
         if (!ignoreXmlConfiguration) {
             for (String mappingPath : bootstrapConfiguration.getConstraintMappingResourcePaths()) {
-                InputStream inputStream = classLoader.getResourceAsStream(mappingPath);
-                if (inputStream != null) {
-                    streams.add(inputStream);
-                }
+                streams.add(getConstraintMappingResource(mappingPath));
             }
         }
         return Set.copyOf(streams);
+    }
+
+    private InputStream getConstraintMappingResource(String mappingPath) {
+        String resourcePath = mappingPath.startsWith("/") ? mappingPath.substring(1) : mappingPath;
+        InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
+        if (inputStream == null) {
+            throw new ValidationException("Cannot read constraint mapping resource: " + mappingPath);
+        }
+        return inputStream;
     }
 
     @Override
