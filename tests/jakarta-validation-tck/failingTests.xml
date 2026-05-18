@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 95 classes, 492 methods,
+        Current tracker shape: 94 classes, 487 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -404,7 +404,6 @@
                     <include name="testConvertGroupDefaultFromForConstructorParameter"/>
                     <include name="testConvertGroupDefaultFromForMethodParameter"/>
                     <include name="testConvertGroupDefaultFromForMethodReturnValue"/>
-                    <include name="testConvertGroupDefaultFromForProperty"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.CrossParameterDescriptorTest">
@@ -516,8 +515,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.PropertyDescriptorTest">
                 <methods>
                     <include name="testGetContainerElementMetaData"/>
-                    <include name="testGetGroupConversionsForField"/>
-                    <include name="testGetGroupConversionsForProperty"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ReturnValueDescriptorTest">
@@ -756,6 +753,11 @@
                     <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
                 </methods>
             </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfigurationViaXmlAndAnnotationsTest">
+                <methods>
+                    <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
+                </methods>
+            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.clazzlevel.ClassLevelOverridingTest">
                 <methods>
                     <include name="testClassLevelAnnotationsApplied"/>
@@ -798,7 +800,6 @@
                     <include name="configuringSameContainerElementTwiceCausesException"/>
                     <include name="declaringContainerElementTypeConstraintForNonExistingNestedTypeArgumentIndexOnParameterCausesException"/>
                     <include name="declaringContainerElementTypeConstraintForNonExistingTypeArgumentIndexOnParameterCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintOnNonGenericParameterCausesException"/>
                     <include name="omittingTypeArgumentForMultiTypeArgumentTypeOnParameterCausesException"/>
                 </methods>
             </class>
@@ -838,11 +839,6 @@
                     <include name="testXmlConfiguredConstructors"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.DisabledCascadedValidationTest">
-                <methods>
-                    <include name="testValidAnnotationIsIgnored"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.IgnoreAnnotationsInConstructorConfigurationTest">
                 <methods>
                     <include name="testIgnoreAnnotationsOnReturnValueParameterAndCrossParameter"/>
@@ -879,11 +875,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.CascadedValidationTest">
                 <methods>
                     <include name="testValidaAnnotationIsApplied"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.DisabledCascadedValidationTest">
-                <methods>
-                    <include name="testValidAnnotationIsIgnored"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest">
