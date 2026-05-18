@@ -192,7 +192,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (localName(element)) {
+            String elementName = localName(element);
+            switch (elementName) {
                 case "class" -> {
                     classAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
                     parseGroupSequence(element, defaultPackage, classMetadata);
@@ -200,6 +201,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 }
                 case "field", "getter" -> {
                     String propertyName = requireAttribute(element, "name");
+                    validatePropertyExists(beanType, elementName, propertyName);
                     MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
                     parseConstraints(element, defaultPackage, propertyMetadata);
                     if (child(element, "valid") != null) {
@@ -213,6 +215,49 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
         }
         beanMappings.put(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties));
+    }
+
+    private static void validatePropertyExists(Class<?> beanType, String elementName, String propertyName) {
+        boolean found = switch (elementName) {
+            case "field" -> hasField(beanType, propertyName);
+            case "getter" -> hasGetter(beanType, propertyName);
+            default -> true;
+        };
+        if (!found) {
+            throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
+        }
+    }
+
+    private static boolean hasField(Class<?> beanType, String fieldName) {
+        Class<?> currentType = beanType;
+        while (currentType != null && currentType != Object.class) {
+            try {
+                currentType.getDeclaredField(fieldName);
+                return true;
+            } catch (NoSuchFieldException e) {
+                currentType = currentType.getSuperclass();
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasGetter(Class<?> beanType, String propertyName) {
+        String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+        return hasGetterMethod(beanType, "get" + suffix, false) || hasGetterMethod(beanType, "is" + suffix, true);
+    }
+
+    private static boolean hasGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
+        Class<?> currentType = beanType;
+        while (currentType != null && currentType != Object.class) {
+            for (Method method : currentType.getDeclaredMethods()) {
+                if (method.getParameterCount() == 0 && method.getName().equals(methodName)) {
+                    Class<?> returnType = method.getReturnType();
+                    return returnType != void.class && (!booleanGetter || returnType == boolean.class || returnType == Boolean.class);
+                }
+            }
+            currentType = currentType.getSuperclass();
+        }
+        return false;
     }
 
     private void parseGroupSequence(Element parent,
