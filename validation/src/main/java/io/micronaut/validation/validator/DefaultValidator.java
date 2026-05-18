@@ -89,6 +89,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1590,11 +1591,19 @@ public class DefaultValidator implements
                 validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
             }
             if (validator == null || validator == ConstraintValidator.VALID) {
+                if (validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint)) {
+                    continue;
+                }
                 throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
             }
             try {
-                if (validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
-                    continue;
+                if (!validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
+                    if (!context.disableDefaultConstraintViolation) {
+                        DefaultConstraintViolation<R> constraintViolation = createConstraintViolation(context, leftBean, elementValue, constraint);
+                        context.addViolation(constraintViolation);
+                    } else if (context.getOverallViolations().isEmpty()) {
+                        throw new ValidationException("Default violation is disabled and no violations were added");
+                    }
                 }
             } catch (ValidationException e) {
                 throw e;
@@ -1602,16 +1611,33 @@ public class DefaultValidator implements
                 throw new ValidationException("Cannot call 'isValid' on: " + validator.getClass().getName(), e);
             }
 
-            if (!context.disableDefaultConstraintViolation) {
-                DefaultConstraintViolation<R> constraintViolation = createConstraintViolation(context, leftBean, elementValue, constraint);
-                context.addViolation(constraintViolation);
-            } else if (context.getOverallViolations().isEmpty()) {
-                throw new ValidationException("Default violation is disabled and no violations were added");
-            }
+            validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
             context.messageTemplate(null);
             context.constraint = null;
             context.disableDefaultConstraintViolation = false;
         }
+    }
+
+    private <R, E> boolean validateComposingConstraints(DefaultConstraintValidatorContext<R> context,
+                                                        @Nullable Object leftBean,
+                                                        Argument<E> elementArgument,
+                                                        @Nullable E elementValue,
+                                                        DefaultConstraintDescriptor<Annotation> constraint) {
+        if (!constraint.hasComposingConstraints()) {
+            return false;
+        }
+        List<DefaultConstraintDescriptor<Annotation>> composingConstraints = List.copyOf(constraint.getComposingConstraintDescriptors());
+        if (constraint.isReportAsSingleViolation()) {
+            Set<ConstraintViolation<R>> existingViolations = new LinkedHashSet<>(context.getOverallViolations());
+            validateConstrains(context, leftBean, elementArgument, elementValue, composingConstraints);
+            if (!existingViolations.containsAll(context.getOverallViolations())) {
+                context.getOverallViolations().removeIf(violation -> !existingViolations.contains(violation));
+                context.addViolation(createConstraintViolation(context, leftBean, elementValue, constraint));
+            }
+        } else {
+            validateConstrains(context, leftBean, elementArgument, elementValue, composingConstraints);
+        }
+        return true;
     }
 
     private <R> DefaultConstraintViolation<R> createConstraintViolation(DefaultConstraintValidatorContext<R> context,
@@ -1666,10 +1692,7 @@ public class DefaultValidator implements
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
         for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())) {
-            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
-            if (annotationValuesByType.isEmpty()) {
-                annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
-            }
+            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
                 Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
                     (Class<Annotation>) constraintType,

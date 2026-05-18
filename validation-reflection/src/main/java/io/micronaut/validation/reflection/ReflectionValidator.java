@@ -45,8 +45,10 @@ import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.
 import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.NodeContextBuilder;
 import jakarta.validation.ElementKind;
 import jakarta.validation.MessageInterpolator;
+import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Payload;
 import jakarta.validation.Path;
+import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.ValidationException;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
@@ -509,7 +511,13 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate());
-            boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
+            Boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
+            if (valid == null) {
+                if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyName, value, valueType, constraint, context, violations)) {
+                    continue;
+                }
+                throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
+            }
             if (!valid && !validatorContext.defaultViolationDisabled) {
                 violations.add(new ReflectionConstraintViolation<>(
                     rootBean,
@@ -522,6 +530,7 @@ public class ReflectionValidator extends DefaultValidator {
                     constraint
                 ));
             }
+            validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyName, value, valueType, constraint, context, violations);
             for (String messageTemplate : validatorContext.customViolationTemplates) {
                 violations.add(new ReflectionConstraintViolation<>(
                     rootBean,
@@ -537,8 +546,42 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private <T> boolean validateComposingConstraints(@Nullable T rootBean,
+                                                     @Nullable Class<?> rootBeanClass,
+                                                     @Nullable Object leafBean,
+                                                     @Nullable String propertyName,
+                                                     @Nullable Object value,
+                                                     Class<?> valueType,
+                                                     ReflectionConstraintDescriptor<?> constraint,
+                                                     BeanValidationContext context,
+                                                     Set<ConstraintViolation<T>> violations) {
+        if (constraint.composingConstraints.isEmpty()) {
+            return false;
+        }
+        if (constraint.isReportAsSingleViolation()) {
+            Set<ConstraintViolation<T>> existingViolations = new LinkedHashSet<>(violations);
+            validateConstraints(rootBean, rootBeanClass, leafBean, propertyName, value, valueType, constraint.composingConstraints, context, violations);
+            if (!existingViolations.containsAll(violations)) {
+                violations.removeIf(violation -> !existingViolations.contains(violation));
+                violations.add(new ReflectionConstraintViolation<>(
+                    rootBean,
+                    (Class<T>) rootBeanClass,
+                    leafBean,
+                    value,
+                    interpolate(constraint.getMessageTemplate(), constraint, value),
+                    constraint.getMessageTemplate(),
+                    new ReflectionPath(propertyName),
+                    constraint
+                ));
+            }
+        } else {
+            validateConstraints(rootBean, rootBeanClass, leafBean, propertyName, value, valueType, constraint.composingConstraints, context, violations);
+        }
+        return true;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private boolean validateConstraint(ReflectionConstraintDescriptor constraint,
+    private @Nullable Boolean validateConstraint(ReflectionConstraintDescriptor constraint,
                                        @Nullable Object value,
                                        Class<?> valueType,
                                        SimpleConstraintValidatorContext validatorContext) {
@@ -560,7 +603,7 @@ public class ReflectionValidator extends DefaultValidator {
         if (validator.isPresent()) {
             return validator.get().isValid(value, constraint.annotationValue, validatorContext);
         }
-        return true;
+        return null;
     }
 
     private String interpolate(String template, ReflectionConstraintDescriptor<?> descriptor, @Nullable Object value) {
@@ -916,6 +959,7 @@ public class ReflectionValidator extends DefaultValidator {
         private final Set<Class<? extends Payload>> payload;
         private final List<Class<? extends jakarta.validation.ConstraintValidator<A, ?>>> validators;
         private final AnnotationValue<A> annotationValue;
+        private final List<ReflectionConstraintDescriptor<?>> composingConstraints;
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         private ReflectionConstraintDescriptor(A annotation) {
@@ -925,6 +969,21 @@ public class ReflectionValidator extends DefaultValidator {
             this.payload = Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
             this.annotationValue = new AnnotationValue<>(type.getName(), annotationMembers(annotation, false), annotationMembers(annotation, true));
+            this.composingConstraints = composingConstraints(annotation, groups, payload);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private ReflectionConstraintDescriptor(A annotation,
+                                               Set<Class<?>> groups,
+                                               Set<Class<? extends Payload>> payload,
+                                               Map<CharSequence, Object> annotationMembers) {
+            this.annotation = annotation;
+            this.type = (Class<A>) annotation.annotationType();
+            this.groups = groups;
+            this.payload = payload;
+            this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
+            this.annotationValue = new AnnotationValue<>(type.getName(), annotationMembers, annotationMembers(annotation, true));
+            this.composingConstraints = composingConstraints(annotation, groups, payload);
         }
 
         @Override
@@ -967,7 +1026,7 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public Set<ConstraintDescriptor<?>> getComposingConstraints() {
-            return Set.of();
+            return Set.copyOf(composingConstraints);
         }
 
         @Override
@@ -1009,6 +1068,58 @@ public class ReflectionValidator extends DefaultValidator {
                 return defaultValue;
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new ValidationException("Cannot read annotation member " + annotation.annotationType().getName() + "." + member, e);
+            }
+        }
+
+        private static List<ReflectionConstraintDescriptor<?>> composingConstraints(
+            Annotation parentAnnotation,
+            Set<Class<?>> groups,
+            Set<Class<? extends Payload>> payload) {
+            List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+            for (Annotation annotation : parentAnnotation.annotationType().getDeclaredAnnotations()) {
+                if (annotation.annotationType().isAnnotationPresent(Constraint.class)) {
+                    Map<CharSequence, Object> members = annotationMembers(annotation, false);
+                    applyOverrides(parentAnnotation, annotation.annotationType(), members);
+                    members.put("groups", groups.toArray(Class<?>[]::new));
+                    members.put("payload", payload.toArray(Class<?>[]::new));
+                    constraints.add(new ReflectionConstraintDescriptor(annotation, groups, payload, members));
+                }
+            }
+            return List.copyOf(constraints);
+        }
+
+        private static void applyOverrides(
+            Annotation parentAnnotation,
+            Class<? extends Annotation> composingType,
+            Map<CharSequence, Object> members) {
+            Map<CharSequence, Object> parentMembers = annotationMembers(parentAnnotation, false);
+            for (Method method : parentAnnotation.annotationType().getDeclaredMethods()) {
+                Object value = parentMembers.get(method.getName());
+                if (value == null) {
+                    continue;
+                }
+                OverridesAttribute override = method.getAnnotation(OverridesAttribute.class);
+                if (override != null) {
+                    applyOverride(composingType, members, method, value, override);
+                }
+                OverridesAttribute.List overrides = method.getAnnotation(OverridesAttribute.List.class);
+                if (overrides != null) {
+                    for (OverridesAttribute listedOverride : overrides.value()) {
+                        applyOverride(composingType, members, method, value, listedOverride);
+                    }
+                }
+            }
+        }
+
+        private static void applyOverride(
+            Class<? extends Annotation> composingType,
+            Map<CharSequence, Object> members,
+            Method method,
+            Object value,
+            OverridesAttribute override) {
+            if (override.constraint() == composingType) {
+                String name = override.name().isEmpty() ? method.getName() : override.name();
+                members.put(name, value);
             }
         }
     }

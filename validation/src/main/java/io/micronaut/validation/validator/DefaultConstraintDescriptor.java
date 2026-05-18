@@ -25,16 +25,23 @@ import io.micronaut.core.util.CollectionUtils;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
+import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Payload;
+import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -61,6 +68,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final ConstraintTarget validationAppliesTo;
     private final AnnotationValue<T> annotationValue;
     private final AnnotationMetadata annotationMetadata;
+    private final Set<DefaultConstraintDescriptor<Annotation>> composingConstraints;
+    private final boolean reportAsSingleViolation;
 
     DefaultConstraintDescriptor(@NonNull Class<T> constraintType,
                                 @NonNull AnnotationValue<T> annotationValue,
@@ -141,6 +150,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this.validationAppliesTo = validationAppliesTo;
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
+        this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
+        this.reportAsSingleViolation = type.isAnnotationPresent(ReportAsSingleViolation.class);
     }
 
     public AnnotationValue<T> getAnnotationValue() {
@@ -222,12 +233,20 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public Set<ConstraintDescriptor<?>> getComposingConstraints() {
-        return Collections.emptySet();
+        return Collections.unmodifiableSet((Set) composingConstraints);
     }
 
     @Override
     public boolean isReportAsSingleViolation() {
-        return false;
+        return reportAsSingleViolation;
+    }
+
+    Set<DefaultConstraintDescriptor<Annotation>> getComposingConstraintDescriptors() {
+        return composingConstraints;
+    }
+
+    boolean hasComposingConstraints() {
+        return !composingConstraints.isEmpty();
     }
 
     @Override
@@ -249,5 +268,110 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     @Override
     public <U> U unwrap(Class<U> type) {
         throw new UnsupportedOperationException("Unwrapping unsupported");
+    }
+
+    private static Set<DefaultConstraintDescriptor<Annotation>> composingConstraints(
+        Class<? extends Annotation> constraintType,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        AnnotationMetadata annotationMetadata) {
+        Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
+        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (annotationType.isAnnotationPresent(jakarta.validation.Constraint.class)) {
+                composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, annotationMetadata));
+            }
+        }
+        return Collections.unmodifiableSet(composingConstraints);
+    }
+
+    private static DefaultConstraintDescriptor<Annotation> composingConstraint(
+        Annotation annotation,
+        Class<? extends Annotation> parentType,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        AnnotationMetadata annotationMetadata) {
+        Class<? extends Annotation> annotationType = annotation.annotationType();
+        Map<CharSequence, Object> values = annotationValues(annotation);
+        applyOverrides(annotationType, parentType, parentAnnotationValue, values);
+        values.put("groups", parentAnnotationValue.classValues("groups"));
+        values.put("payload", parentAnnotationValue.classValues("payload"));
+        AnnotationValue<Annotation> annotationValue = new AnnotationValue<>(
+            annotationType.getName(),
+            values,
+            defaultValues(annotationType)
+        );
+        return new DefaultConstraintDescriptor<>((Class<Annotation>) annotationType, annotationValue, annotationMetadata);
+    }
+
+    private static void applyOverrides(
+        Class<? extends Annotation> composingType,
+        Class<? extends Annotation> parentType,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        Map<CharSequence, Object> values) {
+        Map<String, Object> parentAttributes = attributes(parentAnnotationValue);
+        for (Method method : parentType.getDeclaredMethods()) {
+            Object value = parentAttributes.get(method.getName());
+            if (value == null) {
+                continue;
+            }
+            OverridesAttribute override = method.getAnnotation(OverridesAttribute.class);
+            if (override != null) {
+                applyOverride(composingType, values, method, value, override);
+            }
+            OverridesAttribute.List overrides = method.getAnnotation(OverridesAttribute.List.class);
+            if (overrides != null) {
+                for (OverridesAttribute listedOverride : overrides.value()) {
+                    applyOverride(composingType, values, method, value, listedOverride);
+                }
+            }
+        }
+    }
+
+    private static void applyOverride(
+        Class<? extends Annotation> composingType,
+        Map<CharSequence, Object> values,
+        Method method,
+        Object value,
+        OverridesAttribute override) {
+        if (override.constraint() == composingType) {
+            String name = override.name().isEmpty() ? method.getName() : override.name();
+            values.put(name, value);
+        }
+    }
+
+    private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
+        Map<String, Object> attributes = new LinkedHashMap<>();
+        annotationValue.getValues().forEach((key, value) -> attributes.put(key.toString(), value));
+        Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
+        if (defaultValues != null) {
+            defaultValues.forEach((key, value) -> attributes.putIfAbsent(key.toString(), value));
+        }
+        return attributes;
+    }
+
+    private static Map<CharSequence, Object> annotationValues(Annotation annotation) {
+        Map<CharSequence, Object> values = new LinkedHashMap<>();
+        for (Method method : annotation.annotationType().getDeclaredMethods()) {
+            try {
+                method.setAccessible(true);
+                Object value = method.invoke(annotation);
+                if (value != null && !Objects.deepEquals(value, method.getDefaultValue())) {
+                    values.put(method.getName(), value);
+                }
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new ConstraintDeclarationException("Cannot read composing constraint " + annotation.annotationType().getName(), e);
+            }
+        }
+        return values;
+    }
+
+    private static Map<CharSequence, Object> defaultValues(Class<? extends Annotation> annotationType) {
+        Map<CharSequence, Object> defaultValues = new LinkedHashMap<>();
+        for (Method method : annotationType.getDeclaredMethods()) {
+            Object defaultValue = method.getDefaultValue();
+            if (defaultValue != null) {
+                defaultValues.put(method.getName(), defaultValue);
+            }
+        }
+        return defaultValues;
     }
 }
