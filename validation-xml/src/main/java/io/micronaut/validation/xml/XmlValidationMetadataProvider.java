@@ -235,11 +235,13 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 }
                 case "constructor" -> {
                     ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage);
+                    validateConstructorExists(beanType, constructor.parameterTypes());
                     constructors.put(new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes()), constructor);
                 }
                 case "method" -> {
                     String methodName = requireAttribute(element, "name");
                     ExecutableMapping method = parseExecutable(methodName, element, defaultPackage);
+                    validateMethodExists(beanType, methodName, method.parameterTypes());
                     methods.put(new ExecutableKey(methodName, method.parameterTypes()), method);
                 }
                 default -> {
@@ -290,6 +292,28 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             currentType = currentType.getSuperclass();
         }
         return false;
+    }
+
+    private static void validateConstructorExists(Class<?> beanType, List<Class<?>> parameterTypes) {
+        try {
+            beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new));
+        } catch (NoSuchMethodException e) {
+            throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + parameterTypes, e);
+        }
+    }
+
+    private static void validateMethodExists(Class<?> beanType, String methodName, List<Class<?>> parameterTypes) {
+        Class<?> currentType = beanType;
+        while (currentType != null && currentType != Object.class) {
+            for (Method method : currentType.getDeclaredMethods()) {
+                if (method.getName().equals(methodName)
+                    && Arrays.equals(method.getParameterTypes(), parameterTypes.toArray(Class<?>[]::new))) {
+                    return;
+                }
+            }
+            currentType = currentType.getSuperclass();
+        }
+        throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + parameterTypes);
     }
 
     private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage) {
