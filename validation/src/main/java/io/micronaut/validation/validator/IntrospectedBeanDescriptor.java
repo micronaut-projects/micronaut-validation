@@ -106,6 +106,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     public PropertyDescriptor getConstraintsForProperty(String propertyName) {
         return beanIntrospection.getProperty(propertyName)
             .map(IntrospectedPropertyDescriptor::new)
+            .filter(property -> property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty())
             .orElse(null);
     }
 

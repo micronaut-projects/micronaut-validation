@@ -736,6 +736,15 @@ class ValidatorSpec extends Specification {
         beanDescriptor.getConstrainedProperties().size() == 0
     }
 
+    void "test descriptor returns null for unconstrained property"() {
+        given:
+        BeanDescriptor beanDescriptor = validator.getConstraintsForClass(PartiallyConstrainedBook)
+
+        expect:
+        beanDescriptor.getConstraintsForProperty("title")
+        beanDescriptor.getConstraintsForProperty("subtitle") == null
+    }
+
     void "test cascade to container of non-introspected class" () {
         when:
         def notIntrospected = new ValidatorSpecClasses.Bee("")
@@ -1062,6 +1071,14 @@ class Book {
 
     @Size(min = 1, max = 10)
     List<@Valid Author> authors = []
+}
+
+@Introspected
+class PartiallyConstrainedBook {
+    @NotBlank
+    String title
+
+    String subtitle
 }
 
 @Introspected
