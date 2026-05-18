@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 117 classes, 605 methods,
+        Current tracker shape: 116 classes, 604 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -96,6 +96,7 @@
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.definition.InvalidValueExtractorTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -894,11 +895,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorsPrecedenceTest">
                 <methods>
                     <include name="valueExtractorPrecedenceIsAppliedCorrectly"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.InvalidValueExtractorTest">
-                <methods>
-                    <include name="noExtractedValueThrowsException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
