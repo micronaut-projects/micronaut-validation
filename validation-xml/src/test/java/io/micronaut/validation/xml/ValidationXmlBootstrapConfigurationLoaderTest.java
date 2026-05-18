@@ -203,4 +203,14 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
                 </validation-config>
                 """.getBytes(StandardCharsets.UTF_8))));
     }
+
+    @Test
+    void unknownValidationXmlRootElementIsRejected() {
+        assertThrows(jakarta.validation.ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
+            .parse(new ByteArrayInputStream("""
+                <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                    <invalid/>
+                </validation-config>
+                """.getBytes(StandardCharsets.UTF_8))));
+    }
 }

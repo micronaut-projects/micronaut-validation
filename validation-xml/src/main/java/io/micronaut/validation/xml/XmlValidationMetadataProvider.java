@@ -76,6 +76,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private static final Set<String> RESERVED_CONSTRAINT_ELEMENT_NAMES = Set.of("message", "groups", "payload");
     private static final Set<String> SUPPORTED_MAPPING_VERSIONS = Set.of("1.0", "1.1", "2.0", "3.0", "3.1");
+    private static final Set<String> ROOT_ELEMENT_NAMES = Set.of("default-package", "bean", "constraint-definition");
 
     private final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
     private final Map<String, ConstraintDefinition> constraintDefinitions = new LinkedHashMap<>();
@@ -160,6 +161,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             Document document = factory.newDocumentBuilder().parse(inputStream);
             Element root = document.getDocumentElement();
             validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
+            validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
             String defaultPackage = textOfChild(root, "default-package");
             Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
             constraintDefinitions.putAll(mappingConstraintDefinitions);
@@ -649,6 +651,16 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         String version = root.getAttribute("version");
         if (!version.isBlank() && !supportedVersions.contains(version)) {
             throw new ValidationException("Unsupported " + resourceDescription + " version: " + version);
+        }
+    }
+
+    static void validateRootElements(Element root, Set<String> allowedElementNames, String resourceDescription) {
+        NodeList children = root.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            Node node = children.item(i);
+            if (node instanceof Element element && !allowedElementNames.contains(localName(element))) {
+                throw new ValidationException("Unsupported " + resourceDescription + " element: " + localName(element));
+            }
         }
     }
 

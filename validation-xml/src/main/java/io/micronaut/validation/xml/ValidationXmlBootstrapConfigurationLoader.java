@@ -49,6 +49,18 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
 
     private static final String VALIDATION_XML = "META-INF/validation.xml";
     private static final Set<String> SUPPORTED_CONFIGURATION_VERSIONS = Set.of("1.0", "1.1", "2.0", "3.0", "3.1");
+    private static final Set<String> ROOT_ELEMENT_NAMES = Set.of(
+        "default-provider",
+        "message-interpolator",
+        "traversable-resolver",
+        "constraint-validator-factory",
+        "parameter-name-provider",
+        "clock-provider",
+        "value-extractor",
+        "constraint-mapping",
+        "executable-validation",
+        "property"
+    );
 
     @Override
     public Optional<BootstrapConfiguration> load(ClassLoader classLoader) {
@@ -82,6 +94,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
             Document document = factory.newDocumentBuilder().parse(inputStream);
             Element root = document.getDocumentElement();
             XmlValidationMetadataProvider.validateVersion(root, SUPPORTED_CONFIGURATION_VERSIONS, "validation.xml");
+            XmlValidationMetadataProvider.validateRootElements(root, ROOT_ELEMENT_NAMES, "validation.xml");
             Map<String, String> properties = new LinkedHashMap<>();
             Set<String> valueExtractors = new LinkedHashSet<>();
             Set<String> constraintMappings = new LinkedHashSet<>();
