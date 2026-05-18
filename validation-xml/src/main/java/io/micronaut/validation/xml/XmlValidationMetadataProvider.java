@@ -210,6 +210,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
         Map<ExecutableKey, ExecutableMapping> methods = new LinkedHashMap<>();
         Map<ExecutableKey, ExecutableMapping> constructors = new LinkedHashMap<>();
+        Set<String> configuredGetterMethods = new LinkedHashSet<>();
         NodeList children = bean.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
@@ -226,6 +227,15 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 case "field", "getter" -> {
                     String propertyName = requireAttribute(element, "name");
                     validatePropertyExists(beanType, elementName, propertyName);
+                    if ("getter".equals(elementName)) {
+                        Set<String> getterMethods = getterMethodNames(beanType, propertyName);
+                        for (String getterMethod : getterMethods) {
+                            if (methods.containsKey(new ExecutableKey(getterMethod, List.of()))) {
+                                throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + getterMethod);
+                            }
+                        }
+                        configuredGetterMethods.addAll(getterMethods);
+                    }
                     MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
                     parseConstraints(element, defaultPackage, propertyMetadata);
                     if (child(element, "valid") != null) {
@@ -244,6 +254,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     String methodName = requireAttribute(element, "name");
                     ExecutableMapping method = parseExecutable(methodName, element, defaultPackage);
                     validateMethodExists(beanType, methodName, method.parameterTypes());
+                    if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
+                        throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
+                    }
                     methods.put(new ExecutableKey(methodName, method.parameterTypes()), method);
                 }
                 default -> {
@@ -280,6 +293,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private static boolean hasGetter(Class<?> beanType, String propertyName) {
         String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
         return hasGetterMethod(beanType, "get" + suffix, false) || hasGetterMethod(beanType, "is" + suffix, true);
+    }
+
+    private static Set<String> getterMethodNames(Class<?> beanType, String propertyName) {
+        String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
+        Set<String> methodNames = new LinkedHashSet<>();
+        if (hasGetterMethod(beanType, "get" + suffix, false)) {
+            methodNames.add("get" + suffix);
+        }
+        if (hasGetterMethod(beanType, "is" + suffix, true)) {
+            methodNames.add("is" + suffix);
+        }
+        return methodNames;
     }
 
     private static boolean hasGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
