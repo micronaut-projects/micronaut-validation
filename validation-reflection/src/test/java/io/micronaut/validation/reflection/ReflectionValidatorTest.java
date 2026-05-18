@@ -18,14 +18,19 @@ package io.micronaut.validation.reflection;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.validation.validator.Validator;
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Constructor;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -61,6 +66,32 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void validatesConstructorParametersWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Constructor<PlainBean> constructor = PlainBean.class.getDeclaredConstructor(String.class);
+
+            Set<ConstraintViolation<PlainBean>> violations = validator.forExecutables()
+                .validateConstructorParameters(constructor, new Object[]{""});
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<PlainBean> violation = violations.iterator().next();
+            assertEquals("", violation.getInvalidValue());
+            Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
+            Path.Node constructorNode = nodes.next();
+            assertEquals(ElementKind.CONSTRUCTOR, constructorNode.getKind());
+            assertEquals("PlainBean", constructorNode.getName());
+            Path.ParameterNode parameterNode = nodes.next().as(Path.ParameterNode.class);
+            assertEquals(ElementKind.PARAMETER, parameterNode.getKind());
+            assertEquals("name", parameterNode.getName());
+            assertEquals(0, parameterNode.getParameterIndex());
+            assertFalse(nodes.hasNext());
+        }
+    }
+
+    @Test
     void rejectsNullArgumentsWithIllegalArgumentException() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -78,7 +109,7 @@ class ReflectionValidatorTest {
         @NotBlank
         private final String name;
 
-        PlainBean(String name) {
+        PlainBean(@NotBlank String name) {
             this.name = name;
         }
     }

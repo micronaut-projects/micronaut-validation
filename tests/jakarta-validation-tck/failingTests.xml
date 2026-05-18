@@ -13,7 +13,7 @@
         tests/jakarta-validation-tck/build/test-results/jakartaTck and should be
         refreshed after the next full Jakarta TCK run.
 
-        Current tracker shape: 119 classes, 554 methods,
+        Current tracker shape: 118 classes, 553 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -25,6 +25,7 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdefinition.XmlConfiguredConstraintValidatorTest
         - org.hibernate.beanvalidation.tck.tests.bootstrap.ConfigurationTest
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.DefaultConstraintValidatorFactoryTest
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.DefaultParameterNameProviderTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -614,11 +615,6 @@
                     <include name="testUnexpectedType"/>
                     <include name="testValidationWithGroup"/>
                     <include name="testValidationWithSeveralGroups"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.DefaultParameterNameProviderTest">
-                <methods>
-                    <include name="testDefaultParameterProviderForConstructor"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
