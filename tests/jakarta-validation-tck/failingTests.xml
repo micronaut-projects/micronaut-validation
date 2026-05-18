@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 138 classes, 673 methods,
+        Current tracker shape: 134 classes, 667 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -71,6 +71,10 @@
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintdefinition.ConstraintDefinitionsTest
         - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.AssertConstraintsTests
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NullNotNullConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotBlankConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.PatternConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.SizeConstraintTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -164,31 +168,9 @@
                     <include name="testPositiveOrZeroConstraintInfinityAndNaN"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotBlankConstraintTest">
-                <methods>
-                    <include name="testNotBlankConstraint"/>
-                    <include name="testNotBlankConstraintOnStringBuilder"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NotEmptyConstraintTest">
                 <methods>
                     <include name="testNotEmptyConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.NullNotNullConstraintsTest">
-                <methods>
-                    <include name="testNotNullConstraint"/>
-                    <include name="testNullConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.PatternConstraintTest">
-                <methods>
-                    <include name="testPatternConstraint"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.SizeConstraintTest">
-                <methods>
-                    <include name="testSizeConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
