@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 94 classes, 487 methods,
+        Current tracker shape: 94 classes, 484 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -61,6 +61,9 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.versioning.UnknownVersionInMappingXmlTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.versioning.UnknownVersionInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.MethodAsGetterAndMethodNodeTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testBeanCannotBeDescribedMoreThanOnce
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testFieldMappingCannotOccurMoreThanOnce
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testGetterMappingCannotOccurMoreThanOnce
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -747,9 +750,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
                 <methods>
-                    <include name="testBeanCannotBeDescribedMoreThanOnce"/>
-                    <include name="testFieldMappingCannotOccurMoreThanOnce"/>
-                    <include name="testGetterMappingCannotOccurMoreThanOnce"/>
                     <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
                 </methods>
             </class>
