@@ -92,6 +92,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
@@ -1330,7 +1331,13 @@ public class DefaultValidator implements
             }
         }
 
-        List<ValueExtractorDefinition<E>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(containerArgument.getType());
+        Class<E> extractorLookupType = containerArgument.getType();
+        if (containerValue != null
+            && hasCascadedTypeArgument(containerArgument)
+            && !hasConstrainedTypeArgument(context, containerArgument)) {
+            extractorLookupType = (Class<E>) containerValue.getClass();
+        }
+        List<ValueExtractorDefinition<E>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(extractorLookupType);
         if (valueExtractorDefinitions.isEmpty()) {
             if (isLegacyValid && Object[].class.isAssignableFrom(containerArgument.getType())) {
                 // Provide a custom legacy value extractor for an array
@@ -1342,9 +1349,13 @@ public class DefaultValidator implements
                 if (anyExplicitUnwrapping) {
                     throw new ConstraintDeclarationException("Cannot unwrap the constraint no extractors are present!");
                 }
+                if (hasValidatedTypeArgument(containerArgument)) {
+                    throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for " + containerArgument.getType().getName());
+                }
                 return false;
             }
         }
+        validateValueExtractorCoverage(containerArgument, valueExtractorDefinitions);
 
         if (anyExplicitUnwrapping && valueExtractorDefinitions.size() > 1) {
             throw new ConstraintDeclarationException("Cannot unwrap the constraint when multiple value extractors are present!");
@@ -1494,6 +1505,57 @@ public class DefaultValidator implements
 
     private <E> boolean isValidated(Argument<E> containerArgument) {
         return containerArgument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
+    }
+
+    private boolean hasValidatedTypeArgument(Argument<?> argument) {
+        for (Argument<?> typeParameter : argument.getTypeParameters()) {
+            if (isValidated(typeParameter) || hasValidatedTypeArgument(typeParameter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasCascadedTypeArgument(Argument<?> argument) {
+        for (Argument<?> typeParameter : argument.getTypeParameters()) {
+            AnnotationMetadata annotationMetadata = typeParameter.getAnnotationMetadata();
+            if (annotationMetadata.hasAnnotation(Valid.class)
+                || annotationMetadata.hasStereotype(Valid.class)
+                || hasCascadedTypeArgument(typeParameter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean hasConstrainedTypeArgument(DefaultConstraintValidatorContext<?> context, Argument<?> argument) {
+        for (Argument<?> typeParameter : argument.getTypeParameters()) {
+            if (!getConstraints(context, typeParameter.getAnnotationMetadata(), false).isEmpty()
+                || hasConstrainedTypeArgument(context, typeParameter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void validateValueExtractorCoverage(Argument<?> containerArgument,
+                                                List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions) {
+        Argument<?>[] typeParameters = containerArgument.getTypeParameters();
+        for (int i = 0; i < typeParameters.length; i++) {
+            if (isValidated(typeParameters[i]) && !hasValueExtractorForTypeArgument(valueExtractorDefinitions, i)) {
+                throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for type argument " + i + " of " + containerArgument.getType().getName());
+            }
+        }
+    }
+
+    private boolean hasValueExtractorForTypeArgument(List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions,
+                                                     int typeArgumentIndex) {
+        for (ValueExtractorDefinition<?> valueExtractorDefinition : valueExtractorDefinitions) {
+            if (Objects.equals(valueExtractorDefinition.typeArgumentIndex(), typeArgumentIndex)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private <R, E> void propagateValidation(DefaultConstraintValidatorContext<R> context,

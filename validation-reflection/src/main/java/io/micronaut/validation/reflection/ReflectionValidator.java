@@ -34,6 +34,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeBuilderCustomizableContext;
@@ -349,21 +350,7 @@ public class ReflectionValidator extends DefaultValidator {
                 existingCounts.put(key, remaining - 1);
             }
         }
-        return deduplicateViolations(merged);
-    }
-
-    private static <T> Set<ConstraintViolation<T>> deduplicateViolations(Set<ConstraintViolation<T>> violations) {
-        if (violations.size() < 2) {
-            return Collections.unmodifiableSet(violations);
-        }
-        Set<DuplicateViolationKey> seen = new LinkedHashSet<>();
-        Set<ConstraintViolation<T>> deduplicated = new LinkedHashSet<>();
-        for (ConstraintViolation<T> violation : violations) {
-            if (seen.add(DuplicateViolationKey.of(violation))) {
-                deduplicated.add(violation);
-            }
-        }
-        return Collections.unmodifiableSet(deduplicated);
+        return Collections.unmodifiableSet(merged);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -622,15 +609,21 @@ public class ReflectionValidator extends DefaultValidator {
         if (containerValue == null || property.containerElements.isEmpty()) {
             return;
         }
-        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) property.type);
         for (ReflectionContainerElement containerElement : property.containerElements) {
             if (supplementIntrospection && !isSupplementalContainerElement(containerElement)) {
                 continue;
             }
+            Class<Object> extractorLookupType = (Class<Object>) property.type;
+            if (containerElement.cascaded && containerElement.constraints.isEmpty()) {
+                extractorLookupType = (Class<Object>) containerValue.getClass();
+            }
+            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(extractorLookupType);
+            boolean foundExtractor = false;
             for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
                 if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
                     continue;
                 }
+                foundExtractor = true;
                 valueExtractorDefinition.valueExtractor().extractValues(containerValue, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
 
                     @Override
@@ -663,7 +656,7 @@ public class ReflectionValidator extends DefaultValidator {
                             iterable,
                             key,
                             index,
-                            valueExtractorDefinition.containerType(),
+                            property.type,
                             valueExtractorDefinition.typeArgumentIndex()
                         );
                         if (!containerElement.constraints.isEmpty()) {
@@ -684,6 +677,9 @@ public class ReflectionValidator extends DefaultValidator {
                         }
                     }
                 });
+            }
+            if (!foundExtractor) {
+                throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for type argument " + containerElement.typeArgumentIndex + " of " + property.type.getName());
             }
         }
     }
@@ -926,34 +922,6 @@ public class ReflectionValidator extends DefaultValidator {
                 violation.getInvalidValue(),
                 descriptor.getGroups()
             );
-        }
-    }
-
-    private record DuplicateViolationKey(
-        Class<? extends Annotation> constraintType,
-        String path,
-        @Nullable Object invalidValue
-    ) {
-
-        static DuplicateViolationKey of(ConstraintViolation<?> violation) {
-            return new DuplicateViolationKey(
-                violation.getConstraintDescriptor().getAnnotation().annotationType(),
-                pathKey(violation.getPropertyPath()),
-                violation.getInvalidValue()
-            );
-        }
-
-        private static String pathKey(jakarta.validation.Path path) {
-            StringBuilder key = new StringBuilder();
-            for (Path.Node node : path) {
-                key.append(node.getKind())
-                    .append('|').append(node.getName())
-                    .append('|').append(node.isInIterable())
-                    .append('|').append(node.getKey())
-                    .append('|').append(node.getIndex())
-                    .append(';');
-            }
-            return key.toString();
         }
     }
 
