@@ -48,6 +48,7 @@ import java.util.Set;
 public final class ValidationXmlBootstrapConfigurationLoader implements BootstrapConfigurationLoader {
 
     private static final String VALIDATION_XML = "META-INF/validation.xml";
+    private static final Set<String> SUPPORTED_CONFIGURATION_VERSIONS = Set.of("1.0", "1.1", "2.0", "3.0", "3.1");
 
     @Override
     public Optional<BootstrapConfiguration> load(ClassLoader classLoader) {
@@ -80,6 +81,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
             factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
             Document document = factory.newDocumentBuilder().parse(inputStream);
             Element root = document.getDocumentElement();
+            XmlValidationMetadataProvider.validateVersion(root, SUPPORTED_CONFIGURATION_VERSIONS, "validation.xml");
             Map<String, String> properties = new LinkedHashMap<>();
             Set<String> valueExtractors = new LinkedHashSet<>();
             Set<String> constraintMappings = new LinkedHashSet<>();

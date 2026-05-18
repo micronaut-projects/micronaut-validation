@@ -99,6 +99,14 @@ class XmlValidationMetadataProviderTest {
     }
 
     @Test
+    void rejectsUnknownMappingVersion() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="1.2">
+            </constraint-mappings>
+            """));
+    }
+
+    @Test
     void parsesPropertyGroupConversions() {
         XmlValidationMetadataProvider provider = metadataProvider("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
