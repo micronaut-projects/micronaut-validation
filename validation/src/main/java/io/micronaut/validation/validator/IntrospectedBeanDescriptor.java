@@ -21,7 +21,9 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArgumentUtils;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Valid;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
@@ -38,7 +40,9 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -54,6 +58,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     private final BeanIntrospection<?> beanIntrospection;
     private final AnnotationMetadata beanAnnotationMetadata;
     private final Map<String, AnnotationMetadata> propertyAnnotationMetadata;
+    private final List<ValidationMetadataProvider> metadataProviders;
 
     /**
      * Default constructor.
@@ -61,7 +66,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      * @param beanIntrospection The bean introspection
      */
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection) {
-        this(beanIntrospection, beanIntrospection.getAnnotationMetadata(), Collections.emptyMap());
+        this(beanIntrospection, beanIntrospection.getAnnotationMetadata(), Collections.emptyMap(), List.of());
     }
 
     /**
@@ -72,10 +77,24 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
                                AnnotationMetadata beanAnnotationMetadata,
                                Map<String, AnnotationMetadata> propertyAnnotationMetadata) {
+        this(beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, List.of());
+    }
+
+    /**
+     * @param beanIntrospection The bean introspection
+     * @param beanAnnotationMetadata The bean annotation metadata
+     * @param propertyAnnotationMetadata The property annotation metadata
+     * @param metadataProviders The validation metadata providers
+     */
+    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
+                               AnnotationMetadata beanAnnotationMetadata,
+                               Map<String, AnnotationMetadata> propertyAnnotationMetadata,
+                               List<ValidationMetadataProvider> metadataProviders) {
         ArgumentUtils.requireNonNull("beanIntrospection", beanIntrospection);
         this.beanIntrospection = beanIntrospection;
         this.beanAnnotationMetadata = beanAnnotationMetadata;
         this.propertyAnnotationMetadata = new LinkedHashMap<>(propertyAnnotationMetadata);
+        this.metadataProviders = List.copyOf(metadataProviders);
     }
 
     @Override
@@ -225,17 +244,53 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
+    private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
         return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())
             .stream()
             .flatMap(type -> annotationMetadata.getAnnotationValuesByType(type)
                 .stream()
-                .map(annotationValue -> (DefaultConstraintDescriptor<?>) new DefaultConstraintDescriptor(
-                    type,
-                    annotationValue,
-                    annotationMetadata
-                )))
+                .map(annotationValue -> constraintDescriptor(type, annotationValue, annotationMetadata)))
             .collect(Collectors.toSet());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
+                                                               AnnotationValue<? extends Annotation> annotationValue,
+                                                               AnnotationMetadata annotationMetadata) {
+        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
+            (Class<Annotation>) type,
+            (AnnotationValue<Annotation>) annotationValue
+        );
+        return validatorClasses
+            .map(classes -> new DefaultConstraintDescriptor(
+                type,
+                annotationValue,
+                annotationMetadata,
+                classes,
+                true
+            ))
+            .orElseGet(() -> new DefaultConstraintDescriptor(
+                type,
+                annotationValue,
+                annotationMetadata
+            ));
+    }
+
+    private Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
+        Class<Annotation> constraintType,
+        AnnotationValue<Annotation> annotationValue) {
+        List<Class<? extends ConstraintValidator<Annotation, ?>>> validatorClasses =
+            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> providerClasses =
+                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
+            if (providerClasses.isPresent()) {
+                configuredClasses = providerClasses;
+                validatorClasses = providerClasses.get();
+            }
+        }
+        return configuredClasses;
     }
 
     private static ClassLoader currentClassLoader() {

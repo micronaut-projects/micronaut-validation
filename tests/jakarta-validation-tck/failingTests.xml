@@ -13,7 +13,7 @@
         tests/jakarta-validation-tck/build/test-results/jakartaTck and should be
         refreshed after the next full Jakarta TCK run.
 
-        Current tracker shape: 123 classes, 560 methods,
+        Current tracker shape: 121 classes, 557 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -21,6 +21,8 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.ParameterNameProviderSpecifiedInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdefinition.XmlConfiguredConstraintValidatorTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -55,11 +57,6 @@
                     <include name="testPassingNullToCascadedConstructorParameterCausesNoViolation"/>
                     <include name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
                     <include name="testReturnValueConstraintsAreDeclaredByAnnotatingMethods"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
-                <methods>
-                    <include name="testXmlConfiguredValidatorConfigurationHasPrecedence"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
@@ -922,12 +919,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.WrongPropertyNameTest">
                 <methods>
                     <include name="testWrongPropertyNameThrowsException"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdefinition.XmlConfiguredConstraintValidatorTest">
-                <methods>
-                    <include name="testExcludeExistingValidators"/>
-                    <include name="testIncludeExistingValidators"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest">

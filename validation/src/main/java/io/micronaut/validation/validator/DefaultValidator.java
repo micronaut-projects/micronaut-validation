@@ -391,7 +391,8 @@ public class DefaultValidator implements
             .map(introspection -> (BeanDescriptor) new IntrospectedBeanDescriptor(
                 introspection,
                 beanAnnotationMetadata(introspection),
-                propertyAnnotationMetadata(introspection)
+                propertyAnnotationMetadata(introspection),
+                metadataProviders
             ))
             .orElseGet(() -> metadataDescriptor.orElseGet(() -> new EmptyDescriptor(clazz)));
     }
@@ -1542,7 +1543,7 @@ public class DefaultValidator implements
             Class<Annotation> constraintType = constraint.getType();
             List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
             ConstraintValidator<Annotation, E> validator = null;
-            if (!validatorClasses.isEmpty()) {
+            if (constraint.hasDefinedConstraintValidatorClasses()) {
                 for (Class<?> validatedBy : validatorClasses) {
                     Class<jakarta.validation.ConstraintValidator<Annotation, E>> validatedByConstraint = (Class<jakarta.validation.ConstraintValidator<Annotation, E>>) validatedBy;
                     jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = constraintValidatorFactory.getInstance(
@@ -1660,17 +1661,46 @@ public class DefaultValidator implements
                 annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
             }
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
-                DefaultConstraintDescriptor<Annotation> descriptor = new DefaultConstraintDescriptor<>(
+                Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
                     (Class<Annotation>) constraintType,
-                    (AnnotationValue<Annotation>) annotationValue,
-                    annotationMetadata
+                    (AnnotationValue<Annotation>) annotationValue
                 );
+                DefaultConstraintDescriptor<Annotation> descriptor = validatorClasses
+                    .map(classes -> new DefaultConstraintDescriptor<>(
+                        (Class<Annotation>) constraintType,
+                        (AnnotationValue<Annotation>) annotationValue,
+                        annotationMetadata,
+                        classes,
+                        true
+                    ))
+                    .orElseGet(() -> new DefaultConstraintDescriptor<>(
+                        (Class<Annotation>) constraintType,
+                        (AnnotationValue<Annotation>) annotationValue,
+                        annotationMetadata
+                    ));
                 if (context == null || isConstraintIncluded(context, descriptor)) {
                     descriptors.add(descriptor);
                 }
             }
         }
         return descriptors;
+    }
+
+    private Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
+        Class<Annotation> constraintType,
+        AnnotationValue<Annotation> annotationValue) {
+        List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses =
+            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+        Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> providerClasses =
+                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
+            if (providerClasses.isPresent()) {
+                configuredClasses = providerClasses;
+                validatorClasses = providerClasses.get();
+            }
+        }
+        return configuredClasses;
     }
 
     private static ClassLoader currentClassLoader() {
