@@ -26,13 +26,16 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
+import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Path;
 import jakarta.validation.Payload;
+import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Retention;
@@ -240,6 +243,27 @@ class ReflectionValidatorTest {
         }
     }
 
+    @Test
+    void validatesReflectiveComposedConstraintAsSingleViolation() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<ComposedConstraintBean>> violations = validator.validate(new ComposedConstraintBean(null));
+
+            assertEquals(1, violations.size());
+            assertEquals(ComposedNotEmpty.class, violations.iterator().next().getConstraintDescriptor().getAnnotation().annotationType());
+
+            violations = validator.validate(new ComposedConstraintBean(""));
+
+            assertEquals(1, violations.size());
+            assertEquals(ComposedNotEmpty.class, violations.iterator().next().getConstraintDescriptor().getAnnotation().annotationType());
+
+            assertEquals(0, validator.validate(new ComposedConstraintBean("valid")).size());
+        }
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
@@ -354,5 +378,27 @@ class ReflectionValidatorTest {
         public String getName() {
             return null;
         }
+    }
+
+    private record ComposedConstraintBean(
+        @ComposedNotEmpty String name
+    ) {
+    }
+
+    @Target(FIELD)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = {})
+    @ReportAsSingleViolation
+    @NotNull
+    @Size
+    private @interface ComposedNotEmpty {
+        String message() default "empty";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+
+        @OverridesAttribute(constraint = Size.class, name = "min")
+        int min() default 5;
     }
 }
