@@ -35,7 +35,6 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 
-import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.Collection;
@@ -143,25 +142,62 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     }
 
     private Class<?> getBeanType(BeanIntrospection<?> beanIntrospection) {
-        AnnotatedType[] annotatedInterfaces = beanIntrospection.getBeanType().getAnnotatedInterfaces();
-        if (annotatedInterfaces != null) {
-            for (AnnotatedType annotatedInterface : annotatedInterfaces) {
-                Type type = annotatedInterface.getType();
-                if (type instanceof ParameterizedType parameterizedType && (
-                    parameterizedType.getRawType() == io.micronaut.validation.validator.constraints.ConstraintValidator.class
-                        || parameterizedType.getRawType() == ConstraintValidator.class
-                )) {
-                    Type[] typeArguments = parameterizedType.getActualTypeArguments();
-                    if (typeArguments.length == 2) {
-                        Type typeArgument = typeArguments[1];
-                        if (typeArgument instanceof Class<?> aClass) {
-                            return aClass;
-                        }
-                    }
-                }
+        Class<?> targetType = findConstraintValidatorTargetType(beanIntrospection.getBeanType());
+        return targetType == null ? Object.class : targetType;
+    }
+
+    @Nullable
+    private Class<?> findConstraintValidatorTargetType(Class<?> type) {
+        for (Type genericInterface : type.getGenericInterfaces()) {
+            Class<?> targetType = findConstraintValidatorTargetType(genericInterface);
+            if (targetType != null) {
+                return targetType;
             }
         }
-        return Object.class;
+        Type genericSuperclass = type.getGenericSuperclass();
+        return genericSuperclass == null ? null : findConstraintValidatorTargetType(genericSuperclass);
+    }
+
+    @Nullable
+    private Class<?> findConstraintValidatorTargetType(Type type) {
+        if (type instanceof ParameterizedType parameterizedType) {
+            Class<?> targetType = constraintValidatorTargetType(parameterizedType);
+            if (targetType != null) {
+                return targetType;
+            }
+            Type rawType = parameterizedType.getRawType();
+            if (rawType instanceof Class<?> rawClass) {
+                return findConstraintValidatorTargetType(rawClass);
+            }
+            return null;
+        }
+        if (type instanceof Class<?> clazz && clazz != Object.class) {
+            return findConstraintValidatorTargetType(clazz);
+        }
+        return null;
+    }
+
+    @Nullable
+    private Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
+        Type rawType = parameterizedType.getRawType();
+        if (rawType == io.micronaut.validation.validator.constraints.ConstraintValidator.class || rawType == ConstraintValidator.class) {
+            Type[] typeArguments = parameterizedType.getActualTypeArguments();
+            if (typeArguments.length == 2) {
+                return typeArgumentType(typeArguments[1]);
+            }
+        }
+        return null;
+    }
+
+    @Nullable
+    private Class<?> typeArgumentType(Type typeArgument) {
+        if (typeArgument instanceof Class<?> aClass) {
+            return aClass;
+        }
+        if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawClass) {
+            return rawClass;
+        }
+        return null;
     }
 
     private Set<ValidationTarget> getValidationTarget(AnnotationMetadata annotationMetadata) {
