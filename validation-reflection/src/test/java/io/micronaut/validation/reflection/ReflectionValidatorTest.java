@@ -30,7 +30,9 @@ import jakarta.validation.Path;
 import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Retention;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -196,6 +199,47 @@ class ReflectionValidatorTest {
         assertNotNull(factory.getInstance(PrivateConstraintValidator.class, String.class, ConstraintTarget.IMPLICIT));
     }
 
+    @Test
+    void supplementsGeneratedValidationWithInheritedTypeConstraints() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<InheritedTypeConstraintBean>> violations = validator.validate(new InheritedTypeConstraintBean());
+
+            assertEquals(2, violations.size());
+        }
+    }
+
+    @Test
+    void keepsFieldAndGetterConstraintsOnTheSamePropertyDistinct() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<FieldAndGetterConstraintBean>> violations = validator.validate(new FieldAndGetterConstraintBean(10));
+
+            assertEquals(2, violations.size());
+        }
+    }
+
+    @Test
+    void validatePropertyUsesConstrainedFieldValueWhenGetterIsUnconstrained() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            FieldAccessChild bean = new FieldAccessChild();
+
+            assertEquals(0, validator.validateProperty(bean, "name").size());
+
+            bean.name = null;
+            assertEquals(1, validator.validateProperty(bean, "name").size());
+        }
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
@@ -251,5 +295,64 @@ class ReflectionValidatorTest {
     private record IntrospectedConstraintBean(
         @AssertTrue boolean enabled
     ) {
+    }
+
+    @Target(TYPE)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = InvalidTypeConstraintValidator.class)
+    private @interface InvalidTypeConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class InvalidTypeConstraintValidator implements ConstraintValidator<InvalidTypeConstraint, Object> {
+        @Override
+        public boolean isValid(Object value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @InvalidTypeConstraint
+    private interface TypeConstraintInterface {
+    }
+
+    @Introspected
+    @InvalidTypeConstraint
+    private static class TypeConstraintBase implements TypeConstraintInterface {
+    }
+
+    @Introspected
+    private static final class InheritedTypeConstraintBean extends TypeConstraintBase {
+    }
+
+    @Introspected
+    private static final class FieldAndGetterConstraintBean {
+        @Max(5)
+        private final int amount;
+
+        private FieldAndGetterConstraintBean(int amount) {
+            this.amount = amount;
+        }
+
+        @Max(5)
+        public int getAmount() {
+            return amount;
+        }
+    }
+
+    @Introspected
+    private static class FieldAccessBase {
+        @NotNull
+        String name = "Lois";
+    }
+
+    @Introspected
+    private static final class FieldAccessChild extends FieldAccessBase {
+        public String getName() {
+            return null;
+        }
     }
 }
