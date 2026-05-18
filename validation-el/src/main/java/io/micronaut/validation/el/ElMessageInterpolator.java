@@ -19,17 +19,17 @@ import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
-import jakarta.el.ELException;
 import jakarta.el.ExpressionFactory;
 import jakarta.el.StandardELContext;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
-import jakarta.validation.ValidationException;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.Formatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +79,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     }
 
     private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext) {
+        Locale locale = messageContext.getLocale();
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < template.length(); i++) {
             char current = template.charAt(i);
@@ -89,7 +90,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             if (current == DOLLAR && i + 1 < template.length() && template.charAt(i + 1) == LEFT_BRACE) {
                 int end = findExpressionEnd(template, i + 2);
                 if (end > -1) {
-                    result.append(evaluateExpression(template.substring(i + 2, end), interpolationContext));
+                    result.append(evaluateExpression(template.substring(i + 2, end), interpolationContext, locale));
                     i = end;
                     continue;
                 }
@@ -116,7 +117,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
         return result.toString();
     }
 
-    private Object evaluateExpression(String expression, Context context) {
+    private String evaluateExpression(String expression, Context context, Locale locale) {
         StandardELContext elContext = new StandardELContext(expressionFactory);
         for (Map.Entry<String, Object> entry : context.getConstraintDescriptor().getAttributes().entrySet()) {
             elContext.getVariableMapper().setVariable(
@@ -128,11 +129,23 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             "validatedValue",
             expressionFactory.createValueExpression(context.getValidatedValue(), Object.class)
         );
+        elContext.getVariableMapper().setVariable(
+            "groups",
+            expressionFactory.createValueExpression(context.getConstraintDescriptor().getGroups().toArray(Class<?>[]::new), Object.class)
+        );
+        elContext.getVariableMapper().setVariable(
+            "payload",
+            expressionFactory.createValueExpression(context.getConstraintDescriptor().getPayload().toArray(Class<?>[]::new), Object.class)
+        );
+        elContext.getVariableMapper().setVariable(
+            "formatter",
+            expressionFactory.createValueExpression(new LocaleFormatter(locale), Object.class)
+        );
         try {
             Object value = expressionFactory.createValueExpression(elContext, "${" + expression + "}", Object.class).getValue(elContext);
-            return value == null ? "" : value;
-        } catch (ELException e) {
-            throw new ValidationException("Exception during Jakarta EL message interpolation", e);
+            return value == null ? "" : value.toString();
+        } catch (RuntimeException e) {
+            return "${" + expression + "}";
         }
     }
 
@@ -148,6 +161,22 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             }
         }
         return -1;
+    }
+
+    /**
+     * Locale-aware formatter exposed to Jakarta EL expressions as {@code formatter}.
+     *
+     * @param locale The locale
+     * @since 5.1
+     */
+    @Internal
+    public record LocaleFormatter(Locale locale) {
+
+        public String format(String format, Object... args) {
+            try (Formatter formatter = new Formatter(locale)) {
+                return formatter.format(format, args).toString();
+            }
+        }
     }
 
     private enum OptionalLocaleResolver implements InterpolatorLocaleResolver {
