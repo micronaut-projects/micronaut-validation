@@ -39,6 +39,8 @@ import jakarta.validation.spi.ConfigurationState;
 import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -66,7 +68,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     );
 
     private final DefaultValidatorConfiguration defaults = new DefaultValidatorConfiguration();
-    private final Set<InputStream> mappingStreams = new LinkedHashSet<>();
+    private final List<byte[]> mappingStreams = new ArrayList<>();
     private final Set<ValueExtractor<?>> valueExtractors = new LinkedHashSet<>();
     private final Map<String, String> properties = new LinkedHashMap<>();
     private final ClassLoader classLoader;
@@ -165,7 +167,11 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     @Override
     public MicronautValidatorConfiguration addMapping(InputStream stream) {
-        mappingStreams.add(stream);
+        try (stream) {
+            mappingStreams.add(stream.readAllBytes());
+        } catch (IOException e) {
+            throw new ValidationException("Cannot read constraint mapping stream", e);
+        }
         return this;
     }
 
@@ -234,7 +240,10 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     @Override
     public Set<InputStream> getMappingStreams() {
-        Set<InputStream> streams = new LinkedHashSet<>(mappingStreams);
+        Set<InputStream> streams = new LinkedHashSet<>();
+        for (byte[] mappingStream : mappingStreams) {
+            streams.add(new ByteArrayInputStream(mappingStream));
+        }
         if (!ignoreXmlConfiguration) {
             for (String mappingPath : bootstrapConfiguration.getConstraintMappingResourcePaths()) {
                 InputStream inputStream = classLoader.getResourceAsStream(mappingPath);
