@@ -210,6 +210,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
         Map<ExecutableKey, ExecutableMapping> methods = new LinkedHashMap<>();
         Map<ExecutableKey, ExecutableMapping> constructors = new LinkedHashMap<>();
+        Set<String> configuredFields = new LinkedHashSet<>();
+        Set<String> configuredGetters = new LinkedHashSet<>();
         Set<String> configuredGetterMethods = new LinkedHashSet<>();
         NodeList children = bean.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
@@ -227,7 +229,13 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 case "field", "getter" -> {
                     String propertyName = requireAttribute(element, "name");
                     validatePropertyExists(beanType, elementName, propertyName);
+                    if ("field".equals(elementName) && !configuredFields.add(propertyName)) {
+                        throw new ValidationException("Field configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
+                    }
                     if ("getter".equals(elementName)) {
+                        if (!configuredGetters.add(propertyName)) {
+                            throw new ValidationException("Getter configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
+                        }
                         Set<String> getterMethods = getterMethodNames(beanType, propertyName);
                         for (String getterMethod : getterMethods) {
                             if (methods.containsKey(new ExecutableKey(getterMethod, List.of()))) {
@@ -248,7 +256,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 case "constructor" -> {
                     ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage);
                     validateConstructorExists(beanType, constructor.parameterTypes());
-                    constructors.put(new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes()), constructor);
+                    ExecutableKey key = new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes());
+                    if (constructors.putIfAbsent(key, constructor) != null) {
+                        throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
+                    }
                 }
                 case "method" -> {
                     String methodName = requireAttribute(element, "name");
@@ -257,13 +268,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
                         throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
                     }
-                    methods.put(new ExecutableKey(methodName, method.parameterTypes()), method);
+                    ExecutableKey key = new ExecutableKey(methodName, method.parameterTypes());
+                    if (methods.putIfAbsent(key, method) != null) {
+                        throw new ValidationException("Method configured more than once in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
+                    }
                 }
                 default -> {
                 }
             }
         }
-        beanMappings.put(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties, methods, constructors));
+        if (beanMappings.putIfAbsent(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties, methods, constructors)) != null) {
+            throw new ValidationException("Bean configured more than once in validation XML: " + beanType.getName());
+        }
     }
 
     private static void validatePropertyExists(Class<?> beanType, String elementName, String propertyName) {

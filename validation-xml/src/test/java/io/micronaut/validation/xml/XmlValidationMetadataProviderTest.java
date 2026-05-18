@@ -22,7 +22,9 @@ import jakarta.validation.groups.Default;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -141,10 +143,49 @@ class XmlValidationMetadataProviderTest {
             """));
     }
 
-    private static XmlValidationMetadataProvider metadataProvider(String xml) {
+    @Test
+    void rejectsDuplicateBeanMapping() {
+        String xml = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false"/>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName());
+
+        assertThrows(ValidationException.class, () -> metadataProvider(xml, xml));
+    }
+
+    @Test
+    void rejectsDuplicateFieldMapping() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <field name="firstname"/>
+                    <field name="firstname"/>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName())));
+    }
+
+    @Test
+    void rejectsDuplicateGetterMapping() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <getter name="firstname"/>
+                    <getter name="firstname"/>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName())));
+    }
+
+    private static XmlValidationMetadataProvider metadataProvider(String... xmls) {
+        Set<InputStream> mappingStreams = new LinkedHashSet<>();
+        for (String xml : xmls) {
+            mappingStreams.add(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
+        }
         return new XmlValidationMetadataProvider(
             Thread.currentThread().getContextClassLoader(),
-            Set.of(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)))
+            mappingStreams
         );
     }
 
