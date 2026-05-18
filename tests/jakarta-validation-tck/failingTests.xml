@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 91 classes, 475 methods,
+        Current tracker shape: 90 classes, 470 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -67,6 +67,7 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidMappingXmlTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.invalid.InvalidValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
+        - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -340,15 +341,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest">
-                <methods>
-                    <include name="testElExpressionsAreInterpolated"/>
-                    <include name="testExceptionDuringMessageInterpolationIsWrappedIntoValidationException"/>
-                    <include name="testMessageInterpolationWithLocale"/>
-                    <include name="testRecursiveMessageInterpolation"/>
-                    <include name="testSuccessfulInterpolationOfValidationMessagesValue"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">

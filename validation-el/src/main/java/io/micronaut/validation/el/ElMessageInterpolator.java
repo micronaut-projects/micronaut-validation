@@ -32,7 +32,9 @@ import java.util.HashMap;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.Map;
+import java.util.MissingResourceException;
 import java.util.Optional;
+import java.util.ResourceBundle;
 
 /**
  * Jakarta EL-backed message interpolator.
@@ -49,6 +51,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private static final char LEFT_BRACE = '{';
     private static final char RIGHT_BRACE = '}';
     private static final char DOLLAR = '$';
+    private static final int MAX_RECURSION = 10;
 
     private final MessageSource messageSource;
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
@@ -80,6 +83,42 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext) {
         Locale locale = messageContext.getLocale();
+        String resolvedTemplate = template;
+        for (int i = 0; i < MAX_RECURSION; i++) {
+            String resolved = interpolateParameters(resolvedTemplate, messageContext);
+            if (resolved.equals(resolvedTemplate)) {
+                break;
+            }
+            resolvedTemplate = resolved;
+        }
+        return interpolateExpressions(resolvedTemplate, interpolationContext, locale);
+    }
+
+    private String interpolateParameters(String template, MessageSource.MessageContext messageContext) {
+        Locale locale = messageContext.getLocale();
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < template.length(); i++) {
+            char current = template.charAt(i);
+            if (current == ESCAPE && i + 1 < template.length()) {
+                result.append(template.charAt(++i));
+                continue;
+            }
+            if (current == LEFT_BRACE) {
+                int end = findExpressionEnd(template, i + 1);
+                if (end > -1) {
+                    String variableName = template.substring(i + 1, end);
+                    result.append(resolveParameter(variableName, messageContext, locale)
+                        .orElse(LEFT_BRACE + variableName + String.valueOf(RIGHT_BRACE)));
+                    i = end;
+                    continue;
+                }
+            }
+            result.append(current);
+        }
+        return result.toString();
+    }
+
+    private String interpolateExpressions(String template, Context interpolationContext, Locale locale) {
         StringBuilder result = new StringBuilder();
         for (int i = 0; i < template.length(); i++) {
             char current = template.charAt(i);
@@ -95,26 +134,33 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                     continue;
                 }
             }
-            if (current == LEFT_BRACE) {
-                int end = findExpressionEnd(template, i + 1);
-                if (end > -1) {
-                    String variableName = template.substring(i + 1, end);
-                    Object variableValue = messageContext.getVariables().get(variableName);
-                    if (variableValue == null) {
-                        variableValue = messageSource.getMessage(variableName, messageContext).orElse(null);
-                    }
-                    if (variableValue != null) {
-                        result.append(variableValue);
-                    } else {
-                        result.append(LEFT_BRACE).append(variableName).append(RIGHT_BRACE);
-                    }
-                    i = end;
-                    continue;
-                }
-            }
             result.append(current);
         }
         return result.toString();
+    }
+
+    private Optional<Object> resolveParameter(String variableName, MessageSource.MessageContext messageContext, Locale locale) {
+        Optional<String> userMessage = findUserMessage(variableName, locale);
+        if (userMessage.isPresent()) {
+            return Optional.of(userMessage.get());
+        }
+        Optional<String> providerMessage = messageSource.getMessage(variableName, messageContext);
+        if (providerMessage.isPresent()) {
+            return Optional.of(providerMessage.get());
+        }
+        return Optional.ofNullable(messageContext.getVariables().get(variableName));
+    }
+
+    private static Optional<String> findUserMessage(String variableName, Locale locale) {
+        try {
+            ResourceBundle bundle = ResourceBundle.getBundle("ValidationMessages", locale, Thread.currentThread().getContextClassLoader());
+            if (bundle.containsKey(variableName)) {
+                return Optional.of(bundle.getString(variableName));
+            }
+        } catch (MissingResourceException e) {
+            return Optional.empty();
+        }
+        return Optional.empty();
     }
 
     private String evaluateExpression(String expression, Context context, Locale locale) {

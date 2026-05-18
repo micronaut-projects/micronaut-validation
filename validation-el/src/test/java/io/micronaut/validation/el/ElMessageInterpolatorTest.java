@@ -80,6 +80,32 @@ class ElMessageInterpolatorTest {
         assertEquals("${unknown} ${1*}", message);
     }
 
+    @Test
+    void interpolatesUserBundleMessagesRecursively() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate("{replace.in.user.bundle1}", new TestContext("abc", Map.of()));
+
+        assertEquals("recursion worked", message);
+    }
+
+    @Test
+    void interpolatesUserBundleMessagesWithLocale() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate("{jakarta.validation.constraints.NotNull.message}", new TestContext("abc", Map.of()), Locale.GERMAN);
+
+        assertEquals("kann nicht null sein", message);
+    }
+
+    @Test
+    void interpolatesParametersBeforeElExpressions() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        assertEquals("must be $5 at least", interpolator.interpolate("must be ${value} at least", new TestContext(3, Map.of("value", 5))));
+        assertEquals("must be 10 at least", interpolator.interpolate("must be ${value * 2} at least", new TestContext(3, Map.of("value", 5))));
+    }
+
     private record TestContext(
         Object value,
         Map<String, Object> attributes,
