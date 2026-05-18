@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 121 classes, 621 methods,
+        Current tracker shape: 120 classes, 620 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -92,6 +92,7 @@
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testMultipleConstraintViolationOfDifferentTypes
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testClassLevelConstraintViolation
+        - org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -805,11 +806,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
                 <methods>
                     <include name="testContainerElementLeafBean"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
-                <methods>
-                    <include name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
