@@ -216,6 +216,18 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     @Override
+    public <T> Set<ConstraintViolation<T>> validateReturnValue(T object, Method method, @Nullable Object returnValue, Class<?>... groups) {
+        requireNonNull("object", object);
+        requireNonNull("method", method);
+        requireNonNull("groups", groups);
+        Set<ConstraintViolation<T>> violations = super.validateReturnValue(object, method, returnValue, groups);
+        if (!violations.isEmpty()) {
+            return violations;
+        }
+        return validateReturnValueReflectively(object, method, returnValue, BeanValidationContext.fromGroups(groups));
+    }
+
+    @Override
     public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Constructor<? extends T> constructor, Object[] parameterValues, Class<?>... groups) {
         requireNonNull("constructor", constructor);
         requireNonNull("parameterValues", parameterValues);
@@ -237,6 +249,51 @@ public class ReflectionValidator extends DefaultValidator {
         validateConstraints(object, object.getClass(), object, null, object, object.getClass(), metadata.constraints, context, violations);
         for (ReflectionProperty property : metadata.properties.values()) {
             validateProperty(object, object, property, context, violations);
+        }
+        return Collections.unmodifiableSet(violations);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> Set<ConstraintViolation<T>> validateReturnValueReflectively(T object,
+                                                                            Method method,
+                                                                            @Nullable Object returnValue,
+                                                                            BeanValidationContext context) {
+        warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable return value without Micronaut executable metadata");
+        List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
+        if (constraints.isEmpty()) {
+            return Collections.emptySet();
+        }
+        Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        for (ReflectionConstraintDescriptor constraint : constraints) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate());
+            boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext);
+            if (!valid && !validatorContext.defaultViolationDisabled) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    object,
+                    (Class<T>) object.getClass(),
+                    object,
+                    returnValue,
+                    interpolate(constraint.getMessageTemplate(), constraint, returnValue),
+                    constraint.getMessageTemplate(),
+                    new ReflectionReturnValueExecutablePath(method),
+                    constraint
+                ));
+            }
+            for (String messageTemplate : validatorContext.customViolationTemplates) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    object,
+                    (Class<T>) object.getClass(),
+                    object,
+                    returnValue,
+                    interpolate(messageTemplate, constraint, returnValue),
+                    messageTemplate,
+                    new ReflectionReturnValueExecutablePath(method),
+                    constraint
+                ));
+            }
         }
         return Collections.unmodifiableSet(violations);
     }
@@ -914,6 +971,22 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionReturnValueExecutablePath(Method method) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(
+                new ReflectionMethodNode(method),
+                new ReflectionReturnValueNode()
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName() + ".<return value>";
+        }
+    }
+
     private record ReflectionConstructorExecutablePath(Constructor<?> constructor, String parameterName, int parameterIndex) implements jakarta.validation.Path {
 
         @Override
@@ -991,6 +1064,44 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return name;
+        }
+    }
+
+    private static final class ReflectionReturnValueNode implements Path.ReturnValueNode {
+
+        @Override
+        public String getName() {
+            return "<return value>";
+        }
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.RETURN_VALUE;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public String toString() {
+            return "<return value>";
         }
     }
 

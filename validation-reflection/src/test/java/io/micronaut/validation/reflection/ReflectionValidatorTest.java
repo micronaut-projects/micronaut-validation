@@ -92,6 +92,30 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void validatesReturnValueWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<PlainBean>> violations = validator.forExecutables()
+                .validateReturnValue(new PlainBean("x"), PlainBean.class.getDeclaredMethod("displayName"), "");
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<PlainBean> violation = violations.iterator().next();
+            assertEquals("", violation.getInvalidValue());
+            Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
+            Path.Node methodNode = nodes.next();
+            assertEquals(ElementKind.METHOD, methodNode.getKind());
+            assertEquals("displayName", methodNode.getName());
+            Path.Node returnValueNode = nodes.next();
+            assertEquals(ElementKind.RETURN_VALUE, returnValueNode.getKind());
+            assertEquals("<return value>", returnValueNode.getName());
+            assertFalse(nodes.hasNext());
+        }
+    }
+
+    @Test
     void rejectsNullArgumentsWithIllegalArgumentException() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -111,6 +135,11 @@ class ReflectionValidatorTest {
 
         PlainBean(@NotBlank String name) {
             this.name = name;
+        }
+
+        @NotBlank
+        String displayName() {
+            return name;
         }
     }
 }
