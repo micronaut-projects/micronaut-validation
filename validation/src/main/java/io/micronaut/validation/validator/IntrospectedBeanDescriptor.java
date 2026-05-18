@@ -108,19 +108,43 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public PropertyDescriptor getConstraintsForProperty(String propertyName) {
-        return beanIntrospection.getProperty(propertyName)
+        PropertyDescriptor introspectedDescriptor = beanIntrospection.getProperty(propertyName)
             .map(IntrospectedPropertyDescriptor::new)
             .filter(property -> property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty())
+            .map(PropertyDescriptor.class::cast)
             .orElse(null);
+        PropertyDescriptor metadataDescriptor = metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .map(descriptor -> descriptor.getConstraintsForProperty(propertyName))
+            .filter(descriptor -> descriptor != null)
+            .findFirst()
+            .orElse(null);
+        if (introspectedDescriptor == null) {
+            return metadataDescriptor;
+        }
+        if (metadataDescriptor != null
+            && metadataDescriptor.getConstraintDescriptors().size() > introspectedDescriptor.getConstraintDescriptors().size()) {
+            return metadataDescriptor;
+        }
+        return introspectedDescriptor;
     }
 
     @Override
     public Set<PropertyDescriptor> getConstrainedProperties() {
-        return beanIntrospection.getBeanProperties()
+        Map<String, PropertyDescriptor> properties = beanIntrospection.getBeanProperties()
             .stream()
             .map(IntrospectedPropertyDescriptor::new)
             .filter(property -> property.hasConstraints() || property.isCascaded())
-            .collect(Collectors.toSet());
+            .collect(Collectors.toMap(PropertyDescriptor::getPropertyName, property -> property, (left, right) -> left, LinkedHashMap::new));
+        metadataProviders.stream()
+            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+            .flatMap(descriptor -> descriptor.getConstrainedProperties().stream())
+            .forEach(property -> properties.merge(
+                property.getPropertyName(),
+                property,
+                (existing, replacement) -> replacement.getConstraintDescriptors().size() > existing.getConstraintDescriptors().size() ? replacement : existing
+            ));
+        return new LinkedHashSet<>(properties.values());
     }
 
     @Override

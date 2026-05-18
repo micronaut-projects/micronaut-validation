@@ -523,7 +523,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element) {
         List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
-        for (Annotation annotation : element.getAnnotations()) {
+        for (Annotation annotation : element.getDeclaredAnnotations()) {
             Class<? extends Annotation> annotationType = annotation.annotationType();
             if (annotationType.isAnnotationPresent(Constraint.class)) {
                 constraints.add(new ReflectionConstraintDescriptor<>(annotation));
@@ -540,6 +540,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
                 return List.of();
             }
+            valueMethod.setAccessible(true);
             Annotation[] annotations = (Annotation[]) valueMethod.invoke(container);
             return Arrays.stream(annotations)
                 .filter(annotation -> annotation.annotationType().isAnnotationPresent(Constraint.class))
