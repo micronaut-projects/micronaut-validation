@@ -23,8 +23,11 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Valid;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
@@ -40,6 +43,7 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -199,7 +203,23 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
         @Override
         public Set<GroupConversionDescriptor> getGroupConversions() {
-            return Collections.emptySet();
+            List<AnnotationValue<ConvertGroup>> conversions = annotationMetadata.getAnnotationValuesByType(ConvertGroup.class);
+            if (conversions.isEmpty()) {
+                return Collections.emptySet();
+            }
+            Map<Class<?>, Class<?>> groups = new LinkedHashMap<>();
+            for (AnnotationValue<ConvertGroup> conversion : conversions) {
+                Class<?> from = conversion.classValue("from").orElse(Default.class);
+                Class<?> to = conversion.classValue("to")
+                    .orElseThrow(() -> new ConstraintDeclarationException("Group conversion is missing a target group"));
+                Class<?> previous = groups.putIfAbsent(from, to);
+                if (previous != null) {
+                    throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
+                }
+            }
+            Set<GroupConversionDescriptor> descriptors = new LinkedHashSet<>();
+            groups.forEach((from, to) -> descriptors.add(new DefaultGroupConversionDescriptor(from, to)));
+            return descriptors;
         }
 
         @Override
@@ -241,6 +261,19 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         @Override
         public ConstraintFinder findConstraints() {
             return this;
+        }
+    }
+
+    private record DefaultGroupConversionDescriptor(Class<?> from, Class<?> to) implements GroupConversionDescriptor {
+
+        @Override
+        public Class<?> getFrom() {
+            return from;
+        }
+
+        @Override
+        public Class<?> getTo() {
+            return to;
         }
     }
 
