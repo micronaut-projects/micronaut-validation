@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.Annotation;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -45,14 +46,54 @@ class ElMessageInterpolatorTest {
         assertEquals("value ABC must be at least 3", message);
     }
 
+    @Test
+    void exposesSpecElVariables() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate(
+            "groups: ${groups[0].simpleName}, payload: ${payload[0].simpleName}",
+            new TestContext("abc", Map.of(), Set.of(TestGroup.class), Set.of(TestPayload.class))
+        );
+
+        assertEquals("groups: TestGroup, payload: TestPayload", message);
+    }
+
+    @Test
+    void exposesLocaleAwareFormatter() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate(
+            "${formatter.format('%1$.2f', validatedValue)}",
+            new TestContext(98.12345678, Map.of()),
+            Locale.GERMAN
+        );
+
+        assertEquals("98,12", message);
+    }
+
+    @Test
+    void leavesInvalidElExpressionUnchanged() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        String message = interpolator.interpolate("${unknown} ${1*}", new TestContext("abc", Map.of()));
+
+        assertEquals("${unknown} ${1*}", message);
+    }
+
     private record TestContext(
         Object value,
-        Map<String, Object> attributes
+        Map<String, Object> attributes,
+        Set<Class<?>> groups,
+        Set<Class<? extends Payload>> payload
     ) implements MessageInterpolator.Context {
+
+        private TestContext(Object value, Map<String, Object> attributes) {
+            this(value, attributes, Set.of(), Set.of());
+        }
 
         @Override
         public ConstraintDescriptor<?> getConstraintDescriptor() {
-            return new TestConstraintDescriptor(attributes);
+            return new TestConstraintDescriptor(attributes, groups, payload);
         }
 
         @Override
@@ -67,7 +108,9 @@ class ElMessageInterpolatorTest {
     }
 
     private record TestConstraintDescriptor(
-        Map<String, Object> attributes
+        Map<String, Object> attributes,
+        Set<Class<?>> groups,
+        Set<Class<? extends Payload>> payload
     ) implements ConstraintDescriptor<Annotation> {
 
         @Override
@@ -82,12 +125,12 @@ class ElMessageInterpolatorTest {
 
         @Override
         public Set<Class<?>> getGroups() {
-            return Set.of();
+            return groups;
         }
 
         @Override
         public Set<Class<? extends Payload>> getPayload() {
-            return Set.of();
+            return payload;
         }
 
         @Override
@@ -124,5 +167,11 @@ class ElMessageInterpolatorTest {
         public <U> U unwrap(Class<U> type) {
             throw new ValidationException("Unsupported unwrap");
         }
+    }
+
+    private interface TestGroup {
+    }
+
+    private interface TestPayload extends Payload {
     }
 }
