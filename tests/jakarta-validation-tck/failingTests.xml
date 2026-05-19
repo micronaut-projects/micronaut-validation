@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 81 classes, 459 methods,
+        Current tracker shape: 80 classes, 458 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -234,11 +234,6 @@
                     <include name="testGroupConversionWithoutValidAnnotationOnMethodReturnValue"/>
                     <include name="testGroupConversionWithoutValidAnnotationOnProperty"/>
                     <include name="testSeveralGroupConversionsWithSameFrom"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
-                <methods>
-                    <include name="testCorrectDefaultSequenceInheritance3"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">

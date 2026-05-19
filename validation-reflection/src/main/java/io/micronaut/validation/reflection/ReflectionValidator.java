@@ -146,27 +146,32 @@ public class ReflectionValidator extends DefaultValidator {
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, Class<?>... groups) {
         requireNonNull("object", object);
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
+            return validateReflectivelyWithInheritedDefaultGroupSequence(object, getBeanIntrospection(object) != null);
+        }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
+            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, true);
             Set<ConstraintViolation<T>> existing = super.validate(object, groups);
-            Set<ConstraintViolation<T>> reflected = validateReflectively(object, BeanValidationContext.fromGroups(groups), true);
             return mergeViolations(existing, reflected);
         }
-        return validateReflectively(object, BeanValidationContext.fromGroups(groups), false);
+        return validateReflectively(object, context, false);
     }
 
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, BeanValidationContext validationContext) {
         requireNonNull("object", object);
+        BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
+        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
+            return validateReflectivelyWithInheritedDefaultGroupSequence(object, getBeanIntrospection(object) != null);
+        }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
-            BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
-            return mergeViolations(
-                super.validate(object, context),
-                validateReflectively(object, context, true)
-            );
+            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, true);
+            return mergeViolations(super.validate(object, context), reflected);
         }
-        return validateReflectively(object, validationContext, false);
+        return validateReflectively(object, context, false);
     }
 
     @Override
@@ -287,6 +292,38 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return Collections.unmodifiableSet(violations);
+    }
+
+    private <T> Set<ConstraintViolation<T>> validateReflectivelyWithInheritedDefaultGroupSequence(T object,
+                                                                                                  boolean supplementIntrospection) {
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
+        warnOnce(object.getClass().getName(), "class", supplementIntrospection
+            ? "supplementing Micronaut bean introspection with reflection metadata"
+            : "validating without Micronaut bean introspection");
+        Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        validateReflectionGroupPass(object, metadata, BeanValidationContext.fromGroups(object.getClass()), violations, supplementIntrospection);
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.inheritedDefaultGroupSequencePasses(object.getClass())) {
+            int violationCount = violations.size();
+            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            validateReflectionGroupPass(object, metadata, groupContext, violations, supplementIntrospection);
+            if (violations.size() > violationCount) {
+                break;
+            }
+        }
+        return Collections.unmodifiableSet(violations);
+    }
+
+    private <T> void validateReflectionGroupPass(T object,
+                                                 ReflectionBeanMetadata metadata,
+                                                 BeanValidationContext groupContext,
+                                                 Set<ConstraintViolation<T>> violations,
+                                                 boolean supplementIntrospection) {
+        validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, groupContext, violations, new ReflectionPath(null));
+        for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            for (ReflectionProperty property : properties) {
+                validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
+            }
+        }
     }
 
     private <T> Set<ConstraintViolation<T>> validatePropertyReflectively(T object,
@@ -1201,7 +1238,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty()) {
                         addProperty(properties, new ReflectionProperty(field.getName(), field.getType(), field, constraints, containerElements));
@@ -1215,7 +1252,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty()) {
                         addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
@@ -1276,7 +1313,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (type == null || type == Object.class || !visited.add(type)) {
                 return;
             }
-            constraints.addAll(constraintsFor(type));
+            constraints.addAll(constraintsFor(type, type));
             for (Class<?> interfaceType : type.getInterfaces()) {
                 collectTypeConstraints(interfaceType, constraints, visited);
             }

@@ -54,7 +54,7 @@ final class ReflectionGroupSequences {
                     passes.add(List.copyOf(regularGroups));
                     regularGroups.clear();
                 }
-                addGroupSequencePasses(beanType, passes, groupSequence.value(), new LinkedHashSet<>());
+                addGroupSequencePasses(beanType, Default.class, passes, groupSequence.value(), new LinkedHashSet<>());
             }
         }
         if (!regularGroups.isEmpty()) {
@@ -63,24 +63,66 @@ final class ReflectionGroupSequences {
         return passes;
     }
 
+    static boolean hasInheritedDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
+        List<Class<?>> groups = context.groups();
+        if (!groups.isEmpty() && !(groups.size() == 1 && groups.contains(Default.class))) {
+            return false;
+        }
+        if (beanType.getDeclaredAnnotation(GroupSequence.class) != null) {
+            return false;
+        }
+        for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            if (current.getDeclaredAnnotation(GroupSequence.class) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType) {
+        for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            GroupSequence groupSequence = current.getDeclaredAnnotation(GroupSequence.class);
+            if (groupSequence != null) {
+                return defaultGroupPasses(current, groupSequence.value(), current);
+            }
+        }
+        return List.of();
+    }
+
     private static List<List<Class<?>>> defaultGroupPasses(Class<?> beanType) {
-        GroupSequence groupSequence = beanType.getAnnotation(GroupSequence.class);
-        if (groupSequence == null) {
-            return List.of(List.of(Default.class));
+        GroupSequence groupSequence = beanType.getDeclaredAnnotation(GroupSequence.class);
+        if (groupSequence != null) {
+            return defaultGroupPasses(beanType, groupSequence.value(), Default.class);
         }
-        Class<?>[] sequence = groupSequence.value();
+        for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            groupSequence = current.getDeclaredAnnotation(GroupSequence.class);
+            if (groupSequence != null) {
+                List<List<Class<?>>> passes = defaultGroupPasses(current, groupSequence.value(), current);
+                List<Class<?>> firstPass = new ArrayList<>(passes.get(0));
+                firstPass.add(0, beanType);
+                passes.set(0, List.copyOf(firstPass));
+                return passes;
+            }
+        }
+        return List.of(List.of(Default.class));
+    }
+
+    private static List<List<Class<?>>> defaultGroupPasses(Class<?> sequenceOwner,
+                                                           Class<?>[] sequence,
+                                                           Class<?> defaultGroupReplacement) {
         if (Arrays.asList(sequence).contains(Default.class)) {
-            throw new GroupDefinitionException("Group sequence for " + beanType.getName() + " must not contain jakarta.validation.groups.Default");
+            throw new GroupDefinitionException("Group sequence for " + sequenceOwner.getName() + " must not contain jakarta.validation.groups.Default");
         }
-        if (!Arrays.asList(sequence).contains(beanType)) {
-            throw new GroupDefinitionException("Group sequence for " + beanType.getName() + " must contain the class itself");
+        if (!Arrays.asList(sequence).contains(sequenceOwner)) {
+            throw new GroupDefinitionException("Group sequence for " + sequenceOwner.getName() + " must contain the class itself");
         }
         List<List<Class<?>>> passes = new ArrayList<>();
-        addGroupSequencePasses(beanType, passes, sequence, new LinkedHashSet<>());
+        addGroupSequencePasses(sequenceOwner, defaultGroupReplacement, passes, sequence, new LinkedHashSet<>());
         return passes;
     }
 
     private static void addGroupSequencePasses(Class<?> beanType,
+                                               Class<?> defaultGroupReplacement,
                                                List<List<Class<?>>> passes,
                                                Class<?>[] sequence,
                                                Set<Class<?>> processedGroups) {
@@ -89,7 +131,7 @@ final class ReflectionGroupSequences {
                 throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
             }
             if (group == beanType) {
-                passes.add(List.of(Default.class));
+                passes.add(List.of(defaultGroupReplacement));
                 continue;
             }
             if (!processedGroups.add(group)) {
@@ -101,7 +143,7 @@ final class ReflectionGroupSequences {
                 addInheritedGroups(group, groups);
                 passes.add(List.copyOf(groups));
             } else {
-                addGroupSequencePasses(beanType, passes, nestedSequence.value(), processedGroups);
+                addGroupSequencePasses(beanType, defaultGroupReplacement, passes, nestedSequence.value(), processedGroups);
             }
         }
     }
