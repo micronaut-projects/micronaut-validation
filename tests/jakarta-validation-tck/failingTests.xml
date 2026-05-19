@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 109 classes, 579 methods,
+        Current tracker shape: 107 classes, 576 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -97,6 +97,8 @@
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.OptionalValueExtractorTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDeclaredInValidationXmlTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDefinedInConfigurationApiTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
@@ -873,17 +875,6 @@
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDeclaredInValidationXmlTest">
-                <methods>
-                    <include name="canUseValueExtractorGivenInValidationXml"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDefinedInConfigurationApiTest">
-                <methods>
-                    <include name="canUseCustomExtractor"/>
-                    <include name="canUseCustomValueExtractorPerValidator"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
                 <methods>
                     <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
