@@ -89,6 +89,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -409,7 +410,8 @@ public class ReflectionValidator extends DefaultValidator {
                                                                             BeanValidationContext context) {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable return value without Micronaut executable metadata");
         List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
-        if (constraints.isEmpty()) {
+        List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
+        if (constraints.isEmpty() && containerElements.isEmpty()) {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
@@ -452,6 +454,17 @@ public class ReflectionValidator extends DefaultValidator {
                 ));
             }
         }
+        validateExecutableContainerElements(
+            object,
+            object.getClass(),
+            object,
+            returnValue,
+            method.getReturnType(),
+            containerElements,
+            context,
+            violations,
+            containerContext -> new ReflectionReturnValueContainerElementPath(method, containerContext)
+        );
         return Collections.unmodifiableSet(violations);
     }
 
@@ -469,7 +482,8 @@ public class ReflectionValidator extends DefaultValidator {
         validateConstructorConstraintDeclarations(constructor, context);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
-            if (constraints.isEmpty()) {
+            List<ReflectionContainerElement> containerElements = containerElementsFor(parameters[i].getAnnotatedType());
+            if (constraints.isEmpty() && containerElements.isEmpty()) {
                 continue;
             }
             Object value = parameterValues[i];
@@ -505,6 +519,17 @@ public class ReflectionValidator extends DefaultValidator {
                     ));
                 }
             }
+            validateExecutableContainerElements(
+                null,
+                constructor.getDeclaringClass(),
+                null,
+                value,
+                constructor.getParameterTypes()[i],
+                containerElements,
+                context,
+                violations,
+                constructorParameterContainerElementPath(constructor, parameterNames, parameters[i], i)
+            );
         }
         return Collections.unmodifiableSet(violations);
     }
@@ -524,7 +549,8 @@ public class ReflectionValidator extends DefaultValidator {
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
-            if (constraints.isEmpty()) {
+            List<ReflectionContainerElement> containerElements = containerElementsFor(parameters[i].getAnnotatedType());
+            if (constraints.isEmpty() && containerElements.isEmpty()) {
                 continue;
             }
             Object value = parameterValues[i];
@@ -560,8 +586,35 @@ public class ReflectionValidator extends DefaultValidator {
                     ));
                 }
             }
+            validateExecutableContainerElements(
+                object,
+                object.getClass(),
+                object,
+                value,
+                method.getParameterTypes()[i],
+                containerElements,
+                context,
+                violations,
+                parameterContainerElementPath(method, parameterNames, parameters[i], i)
+            );
         }
         return Collections.unmodifiableSet(violations);
+    }
+
+    private static Function<ReflectionContainerContext, jakarta.validation.Path> constructorParameterContainerElementPath(Constructor<?> constructor,
+                                                                                                                        List<String> parameterNames,
+                                                                                                                        Parameter parameter,
+                                                                                                                        int parameterIndex) {
+        String resolvedName = parameterName(parameterNames, parameter, parameterIndex);
+        return containerContext -> new ReflectionConstructorParameterContainerElementPath(constructor, resolvedName, parameterIndex, containerContext);
+    }
+
+    private static Function<ReflectionContainerContext, jakarta.validation.Path> parameterContainerElementPath(Method method,
+                                                                                                              List<String> parameterNames,
+                                                                                                              Parameter parameter,
+                                                                                                              int parameterIndex) {
+        String resolvedName = parameterName(parameterNames, parameter, parameterIndex);
+        return containerContext -> new ReflectionParameterContainerElementPath(method, resolvedName, parameterIndex, containerContext);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -951,6 +1004,77 @@ public class ReflectionValidator extends DefaultValidator {
     private static boolean isSupplementalContainerElement(ReflectionContainerElement containerElement) {
         return containerElement.cascaded || containerElement.constraints.stream()
             .anyMatch(constraint -> !constraint.getConstraintValidatorClasses().isEmpty());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateExecutableContainerElements(@Nullable T rootBean,
+                                                         @Nullable Class<?> rootBeanClass,
+                                                         @Nullable Object leafBean,
+                                                         @Nullable Object containerValue,
+                                                         Class<?> containerType,
+                                                         List<ReflectionContainerElement> containerElements,
+                                                         BeanValidationContext context,
+                                                         Set<ConstraintViolation<T>> violations,
+                                                         Function<ReflectionContainerContext, jakarta.validation.Path> pathFactory) {
+        if (containerValue == null || containerElements.isEmpty()) {
+            return;
+        }
+        for (ReflectionContainerElement containerElement : containerElements) {
+            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
+            for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
+                if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
+                    continue;
+                }
+                valueExtractorDefinition.valueExtractor().extractValues(containerValue, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+
+                    @Override
+                    public void value(String nodeName, Object value) {
+                        validateContainerValue(nodeName, null, null, false, value);
+                    }
+
+                    @Override
+                    public void iterableValue(String nodeName, Object value) {
+                        validateContainerValue(nodeName, null, null, true, value);
+                    }
+
+                    @Override
+                    public void indexedValue(String nodeName, int index, Object value) {
+                        validateContainerValue(nodeName, null, index, true, value);
+                    }
+
+                    @Override
+                    public void keyedValue(String nodeName, Object key, Object value) {
+                        validateContainerValue(nodeName, key, null, true, value);
+                    }
+
+                    private void validateContainerValue(String nodeName,
+                                                        @Nullable Object key,
+                                                        @Nullable Integer index,
+                                                        boolean iterable,
+                                                        @Nullable Object value) {
+                        ReflectionContainerContext containerContext = new ReflectionContainerContext(
+                            nodeName,
+                            iterable,
+                            key,
+                            index,
+                            containerType,
+                            valueExtractorDefinition.typeArgumentIndex()
+                        );
+                        validateConstraints(
+                            rootBean,
+                            rootBeanClass,
+                            leafBean,
+                            value,
+                            containerElement.type,
+                            containerElement.constraints,
+                            context,
+                            violations,
+                            pathFactory.apply(containerContext)
+                        );
+                    }
+                });
+            }
+        }
     }
 
     private <T> void validateContainerCascadedValue(T rootBean,
@@ -1877,6 +2001,30 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionReturnValueContainerElementPath(Method method,
+                                                             ReflectionContainerContext containerContext) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            if (containerContext.nodeName() == null) {
+                return List.<Node>of(
+                    new ReflectionMethodNode(method),
+                    new ReflectionReturnValueNode()
+                ).iterator();
+            }
+            return List.<Node>of(
+                new ReflectionMethodNode(method),
+                new ReflectionReturnValueNode(),
+                new ReflectionContainerElementNode(containerContext)
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName() + ".<return value>." + containerContext.nodeName();
+        }
+    }
+
     private record ReflectionMethodExecutablePath(Method method) implements jakarta.validation.Path {
 
         @Override
@@ -1906,6 +2054,32 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionConstructorParameterContainerElementPath(Constructor<?> constructor,
+                                                                      String parameterName,
+                                                                      int parameterIndex,
+                                                                      ReflectionContainerContext containerContext) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            if (containerContext.nodeName() == null) {
+                return List.<Node>of(
+                    new ReflectionConstructorNode(constructor),
+                    new ReflectionParameterNode(parameterName, parameterIndex)
+                ).iterator();
+            }
+            return List.<Node>of(
+                new ReflectionConstructorNode(constructor),
+                new ReflectionParameterNode(parameterName, parameterIndex),
+                new ReflectionContainerElementNode(containerContext)
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return constructor.getDeclaringClass().getSimpleName() + "." + parameterName + "." + containerContext.nodeName();
+        }
+    }
+
     private record ReflectionExecutablePath(Method method, String parameterName, int parameterIndex) implements jakarta.validation.Path {
 
         @Override
@@ -1919,6 +2093,32 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return method.getName() + "." + parameterName;
+        }
+    }
+
+    private record ReflectionParameterContainerElementPath(Method method,
+                                                           String parameterName,
+                                                           int parameterIndex,
+                                                           ReflectionContainerContext containerContext) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            if (containerContext.nodeName() == null) {
+                return List.<Node>of(
+                    new ReflectionMethodNode(method),
+                    new ReflectionParameterNode(parameterName, parameterIndex)
+                ).iterator();
+            }
+            return List.<Node>of(
+                new ReflectionMethodNode(method),
+                new ReflectionParameterNode(parameterName, parameterIndex),
+                new ReflectionContainerElementNode(containerContext)
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName() + "." + parameterName + "." + containerContext.nodeName();
         }
     }
 
