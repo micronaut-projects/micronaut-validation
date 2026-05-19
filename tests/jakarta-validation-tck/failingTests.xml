@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 111 classes, 594 methods,
+        Current tracker shape: 110 classes, 582 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -95,6 +95,7 @@
         - org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
@@ -887,22 +888,6 @@
                 <methods>
                     <include name="canUseCustomExtractor"/>
                     <include name="canUseCustomValueExtractorPerValidator"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest">
-                <methods>
-                    <include name="validate_forced_unwrapping_having_two_reverted_type_parameters_correctly_identifies_type_parameter"/>
-                    <include name="validate_forced_unwrapping_having_two_type_parameters_and_only_one_maximally_specific_value_extractor_is_ok"/>
-                    <include name="validate_implicit_unwrapping_having_two_type_parameters_and_only_one_maximally_specific_value_extractor_is_ok"/>
-                    <include name="validate_implicit_unwrapping_having_two_type_parameters_and_only_one_maximally_specific_value_extractor_marked_with_unwrap_by_default_is_ok"/>
-                    <include name="validate_wrapped_value_if_explicit_unwrapping"/>
-                    <include name="validate_wrapped_value_if_value_extractor_unwraps_by_default_and_unwrapping_enabled_per_constraint_for_generic_container"/>
-                    <include name="validate_wrapped_value_if_value_extractor_unwraps_by_default_and_unwrapping_enabled_per_constraint_for_non_generic_container"/>
-                    <include name="validate_wrapped_value_if_value_extractor_unwraps_by_default_for_generic_container"/>
-                    <include name="validate_wrapped_value_if_value_extractor_unwraps_by_default_for_non_generic_container"/>
-                    <include name="validate_wrapper_if_unwrapping_disabled_per_constraint_for_generic_container"/>
-                    <include name="validate_wrapper_if_unwrapping_disabled_per_constraint_for_non_generic_container"/>
-                    <include name="validate_wrapper_itself_if_there_is_no_unwrapping"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">

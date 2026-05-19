@@ -85,6 +85,9 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1412,13 +1415,18 @@ public class DefaultValidator implements
             }
 
             Integer typeArgumentIndex = valueExtractorDefinition.typeArgumentIndex();
+            Integer declaredTypeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                containerArgument.getType(),
+                valueExtractorDefinition.containerType(),
+                typeArgumentIndex
+            );
             Argument<Object> containerValueArgument;
             Argument[] typeParameters = containerArgument.getTypeParameters();
-            if (typeArgumentIndex != null && typeArgumentIndex >= 0 && typeParameters.length > 0 && typeArgumentIndex < typeParameters.length) {
-                containerValueArgument = typeParameters[typeArgumentIndex];
+            if (declaredTypeArgumentIndex != null && declaredTypeArgumentIndex >= 0 && typeParameters.length > 0 && declaredTypeArgumentIndex < typeParameters.length) {
+                containerValueArgument = typeParameters[declaredTypeArgumentIndex];
             } else {
                 containerValueArgument = Argument.of(valueExtractorDefinition.valueType());
-                typeArgumentIndex = null;
+                declaredTypeArgumentIndex = null;
             }
             if (!isValidated(containerValueArgument) && containerElementConstraints.isEmpty() && !isLegacyValid) {
                 continue;
@@ -1433,7 +1441,7 @@ public class DefaultValidator implements
             ValueExtractor<E> valueExtractor = valueExtractorDefinition.valueExtractor();
 
             try {
-                Integer finalTypeArgumentIndex = typeArgumentIndex;
+                Integer finalTypeArgumentIndex = declaredTypeArgumentIndex;
                 Argument<E> finalContainerArgument = containerArgument;
                 valueExtractor.extractValues(containerValue, new ValueExtractor.ValueReceiver() {
 
@@ -1542,20 +1550,68 @@ public class DefaultValidator implements
                                                 List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions) {
         Argument<?>[] typeParameters = containerArgument.getTypeParameters();
         for (int i = 0; i < typeParameters.length; i++) {
-            if (isValidated(typeParameters[i]) && !hasValueExtractorForTypeArgument(valueExtractorDefinitions, i)) {
+            if (isValidated(typeParameters[i]) && !hasValueExtractorForTypeArgument(containerArgument.getType(), valueExtractorDefinitions, i)) {
                 throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for type argument " + i + " of " + containerArgument.getType().getName());
             }
         }
     }
 
-    private boolean hasValueExtractorForTypeArgument(List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions,
+    private boolean hasValueExtractorForTypeArgument(Class<?> declaredType,
+                                                     List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions,
                                                      int typeArgumentIndex) {
         for (ValueExtractorDefinition<?> valueExtractorDefinition : valueExtractorDefinitions) {
-            if (Objects.equals(valueExtractorDefinition.typeArgumentIndex(), typeArgumentIndex)) {
+            Integer declaredTypeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                declaredType,
+                valueExtractorDefinition.containerType(),
+                valueExtractorDefinition.typeArgumentIndex()
+            );
+            if (Objects.equals(declaredTypeArgumentIndex, typeArgumentIndex)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
+                                                             Class<?> extractorContainerType,
+                                                             Integer extractorTypeArgumentIndex) {
+        if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
+            return extractorTypeArgumentIndex;
+        }
+        Integer resolved = resolveExtractedTypeArgumentIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex);
+        if (resolved != null) {
+            return resolved;
+        }
+        for (Type genericInterface : declaredType.getGenericInterfaces()) {
+            resolved = resolveExtractedTypeArgumentIndex(declaredType, genericInterface, extractorContainerType, extractorTypeArgumentIndex);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        return extractorTypeArgumentIndex;
+    }
+
+    private static Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
+                                                             Type genericType,
+                                                             Class<?> extractorContainerType,
+                                                             int extractorTypeArgumentIndex) {
+        if (!(genericType instanceof ParameterizedType parameterizedType) || parameterizedType.getRawType() != extractorContainerType) {
+            return null;
+        }
+        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+        if (extractorTypeArgumentIndex >= actualTypeArguments.length) {
+            return null;
+        }
+        Type actualTypeArgument = actualTypeArguments[extractorTypeArgumentIndex];
+        if (actualTypeArgument instanceof TypeVariable<?> typeVariable) {
+            TypeVariable<?>[] declaredTypeParameters = declaredType.getTypeParameters();
+            for (int i = 0; i < declaredTypeParameters.length; i++) {
+                if (Objects.equals(declaredTypeParameters[i].getName(), typeVariable.getName())) {
+                    return i;
+                }
+            }
+        }
+        return extractorTypeArgumentIndex;
     }
 
     private <R, E> void propagateValidation(DefaultConstraintValidatorContext<R> context,
@@ -1753,12 +1809,16 @@ public class DefaultValidator implements
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints0(@Nullable DefaultConstraintValidatorContext<R> context,
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
-        for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())) {
+        for (Class<? extends Annotation> constraintType : new LinkedHashSet<>(annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader()))) {
             List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
             if (annotationValuesByType.isEmpty()) {
                 annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
             }
+            Map<String, AnnotationValue<? extends Annotation>> uniqueAnnotationValues = new LinkedHashMap<>();
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
+                uniqueAnnotationValues.putIfAbsent(ConstraintAnnotationKey.of(constraintType, annotationValue), annotationValue);
+            }
+            for (AnnotationValue<? extends Annotation> annotationValue : uniqueAnnotationValues.values()) {
                 Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
                     (Class<Annotation>) constraintType,
                     (AnnotationValue<Annotation>) annotationValue
