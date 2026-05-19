@@ -85,6 +85,9 @@ final class ReflectionGroupSequences {
                                                Class<?>[] sequence,
                                                Set<Class<?>> processedGroups) {
         for (Class<?> group : sequence) {
+            if (group == Default.class) {
+                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+            }
             if (group == beanType) {
                 passes.add(List.of(Default.class));
                 continue;

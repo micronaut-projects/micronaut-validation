@@ -270,6 +270,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (hasDefaultGroup(ctx.definedGroups)) {
             Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
             if (classGroupSequence.length > 0) {
+                if (Arrays.stream(classGroupSequence).anyMatch(Default.class::equals)) {
+                    throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+                }
                 if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
                     throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
                 }
@@ -321,6 +324,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
         int start = dest.size();
         for (Class<?> g : groupSequence) {
+            if (g == Default.class) {
+                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+            }
             findGroups(ctx, dest, g, processedGroups);
         }
         for (int i = start; i < groupSequence.size(); i++) {
