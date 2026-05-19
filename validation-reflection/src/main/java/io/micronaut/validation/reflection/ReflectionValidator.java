@@ -271,9 +271,21 @@ public class ReflectionValidator extends DefaultValidator {
         return validateConstructorParametersReflectively(constructor, parameterValues, BeanValidationContext.fromGroups(groups));
     }
 
+    @Override
+    public <T> Set<ConstraintViolation<T>> validateConstructorReturnValue(Constructor<? extends T> constructor,
+                                                                          T createdObject,
+                                                                          Class<?>... groups) {
+        requireNonNull("constructor", constructor);
+        requireNonNull("createdObject", createdObject);
+        requireNonNull("groups", groups);
+        ReflectionGroupConversions.validateConstructorReturnValueDeclaration(constructor);
+        return super.validateConstructorReturnValue(constructor, createdObject, groups);
+    }
+
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object,
                                                                  BeanValidationContext context,
                                                                  boolean supplementIntrospection) {
+        ReflectionGroupConversions.validateBean(object.getClass());
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
@@ -297,6 +309,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     private <T> Set<ConstraintViolation<T>> validateReflectivelyWithInheritedDefaultGroupSequence(T object,
                                                                                                   boolean supplementIntrospection) {
+        ReflectionGroupConversions.validateBean(object.getClass());
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
@@ -409,6 +422,7 @@ public class ReflectionValidator extends DefaultValidator {
                                                                             @Nullable Object returnValue,
                                                                             BeanValidationContext context) {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable return value without Micronaut executable metadata");
+        ReflectionGroupConversions.validateMethodReturnValueDeclarations(method);
         List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
         List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
         if (constraints.isEmpty() && containerElements.isEmpty()) {
@@ -477,6 +491,7 @@ public class ReflectionValidator extends DefaultValidator {
             throw new IllegalArgumentException("The constructor parameter array must have exactly " + parameters.length + " elements.");
         }
         warnOnce(constructor.getDeclaringClass().getName(), constructor.getName(), "validating constructor parameters without Micronaut executable metadata");
+        ReflectionGroupConversions.validateConstructorParameterDeclarations(constructor);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(constructor);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateConstructorConstraintDeclarations(constructor, context);
@@ -544,6 +559,7 @@ public class ReflectionValidator extends DefaultValidator {
             throw new IllegalArgumentException("The method parameter array must have exactly " + parameters.length + " elements.");
         }
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable parameters without Micronaut executable metadata");
+        ReflectionGroupConversions.validateMethodParameterDeclarations(method);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
