@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 79 classes, 456 methods,
+        Current tracker shape: 78 classes, 445 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -178,21 +178,6 @@
                 <methods>
                     <include name="method_parameter_constraint_provided_as_type_parameter_of_a_set_gets_validated"/>
                     <include name="return_value_constraint_provided_on_type_parameter_of_a_set_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest">
-                <methods>
-                    <include name="testConstraintTargetImplicitOnConstructorWithParametersCausesException"/>
-                    <include name="testConstraintTargetImplicitOnMethodWithParametersAndReturnValueCausesException"/>
-                    <include name="testConstraintTargetParametersOnClassCausesException"/>
-                    <include name="testConstraintTargetParametersOnConstructorWithoutParametersCausesException"/>
-                    <include name="testConstraintTargetParametersOnFieldCausesException"/>
-                    <include name="testConstraintTargetParametersOnInterfaceCausesException"/>
-                    <include name="testConstraintTargetParametersOnMethodWithoutParametersCausesException"/>
-                    <include name="testConstraintTargetReturnValueOnClassCausesException"/>
-                    <include name="testConstraintTargetReturnValueOnFieldCausesException"/>
-                    <include name="testConstraintTargetReturnValueOnInterfaceCausesException"/>
-                    <include name="testConstraintTargetReturnValueOnVoidMethodCausesException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">

@@ -414,7 +414,11 @@ public class ReflectionValidator extends DefaultValidator {
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.RETURN_VALUE)) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            validateExecutableConstraintDeclaration(constraint, method);
+            if (!appliesTo(constraint, ConstraintTarget.RETURN_VALUE)) {
                 continue;
             }
             jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
@@ -462,6 +466,7 @@ public class ReflectionValidator extends DefaultValidator {
         warnOnce(constructor.getDeclaringClass().getName(), constructor.getName(), "validating constructor parameters without Micronaut executable metadata");
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(constructor);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        validateConstructorConstraintDeclarations(constructor, context);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
             if (constraints.isEmpty()) {
@@ -572,7 +577,11 @@ public class ReflectionValidator extends DefaultValidator {
         }
         jakarta.validation.Path path = new ReflectionMethodExecutablePath(method);
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            validateExecutableConstraintDeclaration(constraint, method);
+            if (!appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
@@ -647,6 +656,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
+            validateNonExecutableConstraintDeclaration(constraint);
             validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath);
         }
     }
@@ -661,6 +671,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
+            validateNonExecutableConstraintDeclaration(constraint);
             ValueExtractorDefinition<Object> unwrappingExtractor = unwrappingExtractor(property.type, constraint);
             if (unwrappingExtractor == null || value == null) {
                 validateSingleConstraint(
@@ -1032,6 +1043,43 @@ public class ReflectionValidator extends DefaultValidator {
     private static boolean appliesTo(ReflectionConstraintDescriptor<?> descriptor, ConstraintTarget target) {
         ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
         return validationAppliesTo == ConstraintTarget.IMPLICIT || validationAppliesTo == target;
+    }
+
+    private static void validateNonExecutableConstraintDeclaration(ReflectionConstraintDescriptor<?> descriptor) {
+        if (descriptor.hasValidationAppliesTo() && descriptor.getValidationAppliesTo() != ConstraintTarget.IMPLICIT) {
+            throw new ConstraintDeclarationException("validationAppliesTo is only allowed on executable constraints");
+        }
+    }
+
+    private static void validateExecutableConstraintDeclaration(ReflectionConstraintDescriptor<?> descriptor, Method method) {
+        if (!descriptor.hasValidationAppliesTo()) {
+            return;
+        }
+        ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
+        if (validationAppliesTo == ConstraintTarget.PARAMETERS && method.getParameterCount() == 0) {
+            throw new ConstraintDeclarationException("ConstraintTarget.PARAMETERS requires executable parameters");
+        }
+        if (validationAppliesTo == ConstraintTarget.RETURN_VALUE && method.getReturnType() == Void.TYPE) {
+            throw new ConstraintDeclarationException("ConstraintTarget.RETURN_VALUE requires a method return value");
+        }
+        if (validationAppliesTo == ConstraintTarget.IMPLICIT && method.getParameterCount() > 0 && method.getReturnType() != Void.TYPE) {
+            throw new ConstraintDeclarationException("ConstraintTarget.IMPLICIT is ambiguous for methods with parameters and a return value");
+        }
+    }
+
+    private static void validateConstructorConstraintDeclarations(Constructor<?> constructor, BeanValidationContext context) {
+        for (ReflectionConstraintDescriptor<?> constraint : constraintsFor(constructor)) {
+            if (!isGroupIncluded(constraint, context) || !constraint.hasValidationAppliesTo()) {
+                continue;
+            }
+            ConstraintTarget validationAppliesTo = constraint.getValidationAppliesTo();
+            if (validationAppliesTo == ConstraintTarget.PARAMETERS && constructor.getParameterCount() == 0) {
+                throw new ConstraintDeclarationException("ConstraintTarget.PARAMETERS requires constructor parameters");
+            }
+            if (validationAppliesTo == ConstraintTarget.IMPLICIT && constructor.getParameterCount() > 0) {
+                throw new ConstraintDeclarationException("ConstraintTarget.IMPLICIT is ambiguous for constructors with parameters");
+            }
+        }
     }
 
     private void warnOnce(String type, String member, String reason) {
@@ -1490,6 +1538,7 @@ public class ReflectionValidator extends DefaultValidator {
         private final List<Class<? extends jakarta.validation.ConstraintValidator<A, ?>>> validators;
         private final AnnotationValue<A> annotationValue;
         private final List<ReflectionConstraintDescriptor<?>> composingConstraints;
+        private final boolean hasValidationAppliesTo;
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         private ReflectionConstraintDescriptor(A annotation) {
@@ -1505,6 +1554,7 @@ public class ReflectionValidator extends DefaultValidator {
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
             this.annotationValue = new AnnotationValue<>(type.getName(), annotationMembers(annotation, false), annotationMembers(annotation, true));
             this.composingConstraints = composingConstraints(annotation, groups, payload);
+            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), "validationAppliesTo");
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1519,6 +1569,7 @@ public class ReflectionValidator extends DefaultValidator {
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
             this.annotationValue = new AnnotationValue<>(type.getName(), annotationMembers, annotationMembers(annotation, true));
             this.composingConstraints = composingConstraints(annotation, groups, payload);
+            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), "validationAppliesTo");
         }
 
         @Override
@@ -1544,6 +1595,10 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public ConstraintTarget getValidationAppliesTo() {
             return (ConstraintTarget) readMember(annotation, "validationAppliesTo", ConstraintTarget.IMPLICIT);
+        }
+
+        boolean hasValidationAppliesTo() {
+            return hasValidationAppliesTo;
         }
 
         @Override
@@ -1603,6 +1658,15 @@ public class ReflectionValidator extends DefaultValidator {
                 return defaultValue;
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new ValidationException("Cannot read annotation member " + annotation.annotationType().getName() + "." + member, e);
+            }
+        }
+
+        private static boolean hasMember(Class<? extends Annotation> annotationType, String member) {
+            try {
+                annotationType.getDeclaredMethod(member);
+                return true;
+            } catch (NoSuchMethodException e) {
+                return false;
             }
         }
 
