@@ -491,8 +491,7 @@ public class ReflectionValidator extends DefaultValidator {
                 returnValue,
                 context,
                 violations,
-                new ReflectionReturnValueExecutablePath(method),
-                propertyName -> new ReflectionReturnValuePropertyPath(method, propertyName)
+                new ReflectionReturnValueExecutablePath(method)
             );
         }
         return Collections.unmodifiableSet(violations);
@@ -554,8 +553,7 @@ public class ReflectionValidator extends DefaultValidator {
                 createdObject,
                 context,
                 violations,
-                new ReflectionConstructorReturnValueExecutablePath(constructor),
-                propertyName -> new ReflectionConstructorReturnValuePropertyPath(constructor, propertyName)
+                new ReflectionConstructorReturnValueExecutablePath(constructor)
             );
         }
         return Collections.unmodifiableSet(violations);
@@ -574,6 +572,7 @@ public class ReflectionValidator extends DefaultValidator {
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(constructor);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateConstructorConstraintDeclarations(constructor, context);
+        validateConstructorCrossParameterConstraintsReflectively(constructor, parameterValues, context, violations);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
             List<ReflectionContainerElement> containerElements = containerElementsFor(parameters[i].getAnnotatedType());
@@ -634,12 +633,68 @@ public class ReflectionValidator extends DefaultValidator {
                     value,
                     context,
                     violations,
-                    new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex),
-                    propertyName -> new ReflectionConstructorParameterPropertyPath(constructor, parameterName, parameterIndex, propertyName)
+                    new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
                 );
             }
         }
         return Collections.unmodifiableSet(violations);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateConstructorCrossParameterConstraintsReflectively(Constructor<? extends T> constructor,
+                                                                              Object[] parameterValues,
+                                                                              BeanValidationContext context,
+                                                                              Set<ConstraintViolation<T>> violations) {
+        List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(constructor);
+        if (constraints.isEmpty()) {
+            return;
+        }
+        jakarta.validation.Path path = new ReflectionConstructorPath(constructor);
+        for (ReflectionConstraintDescriptor constraint : constraints) {
+            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
+                continue;
+            }
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
+                clockProvider,
+                null,
+                constraint.getMessageTemplate(),
+                path
+            );
+            Boolean valid = validateConstraint(
+                constraint,
+                parameterValues,
+                Object[].class,
+                validatorContext,
+                ConstraintTarget.PARAMETERS
+            );
+            if (valid == null) {
+                continue;
+            }
+            if (!valid && !validatorContext.defaultViolationDisabled()) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    null,
+                    (Class<T>) constructor.getDeclaringClass(),
+                    null,
+                    parameterValues,
+                    interpolate(constraint.getMessageTemplate(), constraint, parameterValues),
+                    constraint.getMessageTemplate(),
+                    path,
+                    constraint
+                ));
+            }
+            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    null,
+                    (Class<T>) constructor.getDeclaringClass(),
+                    null,
+                    parameterValues,
+                    interpolate(customViolation.messageTemplate(), constraint, parameterValues),
+                    customViolation.messageTemplate(),
+                    customViolation.path(),
+                    constraint
+                ));
+            }
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -717,8 +772,7 @@ public class ReflectionValidator extends DefaultValidator {
                     value,
                     context,
                     violations,
-                    new ReflectionExecutablePath(method, parameterName, parameterIndex),
-                    propertyName -> new ReflectionParameterPropertyPath(method, parameterName, parameterIndex, propertyName)
+                    new ReflectionExecutablePath(method, parameterName, parameterIndex)
                 );
             }
         }
@@ -1134,6 +1188,14 @@ public class ReflectionValidator extends DefaultValidator {
         return parameter.isAnnotationPresent(Valid.class) || parameter.getAnnotatedType().isAnnotationPresent(Valid.class);
     }
 
+    private static boolean isCascaded(Field field) {
+        return field.isAnnotationPresent(Valid.class) || field.getAnnotatedType().isAnnotationPresent(Valid.class);
+    }
+
+    private static boolean isCascaded(Method method) {
+        return method.isAnnotationPresent(Valid.class) || method.getAnnotatedReturnType().isAnnotationPresent(Valid.class);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T> void validateExecutableContainerElements(@Nullable T rootBean,
                                                          @Nullable Class<?> rootBeanClass,
@@ -1223,6 +1285,7 @@ public class ReflectionValidator extends DefaultValidator {
             violations,
             new ReflectionContainerElementPath(propertyName, containerContext)
         );
+        Set<String> cascadedProperties = new LinkedHashSet<>();
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
             for (ReflectionProperty property : properties) {
                 Object propertyValue = property.read(value);
@@ -1247,8 +1310,7 @@ public class ReflectionValidator extends DefaultValidator {
                                            @Nullable Object value,
                                            BeanValidationContext context,
                                            Set<ConstraintViolation<T>> violations,
-                                           jakarta.validation.Path beanPath,
-                                           Function<String, jakarta.validation.Path> propertyPathFactory) {
+                                           jakarta.validation.Path beanPath) {
         if (value == null) {
             return;
         }
@@ -1264,9 +1326,11 @@ public class ReflectionValidator extends DefaultValidator {
             violations,
             beanPath
         );
+        Set<String> cascadedProperties = new LinkedHashSet<>();
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
             for (ReflectionProperty property : properties) {
                 Object propertyValue = property.read(value);
+                jakarta.validation.Path propertyPath = new ReflectionAppendedPropertyPath(beanPath, property.name);
                 validateConstraints(
                     rootBean,
                     rootBeanClass,
@@ -1276,8 +1340,19 @@ public class ReflectionValidator extends DefaultValidator {
                     property.constraints,
                     context,
                     violations,
-                    propertyPathFactory.apply(property.name)
+                    propertyPath
                 );
+                if (propertyValue != null && property.isCascaded() && cascadedProperties.add(property.name)) {
+                    validateCascadedValue(
+                        rootBean,
+                        rootBeanClass,
+                        propertyValue,
+                        propertyValue,
+                        context,
+                        violations,
+                        propertyPath
+                    );
+                }
             }
         }
     }
@@ -1556,6 +1631,16 @@ public class ReflectionValidator extends DefaultValidator {
                 throw new ValidationException("Cannot read property " + name + " using reflection", e);
             }
         }
+
+        boolean isCascaded() {
+            if (source.isAnnotationPresent(Valid.class)) {
+                return true;
+            }
+            AnnotatedType annotatedType = source instanceof Field field
+                ? field.getAnnotatedType()
+                : ((Method) source).getAnnotatedReturnType();
+            return annotatedType.isAnnotationPresent(Valid.class);
+        }
     }
 
     private record ReflectionContainerElement(
@@ -1589,7 +1674,7 @@ public class ReflectionValidator extends DefaultValidator {
                     }
                     List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
-                    if (!constraints.isEmpty() || !containerElements.isEmpty()) {
+                    if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(field.getName(), field.getType(), field, constraints, containerElements));
                     }
                 }
@@ -1603,7 +1688,7 @@ public class ReflectionValidator extends DefaultValidator {
                     }
                     List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
-                    if (!constraints.isEmpty() || !containerElements.isEmpty()) {
+                    if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
                     }
                 }
@@ -1647,7 +1732,7 @@ public class ReflectionValidator extends DefaultValidator {
                 }
                 List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup);
                 List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
-                if (!constraints.isEmpty() || !containerElements.isEmpty()) {
+                if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                     addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
                 }
             }
@@ -1686,7 +1771,7 @@ public class ReflectionValidator extends DefaultValidator {
             return hasConstraints() || properties.values()
                 .stream()
                 .flatMap(List::stream)
-                .anyMatch(property -> !property.constraints.isEmpty() || !property.containerElements.isEmpty());
+                .anyMatch(property -> !property.constraints.isEmpty() || !property.containerElements.isEmpty() || property.isCascaded());
         }
 
         @Override
@@ -2194,20 +2279,20 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private record ReflectionReturnValuePropertyPath(Method method, String propertyName) implements jakarta.validation.Path {
+    private record ReflectionAppendedPropertyPath(jakarta.validation.Path parent,
+                                                  String propertyName) implements jakarta.validation.Path {
 
         @Override
         public Iterator<Node> iterator() {
-            return List.<Node>of(
-                new ReflectionMethodNode(method),
-                new ReflectionReturnValueNode(),
-                new ReflectionNode(propertyName)
-            ).iterator();
+            List<Node> nodes = new ArrayList<>();
+            parent.iterator().forEachRemaining(nodes::add);
+            nodes.add(new ReflectionNode(propertyName));
+            return nodes.iterator();
         }
 
         @Override
         public String toString() {
-            return method.getName() + ".<return value>." + propertyName;
+            return parent + "." + propertyName;
         }
     }
 
@@ -2224,6 +2309,19 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionConstructorPath(Constructor<?> constructor) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(new ReflectionConstructorNode(constructor)).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return constructor.getDeclaringClass().getSimpleName();
+        }
+    }
+
     private record ReflectionConstructorExecutablePath(Constructor<?> constructor, String parameterName, int parameterIndex) implements jakarta.validation.Path {
 
         @Override
@@ -2237,26 +2335,6 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return constructor.getDeclaringClass().getSimpleName() + "." + parameterName;
-        }
-    }
-
-    private record ReflectionConstructorParameterPropertyPath(Constructor<?> constructor,
-                                                              String parameterName,
-                                                              int parameterIndex,
-                                                              String propertyName) implements jakarta.validation.Path {
-
-        @Override
-        public Iterator<Node> iterator() {
-            return List.<Node>of(
-                new ReflectionConstructorNode(constructor),
-                new ReflectionParameterNode(parameterName, parameterIndex),
-                new ReflectionNode(propertyName)
-            ).iterator();
-        }
-
-        @Override
-        public String toString() {
-            return constructor.getDeclaringClass().getSimpleName() + "." + parameterName + "." + propertyName;
         }
     }
 
@@ -2302,26 +2380,6 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private record ReflectionParameterPropertyPath(Method method,
-                                                   String parameterName,
-                                                   int parameterIndex,
-                                                   String propertyName) implements jakarta.validation.Path {
-
-        @Override
-        public Iterator<Node> iterator() {
-            return List.<Node>of(
-                new ReflectionMethodNode(method),
-                new ReflectionParameterNode(parameterName, parameterIndex),
-                new ReflectionNode(propertyName)
-            ).iterator();
-        }
-
-        @Override
-        public String toString() {
-            return method.getName() + "." + parameterName + "." + propertyName;
-        }
-    }
-
     private record ReflectionParameterContainerElementPath(Method method,
                                                            String parameterName,
                                                            int parameterIndex,
@@ -2361,24 +2419,6 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return constructor.getDeclaringClass().getSimpleName() + ".<return value>";
-        }
-    }
-
-    private record ReflectionConstructorReturnValuePropertyPath(Constructor<?> constructor,
-                                                                String propertyName) implements jakarta.validation.Path {
-
-        @Override
-        public Iterator<Node> iterator() {
-            return List.<Node>of(
-                new ReflectionConstructorNode(constructor),
-                new ReflectionReturnValueNode(),
-                new ReflectionNode(propertyName)
-            ).iterator();
-        }
-
-        @Override
-        public String toString() {
-            return constructor.getDeclaringClass().getSimpleName() + ".<return value>." + propertyName;
         }
     }
 
