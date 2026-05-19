@@ -45,7 +45,9 @@ final class ReflectionConstraintDefinitions {
             return;
         }
         for (Method method : annotationType.getDeclaredMethods()) {
-            if (method.getParameterCount() == 0 && method.getName().startsWith("valid")) {
+            if (method.getParameterCount() == 0
+                && method.getName().startsWith("valid")
+                && !"validationAppliesTo".equals(method.getName())) {
                 throw new ConstraintDefinitionException("Constraint member names must not start with 'valid': " + annotationType.getName() + "." + method.getName());
             }
         }
