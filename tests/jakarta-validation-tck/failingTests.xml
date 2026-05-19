@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 86 classes, 468 methods,
+        Current tracker shape: 85 classes, 464 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -107,6 +107,7 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testOverridesAttributeWithDefaultName
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testPayloadPropagationInComposedConstraints
         - org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.nestedconstraintcomposition.NestedConstraintCompositionTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -138,14 +139,6 @@
                     <include name="testMixedConstraintTargetsInComposingConstraintsCauseException"/>
                     <include name="testOverriddenAttributesMustMatchInType"/>
                     <include name="testValidationOfMainAnnotationIsAlsoApplied"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.nestedconstraintcomposition.NestedConstraintCompositionTest">
-                <methods>
-                    <include name="testCompositeConstraint1WithNestedConstraintSingleViolation"/>
-                    <include name="testCompositeConstraint2WithNestedConstraintSingleViolation"/>
-                    <include name="testCompositeConstraint3WithNestedConstraint"/>
-                    <include name="testCompositeConstraint4WithNestedConstraintSingleViolation"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
