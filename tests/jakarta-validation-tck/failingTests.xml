@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 107 classes, 576 methods,
+        Current tracker shape: 106 classes, 572 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -103,6 +103,7 @@
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.definition.InvalidValueExtractorTest
+        - org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -864,14 +865,6 @@
                     <include name="testGroupConversionIsNotExecutedRecursively"/>
                     <include name="testGroupConversionWithSequenceAsTo"/>
                     <include name="testSeveralGroupConversionsAppliedOnField"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest">
-                <methods>
-                    <include name="propertyPathInIterable"/>
-                    <include name="testDefaultError"/>
-                    <include name="testDisableDefaultErrorWithCustomErrorNoSubNode"/>
-                    <include name="testDisableDefaultErrorWithCustomErrorWithSubNode"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>

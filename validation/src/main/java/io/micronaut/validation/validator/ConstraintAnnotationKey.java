@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationValue;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -33,12 +32,29 @@ final class ConstraintAnnotationKey {
     static String of(Class<? extends Annotation> constraintType,
                      AnnotationValue<? extends Annotation> annotationValue) {
         Map<String, Object> attributes = new TreeMap<>();
-        annotationValue.getValues().forEach((key, value) -> attributes.put(key.toString(), normalize(value)));
+        Map<CharSequence, Object> values = annotationValue.getValues();
         Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
+        values.forEach((key, value) -> {
+            String attributeName = key.toString();
+            Object normalized = normalize(value);
+            if (!attributeName.startsWith("$") && isMeaningfulAttribute(attributeName, normalized)) {
+                attributes.put(attributeName, normalized);
+            }
+        });
         if (defaultValues != null) {
-            defaultValues.forEach((key, value) -> attributes.putIfAbsent(key.toString(), normalize(value)));
+            defaultValues.forEach((key, value) -> {
+                String attributeName = key.toString();
+                Object normalized = normalize(value);
+                if (!attributeName.startsWith("$") && isMeaningfulAttribute(attributeName, normalized)) {
+                    attributes.putIfAbsent(attributeName, normalized);
+                }
+            });
         }
         return constraintType.getName() + attributes;
+    }
+
+    private static boolean isMeaningfulAttribute(String attributeName, Object value) {
+        return !"message".equals(attributeName) || !"".equals(value);
     }
 
     private static Object normalize(Object value) {
@@ -51,12 +67,36 @@ final class ConstraintAnnotationKey {
                 .sorted()
                 .toList();
         }
-        if (value != null && value.getClass().isArray()) {
-            List<Object> values = new ArrayList<>(Array.getLength(value));
-            for (int i = 0; i < Array.getLength(value); i++) {
-                values.add(normalize(Array.get(value, i)));
+        if (value instanceof Object[] array) {
+            List<Object> values = new ArrayList<>(array.length);
+            for (Object element : array) {
+                values.add(normalize(element));
             }
             return values;
+        }
+        if (value instanceof boolean[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof byte[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof char[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof double[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof float[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof int[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof long[] array) {
+            return Arrays.toString(array);
+        }
+        if (value instanceof short[] array) {
+            return Arrays.toString(array);
         }
         return String.valueOf(value)
             .replace("interface ", "")
