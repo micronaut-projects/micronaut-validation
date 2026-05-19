@@ -422,6 +422,7 @@ public class ReflectionValidator extends DefaultValidator {
                                                                             @Nullable Object returnValue,
                                                                             BeanValidationContext context) {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable return value without Micronaut executable metadata");
+        ReflectionMethodDeclarations.validateReturnValueDeclarations(method);
         ReflectionGroupConversions.validateMethodReturnValueDeclarations(method);
         List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
         List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
@@ -559,6 +560,7 @@ public class ReflectionValidator extends DefaultValidator {
             throw new IllegalArgumentException("The method parameter array must have exactly " + parameters.length + " elements.");
         }
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable parameters without Micronaut executable metadata");
+        ReflectionMethodDeclarations.validateParameterDeclarations(method);
         ReflectionGroupConversions.validateMethodParameterDeclarations(method);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
