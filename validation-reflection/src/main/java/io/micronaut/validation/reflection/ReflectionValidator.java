@@ -1927,6 +1927,7 @@ public class ReflectionValidator extends DefaultValidator {
         private ReflectionConstraintDescriptor(A annotation, @Nullable Class<?> implicitGroup) {
             this.annotation = annotation;
             this.type = (Class<A>) annotation.annotationType();
+            ReflectionConstraintDefinitions.validate(type);
             this.groups = groups(annotation, implicitGroup);
             this.payload = Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
@@ -1942,6 +1943,7 @@ public class ReflectionValidator extends DefaultValidator {
                                                Map<CharSequence, Object> annotationMembers) {
             this.annotation = annotation;
             this.type = (Class<A>) annotation.annotationType();
+            ReflectionConstraintDefinitions.validate(type);
             this.groups = groups;
             this.payload = payload;
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
