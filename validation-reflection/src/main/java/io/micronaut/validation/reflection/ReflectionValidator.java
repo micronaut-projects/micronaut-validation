@@ -414,12 +414,15 @@ public class ReflectionValidator extends DefaultValidator {
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context)) {
+            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.RETURN_VALUE)) {
                 continue;
             }
             jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
-            boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext);
+            Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE);
+            if (valid == null) {
+                continue;
+            }
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     object,
@@ -569,7 +572,7 @@ public class ReflectionValidator extends DefaultValidator {
         }
         jakarta.validation.Path path = new ReflectionMethodExecutablePath(method);
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context)) {
+            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
@@ -1024,6 +1027,11 @@ public class ReflectionValidator extends DefaultValidator {
             return descriptorGroups.contains(jakarta.validation.groups.Default.class);
         }
         return groups.stream().anyMatch(descriptorGroups::contains);
+    }
+
+    private static boolean appliesTo(ReflectionConstraintDescriptor<?> descriptor, ConstraintTarget target) {
+        ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
+        return validationAppliesTo == ConstraintTarget.IMPLICIT || validationAppliesTo == target;
     }
 
     private void warnOnce(String type, String member, String reason) {
