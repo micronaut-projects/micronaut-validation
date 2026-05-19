@@ -26,6 +26,7 @@ import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Path;
 import jakarta.validation.Payload;
@@ -244,6 +245,20 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void appliesRedefinedDefaultGroupSequenceToSupplementalReflectionConstraints() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            DefaultGroupSequenceBean bean = new DefaultGroupSequenceBean("A");
+
+            assertEquals(1, validator.validate(bean).size());
+            assertEquals(1, validator.validateProperty(bean, "name").size());
+            assertEquals(1, validator.validateValue(DefaultGroupSequenceBean.class, "name", "A").size());
+        }
+    }
+
+    @Test
     void validatesReflectiveComposedConstraintAsSingleViolation() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -378,6 +393,24 @@ class ReflectionValidatorTest {
         public String getName() {
             return null;
         }
+    }
+
+    @Introspected
+    @GroupSequence({DefaultGroupSequenceBean.class, Second.class})
+    private static final class DefaultGroupSequenceBean {
+        @Size(min = 2, groups = Second.class)
+        private final String name;
+
+        private DefaultGroupSequenceBean(String name) {
+            this.name = name;
+        }
+
+        public String getName() {
+            return name;
+        }
+    }
+
+    private interface Second {
     }
 
     private record ComposedConstraintBean(
