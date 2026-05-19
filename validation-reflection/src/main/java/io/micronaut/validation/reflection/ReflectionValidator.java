@@ -272,11 +272,17 @@ public class ReflectionValidator extends DefaultValidator {
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, context, violations, new ReflectionPath(null));
-        for (List<ReflectionProperty> properties : metadata.properties.values()) {
-            boolean validatePropertyConstraints = !supplementIntrospection || properties.size() > 1;
-            for (ReflectionProperty property : properties) {
-                validateProperty(object, object, property, context, violations, supplementIntrospection, validatePropertyConstraints);
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
+            int violationCount = violations.size();
+            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, groupContext, violations, new ReflectionPath(null));
+            for (List<ReflectionProperty> properties : metadata.properties.values()) {
+                for (ReflectionProperty property : properties) {
+                    validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
+                }
+            }
+            if (violations.size() > violationCount) {
+                break;
             }
         }
         return Collections.unmodifiableSet(violations);
@@ -297,8 +303,15 @@ public class ReflectionValidator extends DefaultValidator {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        for (ReflectionProperty property : properties) {
-            validateProperty(object, object, property, context, violations, false, true);
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
+            int violationCount = violations.size();
+            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            for (ReflectionProperty property : properties) {
+                validateProperty(object, object, property, groupContext, violations, false, true);
+            }
+            if (violations.size() > violationCount) {
+                break;
+            }
         }
         return Collections.unmodifiableSet(violations);
     }
@@ -313,8 +326,15 @@ public class ReflectionValidator extends DefaultValidator {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        for (ReflectionProperty property : properties) {
-            validateConstraints(null, beanType, null, value, property.type, property.constraints, context, violations, new ReflectionPath(property.name));
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context)) {
+            int violationCount = violations.size();
+            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            for (ReflectionProperty property : properties) {
+                validateConstraints(null, beanType, null, value, property.type, property.constraints, groupContext, violations, new ReflectionPath(property.name));
+            }
+            if (violations.size() > violationCount) {
+                break;
+            }
         }
         return Collections.unmodifiableSet(violations);
     }
