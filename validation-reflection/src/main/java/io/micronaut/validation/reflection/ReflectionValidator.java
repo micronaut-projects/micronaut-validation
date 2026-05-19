@@ -27,7 +27,6 @@ import io.micronaut.validation.validator.BeanValidationContext;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
-import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
@@ -37,15 +36,6 @@ import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeBuilderCustomizableContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeBuilderDefinedContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeContextBuilder;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeBuilderCustomizableContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeBuilderDefinedContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeContextBuilder;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.NodeBuilderCustomizableContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.NodeBuilderDefinedContext;
-import jakarta.validation.ConstraintValidatorContext.ConstraintViolationBuilder.NodeContextBuilder;
 import jakarta.validation.ElementKind;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.OverridesAttribute;
@@ -369,9 +359,10 @@ public class ReflectionValidator extends DefaultValidator {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
-            SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate());
+            jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
             boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled) {
+            if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     object,
                     (Class<T>) object.getClass(),
@@ -379,19 +370,19 @@ public class ReflectionValidator extends DefaultValidator {
                     returnValue,
                     interpolate(constraint.getMessageTemplate(), constraint, returnValue),
                     constraint.getMessageTemplate(),
-                    new ReflectionReturnValueExecutablePath(method),
+                    path,
                     constraint
                 ));
             }
-            for (String messageTemplate : validatorContext.customViolationTemplates) {
+            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     object,
                     (Class<T>) object.getClass(),
                     object,
                     returnValue,
-                    interpolate(messageTemplate, constraint, returnValue),
-                    messageTemplate,
-                    new ReflectionReturnValueExecutablePath(method),
+                    interpolate(customViolation.messageTemplate(), constraint, returnValue),
+                    customViolation.messageTemplate(),
+                    customViolation.path(),
                     constraint
                 ));
             }
@@ -420,9 +411,10 @@ public class ReflectionValidator extends DefaultValidator {
                 if (!isGroupIncluded(constraint, context)) {
                     continue;
                 }
-                SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate());
+                jakarta.validation.Path path = new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i);
+                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
                 boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[i], validatorContext);
-                if (!valid && !validatorContext.defaultViolationDisabled) {
+                if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         null,
                         (Class<T>) constructor.getDeclaringClass(),
@@ -430,19 +422,19 @@ public class ReflectionValidator extends DefaultValidator {
                         value,
                         interpolate(constraint.getMessageTemplate(), constraint, value),
                         constraint.getMessageTemplate(),
-                        new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i),
+                        path,
                         constraint
                     ));
                 }
-                for (String messageTemplate : validatorContext.customViolationTemplates) {
+                for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         null,
                         (Class<T>) constructor.getDeclaringClass(),
                         null,
                         value,
-                        interpolate(messageTemplate, constraint, value),
-                        messageTemplate,
-                        new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i),
+                        interpolate(customViolation.messageTemplate(), constraint, value),
+                        customViolation.messageTemplate(),
+                        customViolation.path(),
                         constraint
                     ));
                 }
@@ -473,9 +465,10 @@ public class ReflectionValidator extends DefaultValidator {
                 if (!isGroupIncluded(constraint, context)) {
                     continue;
                 }
-                SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate());
+                jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i);
+                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
                 boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext);
-                if (!valid && !validatorContext.defaultViolationDisabled) {
+                if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         object,
                         (Class<T>) object.getClass(),
@@ -483,19 +476,19 @@ public class ReflectionValidator extends DefaultValidator {
                         value,
                         interpolate(constraint.getMessageTemplate(), constraint, value),
                         constraint.getMessageTemplate(),
-                        new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i),
+                        path,
                         constraint
                     ));
                 }
-                for (String messageTemplate : validatorContext.customViolationTemplates) {
+                for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         object,
                         (Class<T>) object.getClass(),
                         object,
                         value,
-                        interpolate(messageTemplate, constraint, value),
-                        messageTemplate,
-                        new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i),
+                        interpolate(customViolation.messageTemplate(), constraint, value),
+                        customViolation.messageTemplate(),
+                        customViolation.path(),
                         constraint
                     ));
                 }
@@ -658,7 +651,7 @@ public class ReflectionValidator extends DefaultValidator {
                                               BeanValidationContext context,
                                               Set<ConstraintViolation<T>> violations,
                                               jakarta.validation.Path propertyPath) {
-        SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate());
+        ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate(), propertyPath);
         Boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
         if (valid == null) {
             if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations)) {
@@ -666,7 +659,7 @@ public class ReflectionValidator extends DefaultValidator {
             }
             throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
         }
-        if (!valid && !validatorContext.defaultViolationDisabled) {
+        if (!valid && !validatorContext.defaultViolationDisabled()) {
             violations.add(new ReflectionConstraintViolation<>(
                 rootBean,
                 (Class<T>) rootBeanClass,
@@ -679,18 +672,27 @@ public class ReflectionValidator extends DefaultValidator {
             ));
         }
         validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations);
-        for (String messageTemplate : validatorContext.customViolationTemplates) {
+        for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
+            Object invalidValue = customInvalidValue(propertyPath, value);
             violations.add(new ReflectionConstraintViolation<>(
                 rootBean,
                 (Class<T>) rootBeanClass,
                 leafBean,
-                value,
-                interpolate(messageTemplate, constraint, value),
-                messageTemplate,
-                propertyPath,
+                invalidValue,
+                interpolate(customViolation.messageTemplate(), constraint, invalidValue),
+                customViolation.messageTemplate(),
+                customViolation.path(),
                 constraint
             ));
         }
+    }
+
+    private static @Nullable Object customInvalidValue(jakarta.validation.Path propertyPath, @Nullable Object value) {
+        Iterator<Path.Node> nodes = propertyPath.iterator();
+        if (nodes.hasNext() && nodes.next().getKind() == ElementKind.BEAN && !nodes.hasNext()) {
+            return null;
+        }
+        return value;
     }
 
     private <T> boolean validateComposingConstraints(@Nullable T rootBean,
@@ -858,7 +860,7 @@ public class ReflectionValidator extends DefaultValidator {
     private @Nullable Boolean validateConstraint(ReflectionConstraintDescriptor constraint,
                                        @Nullable Object value,
                                        Class<?> valueType,
-                                       SimpleConstraintValidatorContext validatorContext) {
+                                       ReflectionConstraintValidatorContext validatorContext) {
         for (Object validatorClass : constraint.getConstraintValidatorClasses()) {
             Class<? extends jakarta.validation.ConstraintValidator> validatorType = (Class<? extends jakarta.validation.ConstraintValidator>) validatorClass;
             jakarta.validation.ConstraintValidator validator = configuration.getConstraintValidatorFactory().getInstance(validatorType);
@@ -1694,14 +1696,14 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private record ReflectionNode(String name,
+    private record ReflectionNode(@Nullable String name,
                                   boolean inIterable,
                                   @Nullable Object key,
                                   @Nullable Integer index,
                                   @Nullable Class<?> containerClass,
                                   @Nullable Integer typeArgumentIndex) implements jakarta.validation.Path.PropertyNode {
 
-        private ReflectionNode(String name) {
+        private ReflectionNode(@Nullable String name) {
             this(name, false, null, null, null, null);
         }
 
@@ -1942,223 +1944,4 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private static final class SimpleConstraintValidatorContext implements ConstraintValidatorContext {
-
-        private final ClockProvider clockProvider;
-        @Nullable
-        private final Object rootBean;
-        private final String defaultMessageTemplate;
-        private final List<String> customViolationTemplates = new ArrayList<>();
-        private boolean defaultViolationDisabled;
-
-        private SimpleConstraintValidatorContext(ClockProvider clockProvider,
-                                                 @Nullable Object rootBean,
-                                                 String defaultMessageTemplate) {
-            this.clockProvider = clockProvider;
-            this.rootBean = rootBean;
-            this.defaultMessageTemplate = defaultMessageTemplate;
-        }
-
-        @Override
-        public void disableDefaultConstraintViolation() {
-            defaultViolationDisabled = true;
-        }
-
-        @Override
-        public String getDefaultConstraintMessageTemplate() {
-            return defaultMessageTemplate;
-        }
-
-        @Override
-        public ClockProvider getClockProvider() {
-            return clockProvider;
-        }
-
-        @Override
-        public ConstraintViolationBuilder buildConstraintViolationWithTemplate(String messageTemplate) {
-            return new SimpleConstraintViolationBuilder(this, messageTemplate);
-        }
-
-        @Override
-        public <T> T unwrap(Class<T> type) {
-            if (type.isInstance(this)) {
-                return type.cast(this);
-            }
-            throw new ValidationException("Cannot unwrap " + getClass().getName() + " as " + type.getName());
-        }
-
-        @Override
-        public @Nullable Object getRootBean() {
-            return rootBean;
-        }
-    }
-
-    private record SimpleConstraintViolationBuilder(
-        SimpleConstraintValidatorContext context,
-        String messageTemplate
-    ) implements ConstraintValidatorContext.ConstraintViolationBuilder {
-
-        @Override
-        public NodeBuilderDefinedContext addNode(String name) {
-            return new SimpleNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public NodeBuilderCustomizableContext addPropertyNode(String name) {
-            return new SimpleNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public LeafNodeBuilderCustomizableContext addBeanNode() {
-            return new SimpleLeafNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            return new SimpleContainerElementNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public NodeBuilderDefinedContext addParameterNode(int index) {
-            return new SimpleNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public ConstraintValidatorContext addConstraintViolation() {
-            context.customViolationTemplates.add(messageTemplate);
-            return context;
-        }
-    }
-
-    private record SimpleNodeBuilder(
-        SimpleConstraintValidatorContext context,
-        String messageTemplate
-    ) implements ConstraintValidatorContext.ConstraintViolationBuilder.NodeBuilderDefinedContext,
-        ConstraintValidatorContext.ConstraintViolationBuilder.NodeBuilderCustomizableContext,
-        ConstraintValidatorContext.ConstraintViolationBuilder.NodeContextBuilder {
-
-        @Override
-        public NodeBuilderCustomizableContext addNode(String name) {
-            return this;
-        }
-
-        @Override
-        public NodeBuilderCustomizableContext addPropertyNode(String name) {
-            return this;
-        }
-
-        @Override
-        public LeafNodeBuilderCustomizableContext addBeanNode() {
-            return new SimpleLeafNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            return new SimpleContainerElementNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public NodeContextBuilder inIterable() {
-            return this;
-        }
-
-        @Override
-        public NodeBuilderCustomizableContext inContainer(Class<?> containerType, Integer typeArgumentIndex) {
-            return this;
-        }
-
-        @Override
-        public NodeBuilderDefinedContext atKey(Object key) {
-            return this;
-        }
-
-        @Override
-        public NodeBuilderDefinedContext atIndex(Integer index) {
-            return this;
-        }
-
-        @Override
-        public ConstraintValidatorContext addConstraintViolation() {
-            context.customViolationTemplates.add(messageTemplate);
-            return context;
-        }
-    }
-
-    private record SimpleLeafNodeBuilder(
-        SimpleConstraintValidatorContext context,
-        String messageTemplate
-    ) implements ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeBuilderCustomizableContext,
-        ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeContextBuilder,
-        ConstraintValidatorContext.ConstraintViolationBuilder.LeafNodeBuilderDefinedContext {
-
-        @Override
-        public LeafNodeContextBuilder inIterable() {
-            return this;
-        }
-
-        @Override
-        public LeafNodeBuilderCustomizableContext inContainer(Class<?> containerType, Integer typeArgumentIndex) {
-            return this;
-        }
-
-        @Override
-        public LeafNodeBuilderDefinedContext atKey(Object key) {
-            return this;
-        }
-
-        @Override
-        public LeafNodeBuilderDefinedContext atIndex(Integer index) {
-            return this;
-        }
-
-        @Override
-        public ConstraintValidatorContext addConstraintViolation() {
-            context.customViolationTemplates.add(messageTemplate);
-            return context;
-        }
-    }
-
-    private record SimpleContainerElementNodeBuilder(
-        SimpleConstraintValidatorContext context,
-        String messageTemplate
-    ) implements ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeBuilderCustomizableContext,
-        ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeContextBuilder,
-        ConstraintValidatorContext.ConstraintViolationBuilder.ContainerElementNodeBuilderDefinedContext {
-
-        @Override
-        public ContainerElementNodeContextBuilder inIterable() {
-            return this;
-        }
-
-        @Override
-        public NodeBuilderCustomizableContext addPropertyNode(String name) {
-            return new SimpleNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public LeafNodeBuilderCustomizableContext addBeanNode() {
-            return new SimpleLeafNodeBuilder(context, messageTemplate);
-        }
-
-        @Override
-        public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            return this;
-        }
-
-        @Override
-        public ContainerElementNodeBuilderDefinedContext atKey(Object key) {
-            return this;
-        }
-
-        @Override
-        public ContainerElementNodeBuilderDefinedContext atIndex(Integer index) {
-            return this;
-        }
-
-        @Override
-        public ConstraintValidatorContext addConstraintViolation() {
-            context.customViolationTemplates.add(messageTemplate);
-            return context;
-        }
-    }
 }

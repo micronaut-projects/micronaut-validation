@@ -112,13 +112,14 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
 
     private static void addConstraintAnnotation(MutableAnnotationMetadata metadata, Annotation annotation, @Nullable String containerName) {
         String annotationName = annotation.annotationType().getName();
-        Map<CharSequence, Object> values = annotationValues(annotation);
+        Map<CharSequence, Object> defaultValues = annotationDefaultValues(annotation.annotationType());
+        metadata.addDefaultAnnotationValues(annotationName, defaultValues);
         if (containerName == null) {
-            metadata.addDeclaredAnnotation(annotationName, values);
+            metadata.addDeclaredAnnotation(annotationName, annotationValues(annotation, true));
         } else {
             metadata.addDeclaredRepeatable(
                 containerName,
-                new AnnotationValue<>(annotationName, values, Map.of())
+                new AnnotationValue<>(annotationName, annotationValues(annotation, true), defaultValues)
             );
         }
         metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
@@ -144,17 +145,32 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
     }
 
     private static Map<CharSequence, Object> annotationValues(Annotation annotation) {
+        return annotationValues(annotation, false);
+    }
+
+    private static Map<CharSequence, Object> annotationValues(Annotation annotation, boolean includeDefaults) {
         Map<CharSequence, Object> values = new LinkedHashMap<>();
         Class<? extends Annotation> annotationType = annotation.annotationType();
         for (Method method : annotationType.getDeclaredMethods()) {
             try {
                 method.setAccessible(true);
                 Object value = method.invoke(annotation);
-                if (value != null && !Objects.deepEquals(value, method.getDefaultValue())) {
+                if (value != null && (includeDefaults || !Objects.deepEquals(value, method.getDefaultValue()))) {
                     values.put(method.getName(), value);
                 }
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new jakarta.validation.ValidationException("Cannot read constraint annotation " + annotationType.getName(), e);
+            }
+        }
+        return values;
+    }
+
+    private static Map<CharSequence, Object> annotationDefaultValues(Class<? extends Annotation> annotationType) {
+        Map<CharSequence, Object> values = new LinkedHashMap<>();
+        for (Method method : annotationType.getDeclaredMethods()) {
+            Object value = method.getDefaultValue();
+            if (value != null) {
+                values.put(method.getName(), value);
             }
         }
         return values;
