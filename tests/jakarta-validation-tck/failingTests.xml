@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 110 classes, 582 methods,
+        Current tracker shape: 109 classes, 579 methods,
         and 10 class-level setup failures.
 
         Passing waves already proven in isolation. Some entries may remain in
@@ -96,6 +96,7 @@
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest
+        - org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.OptionalValueExtractorTest
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.MessageInterpolationTest#testMessagesCanBeOverriddenAtConstraintLevel
         - org.hibernate.beanvalidation.tck.tests.messageinterpolation.ExpressionLanguageMessageInterpolationTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.MultipleValueExtractorsDeclaredProgrammaticallyForSameTypeAndTypeArgumentTest
@@ -872,13 +873,6 @@
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.OptionalValueExtractorTest">
-                <methods>
-                    <include name="optionalDoubleValueExtractor"/>
-                    <include name="optionalIntValueExtractor"/>
-                    <include name="optionalLongValueExtractor"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.declaration.ValueExtractorDeclaredInValidationXmlTest">
                 <methods>
                     <include name="canUseValueExtractorGivenInValidationXml"/>
