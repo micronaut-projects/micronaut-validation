@@ -1809,7 +1809,13 @@ public class DefaultValidator implements
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints0(@Nullable DefaultConstraintValidatorContext<R> context,
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
-        for (Class<? extends Annotation> constraintType : new LinkedHashSet<>(annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader()))) {
+        Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
+        Set<Class<? extends Annotation>> constraintTypes = new LinkedHashSet<>(annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader()));
+        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type));
+        for (Class<? extends Annotation> constraintType : constraintTypes) {
+            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, constraintType)) {
+                continue;
+            }
             List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
             if (annotationValuesByType.isEmpty()) {
                 annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);

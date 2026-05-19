@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 
 final class ConstraintAnnotationKey {
@@ -36,7 +37,7 @@ final class ConstraintAnnotationKey {
         Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
         values.forEach((key, value) -> {
             String attributeName = key.toString();
-            Object normalized = normalize(value);
+            Object normalized = normalize(attributeName, value);
             if (!attributeName.startsWith("$") && isMeaningfulAttribute(attributeName, normalized)) {
                 attributes.put(attributeName, normalized);
             }
@@ -44,7 +45,7 @@ final class ConstraintAnnotationKey {
         if (defaultValues != null) {
             defaultValues.forEach((key, value) -> {
                 String attributeName = key.toString();
-                Object normalized = normalize(value);
+                Object normalized = normalize(attributeName, value);
                 if (!attributeName.startsWith("$") && isMeaningfulAttribute(attributeName, normalized)) {
                     attributes.putIfAbsent(attributeName, normalized);
                 }
@@ -53,11 +54,18 @@ final class ConstraintAnnotationKey {
         return constraintType.getName() + attributes;
     }
 
+    static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames,
+                                        Class<? extends Annotation> constraintType) {
+        String constraintName = constraintType.getName();
+        return declaredAnnotationNames.contains(constraintName)
+            || declaredAnnotationNames.contains(constraintName + "$List");
+    }
+
     private static boolean isMeaningfulAttribute(String attributeName, Object value) {
         return !"message".equals(attributeName) || !"".equals(value);
     }
 
-    private static Object normalize(Object value) {
+    private static Object normalize(String attributeName, Object value) {
         if (value instanceof Class<?> classValue) {
             return classValue.getName();
         }
@@ -70,7 +78,10 @@ final class ConstraintAnnotationKey {
         if (value instanceof Object[] array) {
             List<Object> values = new ArrayList<>(array.length);
             for (Object element : array) {
-                values.add(normalize(element));
+                values.add(normalize(attributeName, element));
+            }
+            if ("groups".equals(attributeName) || "payload".equals(attributeName)) {
+                values.sort((left, right) -> String.valueOf(left).compareTo(String.valueOf(right)));
             }
             return values;
         }
