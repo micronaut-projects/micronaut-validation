@@ -47,6 +47,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private final Object rootBean;
     private final String defaultMessageTemplate;
     private final Path basePath;
+    private final List<String> parameterNames;
     private final List<CustomViolation> customViolations = new ArrayList<>();
     private boolean defaultViolationDisabled;
 
@@ -54,10 +55,19 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
                                          @Nullable Object rootBean,
                                          String defaultMessageTemplate,
                                          Path basePath) {
+        this(clockProvider, rootBean, defaultMessageTemplate, basePath, List.of());
+    }
+
+    ReflectionConstraintValidatorContext(ClockProvider clockProvider,
+                                         @Nullable Object rootBean,
+                                         String defaultMessageTemplate,
+                                         Path basePath,
+                                         List<String> parameterNames) {
         this.clockProvider = clockProvider;
         this.rootBean = rootBean;
         this.defaultMessageTemplate = defaultMessageTemplate;
         this.basePath = basePath;
+        this.parameterNames = parameterNames;
     }
 
     @Override
@@ -101,11 +111,11 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         return customViolations;
     }
 
-    private void addCustomViolation(String messageTemplate, List<ReflectionNode> nodes) {
+    private void addCustomViolation(String messageTemplate, List<Path.Node> nodes) {
         customViolations.add(new CustomViolation(messageTemplate, new ReflectionCustomPath(basePath, nodes)));
     }
 
-    private static void replaceLast(List<ReflectionNode> nodes,
+    private static void replaceLast(List<Path.Node> nodes,
                                     @Nullable Boolean inIterable,
                                     @Nullable Object key,
                                     @Nullable Integer index,
@@ -115,8 +125,11 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
             return;
         }
         int lastIndex = nodes.size() - 1;
-        ReflectionNode last = nodes.get(lastIndex);
+        if (!(nodes.get(lastIndex) instanceof ReflectionNode last)) {
+            return;
+        }
         nodes.set(lastIndex, new ReflectionNode(
+            last.kind(),
             last.name(),
             inIterable == null ? last.inIterable() : inIterable,
             key == null ? last.key() : key,
@@ -135,7 +148,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private record SimpleConstraintViolationBuilder(
         ReflectionConstraintValidatorContext context,
         String messageTemplate,
-        List<ReflectionNode> nodes
+        List<Path.Node> nodes
     ) implements ConstraintViolationBuilder {
 
         @Override
@@ -152,17 +165,20 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public LeafNodeBuilderCustomizableContext addBeanNode() {
+            nodes.add(new ReflectionBeanNode());
             return new SimpleLeafNodeBuilder(context, messageTemplate, nodes);
         }
 
         @Override
         public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            nodes.add(new ReflectionNode(name, false, null, null, containerType, typeArgumentIndex));
+            nodes.add(new ReflectionNode(ElementKind.CONTAINER_ELEMENT, name, false, null, null, containerType, typeArgumentIndex));
             return new SimpleContainerElementNodeBuilder(context, messageTemplate, nodes);
         }
 
         @Override
         public NodeBuilderDefinedContext addParameterNode(int index) {
+            String name = index >= 0 && context.parameterNames.size() > index ? context.parameterNames.get(index) : null;
+            nodes.add(new ReflectionParameterNode(name, index));
             return new SimpleNodeBuilder(context, messageTemplate, nodes);
         }
 
@@ -176,7 +192,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private record SimpleNodeBuilder(
         ReflectionConstraintValidatorContext context,
         String messageTemplate,
-        List<ReflectionNode> nodes
+        List<Path.Node> nodes
     ) implements ConstraintViolationBuilder.NodeBuilderDefinedContext,
         ConstraintViolationBuilder.NodeBuilderCustomizableContext,
         ConstraintViolationBuilder.NodeContextBuilder {
@@ -195,12 +211,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public LeafNodeBuilderCustomizableContext addBeanNode() {
+            nodes.add(new ReflectionBeanNode());
             return new SimpleLeafNodeBuilder(context, messageTemplate, nodes);
         }
 
         @Override
         public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            nodes.add(new ReflectionNode(name, false, null, null, containerType, typeArgumentIndex));
+            nodes.add(new ReflectionNode(ElementKind.CONTAINER_ELEMENT, name, false, null, null, containerType, typeArgumentIndex));
             return new SimpleContainerElementNodeBuilder(context, messageTemplate, nodes);
         }
 
@@ -238,7 +255,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private record SimpleLeafNodeBuilder(
         ReflectionConstraintValidatorContext context,
         String messageTemplate,
-        List<ReflectionNode> nodes
+        List<Path.Node> nodes
     ) implements ConstraintViolationBuilder.LeafNodeBuilderCustomizableContext,
         ConstraintViolationBuilder.LeafNodeContextBuilder,
         ConstraintViolationBuilder.LeafNodeBuilderDefinedContext {
@@ -277,7 +294,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private record SimpleContainerElementNodeBuilder(
         ReflectionConstraintValidatorContext context,
         String messageTemplate,
-        List<ReflectionNode> nodes
+        List<Path.Node> nodes
     ) implements ConstraintViolationBuilder.ContainerElementNodeBuilderCustomizableContext,
         ConstraintViolationBuilder.ContainerElementNodeContextBuilder,
         ConstraintViolationBuilder.ContainerElementNodeBuilderDefinedContext {
@@ -296,12 +313,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public LeafNodeBuilderCustomizableContext addBeanNode() {
+            nodes.add(new ReflectionBeanNode());
             return new SimpleLeafNodeBuilder(context, messageTemplate, nodes);
         }
 
         @Override
         public ContainerElementNodeBuilderCustomizableContext addContainerElementNode(String name, Class<?> containerType, Integer typeArgumentIndex) {
-            nodes.add(new ReflectionNode(name, false, null, null, containerType, typeArgumentIndex));
+            nodes.add(new ReflectionNode(ElementKind.CONTAINER_ELEMENT, name, false, null, null, containerType, typeArgumentIndex));
             return this;
         }
 
@@ -324,7 +342,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
     }
 
-    private record ReflectionCustomPath(Path basePath, List<ReflectionNode> nodes) implements Path {
+    private record ReflectionCustomPath(Path basePath, List<Path.Node> nodes) implements Path {
 
         @Override
         public Iterator<Node> iterator() {
@@ -348,20 +366,102 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
     }
 
-    private record ReflectionNode(@Nullable String name,
+    private record ReflectionParameterNode(@Nullable String name, int parameterIndex) implements Path.ParameterNode {
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.PARAMETER;
+        }
+
+        @Override
+        public String getName() {
+            return name;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public int getParameterIndex() {
+            return parameterIndex;
+        }
+    }
+
+    private record ReflectionBeanNode() implements Path.BeanNode {
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.BEAN;
+        }
+
+        @Override
+        public String getName() {
+            return null;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public Class<?> getContainerClass() {
+            return null;
+        }
+
+        @Override
+        public Integer getTypeArgumentIndex() {
+            return null;
+        }
+    }
+
+    private record ReflectionNode(ElementKind kind,
+                                  @Nullable String name,
                                   boolean inIterable,
                                   @Nullable Object key,
                                   @Nullable Integer index,
                                   @Nullable Class<?> containerClass,
-                                  @Nullable Integer typeArgumentIndex) implements Path.PropertyNode {
+                                  @Nullable Integer typeArgumentIndex) implements Path.PropertyNode, Path.ContainerElementNode {
 
         private ReflectionNode(@Nullable String name) {
-            this(name, false, null, null, null, null);
+            this(ElementKind.PROPERTY, name, false, null, null, null, null);
         }
 
         @Override
         public ElementKind getKind() {
-            return ElementKind.PROPERTY;
+            return kind;
         }
 
         @Override

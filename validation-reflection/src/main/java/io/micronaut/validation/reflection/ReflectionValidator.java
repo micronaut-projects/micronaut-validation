@@ -27,6 +27,7 @@ import io.micronaut.validation.validator.BeanValidationContext;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
@@ -475,6 +476,7 @@ public class ReflectionValidator extends DefaultValidator {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable parameters without Micronaut executable metadata");
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
             if (constraints.isEmpty()) {
@@ -515,6 +517,66 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return Collections.unmodifiableSet(violations);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateCrossParameterConstraintsReflectively(T object,
+                                                                   Method method,
+                                                                   Object[] parameterValues,
+                                                                   BeanValidationContext context,
+                                                                   List<String> parameterNames,
+                                                                   Set<ConstraintViolation<T>> violations) {
+        List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
+        if (constraints.isEmpty()) {
+            return;
+        }
+        jakarta.validation.Path path = new ReflectionMethodExecutablePath(method);
+        for (ReflectionConstraintDescriptor constraint : constraints) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
+                clockProvider,
+                object,
+                constraint.getMessageTemplate(),
+                path,
+                parameterNames
+            );
+            Boolean valid = validateConstraint(
+                constraint,
+                parameterValues,
+                Object[].class,
+                validatorContext,
+                ConstraintTarget.PARAMETERS
+            );
+            if (valid == null) {
+                continue;
+            }
+            if (!valid && !validatorContext.defaultViolationDisabled()) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    object,
+                    (Class<T>) object.getClass(),
+                    object,
+                    parameterValues,
+                    interpolate(constraint.getMessageTemplate(), constraint, parameterValues),
+                    constraint.getMessageTemplate(),
+                    path,
+                    constraint
+                ));
+            }
+            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
+                violations.add(new ReflectionConstraintViolation<>(
+                    object,
+                    (Class<T>) object.getClass(),
+                    object,
+                    parameterValues,
+                    interpolate(customViolation.messageTemplate(), constraint, parameterValues),
+                    customViolation.messageTemplate(),
+                    customViolation.path(),
+                    constraint
+                ));
+            }
+        }
     }
 
     private <T> void validateProperty(T rootBean,
@@ -881,9 +943,21 @@ public class ReflectionValidator extends DefaultValidator {
                                        @Nullable Object value,
                                        Class<?> valueType,
                                        ReflectionConstraintValidatorContext validatorContext) {
+        return validateConstraint(constraint, value, valueType, validatorContext, ConstraintTarget.IMPLICIT);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @Nullable Boolean validateConstraint(ReflectionConstraintDescriptor constraint,
+                                       @Nullable Object value,
+                                       Class<?> valueType,
+                                       ReflectionConstraintValidatorContext validatorContext,
+                                       ConstraintTarget constraintTarget) {
         for (Object validatorClass : constraint.getConstraintValidatorClasses()) {
             Class<? extends jakarta.validation.ConstraintValidator> validatorType = (Class<? extends jakarta.validation.ConstraintValidator>) validatorClass;
-            jakarta.validation.ConstraintValidator validator = configuration.getConstraintValidatorFactory().getInstance(validatorType);
+            jakarta.validation.ConstraintValidatorFactory constraintValidatorFactory = configuration.getConstraintValidatorFactory();
+            jakarta.validation.ConstraintValidator validator = constraintValidatorFactory instanceof InternalConstraintValidatorFactory internalFactory
+                ? internalFactory.getInstance(validatorType, valueType, constraintTarget)
+                : constraintValidatorFactory.getInstance(validatorType);
             if (validator == null) {
                 continue;
             }
@@ -891,7 +965,7 @@ public class ReflectionValidator extends DefaultValidator {
                 validator.initialize(constraint.getAnnotation());
                 return validator.isValid(value, validatorContext);
             } finally {
-                configuration.getConstraintValidatorFactory().releaseInstance(validator);
+                constraintValidatorFactory.releaseInstance(validator);
             }
         }
         Optional<ConstraintValidator<Annotation, Object>> validator = (Optional) configuration.getConstraintValidatorRegistry()
@@ -1691,6 +1765,19 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return method.getName() + ".<return value>";
+        }
+    }
+
+    private record ReflectionMethodExecutablePath(Method method) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(new ReflectionMethodNode(method)).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName();
         }
     }
 
