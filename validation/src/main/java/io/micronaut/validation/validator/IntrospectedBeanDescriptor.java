@@ -220,12 +220,16 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
-        return annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())
-            .stream()
-            .flatMap(type -> annotationMetadata.getAnnotationValuesByType(type)
-                .stream()
-                .map(annotationValue -> constraintDescriptor(type, annotationValue, annotationMetadata)))
-            .collect(Collectors.toSet());
+        Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
+        for (Class<? extends Annotation> type : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())) {
+            for (AnnotationValue<? extends Annotation> annotationValue : annotationMetadata.getAnnotationValuesByType(type)) {
+                descriptors.putIfAbsent(
+                    ConstraintAnnotationKey.of(type, annotationValue),
+                    constraintDescriptor(type, annotationValue, annotationMetadata)
+                );
+            }
+        }
+        return new LinkedHashSet<>(descriptors.values());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 89 classes, 479 methods,
+        Current tracker shape: 88 classes, 476 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -104,6 +104,7 @@
         - org.hibernate.beanvalidation.tck.tests.valueextraction.definition.InvalidValueExtractorTest
         - org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest
         - org.hibernate.beanvalidation.tck.tests.constraints.groups.DefaultGroupRedefinitionTest#testValidatingAgainstRedefinedDefaultGroup
+        - org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -203,13 +204,6 @@
                     <include name="testConstraintTargetReturnValueOnFieldCausesException"/>
                     <include name="testConstraintTargetReturnValueOnInterfaceCausesException"/>
                     <include name="testConstraintTargetReturnValueOnVoidMethodCausesException"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest">
-                <methods>
-                    <include name="testConstraintCanBelongToMoreThanOneGroup"/>
-                    <include name="testConstraintWithNoExplicitlySpecifiedGroupBelongsToDefault"/>
-                    <include name="testImplicitGrouping"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">
