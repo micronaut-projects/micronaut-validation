@@ -83,6 +83,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -156,10 +157,9 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("object", object);
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
-            return mergeViolations(
-                super.validate(object, groups),
-                validateReflectively(object, BeanValidationContext.fromGroups(groups), true)
-            );
+            Set<ConstraintViolation<T>> existing = super.validate(object, groups);
+            Set<ConstraintViolation<T>> reflected = validateReflectively(object, BeanValidationContext.fromGroups(groups), true);
+            return mergeViolations(existing, reflected);
         }
         return validateReflectively(object, BeanValidationContext.fromGroups(groups), false);
     }
@@ -284,8 +284,9 @@ public class ReflectionValidator extends DefaultValidator {
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, context, violations, new ReflectionPath(null));
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            boolean validatePropertyConstraints = !supplementIntrospection || properties.size() > 1;
             for (ReflectionProperty property : properties) {
-                validateProperty(object, object, property, context, violations, supplementIntrospection);
+                validateProperty(object, object, property, context, violations, supplementIntrospection, validatePropertyConstraints);
             }
         }
         return Collections.unmodifiableSet(violations);
@@ -307,7 +308,7 @@ public class ReflectionValidator extends DefaultValidator {
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         for (ReflectionProperty property : properties) {
-            validateProperty(object, object, property, context, violations, false);
+            validateProperty(object, object, property, context, violations, false, true);
         }
         return Collections.unmodifiableSet(violations);
     }
@@ -508,9 +509,12 @@ public class ReflectionValidator extends DefaultValidator {
                                       ReflectionProperty property,
                                       BeanValidationContext context,
                                       Set<ConstraintViolation<T>> violations,
-                                      boolean supplementIntrospection) {
+                                      boolean supplementIntrospection,
+                                      boolean validatePropertyConstraints) {
         Object value = property.read(leafBean);
-        validateConstraints(rootBean, rootBean == null ? null : rootBean.getClass(), leafBean, value, property.type, property.constraints, context, violations, new ReflectionPath(property.name));
+        if (validatePropertyConstraints) {
+            validatePropertyConstraints(rootBean, leafBean, property, value, context, violations);
+        }
         validateContainerElements(rootBean, leafBean, property, value, context, violations, supplementIntrospection);
     }
 
@@ -528,39 +532,164 @@ public class ReflectionValidator extends DefaultValidator {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
-            SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate());
-            Boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
-            if (valid == null) {
-                if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations)) {
-                    continue;
+            validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath);
+        }
+    }
+
+    private <T> void validatePropertyConstraints(@Nullable T rootBean,
+                                                 @Nullable Object leafBean,
+                                                 ReflectionProperty property,
+                                                 @Nullable Object value,
+                                                 BeanValidationContext context,
+                                                 Set<ConstraintViolation<T>> violations) {
+        for (ReflectionConstraintDescriptor<?> constraint : property.constraints) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            ValueExtractorDefinition<Object> unwrappingExtractor = unwrappingExtractor(property.type, constraint);
+            if (unwrappingExtractor == null || value == null) {
+                validateSingleConstraint(
+                    rootBean,
+                    rootBean == null ? null : rootBean.getClass(),
+                    leafBean,
+                    value,
+                    property.type,
+                    constraint,
+                    context,
+                    violations,
+                    new ReflectionPath(property.name)
+                );
+                continue;
+            }
+            unwrappingExtractor.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+
+                @Override
+                public void value(String nodeName, Object extractedValue) {
+                    validateExtractedValue(nodeName, false, null, null, extractedValue);
                 }
-                throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
+
+                @Override
+                public void iterableValue(String nodeName, Object extractedValue) {
+                    validateExtractedValue(nodeName, true, null, null, extractedValue);
+                }
+
+                @Override
+                public void indexedValue(String nodeName, int index, Object extractedValue) {
+                    validateExtractedValue(nodeName, true, null, index, extractedValue);
+                }
+
+                @Override
+                public void keyedValue(String nodeName, Object key, Object extractedValue) {
+                    validateExtractedValue(nodeName, true, key, null, extractedValue);
+                }
+
+                private void validateExtractedValue(String nodeName,
+                                                    boolean iterable,
+                                                    @Nullable Object key,
+                                                    @Nullable Integer index,
+                                                    @Nullable Object extractedValue) {
+                    Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                        property.type,
+                        unwrappingExtractor.containerType(),
+                        unwrappingExtractor.typeArgumentIndex()
+                    );
+                    jakarta.validation.Path propertyPath = nodeName == null ? new ReflectionPath(property.name) : new ReflectionContainerElementPath(
+                        property.name,
+                        new ReflectionContainerContext(
+                            nodeName,
+                            iterable,
+                            key,
+                            index,
+                            property.type,
+                            typeArgumentIndex
+                        )
+                    );
+                    validateSingleConstraint(
+                        rootBean,
+                        rootBean == null ? null : rootBean.getClass(),
+                        leafBean,
+                        extractedValue,
+                        extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
+                        constraint,
+                        context,
+                        violations,
+                        propertyPath
+                    );
+                }
+            });
+        }
+    }
+
+    private ValueExtractorDefinition<Object> unwrappingExtractor(Class<?> propertyType,
+                                                                 ReflectionConstraintDescriptor<?> constraint) {
+        ValidateUnwrappedValue valueUnwrapping = constraint.getValueUnwrapping();
+        if (valueUnwrapping == ValidateUnwrappedValue.SKIP) {
+            return null;
+        }
+        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) propertyType);
+        if (valueUnwrapping == ValidateUnwrappedValue.UNWRAP) {
+            if (valueExtractorDefinitions.isEmpty()) {
+                throw new ConstraintDeclarationException("Cannot unwrap the constraint because no value extractor is present for " + propertyType.getName());
             }
-            if (!valid && !validatorContext.defaultViolationDisabled) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    rootBean,
-                    (Class<T>) rootBeanClass,
-                    leafBean,
-                    value,
-                    interpolate(constraint.getMessageTemplate(), constraint, value),
-                    constraint.getMessageTemplate(),
-                    propertyPath,
-                    constraint
-                ));
+            if (valueExtractorDefinitions.size() > 1) {
+                throw new ConstraintDeclarationException("Cannot unwrap the constraint when multiple value extractors are present for " + propertyType.getName());
             }
-            validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations);
-            for (String messageTemplate : validatorContext.customViolationTemplates) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    rootBean,
-                    (Class<T>) rootBeanClass,
-                    leafBean,
-                    value,
-                    interpolate(messageTemplate, constraint, value),
-                    messageTemplate,
-                    propertyPath,
-                    constraint
-                ));
+            return valueExtractorDefinitions.get(0);
+        }
+        ValueExtractorDefinition<Object> unwrapByDefault = null;
+        for (ValueExtractorDefinition<Object> definition : valueExtractorDefinitions) {
+            if (definition.unwrapByDefault()) {
+                if (unwrapByDefault != null) {
+                    throw new ConstraintDeclarationException("Multiple unwrap by default value extractors are present for " + propertyType.getName());
+                }
+                unwrapByDefault = definition;
             }
+        }
+        return unwrapByDefault;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateSingleConstraint(@Nullable T rootBean,
+                                              @Nullable Class<?> rootBeanClass,
+                                              @Nullable Object leafBean,
+                                              @Nullable Object value,
+                                              Class<?> valueType,
+                                              ReflectionConstraintDescriptor constraint,
+                                              BeanValidationContext context,
+                                              Set<ConstraintViolation<T>> violations,
+                                              jakarta.validation.Path propertyPath) {
+        SimpleConstraintValidatorContext validatorContext = new SimpleConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate());
+        Boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
+        if (valid == null) {
+            if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations)) {
+                return;
+            }
+            throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
+        }
+        if (!valid && !validatorContext.defaultViolationDisabled) {
+            violations.add(new ReflectionConstraintViolation<>(
+                rootBean,
+                (Class<T>) rootBeanClass,
+                leafBean,
+                value,
+                interpolate(constraint.getMessageTemplate(), constraint, value),
+                constraint.getMessageTemplate(),
+                propertyPath,
+                constraint
+            ));
+        }
+        validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations);
+        for (String messageTemplate : validatorContext.customViolationTemplates) {
+            violations.add(new ReflectionConstraintViolation<>(
+                rootBean,
+                (Class<T>) rootBeanClass,
+                leafBean,
+                value,
+                interpolate(messageTemplate, constraint, value),
+                messageTemplate,
+                propertyPath,
+                constraint
+            ));
         }
     }
 
@@ -839,6 +968,48 @@ public class ReflectionValidator extends DefaultValidator {
         return Object.class;
     }
 
+    private static @Nullable Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
+                                                                       Class<?> extractorContainerType,
+                                                                       @Nullable Integer extractorTypeArgumentIndex) {
+        if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
+            return extractorTypeArgumentIndex;
+        }
+        Integer resolved = resolveExtractedTypeArgumentIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex);
+        if (resolved != null) {
+            return resolved;
+        }
+        for (Type genericInterface : declaredType.getGenericInterfaces()) {
+            resolved = resolveExtractedTypeArgumentIndex(declaredType, genericInterface, extractorContainerType, extractorTypeArgumentIndex);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        return extractorTypeArgumentIndex;
+    }
+
+    private static @Nullable Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
+                                                                       @Nullable Type genericType,
+                                                                       Class<?> extractorContainerType,
+                                                                       int extractorTypeArgumentIndex) {
+        if (!(genericType instanceof ParameterizedType parameterizedType) || parameterizedType.getRawType() != extractorContainerType) {
+            return null;
+        }
+        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+        if (extractorTypeArgumentIndex >= actualTypeArguments.length) {
+            return null;
+        }
+        Type actualTypeArgument = actualTypeArguments[extractorTypeArgumentIndex];
+        if (actualTypeArgument instanceof TypeVariable<?> typeVariable) {
+            TypeVariable<?>[] declaredTypeParameters = declaredType.getTypeParameters();
+            for (int i = 0; i < declaredTypeParameters.length; i++) {
+                if (Objects.equals(declaredTypeParameters[i].getName(), typeVariable.getName())) {
+                    return i;
+                }
+            }
+        }
+        return extractorTypeArgumentIndex;
+    }
+
     private static List<ReflectionConstraintDescriptor<?>> containedConstraints(Annotation container) {
         try {
             Method valueMethod = container.annotationType().getDeclaredMethod("value");
@@ -908,20 +1079,51 @@ public class ReflectionValidator extends DefaultValidator {
     private record ViolationKey(
         Class<? extends Annotation> constraintType,
         String path,
-        String messageTemplate,
-        @Nullable Object invalidValue,
-        Set<Class<?>> groups
+        @Nullable Object invalidValue
     ) {
 
         static ViolationKey of(ConstraintViolation<?> violation) {
             ConstraintDescriptor<?> descriptor = violation.getConstraintDescriptor();
             return new ViolationKey(
                 descriptor.getAnnotation().annotationType(),
-                violation.getPropertyPath().toString(),
-                violation.getMessageTemplate(),
-                violation.getInvalidValue(),
-                descriptor.getGroups()
+                pathKey(violation.getPropertyPath()),
+                violation.getInvalidValue()
             );
+        }
+
+        private static String pathKey(jakarta.validation.Path path) {
+            StringBuilder key = new StringBuilder();
+            for (Path.Node node : path) {
+                key.append(node.getKind())
+                    .append('|').append(node.getName())
+                    .append('|').append(node.isInIterable())
+                    .append('|').append(node.getKey())
+                    .append('|').append(node.getIndex())
+                    .append('|').append(containerClass(node))
+                    .append('|').append(typeArgumentIndex(node))
+                    .append(';');
+            }
+            return key.toString();
+        }
+
+        private static @Nullable Class<?> containerClass(Path.Node node) {
+            if (node instanceof Path.PropertyNode propertyNode) {
+                return propertyNode.getContainerClass();
+            }
+            if (node instanceof Path.ContainerElementNode containerElementNode) {
+                return containerElementNode.getContainerClass();
+            }
+            return null;
+        }
+
+        private static @Nullable Integer typeArgumentIndex(Path.Node node) {
+            if (node instanceof Path.PropertyNode propertyNode) {
+                return propertyNode.getTypeArgumentIndex();
+            }
+            if (node instanceof Path.ContainerElementNode containerElementNode) {
+                return containerElementNode.getTypeArgumentIndex();
+            }
+            return null;
         }
     }
 
@@ -1228,7 +1430,7 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public ValidateUnwrappedValue getValueUnwrapping() {
             if (payload.contains(Unwrapping.Unwrap.class) && payload.contains(Unwrapping.Skip.class)) {
-                throw new ValidationException("Payload declared with both " + Unwrapping.Unwrap.class.getName() + " and " + Unwrapping.Skip.class);
+                throw new ConstraintDeclarationException("Payload declared with both " + Unwrapping.Unwrap.class.getName() + " and " + Unwrapping.Skip.class);
             }
             if (payload.contains(Unwrapping.Unwrap.class)) {
                 return ValidateUnwrappedValue.UNWRAP;
