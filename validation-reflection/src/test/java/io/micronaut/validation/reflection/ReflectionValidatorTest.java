@@ -255,6 +255,26 @@ class ReflectionValidatorTest {
             assertEquals(1, validator.validate(bean).size());
             assertEquals(1, validator.validateProperty(bean, "name").size());
             assertEquals(1, validator.validateValue(DefaultGroupSequenceBean.class, "name", "A").size());
+            assertEquals(
+                1,
+                validator.getConstraintsForClass(DefaultGroupSequenceBean.class)
+                    .getConstraintsForProperty("name")
+                    .getConstraintDescriptors()
+                    .size()
+            );
+        }
+    }
+
+    @Test
+    void appliesImplicitInterfaceGroupsToSupplementalReflectionConstraints() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            ImplicitGroupOrder order = new ImplicitGroupOrder();
+
+            assertEquals(5, validator.validate(order).size());
+            assertEquals(4, validator.validate(order, Auditable.class).size());
         }
     }
 
@@ -411,6 +431,49 @@ class ReflectionValidatorTest {
     }
 
     private interface Second {
+    }
+
+    private interface Auditable {
+        @NotNull
+        String getCreationDate();
+
+        @NotNull
+        String getLastUpdate();
+
+        @NotNull
+        String getLastModifier();
+
+        @NotNull
+        String getLastReader();
+    }
+
+    @Introspected
+    private static final class ImplicitGroupOrder implements Auditable {
+
+        @Override
+        public String getCreationDate() {
+            return null;
+        }
+
+        @Override
+        public String getLastUpdate() {
+            return null;
+        }
+
+        @Override
+        public String getLastModifier() {
+            return null;
+        }
+
+        @Override
+        public String getLastReader() {
+            return null;
+        }
+
+        @NotNull
+        public String getOrderNumber() {
+            return null;
+        }
     }
 
     private record ComposedConstraintBean(

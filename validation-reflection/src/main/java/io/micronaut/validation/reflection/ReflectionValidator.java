@@ -347,13 +347,13 @@ public class ReflectionValidator extends DefaultValidator {
         if (reflected.isEmpty()) {
             return existing;
         }
-        Map<ViolationKey, Integer> existingCounts = new LinkedHashMap<>();
+        Map<ReflectionViolationKey, Integer> existingCounts = new LinkedHashMap<>();
         for (ConstraintViolation<T> violation : existing) {
-            existingCounts.merge(ViolationKey.of(violation), 1, Integer::sum);
+            existingCounts.merge(ReflectionViolationKey.of(violation), 1, Integer::sum);
         }
         Set<ConstraintViolation<T>> merged = new LinkedHashSet<>(existing);
         for (ConstraintViolation<T> violation : reflected) {
-            ViolationKey key = ViolationKey.of(violation);
+            ReflectionViolationKey key = ReflectionViolationKey.of(violation);
             Integer remaining = existingCounts.get(key);
             if (remaining == null || remaining == 0) {
                 merged.add(violation);
@@ -943,13 +943,17 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element) {
+        return constraintsFor(element, null);
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element, @Nullable Class<?> implicitGroup) {
         List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
         for (Annotation annotation : element.getDeclaredAnnotations()) {
             Class<? extends Annotation> annotationType = annotation.annotationType();
             if (annotationType.isAnnotationPresent(Constraint.class)) {
-                constraints.add(new ReflectionConstraintDescriptor<>(annotation));
+                constraints.add(new ReflectionConstraintDescriptor<>(annotation, implicitGroup));
             } else {
-                constraints.addAll(containedConstraints(annotation));
+                constraints.addAll(containedConstraints(annotation, implicitGroup));
             }
         }
         return constraints;
@@ -1033,6 +1037,10 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static List<ReflectionConstraintDescriptor<?>> containedConstraints(Annotation container) {
+        return containedConstraints(container, null);
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> containedConstraints(Annotation container, @Nullable Class<?> implicitGroup) {
         try {
             Method valueMethod = container.annotationType().getDeclaredMethod("value");
             if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
@@ -1042,7 +1050,7 @@ public class ReflectionValidator extends DefaultValidator {
             Annotation[] annotations = (Annotation[]) valueMethod.invoke(container);
             return Arrays.stream(annotations)
                 .filter(annotation -> annotation.annotationType().isAnnotationPresent(Constraint.class))
-                .map(ReflectionConstraintDescriptor::new)
+                .map(annotation -> new ReflectionConstraintDescriptor<>(annotation, implicitGroup))
                 .collect(Collectors.toCollection(ArrayList::new));
         } catch (NoSuchMethodException e) {
             return List.of();
@@ -1098,57 +1106,6 @@ public class ReflectionValidator extends DefaultValidator {
     ) {
     }
 
-    private record ViolationKey(
-        Class<? extends Annotation> constraintType,
-        String path,
-        @Nullable Object invalidValue
-    ) {
-
-        static ViolationKey of(ConstraintViolation<?> violation) {
-            ConstraintDescriptor<?> descriptor = violation.getConstraintDescriptor();
-            return new ViolationKey(
-                descriptor.getAnnotation().annotationType(),
-                pathKey(violation.getPropertyPath()),
-                violation.getInvalidValue()
-            );
-        }
-
-        private static String pathKey(jakarta.validation.Path path) {
-            StringBuilder key = new StringBuilder();
-            for (Path.Node node : path) {
-                key.append(node.getKind())
-                    .append('|').append(node.getName())
-                    .append('|').append(node.isInIterable())
-                    .append('|').append(node.getKey())
-                    .append('|').append(node.getIndex())
-                    .append('|').append(containerClass(node))
-                    .append('|').append(typeArgumentIndex(node))
-                    .append(';');
-            }
-            return key.toString();
-        }
-
-        private static @Nullable Class<?> containerClass(Path.Node node) {
-            if (node instanceof Path.PropertyNode propertyNode) {
-                return propertyNode.getContainerClass();
-            }
-            if (node instanceof Path.ContainerElementNode containerElementNode) {
-                return containerElementNode.getContainerClass();
-            }
-            return null;
-        }
-
-        private static @Nullable Integer typeArgumentIndex(Path.Node node) {
-            if (node instanceof Path.PropertyNode propertyNode) {
-                return propertyNode.getTypeArgumentIndex();
-            }
-            if (node instanceof Path.ContainerElementNode containerElementNode) {
-                return containerElementNode.getTypeArgumentIndex();
-            }
-            return null;
-        }
-    }
-
     static final class ReflectionBeanMetadata implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
         private final Class<?> beanType;
@@ -1191,6 +1148,7 @@ public class ReflectionValidator extends DefaultValidator {
                     }
                 }
             }
+            collectInterfaceProperties(beanType, properties, new LinkedHashSet<>());
             List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
             collectTypeConstraints(beanType, constraints, new LinkedHashSet<>());
             return new ReflectionBeanMetadata(beanType, constraints, properties);
@@ -1198,6 +1156,44 @@ public class ReflectionValidator extends DefaultValidator {
 
         private static void addProperty(Map<String, List<ReflectionProperty>> properties, ReflectionProperty property) {
             properties.computeIfAbsent(property.name, ignored -> new ArrayList<>()).add(property);
+        }
+
+        private static void collectInterfaceProperties(Class<?> type,
+                                                       Map<String, List<ReflectionProperty>> properties,
+                                                       Set<Class<?>> visited) {
+            if (type == null || type == Object.class) {
+                return;
+            }
+            for (Class<?> interfaceType : type.getInterfaces()) {
+                collectInterfaceProperties(interfaceType, interfaceType, properties, visited);
+            }
+            collectInterfaceProperties(type.getSuperclass(), properties, visited);
+        }
+
+        private static void collectInterfaceProperties(Class<?> interfaceType,
+                                                       Class<?> implicitGroup,
+                                                       Map<String, List<ReflectionProperty>> properties,
+                                                       Set<Class<?>> visited) {
+            if (!visited.add(interfaceType)) {
+                return;
+            }
+            for (Method method : interfaceType.getDeclaredMethods()) {
+                if (method.getParameterCount() != 0 || method.getReturnType() == Void.TYPE || java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+                    continue;
+                }
+                String propertyName = propertyName(method);
+                if (propertyName == null) {
+                    continue;
+                }
+                List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup);
+                List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
+                if (!constraints.isEmpty() || !containerElements.isEmpty()) {
+                    addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
+                }
+            }
+            for (Class<?> parent : interfaceType.getInterfaces()) {
+                collectInterfaceProperties(parent, implicitGroup, properties, visited);
+            }
         }
 
         private static void collectTypeConstraints(Class<?> type,
@@ -1378,9 +1374,14 @@ public class ReflectionValidator extends DefaultValidator {
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         private ReflectionConstraintDescriptor(A annotation) {
+            this(annotation, null);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private ReflectionConstraintDescriptor(A annotation, @Nullable Class<?> implicitGroup) {
             this.annotation = annotation;
             this.type = (Class<A>) annotation.annotationType();
-            this.groups = Set.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0]));
+            this.groups = groups(annotation, implicitGroup);
             this.payload = Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
             this.annotationValue = new AnnotationValue<>(type.getName(), annotationMembers(annotation, false), annotationMembers(annotation, true));
@@ -1484,6 +1485,15 @@ public class ReflectionValidator extends DefaultValidator {
             } catch (IllegalAccessException | InvocationTargetException e) {
                 throw new ValidationException("Cannot read annotation member " + annotation.annotationType().getName() + "." + member, e);
             }
+        }
+
+        private static Set<Class<?>> groups(Annotation annotation, @Nullable Class<?> implicitGroup) {
+            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0])));
+            if (implicitGroup != null && (groups.isEmpty() || groups.contains(jakarta.validation.groups.Default.class))) {
+                groups.add(jakarta.validation.groups.Default.class);
+                groups.add(implicitGroup);
+            }
+            return Set.copyOf(groups);
         }
 
         private static List<ReflectionConstraintDescriptor<?>> composingConstraints(
