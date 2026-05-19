@@ -59,9 +59,20 @@ final class ReflectionMethodDeclarations {
         if (hasCascadedReturnValue(method) && inheritedCascadedReturns > 0) {
             throw new ConstraintDeclarationException("Return value cannot be marked cascaded more than once in a method hierarchy");
         }
-        if (inheritedCascadedReturns > 1) {
+        if (inheritedCascadedReturns > 1 && hasCascadedReturnConflict(inheritedMethods)) {
             throw new ConstraintDeclarationException("Return value cannot be marked cascaded more than once in a method hierarchy");
         }
+    }
+
+    static List<Method> hierarchy(Method method) {
+        List<Method> methods = new ArrayList<>();
+        methods.add(method);
+        methods.addAll(inheritedMethods(method));
+        return List.copyOf(methods);
+    }
+
+    static boolean hasCascadedReturnValueInHierarchy(Method method) {
+        return hierarchy(method).stream().anyMatch(ReflectionMethodDeclarations::hasCascadedReturnValue);
     }
 
     private static boolean hasParameterConstraintsOrCascades(Method method) {
@@ -77,6 +88,23 @@ final class ReflectionMethodDeclarations {
 
     private static boolean hasCascadedReturnValue(Method method) {
         return method.isAnnotationPresent(Valid.class) || hasCascades(method.getAnnotatedReturnType());
+    }
+
+    private static boolean hasCascadedReturnConflict(List<Method> methods) {
+        List<Class<?>> cascadedTypes = methods.stream()
+            .filter(ReflectionMethodDeclarations::hasCascadedReturnValue)
+            .map(Method::getDeclaringClass)
+            .toList();
+        for (int i = 0; i < cascadedTypes.size(); i++) {
+            Class<?> left = cascadedTypes.get(i);
+            for (int j = i + 1; j < cascadedTypes.size(); j++) {
+                Class<?> right = cascadedTypes.get(j);
+                if (left.isAssignableFrom(right) || right.isAssignableFrom(left)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static boolean hasConstraintsOrCascades(AnnotatedType annotatedType) {
