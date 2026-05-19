@@ -117,6 +117,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return validationContext;
     }
 
+    DefaultValidator defaultValidator() {
+        return defaultValidator;
+    }
+
     private static List<Class<?>> processGroups(List<Class<?>> definedGroups) {
         if (CollectionUtils.isEmpty(definedGroups)) {
             return DEFAULT_GROUPS;

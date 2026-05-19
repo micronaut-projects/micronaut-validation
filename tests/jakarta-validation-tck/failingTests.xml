@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 87 classes, 470 methods,
+        Current tracker shape: 86 classes, 468 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -106,6 +106,7 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testOnlySingleConstraintViolation
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testOverridesAttributeWithDefaultName
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testPayloadPropagationInComposedConstraints
+        - org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -652,12 +653,6 @@
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForValidateValue"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
-                <methods>
-                    <include name="testAddParameterNode"/>
-                    <include name="testAddParameterNodeUsingCustomParameterNameProvider"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">

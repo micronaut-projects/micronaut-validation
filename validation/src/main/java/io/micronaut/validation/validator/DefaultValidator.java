@@ -1040,6 +1040,10 @@ public class DefaultValidator implements
         return targetMethod == null ? null : parameterNameProvider.getParameterNames(targetMethod);
     }
 
+    final String parameterName(MethodReference<?, ?> method, int index) {
+        return parameterName(method.getArguments()[index], getParameterNames(method), index);
+    }
+
     @Nullable
     private List<String> getParameterNames(Constructor<?> constructor) {
         if (parameterNameProvider instanceof DefaultParameterNameProvider) {
