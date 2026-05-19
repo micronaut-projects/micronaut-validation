@@ -17,11 +17,10 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 106 classes, 572 methods,
+        Current tracker shape: 90 classes, 480 methods,
         and 10 class-level setup failures.
 
-        Passing waves already proven in isolation. Some entries may remain in
-        this full-discovery tracker until discovery stops reporting them:
+        Passing waves already removed from this tracker:
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.ParameterNameProviderSpecifiedInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest
@@ -107,19 +106,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.bootstrap.ConfigurationTest">
-                <methods>
-                    <include name="testMappingsCanBeAddedViaConfiguration"/>
-                    <include name="testNonResettableInputStreamCanBeAddedViaConfigurationAndFactoryCanBeCreatedSeveralTimes"/>
-                    <include name="testSeveralFactoriesCanBeBuildFromOneConfiguration"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.bootstrap.CustomMessageInterpolatorTest">
-                <methods>
-                    <include name="testCustomMessageInterpolatorViaConfiguration"/>
-                    <include name="testCustomMessageInterpolatorViaValidatorContext"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest">
                 <methods>
                     <include name="testCascadedConstructorParameterIsValidatedRecursively"/>
@@ -137,21 +123,13 @@
                     <include name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.builtinconstraints.BuiltinValidatorOverrideTest">
-                <methods>
-                    <include name="testXmlConfiguredValidatorConfigurationHasPrecedence"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
                 <methods>
                     <include name="testAttributesDefinedOnComposingConstraints"/>
-                    <include name="testComposedConstraints"/>
-                    <include name="testComposedConstraintsAreRecursive"/>
                     <include name="testConstraintIndexWithListContainer"/>
                     <include name="testConstraintIndexWithMixDirectAnnotationAndListContainer"/>
                     <include name="testConstraintTargetPropagationInComposedConstraints"/>
                     <include name="testEachFailingConstraintCreatesConstraintViolation"/>
-                    <include name="testGroupsDefinedOnMainAnnotationAreInherited"/>
                     <include name="testMixedConstraintTargetsInComposedAndComposingConstraintsCauseException"/>
                     <include name="testMixedConstraintTargetsInComposingConstraintsCauseException"/>
                     <include name="testOnlySingleConstraintViolation"/>
@@ -171,47 +149,36 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
                 <methods>
-                    <include name="constraints_specified_on_custom_container_and_on_type_parameter_of_custom_container_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_type_parameter_of_an_custom_container_gets_validated"/>
                     <include name="return_value_constraint_provided_on_type_parameter_of_an_custom_container_gets_validated"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintGroupValidationTest">
-                <methods>
-                    <include name="sameGroupValidationRulesAppliesOnContainerElementConstraints"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintListTest">
                 <methods>
-                    <include name="constraints_specified_on_list_and_on_type_parameter_of_list_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_type_parameter_of_a_list_gets_validated"/>
                     <include name="return_value_constraint_provided_on_type_parameter_of_a_list_gets_validated"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
                 <methods>
-                    <include name="constraints_specified_on_map_and_on_key_type_parameter_of_map_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_key_type_parameter_of_a_map_gets_validated"/>
                     <include name="return_value_constraint_provided_on_key_type_parameter_of_a_map_gets_validated"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest">
                 <methods>
-                    <include name="constraints_specified_on_map_and_on_value_type_parameter_of_map_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_value_type_parameter_of_a_map_gets_validated"/>
                     <include name="return_value_constraint_provided_on_value_type_parameter_of_a_map_gets_validated"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest">
                 <methods>
-                    <include name="constraints_specified_on_optional_and_on_type_parameter_of_optional_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_type_parameter_of_an_optional_gets_validated"/>
                     <include name="return_value_constraint_provided_on_type_parameter_of_an_optional_gets_validated"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest">
                 <methods>
-                    <include name="constraints_specified_on_set_and_on_type_parameter_of_set_get_validated"/>
                     <include name="method_parameter_constraint_provided_as_type_parameter_of_a_set_gets_validated"/>
                     <include name="return_value_constraint_provided_on_type_parameter_of_a_set_gets_validated"/>
                 </methods>
@@ -237,17 +204,8 @@
                     <include name="testConstraintTargetReturnValueOnVoidMethodCausesException"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.customconstraint.CustomConstraintValidatorTest">
-                <methods>
-                    <include name="testDefaultPropertyPath"/>
-                    <include name="testNonInterpolatedMessageParameterIsUsed"/>
-                    <include name="testOneConstraintViolationPerFailingConstraint"/>
-                    <include name="testRightValidatorIsSelectedAndInitializedCalled"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.DefaultGroupRedefinitionTest">
                 <methods>
-                    <include name="testRedefiningDefaultGroup"/>
                     <include name="testValidatingAgainstRedefinedDefaultGroup"/>
                 </methods>
             </class>
@@ -255,12 +213,7 @@
                 <methods>
                     <include name="testConstraintCanBelongToMoreThanOneGroup"/>
                     <include name="testConstraintWithNoExplicitlySpecifiedGroupBelongsToDefault"/>
-                    <include name="testGroupSequence"/>
-                    <include name="testGroupSequenceFollowedByGroup"/>
-                    <include name="testGroups"/>
                     <include name="testImplicitGrouping"/>
-                    <include name="testValidateAgainstDifferentGroups"/>
-                    <include name="testValidationFailureInMultipleGroups"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">
@@ -301,21 +254,15 @@
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequence.SequenceResolutionTest">
                 <methods>
                     <include name="testInvalidDefinitionOfDefaultSequenceInEntity"/>
-                    <include name="testOnlyFirstGroupInSequenceGetEvaluated"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
                 <methods>
-                    <include name="testCorrectDefaultSequenceContainedCaseWithGroupRedefinitionOnContainedEntity"/>
-                    <include name="testCorrectDefaultSequenceContainedCaseWithoutGroupRedefinitionOnContainedEntity"/>
-                    <include name="testCorrectDefaultSequenceInheritance"/>
-                    <include name="testCorrectDefaultSequenceInheritance2"/>
                     <include name="testCorrectDefaultSequenceInheritance3"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.inheritance.GroupInheritanceTest">
                 <methods>
-                    <include name="testGroupCanInheritGroupsViaInterfaceInheritance"/>
                     <include name="testGroupMembership"/>
                 </methods>
             </class>
@@ -323,7 +270,6 @@
                 <methods>
                     <include name="testConstraintsOnInterfaceAndImplementationAddUp"/>
                     <include name="testConstraintsOnSuperAndSubClassAddUp"/>
-                    <include name="testValidationConsidersConstraintsFromSuperTypes"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
@@ -391,20 +337,15 @@
                     <include name="testCrossParameterValidatorIsUsedForConstraintImplicitlyTargetingParameters"/>
                     <include name="testCrossParameterValidatorValidatingObject"/>
                     <include name="testCrossParameterValidatorValidatingObjectArray"/>
-                    <include name="testGenericValidatorIsUsedForConstraintTargetingField"/>
                     <include name="testResolutionOfMinMaxForDifferentTypes"/>
-                    <include name="testResolutionOfMultipleSizeValidators"/>
                     <include name="testSeveralCrossParameterValidatorsCauseConstraintDefinitionException"/>
                     <include name="testTargetTypeIsClass"/>
+                    <include name="testTargetTypeIsInterface"/>
                     <include name="testTargetedTypeIsConstructor"/>
-                    <include name="testTargetedTypeIsField"/>
-                    <include name="testTargetedTypeIsGetter"/>
                     <include name="testTargetedTypeIsMethod"/>
                     <include name="testTargetedTypeIsMethodParameter"/>
                     <include name="testTargetedTypeIsTypeArgumentForNonGenericContainerInheritingFromGenericTypeWithValueExtractor"/>
-                    <include name="testTargetedTypeIsTypeArgumentForNonGenericContainerWithValueExtractorWithExtractedType"/>
                     <include name="testTwoValidatorsForSameTypeCauseUnexpectedTypeException"/>
-                    <include name="testValidatorForWrapperTypeIsAppliedForPrimitiveType"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.defaultinjection.DefaultInjectionTest"/>
@@ -717,62 +658,26 @@
                     <include name="testUnexpectedType"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.time.ClockProviderFutureOrPresentTest">
-                <methods>
-                    <include name="clockProviderIsUsed"/>
-                    <include name="clockProviderIsUsedForRelativePartials"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.time.ClockProviderFutureTest">
-                <methods>
-                    <include name="clockProviderIsUsed"/>
-                    <include name="clockProviderIsUsedForRelativePartials"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.time.ClockProviderPastOrPresentTest">
-                <methods>
-                    <include name="clockProviderIsUsed"/>
-                    <include name="clockProviderIsUsedForRelativePartials"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.time.ClockProviderPastTest">
-                <methods>
-                    <include name="clockProviderIsUsed"/>
-                    <include name="clockProviderIsUsedForRelativePartials"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.time.ClockProviderTest">
-                <methods>
-                    <include name="canConfigureClockProviderForValidator"/>
-                    <include name="testCustomClockProviderViaConfiguration"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
                 <methods>
                     <include name="testCorrectCallsToIsReachableAndIsCascadable"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
                     <include name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
+                    <include name="testCorrectCallsToIsReachableAndIsCascadableForValidateValue"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
                 <methods>
-                    <include name="testAddBeanNode"/>
-                    <include name="testAddContainerElementNodes"/>
-                    <include name="testAddInContainerPropertyNodes"/>
                     <include name="testAddParameterNode"/>
                     <include name="testAddParameterNodeUsingCustomParameterNameProvider"/>
-                    <include name="testAddPropertyNode"/>
-                    <include name="testAddingNodesInClassLevelConstraintKeepsInIterableKeyAndIndex"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
                 <methods>
                     <include name="testGetContainerClassGetTypeArgumentIndex"/>
-                    <include name="testPassingWrongTypeToAsOnBeanNodeCausesClassCastException"/>
                     <include name="testPropertyPathForConstructorCrossParameterConstraint"/>
                     <include name="testPropertyPathForConstructorReturnValueConstraint"/>
                     <include name="testPropertyPathForMethodCrossParameterConstraint"/>
-                    <include name="testPropertyPathSet"/>
                     <include name="testPropertyPathTraversingConstructorArrayParameter"/>
                     <include name="testPropertyPathTraversingConstructorListParameter"/>
                     <include name="testPropertyPathTraversingConstructorMapParameter"/>
@@ -789,24 +694,18 @@
                     <include name="testPropertyPathTraversingMethodReturnValue"/>
                     <include name="testPropertyPathTraversingMethodSetParameter"/>
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
-                    <include name="testPropertyPathWithConstraintViolationForRootObject"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
                 <methods>
+                    <include name="testConstraintDescriptorWithoutExplicitGroup"/>
                     <include name="testContainerElementLeafBean"/>
+                    <include name="testMultipleConstraintViolationOfDifferentTypes"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
                 <methods>
-                    <include name="testContainedIterable"/>
-                    <include name="testContainedMap"/>
-                    <include name="testContainedSet"/>
-                    <include name="testFullGraphValidationBeforeNextGroupInSequence"/>
-                    <include name="testGraphNavigationDeterminism"/>
-                    <include name="testNoEndlessLoop"/>
-                    <include name="testTypeOfContainedValueIsDeterminedAtRuntime"/>
-                    <include name="testTypeOfContainedValuesIsDeterminedAtRuntime"/>
+                    <include name="testCorrectGroupsAreAppliedForValidate"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest">
@@ -814,75 +713,29 @@
                     <include name="cascading_on_container_element_of_constructor_parameter_is_applied"/>
                     <include name="cascading_on_container_element_of_method_parameter_is_applied"/>
                     <include name="cascading_on_container_element_of_method_return_value_is_applied"/>
-                    <include name="constraint_provided_on_custom_bean_used_as_list_parameter_and_cascading_gets_validated"/>
-                    <include name="constraint_provided_on_custom_bean_used_as_map_parameter_key_and_cascading_gets_validated"/>
-                    <include name="constraint_provided_on_custom_bean_used_as_map_parameter_value_and_cascading_gets_validated"/>
-                    <include name="constraint_provided_on_custom_bean_used_as_optional_parameter_and_cascading_gets_validated"/>
-                    <include name="constraint_provided_on_custom_bean_used_as_set_parameter_and_cascading_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.LegacyValidOnContainerCascadingTest">
-                <methods>
-                    <include name="testValidOnArray"/>
-                    <include name="testValidOnIterableAndSet"/>
-                    <include name="testValidOnList"/>
-                    <include name="testValidOnListAndOnTypeArgument"/>
-                    <include name="testValidOnListWithoutTypeArgument"/>
-                    <include name="testValidOnMap"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.NestedCascadingOnContainerElementsTest">
-                <methods>
-                    <include name="testMultipleNestedValidWithCustomExtractor"/>
-                    <include name="testNestedValid"/>
-                    <include name="testNestedValidWithTwoInnerExtractions"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionDefinedInImplementedClassIsAppliedOnMethodReturnValue"/>
                     <include name="testGroupConversionDefinedInSubClassIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
                     <include name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnField"/>
                     <include name="testGroupConversionIsAppliedOnMethodParameter"/>
                     <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnProperty"/>
-                    <include name="testGroupConversionIsNotExecutedRecursively"/>
-                    <include name="testGroupConversionWithSequenceAsTo"/>
-                    <include name="testGroupIsPassedAsIsToNestedElementWithoutConversion"/>
-                    <include name="testSeveralGroupConversionsAppliedOnField"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
                     <include name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnField"/>
                     <include name="testGroupConversionIsAppliedOnMethodParameter"/>
                     <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnProperty"/>
-                    <include name="testGroupConversionIsNotExecutedRecursively"/>
-                    <include name="testGroupConversionWithSequenceAsTo"/>
-                    <include name="testSeveralGroupConversionsAppliedOnField"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
                 <methods>
                     <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.MessageInterpolatorSpecifiedInValidationXmlTest">
-                <methods>
-                    <include name="testMessageInterpolatorSpecifiedInValidationXml"/>
-                    <include name="testMessageInterpolatorSpecifiedInValidationXmlCanBeOverridden"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.TraversableResolverSpecifiedInValidationXmlTest">
-                <methods>
-                    <include name="testTraversableResolverSpecifiedInValidationXml"/>
-                    <include name="testTraversableResolverSpecifiedInValidationXmlCanBeOverridden"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest">
@@ -901,16 +754,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConstraintDeclarationTest">
                 <methods>
                     <include name="testConstraintAnnotationsArePerDefaultIgnoredForXmlConfiguredEntities"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.DefaultSequenceDefinedInXmlTest">
-                <methods>
-                    <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.clazzlevel.ClassLevelOverridingTest">
-                <methods>
-                    <include name="testClassLevelAnnotationsApplied"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForFieldXmlMappingTest">
