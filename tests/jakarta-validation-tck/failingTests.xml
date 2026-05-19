@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 72 classes, 433 methods,
+        Current tracker shape: 70 classes, 406 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -111,6 +111,8 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.groups.inheritance.GroupInheritanceTest
         - org.hibernate.beanvalidation.tck.tests.constraints.inheritance.ConstraintInheritanceTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata
+        - org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.containerelement.InvalidGroupDefinitionsOnContainerElementsTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -142,41 +144,6 @@
                     <include name="testMixedConstraintTargetsInComposingConstraintsCauseException"/>
                     <include name="testOverriddenAttributesMustMatchInType"/>
                     <include name="testValidationOfMainAnnotationIsAlsoApplied"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">
-                <methods>
-                    <include name="testGroupConversionGivenOnParameterInImplementedInterfaceWithSuperClass"/>
-                    <include name="testGroupConversionGivenOnParameterInImplementingClass"/>
-                    <include name="testGroupConversionGivenOnParameterInParallelInterfaces"/>
-                    <include name="testGroupConversionGivenOnParameterInSubClass"/>
-                    <include name="testGroupConversionGivenOnReturnValueInImplementedInterfaceWithSuperClass"/>
-                    <include name="testGroupConversionGivenOnReturnValueInParallelInterfaces"/>
-                    <include name="testGroupConversionWithSequenceAsFrom"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnConstructorParameter"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnConstructorReturnValue"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnField"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnMethodParameter"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnMethodReturnValue"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnProperty"/>
-                    <include name="testSeveralGroupConversionsWithSameFrom"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.containerelement.InvalidGroupDefinitionsOnContainerElementsTest">
-                <methods>
-                    <include name="testGroupConversionGivenOnParameterImplementedInterfaceWithSuperClass"/>
-                    <include name="testGroupConversionGivenOnParameterInImplementingClass"/>
-                    <include name="testGroupConversionGivenOnParameterInParallelInterfaces"/>
-                    <include name="testGroupConversionGivenOnParameterInSubClass"/>
-                    <include name="testGroupConversionGivenOnReturnValueInImplementedInterfaceWithSuperClass"/>
-                    <include name="testGroupConversionGivenOnReturnValueInParallelInterfaces"/>
-                    <include name="testGroupConversionWithSequenceAsFrom"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnConstructorParameter"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnField"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnMethodParameter"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnMethodReturnValue"/>
-                    <include name="testGroupConversionWithoutValidAnnotationOnProperty"/>
-                    <include name="testSeveralGroupConversionsWithSameFrom"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
