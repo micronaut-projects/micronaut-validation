@@ -221,7 +221,13 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
         Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
-        for (Class<? extends Annotation> type : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader())) {
+        Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
+        List<Class<? extends Annotation>> constraintTypes = annotationMetadata.getAnnotationTypesByStereotype(Constraint.class, currentClassLoader());
+        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type));
+        for (Class<? extends Annotation> type : constraintTypes) {
+            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type)) {
+                continue;
+            }
             for (AnnotationValue<? extends Annotation> annotationValue : annotationMetadata.getAnnotationValuesByType(type)) {
                 descriptors.putIfAbsent(
                     ConstraintAnnotationKey.of(type, annotationValue),
