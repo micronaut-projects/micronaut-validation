@@ -1273,6 +1273,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (valid == null) {
                 throw unexpectedType(constraint, method.getReturnType());
             }
+            validateCustomViolationState(valid, validatorContext);
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     object,
@@ -1370,6 +1371,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (valid == null) {
                 throw unexpectedType(constraint, constructor.getDeclaringClass());
             }
+            validateCustomViolationState(valid, validatorContext);
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     null,
@@ -1448,6 +1450,7 @@ public class ReflectionValidator extends DefaultValidator {
                 if (valid == null) {
                     throw unexpectedType(constraint, constructor.getParameterTypes()[i]);
                 }
+                validateCustomViolationState(valid, validatorContext);
                 if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         null,
@@ -1533,6 +1536,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (valid == null) {
                 continue;
             }
+            validateCustomViolationState(valid, validatorContext);
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     null,
@@ -1613,6 +1617,7 @@ public class ReflectionValidator extends DefaultValidator {
                 if (valid == null) {
                     throw unexpectedType(constraint, method.getParameterTypes()[i]);
                 }
+                validateCustomViolationState(valid, validatorContext);
                 if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         object,
@@ -1891,6 +1896,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (valid == null) {
                 continue;
             }
+            validateCustomViolationState(valid, validatorContext);
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     object,
@@ -2264,6 +2270,7 @@ public class ReflectionValidator extends DefaultValidator {
             }
             throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
         }
+        validateCustomViolationState(valid, validatorContext);
         if (!valid && !validatorContext.defaultViolationDisabled()) {
             violations.add(new ReflectionConstraintViolation<>(
                 rootBean,
@@ -2366,6 +2373,7 @@ public class ReflectionValidator extends DefaultValidator {
                 validateExecutableComposingConstraints(rootBean, rootBeanClass, leafBean, value, valueType, composingConstraint, context, violations, propertyPath, constraintTarget, method);
                 continue;
             }
+            validateCustomViolationState(valid, validatorContext);
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     rootBean,
@@ -3118,6 +3126,10 @@ public class ReflectionValidator extends DefaultValidator {
             try {
                 validator.initialize(constraint.getAnnotation());
                 return validator.isValid(value, validatorContext);
+            } catch (ValidationException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ValidationException("Cannot validate constraint " + constraint.getType().getName(), e);
             } finally {
                 constraintValidatorFactory.releaseInstance(validator);
             }
@@ -3125,13 +3137,26 @@ public class ReflectionValidator extends DefaultValidator {
         Optional<ConstraintValidator<Annotation, Object>> validator = (Optional) configuration.getConstraintValidatorRegistry()
             .findConstraintValidator(constraint.getType(), ReflectionUtils.getWrapperType(valueType));
         if (validator.isPresent()) {
-            return validator.get().isValid(value, constraint.annotationValue, validatorContext);
+            try {
+                return validator.get().isValid(value, constraint.annotationValue, validatorContext);
+            } catch (ValidationException e) {
+                throw e;
+            } catch (RuntimeException e) {
+                throw new ValidationException("Cannot validate constraint " + constraint.getType().getName(), e);
+            }
         }
         Boolean minMaxResult = validateMinMaxCharSequence(constraint, value, valueType);
         if (minMaxResult != null) {
             return minMaxResult;
         }
         return null;
+    }
+
+    private static void validateCustomViolationState(boolean valid,
+                                                     ReflectionConstraintValidatorContext validatorContext) {
+        if (!valid && validatorContext.defaultViolationDisabled() && validatorContext.customViolations().isEmpty()) {
+            throw new ValidationException("Default violation is disabled and no violations were added");
+        }
     }
 
     private @Nullable Boolean validateMinMaxCharSequence(ReflectionConstraintDescriptor<?> constraint,

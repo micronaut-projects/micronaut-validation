@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 11 classes, 13 methods,
+        Current tracker shape: 9 classes, 10 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -253,12 +253,6 @@
                     <include name="validation_of_nested_type_arguments_works_with_map_of_list_of_stringproperty"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.customconstraint.CustomConstraintValidatorTest">
-                <methods>
-                    <include name="testRuntimeExceptionFromInitializeIsWrapped"/>
-                    <include name="testRuntimeExceptionFromIsValidIsWrapped"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
                 <methods>
                     <include name="testCorrectDefaultSequenceInheritance3"/>
@@ -283,11 +277,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
                 <methods>
                     <include name="testSeveralGroupConversionsAppliedOnField"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest">
-                <methods>
-                    <include name="testDisableDefaultErrorWithoutAddingCustomError"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
