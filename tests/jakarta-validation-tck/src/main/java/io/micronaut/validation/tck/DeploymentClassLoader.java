@@ -24,8 +24,11 @@ import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @Internal
@@ -55,17 +58,35 @@ final class DeploymentClassLoader extends URLClassLoader {
 
     @Override
     public InputStream getResourceAsStream(String name) {
-        return super.getResourceAsStream(name);
+        URL resource = getResource(name);
+        if (resource == null) {
+            return null;
+        }
+        try {
+            return resource.openStream();
+        } catch (IOException e) {
+            return null;
+        }
     }
 
     @Override
     public URL getResource(String name) {
-        return super.getResource(name);
+        URL resource = findResource(name);
+        return resource == null ? super.getResource(name) : resource;
     }
 
     @Override
     public Enumeration<URL> getResources(String name) throws IOException {
-        return super.getResources(name);
+        Set<URL> resources = new LinkedHashSet<>();
+        Enumeration<URL> localResources = findResources(name);
+        while (localResources.hasMoreElements()) {
+            resources.add(localResources.nextElement());
+        }
+        Enumeration<URL> parentResources = getParent().getResources(name);
+        while (parentResources.hasMoreElements()) {
+            resources.add(parentResources.nextElement());
+        }
+        return Collections.enumeration(resources);
     }
 
     @Override

@@ -1,7 +1,8 @@
 [versions]
 managed-validation = "3.1.1"
 managed-jakarta-el = "5.0.1"
-managed-jakarta-el-impl = "5.0.0-M1"
+jakarta-el-impl = "5.0.0-M1"
+javafx = "21.0.6"
 
 spotbugs = "4.10.3"
 arquillian-container = "1.10.2.Final"
@@ -37,12 +38,13 @@ groovy-json = { module = "org.apache.groovy:groovy-json" }
 spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
 arquillian-container = { module = "org.jboss.arquillian.container:arquillian-container-test-spi", version.ref = "arquillian-container" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
+jakarta-el-impl = { module = "org.glassfish:jakarta.el", version.ref = "jakarta-el-impl" }
+javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 
 # managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
 managed-jakarta-el = { module = "jakarta.el:jakarta.el-api", version.ref = "managed-jakarta-el" }
-managed-jakarta-el-impl = { module = "org.glassfish:jakarta.el", version.ref = "managed-jakarta-el-impl" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }

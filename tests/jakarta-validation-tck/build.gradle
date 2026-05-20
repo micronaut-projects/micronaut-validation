@@ -3,6 +3,27 @@ plugins {
     id "io.micronaut.build.internal.validation-base"
 }
 
+def javaFxClassifier = {
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def arch = System.getProperty("os.arch")
+    if (os.isMacOsX()) {
+        return arch == "aarch64" ? "mac-aarch64" : "mac"
+    }
+    if (os.isLinux()) {
+        return arch == "aarch64" ? "linux-aarch64" : "linux"
+    }
+    if (os.isWindows()) {
+        return "win"
+    }
+    throw new GradleException("Unsupported JavaFX platform for ${os} ${arch}")
+}
+
+def javaFxBaseDependency = dependencies.create(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
+def tckArchiveClasspath = configurations.create("tckArchiveClasspath") {
+    canBeConsumed = false
+    canBeResolved = true
+}
+
 dependencies {
     implementation mn.micronaut.inject.java
     implementation mn.micronaut.inject
@@ -22,6 +43,8 @@ dependencies {
             classifier = "sources"
         }
     }
+    testCompileOnly javaFxBaseDependency
+    add("tckArchiveClasspath", javaFxBaseDependency)
 
     testImplementation libs.javax.annotation.api
 }
@@ -81,7 +104,7 @@ def jakartaTck = tasks.register('jakartaTck', Test) {
     description = "Runs the Jakarta Validation TCK compliance profile with the micronaut-validation-jakarta aggregate."
     scanForTestClasses false
     testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
     shouldRunAfter(test)
     useTestNG {
         systemProperties = [
@@ -227,13 +250,13 @@ def refreshFailingJakartaTckSuite = tasks.register('refreshFailingJakartaTckSuit
     }
 }
 
-tasks.register('discoverFailingJakartaTck', Test) {
+def discoverFailingJakartaTck = tasks.register('discoverFailingJakartaTck', Test) {
     group = 'verification'
     description = "Runs the full Jakarta Validation TCK compliance profile and refreshes failingTests.xml from the failures."
     scanForTestClasses false
     ignoreFailures true
     testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
     shouldRunAfter(jakartaTck)
     outputs.upToDateWhen { false }
     finalizedBy(refreshFailingJakartaTckSuite)
@@ -257,7 +280,7 @@ def failingJakartaTck = tasks.register('failingJakartaTck', Test) {
     scanForTestClasses false
     failOnNoDiscoveredTests = false
     testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
     shouldRunAfter(jakartaTck)
     useTestNG {
         systemProperties = [
@@ -331,9 +354,17 @@ def singleCoreTck = registerSingleTckTask(
 def singleJakartaTck = registerSingleTckTask(
     'singleJakartaTck',
     'Runs one Jakarta Validation TCK class or method against the compliance profile. Use -PtckSingleClass=... and optional -PtckSingleMethod=...',
-    sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath,
+    sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath,
     'io.micronaut.validation.bootstrap.MicronautValidationProvider'
 )
+
+[jakartaTck, discoverFailingJakartaTck, failingJakartaTck, singleJakartaTck].each { taskProvider ->
+    taskProvider.configure {
+        doFirst {
+            systemProperty 'micronaut.validation.tck.archive.classpath', tckArchiveClasspath.asPath
+        }
+    }
+}
 
 tasks.register('singleSpecTck') {
     group = 'verification'
