@@ -4082,7 +4082,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (hasExpandedComposedConstraints(generatedProperty, reflectedProperty)) {
                 return reflectedProperty;
             }
-            return constraintWeight(reflectedProperty) > constraintWeight(generatedProperty)
+            return constraintWeight(reflectedProperty) >= constraintWeight(generatedProperty)
                 ? reflectedProperty
                 : generatedProperty;
         }
@@ -4101,7 +4101,7 @@ public class ReflectionValidator extends DefaultValidator {
                     reflectedProperty,
                     (generatedProperty, replacement) -> hasDuplicateConstraintTypes(generatedProperty) && !hasDuplicateConstraintTypes(replacement)
                         || hasExpandedComposedConstraints(generatedProperty, replacement)
-                        || constraintWeight(replacement) > constraintWeight(generatedProperty)
+                        || constraintWeight(replacement) >= constraintWeight(generatedProperty)
                         ? replacement
                         : generatedProperty
                 );
