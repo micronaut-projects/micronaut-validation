@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 47 classes, 162 methods,
+        Current tracker shape: 45 classes, 156 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -168,6 +168,8 @@
         - org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableAnnotationSettingsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest#testValidaAnnotationIsApplied
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.CascadedValidationTest#testValidaAnnotationIsApplied
+        - org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableXmlSettingsTest
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
     -->
@@ -206,20 +208,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableXmlSettingsTest">
-                <methods>
-                    <include name="testConstructorDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEInXml"/>
-                    <include name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEInXml"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest">
-                <methods>
-                    <include name="testValidateConstructorParametersYieldsConstraintViolationIfValidateExecutableIsSetToNONEInXml"/>
-                    <include name="testValidateConstructorReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEInXml"/>
-                    <include name="testValidateParametersYieldsConstraintViolationIfValidateExecutableIsSetToNONEInXml"/>
-                    <include name="testValidateReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEInXml"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">

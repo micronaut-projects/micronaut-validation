@@ -160,7 +160,11 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         if (executableTypes.contains(ExecutableType.ALL)) {
             return Set.of(ExecutableType.CONSTRUCTORS, ExecutableType.GETTER_METHODS, ExecutableType.NON_GETTER_METHODS);
         }
+        boolean noneConfigured = executableTypes.contains(ExecutableType.NONE);
         executableTypes.remove(ExecutableType.NONE);
+        if (noneConfigured && executableTypes.isEmpty()) {
+            return Set.of();
+        }
         if (executableTypes.isEmpty()) {
             throw new ValidationException("At least one executable type must be configured");
         }

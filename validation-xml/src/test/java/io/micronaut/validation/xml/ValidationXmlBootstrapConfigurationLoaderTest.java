@@ -183,6 +183,22 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
     }
 
     @Test
+    void executableTypeNoneDisablesDefaultExecutableTypes() {
+        BootstrapConfiguration configuration = new ValidationXmlBootstrapConfigurationLoader()
+            .parse(new ByteArrayInputStream("""
+                <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                    <executable-validation>
+                        <default-validated-executable-types>
+                            <executable-type>NONE</executable-type>
+                        </default-validated-executable-types>
+                    </executable-validation>
+                </validation-config>
+                """.getBytes(StandardCharsets.UTF_8)));
+
+        assertEquals(Set.of(), configuration.getDefaultValidatedExecutableTypes());
+    }
+
+    @Test
     void emptyExecutableTypesAreRejected() {
         assertThrows(jakarta.validation.ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
             .parse(new ByteArrayInputStream("""
