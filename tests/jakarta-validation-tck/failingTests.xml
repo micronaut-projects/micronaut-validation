@@ -17,8 +17,8 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 11 classes, 4 methods,
-        and 7 class-level setup failures.
+        Current tracker shape: 7 classes, 4 methods,
+        and 3 class-level setup failures.
 
         Passing waves already removed from this tracker:
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest
@@ -185,6 +185,10 @@
         - org.hibernate.beanvalidation.tck.tests.integration.ee.JndiRetrievalTest
         - org.hibernate.beanvalidation.tck.tests.integration.cdi.defaultinjection.DefaultInjectionTest
         - org.hibernate.beanvalidation.tck.tests.integration.ee.DefaultInjectionTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedObjectsTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedServiceLoaderValueExtractorsTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedValueExtractorsTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedXmlAndServiceLoaderValueExtractorsTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -206,10 +210,6 @@
                     <include name="testDependencyInjectionIntoConstraintValidator"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedObjectsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedServiceLoaderValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedXmlAndServiceLoaderValueExtractorsTest"/>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
