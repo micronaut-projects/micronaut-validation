@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 56 classes, 288 methods,
+        Current tracker shape: 56 classes, 279 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -142,6 +142,15 @@
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingConstructorReturnValue
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingMethodParameter
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingMethodReturnValue
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#constructorReturnValueValidationDoesNotIncludeConstraintsFromSuperClass
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#constructorReturnValueValidationIsAppliedGroupWise
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#constructorReturnValueValidationTargetsReturnValueAndCascadedConstraints
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#constructorReturnValueValidationValidatesEachConstraintOnlyOnce
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#methodReturnValueValidationIncludesConstraintsFromImplementedInterface
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#methodReturnValueValidationIncludesConstraintsFromSuperClass
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#methodReturnValueValidationIsAppliedGroupWise
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#methodReturnValueValidationTargetsReturnValueAndCascadedConstraints
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest#methodReturnValueValidationValidatesEachConstraintOnlyOnce
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
     -->
@@ -340,12 +349,8 @@
                     <include name="constructorParameterValidationUsingSequence"/>
                     <include name="constructorParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="constructorParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="constructorReturnValueValidationDoesNotIncludeConstraintsFromSuperClass"/>
-                    <include name="constructorReturnValueValidationIsAppliedGroupWise"/>
                     <include name="constructorReturnValueValidationPerformsGroupConversion"/>
-                    <include name="constructorReturnValueValidationTargetsReturnValueAndCascadedConstraints"/>
                     <include name="constructorReturnValueValidationUsingSequence"/>
-                    <include name="constructorReturnValueValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="constructorReturnValueValidationWithRedefinedDefaultGroupSequence"/>
                     <include name="methodParameterValidationIncludesConstraintsFromImplementedInterface"/>
                     <include name="methodParameterValidationIncludesConstraintsFromSuperClass"/>
@@ -355,13 +360,8 @@
                     <include name="methodParameterValidationUsingSequence"/>
                     <include name="methodParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="methodParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodReturnValueValidationIncludesConstraintsFromImplementedInterface"/>
-                    <include name="methodReturnValueValidationIncludesConstraintsFromSuperClass"/>
-                    <include name="methodReturnValueValidationIsAppliedGroupWise"/>
                     <include name="methodReturnValueValidationPerformsGroupConversion"/>
-                    <include name="methodReturnValueValidationTargetsReturnValueAndCascadedConstraints"/>
                     <include name="methodReturnValueValidationUsingSequence"/>
-                    <include name="methodReturnValueValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
                 </methods>
             </class>
