@@ -846,7 +846,8 @@ public class ReflectionValidator extends DefaultValidator {
         List<ReflectionConstraintDescriptor<?>> constraints = methodHierarchy.stream()
             .flatMap(hierarchyMethod -> constraintsFor(hierarchyMethod).stream())
             .toList();
-        List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
+        List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
+        containerElements.addAll(providerReturnValueContainerElements(method));
         boolean cascaded = ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
         if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
             return Collections.emptySet();
@@ -1007,7 +1008,8 @@ public class ReflectionValidator extends DefaultValidator {
         validateConstructorCrossParameterConstraintsReflectively(constructor, parameterValues, context, violations);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
-            List<ReflectionContainerElement> containerElements = containerElementsFor(parameters[i].getAnnotatedType());
+            List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
+            containerElements.addAll(providerConstructorParameterContainerElements(constructor, i));
             if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
                 continue;
             }
@@ -1147,7 +1149,8 @@ public class ReflectionValidator extends DefaultValidator {
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
-            List<ReflectionContainerElement> containerElements = containerElementsFor(parameters[i].getAnnotatedType());
+            List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
+            containerElements.addAll(providerParameterContainerElements(method, i));
             if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
                 continue;
             }
@@ -1226,6 +1229,69 @@ public class ReflectionValidator extends DefaultValidator {
                                                                                                               int parameterIndex) {
         String resolvedName = parameterName(parameterNames, parameter, parameterIndex);
         return containerContext -> new ReflectionParameterContainerElementPath(method, resolvedName, parameterIndex, containerContext);
+    }
+
+    private List<ReflectionContainerElement> providerParameterContainerElements(Method method, int parameterIndex) {
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (MethodDescriptor methodDescriptor : providerMethodDescriptors(hierarchyMethod)) {
+                List<ParameterDescriptor> parameterDescriptors = methodDescriptor.getParameterDescriptors();
+                if (parameterIndex < parameterDescriptors.size()) {
+                    containerElements.addAll(containerElements(parameterDescriptors.get(parameterIndex).getConstrainedContainerElementTypes()));
+                }
+            }
+        }
+        return List.copyOf(containerElements);
+    }
+
+    private List<ReflectionContainerElement> providerReturnValueContainerElements(Method method) {
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (MethodDescriptor methodDescriptor : providerMethodDescriptors(hierarchyMethod)) {
+                containerElements.addAll(containerElements(methodDescriptor.getReturnValueDescriptor().getConstrainedContainerElementTypes()));
+            }
+        }
+        return List.copyOf(containerElements);
+    }
+
+    private List<MethodDescriptor> providerMethodDescriptors(Method method) {
+        List<MethodDescriptor> descriptors = new ArrayList<>();
+        for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+            if (provider instanceof ReflectionValidationMetadataProvider) {
+                continue;
+            }
+            BeanDescriptor beanDescriptor = provider.getConstraintsForClass(method.getDeclaringClass()).orElse(null);
+            if (beanDescriptor == null) {
+                continue;
+            }
+            MethodDescriptor descriptor = beanDescriptor.getConstraintsForMethod(method.getName(), method.getParameterTypes());
+            if (descriptor != null) {
+                descriptors.add(descriptor);
+            }
+        }
+        return List.copyOf(descriptors);
+    }
+
+    private List<ReflectionContainerElement> providerConstructorParameterContainerElements(Constructor<?> constructor, int parameterIndex) {
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+            if (provider instanceof ReflectionValidationMetadataProvider) {
+                continue;
+            }
+            BeanDescriptor beanDescriptor = provider.getConstraintsForClass(constructor.getDeclaringClass()).orElse(null);
+            if (beanDescriptor == null) {
+                continue;
+            }
+            ConstructorDescriptor constructorDescriptor = beanDescriptor.getConstraintsForConstructor(constructor.getParameterTypes());
+            if (constructorDescriptor == null) {
+                continue;
+            }
+            List<ParameterDescriptor> parameterDescriptors = constructorDescriptor.getParameterDescriptors();
+            if (parameterIndex < parameterDescriptors.size()) {
+                containerElements.addAll(containerElements(parameterDescriptors.get(parameterIndex).getConstrainedContainerElementTypes()));
+            }
+        }
+        return List.copyOf(containerElements);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1913,6 +1979,28 @@ public class ReflectionValidator extends DefaultValidator {
                             context,
                             violations,
                             pathFactory.apply(containerContext)
+                        );
+                        if (containerElement.cascaded && value != null) {
+                            validateCascadedValue(
+                                rootBean,
+                                rootBeanClass,
+                                value,
+                                value,
+                                context,
+                                violations,
+                                pathFactory.apply(containerContext)
+                            );
+                        }
+                        validateNestedContainerElements(
+                            rootBean,
+                            rootBeanClass,
+                            leafBean,
+                            value,
+                            containerElement.type,
+                            containerElement.nestedContainerElements,
+                            context,
+                            violations,
+                            pathFactory
                         );
                     }
                 });

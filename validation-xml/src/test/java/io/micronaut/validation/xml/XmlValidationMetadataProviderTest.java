@@ -365,6 +365,51 @@ class XmlValidationMetadataProviderTest {
         assertEquals(NotNull.class, containerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
     }
 
+    @Test
+    void parsesExecutableContainerElementConstraints() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <method name="useNickname">
+                        <parameter type="java.util.Optional">
+                            <container-element-type>
+                                <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                            </container-element-type>
+                        </parameter>
+                        <return-value>
+                            <container-element-type>
+                                <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                            </container-element-type>
+                        </return-value>
+                    </method>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlContainerElementBean.class.getName()));
+
+        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
+            .orElseThrow()
+            .getConstraintsForMethod("useNickname", Optional.class);
+
+        var parameterContainerElement = descriptor.getParameterDescriptors()
+            .get(0)
+            .getConstrainedContainerElementTypes()
+            .iterator()
+            .next();
+        assertEquals(Optional.class, parameterContainerElement.getContainerClass());
+        assertEquals(0, parameterContainerElement.getTypeArgumentIndex());
+        assertEquals(String.class, parameterContainerElement.getElementClass());
+        assertEquals(NotNull.class, parameterContainerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
+
+        var returnContainerElement = descriptor.getReturnValueDescriptor()
+            .getConstrainedContainerElementTypes()
+            .iterator()
+            .next();
+        assertEquals(Optional.class, returnContainerElement.getContainerClass());
+        assertEquals(0, returnContainerElement.getTypeArgumentIndex());
+        assertEquals(String.class, returnContainerElement.getElementClass());
+        assertEquals(NotNull.class, returnContainerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
+    }
+
     @Target(METHOD)
     @Retention(RUNTIME)
     @Constraint(validatedBy = CrossParameterValidator.class)
@@ -452,4 +497,9 @@ final class XmlContainerElementBean {
 
     @SuppressWarnings("unused")
     private Optional<String> nickname;
+
+    @SuppressWarnings("unused")
+    Optional<String> useNickname(Optional<String> nickname) {
+        return nickname;
+    }
 }

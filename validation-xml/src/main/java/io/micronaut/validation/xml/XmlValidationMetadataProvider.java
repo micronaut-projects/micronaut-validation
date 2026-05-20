@@ -284,7 +284,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     if (source == null) {
                         throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + constructor.parameterTypes());
                     }
-                    constructor = constructor.withSource(source);
+                    constructor = constructor.withSource(source)
+                        .withContainerElements(element, defaultPackage, this);
                     ExecutableKey key = new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes());
                     if (constructors.putIfAbsent(key, constructor) != null) {
                         throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
@@ -297,7 +298,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     if (source == null) {
                         throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
                     }
-                    method = method.withSource(source);
+                    method = method.withSource(source)
+                        .withContainerElements(element, defaultPackage, this);
                     if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
                         throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
                     }
@@ -430,7 +432,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parameters.add(new ParameterMapping(
                         parameterType,
                         parameterMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        List.of()
                     ));
                 }
                 case "cross-parameter" -> {
@@ -438,7 +441,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parseConstraints(element, defaultPackage, crossParameterMetadata);
                     crossParameter = new ElementMapping(
                         crossParameterMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        List.of()
                     );
                 }
                 case "return-value" -> {
@@ -446,7 +450,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parseElementMetadata(element, defaultPackage, returnValueMetadata);
                     returnValue = new ElementMapping(
                         returnValueMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        List.of()
                     );
                 }
                 default -> {
@@ -1094,12 +1099,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 return true;
             }
             return getParameterDescriptors().stream()
-                .anyMatch(parameter -> parameter.hasConstraints() || parameter.isCascaded() || !parameter.getGroupConversions().isEmpty());
+                .anyMatch(parameter -> parameter.hasConstraints()
+                    || parameter.isCascaded()
+                    || !parameter.getGroupConversions().isEmpty()
+                    || !parameter.getConstrainedContainerElementTypes().isEmpty());
         }
 
         public boolean hasConstrainedReturnValue() {
             ReturnValueDescriptor descriptor = getReturnValueDescriptor();
-            return descriptor.hasConstraints() || descriptor.isCascaded() || !descriptor.getGroupConversions().isEmpty();
+            return descriptor.hasConstraints()
+                || descriptor.isCascaded()
+                || !descriptor.getGroupConversions().isEmpty()
+                || !descriptor.getConstrainedContainerElementTypes().isEmpty();
         }
 
         public boolean hasConstraints() {
@@ -1174,7 +1185,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            return Collections.emptySet();
+            return containerElementDescriptors(parameter.containerElements());
         }
 
         @Override
@@ -1229,7 +1240,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            return Collections.emptySet();
+            return containerElementDescriptors(returnValue.containerElements());
         }
 
         @Override
@@ -1239,7 +1250,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Class<?> getElementClass() {
-            return Object.class;
+            if (source instanceof Method method) {
+                return method.getReturnType();
+            }
+            return source.getDeclaringClass();
         }
 
         @Override
@@ -1608,18 +1622,62 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         ExecutableMapping withSource(Executable source) {
             return new ExecutableMapping(name, source, parameters, crossParameter, returnValue);
         }
+
+        ExecutableMapping withContainerElements(Element executableElement,
+                                                String defaultPackage,
+                                                XmlValidationMetadataProvider provider) {
+            Type[] genericParameterTypes = source.getGenericParameterTypes();
+            List<ParameterMapping> resolvedParameters = new ArrayList<>(parameters.size());
+            int parameterIndex = 0;
+            NodeList children = executableElement.getChildNodes();
+            ElementMapping resolvedReturnValue = returnValue;
+            for (int i = 0; i < children.getLength(); i++) {
+                Node node = children.item(i);
+                if (!(node instanceof Element element)) {
+                    continue;
+                }
+                switch (localName(element)) {
+                    case "parameter" -> {
+                        ParameterMapping parameter = parameters.get(parameterIndex);
+                        resolvedParameters.add(parameter.withContainerElements(
+                            provider.parseContainerElements(element, defaultPackage, genericParameterTypes[parameterIndex])
+                        ));
+                        parameterIndex++;
+                    }
+                    case "return-value" -> {
+                        Type returnType = source instanceof Method method ? method.getGenericReturnType() : source.getDeclaringClass();
+                        resolvedReturnValue = returnValue.withContainerElements(
+                            provider.parseContainerElements(element, defaultPackage, returnType)
+                        );
+                    }
+                    default -> {
+                    }
+                }
+            }
+            return new ExecutableMapping(name, source, List.copyOf(resolvedParameters), crossParameter, resolvedReturnValue);
+        }
     }
 
     private record ParameterMapping(Class<?> type,
                                     AnnotationMetadata metadata,
-                                    boolean annotationsIgnored) {
+                                    boolean annotationsIgnored,
+                                    List<ContainerElementMapping> containerElements) {
+
+        ParameterMapping withContainerElements(List<ContainerElementMapping> containerElements) {
+            return new ParameterMapping(type, metadata, annotationsIgnored, containerElements);
+        }
     }
 
     private record ElementMapping(AnnotationMetadata metadata,
-                                  boolean annotationsIgnored) {
+                                  boolean annotationsIgnored,
+                                  List<ContainerElementMapping> containerElements) {
 
         private static ElementMapping empty(boolean annotationsIgnored) {
-            return new ElementMapping(AnnotationMetadata.EMPTY_METADATA, annotationsIgnored);
+            return new ElementMapping(AnnotationMetadata.EMPTY_METADATA, annotationsIgnored, List.of());
+        }
+
+        ElementMapping withContainerElements(List<ContainerElementMapping> containerElements) {
+            return new ElementMapping(metadata, annotationsIgnored, containerElements);
         }
     }
 
