@@ -115,6 +115,15 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         customViolations.add(new CustomViolation(messageTemplate, new ReflectionCustomPath(basePath, nodes)));
     }
 
+    private boolean hasCrossParameterBasePath() {
+        for (Path.Node node : basePath) {
+            if (node.getKind() == ElementKind.CROSS_PARAMETER) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static void replaceLast(List<Path.Node> nodes,
                                     @Nullable Boolean inIterable,
                                     @Nullable Object key,
@@ -188,6 +197,9 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public NodeBuilderDefinedContext addParameterNode(int index) {
+            if (!context.hasCrossParameterBasePath()) {
+                throw new IllegalStateException("Parameter nodes can only be added from cross-parameter constraints");
+            }
             String name = index >= 0 && context.parameterNames.size() > index ? context.parameterNames.get(index) : null;
             nodes.add(new ReflectionParameterNode(name, index));
             return new SimpleNodeBuilder(context, messageTemplate, nodes);
