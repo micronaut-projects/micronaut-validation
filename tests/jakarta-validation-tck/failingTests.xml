@@ -301,11 +301,6 @@
                     <include name="testAddingNodesInClassLevelConstraintKeepsInIterableKeyAndIndex"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
-                <methods>
-                    <include name="testGroupConversionIsAppliedOnProperty"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest">
                 <methods>
                     <include name="validate_forced_unwrapping_having_two_reverted_type_parameters_correctly_identifies_type_parameter"/>

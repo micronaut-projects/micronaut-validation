@@ -2421,7 +2421,10 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static boolean isSupplementalContainerElement(ReflectionContainerElement containerElement) {
-        return containerElement.providerDeclared || containerElement.cascaded || !containerElement.constraints.isEmpty();
+        return containerElement.providerDeclared
+            || containerElement.cascaded
+            || !containerElement.constraints.isEmpty()
+            || containerElement.nestedContainerElements.stream().anyMatch(ReflectionValidator::isSupplementalContainerElement);
     }
 
     private static boolean isCascaded(Parameter parameter) {
