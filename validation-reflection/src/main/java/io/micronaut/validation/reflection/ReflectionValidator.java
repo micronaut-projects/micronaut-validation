@@ -852,7 +852,7 @@ public class ReflectionValidator extends DefaultValidator {
         List<ReflectionContainerElement> containerElements = ignoreReturnValueAnnotations
             ? new ArrayList<>()
             : new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
-        containerElements.addAll(providerReturnValueContainerElements(method));
+            addAllContainerElements(containerElements, providerReturnValueContainerElements(method));
         boolean cascaded = !ignoreReturnValueAnnotations && ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
         if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
             return Collections.emptySet();
@@ -1020,7 +1020,7 @@ public class ReflectionValidator extends DefaultValidator {
         for (int i = 0; i < parameters.length; i++) {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
             List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
-            containerElements.addAll(providerConstructorParameterContainerElements(constructor, i));
+            addAllContainerElements(containerElements, providerConstructorParameterContainerElements(constructor, i));
             if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
                 continue;
             }
@@ -1164,7 +1164,7 @@ public class ReflectionValidator extends DefaultValidator {
             List<ReflectionContainerElement> containerElements = ignoreParameterAnnotations
                 ? new ArrayList<>()
                 : new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
-            containerElements.addAll(providerParameterContainerElements(method, i));
+            addAllContainerElements(containerElements, providerParameterContainerElements(method, i));
             boolean cascaded = !ignoreParameterAnnotations && isCascaded(parameters[i]);
             if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
                 continue;
@@ -2686,7 +2686,7 @@ public class ReflectionValidator extends DefaultValidator {
             for (Method hierarchyMethod : hierarchy) {
                 Parameter parameter = hierarchyMethod.getParameters()[i];
                 constraints.addAll(constraintsFor(parameter));
-                containerElements.addAll(containerElementsFor(parameter.getAnnotatedType()));
+                addAllContainerElements(containerElements, containerElementsFor(parameter.getAnnotatedType()));
                 groupConversions.addAll(groupConversionsFor(parameter, parameter.getAnnotatedType()));
                 cascaded |= isCascaded(parameter);
             }
@@ -2730,7 +2730,7 @@ public class ReflectionValidator extends DefaultValidator {
             constraintsFor(hierarchyMethod).stream()
                 .filter(constraint -> isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE))
                 .forEach(constraints::add);
-            containerElements.addAll(containerElementsFor(hierarchyMethod.getAnnotatedReturnType()));
+            addAllContainerElements(containerElements, containerElementsFor(hierarchyMethod.getAnnotatedReturnType()));
             groupConversions.addAll(groupConversionsFor(hierarchyMethod, hierarchyMethod.getAnnotatedReturnType()));
             cascaded |= isCascaded(hierarchyMethod);
         }
@@ -2910,6 +2910,60 @@ public class ReflectionValidator extends DefaultValidator {
         List<ReflectionContainerElement> nestedContainerElements,
         boolean providerDeclared
     ) {
+    }
+
+    private static void addAllContainerElements(List<ReflectionContainerElement> containerElements,
+                                                List<ReflectionContainerElement> candidates) {
+        for (ReflectionContainerElement candidate : candidates) {
+            addContainerElement(containerElements, candidate);
+        }
+    }
+
+    private static void addContainerElement(List<ReflectionContainerElement> containerElements,
+                                            ReflectionContainerElement candidate) {
+        for (ReflectionContainerElement containerElement : containerElements) {
+            if (sameContainerElement(containerElement, candidate)) {
+                return;
+            }
+        }
+        containerElements.add(candidate);
+    }
+
+    private static boolean sameContainerElement(ReflectionContainerElement left,
+                                                ReflectionContainerElement right) {
+        return left.containerType == right.containerType
+            && left.typeArgumentIndex == right.typeArgumentIndex
+            && left.type == right.type
+            && left.cascaded == right.cascaded
+            && left.groupConversions.equals(right.groupConversions)
+            && constraintKeys(left.constraints).equals(constraintKeys(right.constraints))
+            && sameContainerElements(left.nestedContainerElements, right.nestedContainerElements);
+    }
+
+    private static boolean sameContainerElements(List<ReflectionContainerElement> left,
+                                                 List<ReflectionContainerElement> right) {
+        if (left.size() != right.size()) {
+            return false;
+        }
+        for (ReflectionContainerElement leftElement : left) {
+            boolean matched = false;
+            for (ReflectionContainerElement rightElement : right) {
+                if (sameContainerElement(leftElement, rightElement)) {
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static Set<ConstraintKey> constraintKeys(List<ReflectionConstraintDescriptor<?>> constraints) {
+        return constraints.stream()
+            .map(ConstraintKey::of)
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private record ReflectionGroupConversionDescriptor(
