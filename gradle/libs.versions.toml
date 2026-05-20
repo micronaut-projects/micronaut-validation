@@ -8,6 +8,8 @@ spotbugs = "4.10.3"
 arquillian-container = "1.10.2.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
+jakarta-cdi-api = "4.0.1"
+jakarta-ejb-api = "4.0.1"
 
 micronaut = "5.1.11"
 micronaut-platform = "5.1.1"
@@ -38,6 +40,8 @@ groovy-json = { module = "org.apache.groovy:groovy-json" }
 spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
 arquillian-container = { module = "org.jboss.arquillian.container:arquillian-container-test-spi", version.ref = "arquillian-container" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
+jakarta-cdi-api = { module = "jakarta.enterprise:jakarta.enterprise.cdi-api", version.ref = "jakarta-cdi-api" }
+jakarta-ejb-api = { module = "jakarta.ejb:jakarta.ejb-api", version.ref = "jakarta-ejb-api" }
 jakarta-el-impl = { module = "org.glassfish:jakarta.el", version.ref = "jakarta-el-impl" }
 javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 
