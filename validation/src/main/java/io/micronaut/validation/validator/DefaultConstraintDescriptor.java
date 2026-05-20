@@ -36,6 +36,7 @@ import jakarta.validation.valueextraction.Unwrapping;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -276,23 +277,21 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
-        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (annotationType.isAnnotationPresent(jakarta.validation.Constraint.class)) {
-                composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, annotationMetadata));
-            }
+        for (ComposingAnnotation annotation : composingAnnotations(constraintType)) {
+            composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, annotationMetadata));
         }
         return Collections.unmodifiableSet(composingConstraints);
     }
 
     private static DefaultConstraintDescriptor<Annotation> composingConstraint(
-        Annotation annotation,
+        ComposingAnnotation composingAnnotation,
         Class<? extends Annotation> parentType,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
+        Annotation annotation = composingAnnotation.annotation();
         Class<? extends Annotation> annotationType = annotation.annotationType();
         Map<CharSequence, Object> values = annotationValues(annotation);
-        applyOverrides(annotationType, parentType, parentAnnotationValue, values);
+        applyOverrides(annotationType, composingAnnotation.constraintIndex(), parentType, parentAnnotationValue, values);
         values.put("groups", parentAnnotationValue.classValues("groups"));
         values.put("payload", parentAnnotationValue.classValues("payload"));
         AnnotationValue<Annotation> annotationValue = new AnnotationValue<>(
@@ -305,6 +304,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     private static void applyOverrides(
         Class<? extends Annotation> composingType,
+        int composingConstraintIndex,
         Class<? extends Annotation> parentType,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         Map<CharSequence, Object> values) {
@@ -316,12 +316,12 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             }
             OverridesAttribute override = method.getAnnotation(OverridesAttribute.class);
             if (override != null) {
-                applyOverride(composingType, values, method, value, override);
+                applyOverride(composingType, composingConstraintIndex, values, method, value, override);
             }
             OverridesAttribute.List overrides = method.getAnnotation(OverridesAttribute.List.class);
             if (overrides != null) {
                 for (OverridesAttribute listedOverride : overrides.value()) {
-                    applyOverride(composingType, values, method, value, listedOverride);
+                    applyOverride(composingType, composingConstraintIndex, values, method, value, listedOverride);
                 }
             }
         }
@@ -329,14 +329,62 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     private static void applyOverride(
         Class<? extends Annotation> composingType,
+        int composingConstraintIndex,
         Map<CharSequence, Object> values,
         Method method,
         Object value,
         OverridesAttribute override) {
-        if (override.constraint() == composingType) {
+        if (override.constraint() == composingType && (override.constraintIndex() == -1 || override.constraintIndex() == composingConstraintIndex)) {
             String name = override.name().isEmpty() ? method.getName() : override.name();
             values.put(name, value);
         }
+    }
+
+    private static List<ComposingAnnotation> composingAnnotations(Class<? extends Annotation> constraintType) {
+        List<ComposingAnnotation> composingAnnotations = new ArrayList<>();
+        Map<Class<? extends Annotation>, Integer> constraintIndexes = new LinkedHashMap<>();
+        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (annotationType.isAnnotationPresent(jakarta.validation.Constraint.class)) {
+                int constraintIndex = constraintIndexes.merge(annotationType, 0, (previous, ignored) -> previous + 1);
+                composingAnnotations.add(new ComposingAnnotation(annotation, constraintIndex));
+                continue;
+            }
+            for (Annotation repeatedAnnotation : repeatedConstraintAnnotations(annotation)) {
+                Class<? extends Annotation> repeatedAnnotationType = repeatedAnnotation.annotationType();
+                int constraintIndex = constraintIndexes.merge(repeatedAnnotationType, 0, (previous, ignored) -> previous + 1);
+                composingAnnotations.add(new ComposingAnnotation(repeatedAnnotation, constraintIndex));
+            }
+        }
+        return composingAnnotations;
+    }
+
+    private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
+        try {
+            Method valueMethod = annotation.annotationType().getDeclaredMethod("value");
+            if (valueMethod.getReturnType().isArray() && Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
+                valueMethod.setAccessible(true);
+                Annotation[] annotations = (Annotation[]) valueMethod.invoke(annotation);
+                List<Annotation> constraints = new ArrayList<>(annotations.length);
+                for (Annotation repeatedAnnotation : annotations) {
+                    if (repeatedAnnotation.annotationType().isAnnotationPresent(jakarta.validation.Constraint.class)) {
+                        constraints.add(repeatedAnnotation);
+                    }
+                }
+                return constraints;
+            }
+        } catch (NoSuchMethodException e) {
+            return List.of();
+        } catch (IllegalAccessException | InvocationTargetException e) {
+            throw new ConstraintDeclarationException("Cannot read composing constraint container " + annotation.annotationType().getName(), e);
+        }
+        return List.of();
+    }
+
+    private record ComposingAnnotation(
+        Annotation annotation,
+        int constraintIndex
+    ) {
     }
 
     private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
