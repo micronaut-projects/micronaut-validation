@@ -296,6 +296,53 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void customCrossParameterViolationPathsDoNotKeepCrossParameterNode() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            CustomPathExecutableBean bean = new CustomPathExecutableBean();
+
+            Set<ConstraintViolation<CustomPathExecutableBean>> violations = validator.forExecutables()
+                .validateParameters(
+                    bean,
+                    CustomPathExecutableBean.class.getDeclaredMethod("submit", Map.class),
+                    new Object[]{Map.of()}
+                );
+
+            assertEquals(3, violations.size());
+            for (ConstraintViolation<CustomPathExecutableBean> violation : violations) {
+                for (Path.Node node : violation.getPropertyPath()) {
+                    assertFalse(node.getKind() == ElementKind.CROSS_PARAMETER);
+                }
+            }
+        }
+    }
+
+    @Test
+    void customClassLevelViolationPathsInheritCascadedContainerContext() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            ConstraintViolation<CustomPathContainer> violation = validator.validate(new CustomPathContainer())
+                .iterator()
+                .next();
+            Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
+            Path.Node property = nodes.next();
+            Path.Node custom = nodes.next();
+
+            assertEquals("items", property.getName());
+            assertEquals("leaf", custom.getName());
+            assertTrue(custom.isInIterable());
+            assertEquals(0, custom.getIndex());
+            assertEquals(List.class, custom.as(Path.PropertyNode.class).getContainerClass());
+            assertEquals(0, custom.as(Path.PropertyNode.class).getTypeArgumentIndex());
+        }
+    }
+
+    @Test
     void rejectsUnexpectedExecutableConstraintTypesWithoutMicronautExecutableMetadata() throws Exception {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -718,6 +765,21 @@ class ReflectionValidatorTest {
         }
     }
 
+    private static final class CustomPathExecutableBean {
+        @CrossParameterCustomPathConstraint
+        void submit(Map<String, String> addresses) {
+        }
+    }
+
+    private static final class CustomPathContainer {
+        @Valid
+        private final List<CustomPathBean> items = List.of(new CustomPathBean());
+    }
+
+    @CustomClassLevelPathConstraint
+    private static final class CustomPathBean {
+    }
+
     private static final class ConstructorReturnBean {
         @InvalidConstructorReturnConstraint
         ConstructorReturnBean() {
@@ -781,6 +843,62 @@ class ReflectionValidatorTest {
     private static final class CrossParameterConstraintValidator implements ConstraintValidator<CrossParameterConstraint, Object[]> {
         @Override
         public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Target(METHOD)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = CrossParameterCustomPathConstraintValidator.class)
+    private @interface CrossParameterCustomPathConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @SupportedValidationTarget(ValidationTarget.PARAMETERS)
+    private static final class CrossParameterCustomPathConstraintValidator implements ConstraintValidator<CrossParameterCustomPathConstraint, Object[]> {
+        @Override
+        public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            context.disableDefaultConstraintViolation();
+            context.buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
+                .addParameterNode(0)
+                .addConstraintViolation();
+            context.buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
+                .addParameterNode(0)
+                .addBeanNode()
+                .addConstraintViolation();
+            context.buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
+                .addParameterNode(0)
+                .addPropertyNode("leaf")
+                .inIterable()
+                .atIndex(3)
+                .addBeanNode()
+                .addConstraintViolation();
+            return false;
+        }
+    }
+
+    @Target(TYPE)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = CustomClassLevelPathConstraintValidator.class)
+    private @interface CustomClassLevelPathConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class CustomClassLevelPathConstraintValidator implements ConstraintValidator<CustomClassLevelPathConstraint, CustomPathBean> {
+        @Override
+        public boolean isValid(CustomPathBean value, ConstraintValidatorContext context) {
+            context.disableDefaultConstraintViolation();
+            context.buildConstraintViolationWithTemplate(context.getDefaultConstraintMessageTemplate())
+                .addPropertyNode("leaf")
+                .addConstraintViolation();
             return false;
         }
     }
