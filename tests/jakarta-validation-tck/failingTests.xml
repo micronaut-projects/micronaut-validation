@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 14 classes, 15 methods,
+        Current tracker shape: 10 classes, 10 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -231,6 +231,10 @@
         - org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest#testDefaultConstructorInValidatorCalled
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest#testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata
+        - org.hibernate.beanvalidation.tck.tests.constraints.constraintdefinition.ConstraintDefinitionsTest#testDefaultGroupAssumedWhenNoGroupsSpecified
+        - org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest#testConstraintWithNoExplicitlySpecifiedGroupBelongsToDefault
+        - org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testConstraintDescriptorWithoutExplicitGroup
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -239,19 +243,9 @@
                     <include name="testAttributesDefinedOnComposingConstraints"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintdefinition.ConstraintDefinitionsTest">
-                <methods>
-                    <include name="testDefaultGroupAssumedWhenNoGroupsSpecified"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest">
                 <methods>
                     <include name="validation_of_nested_type_arguments_works_with_map_of_list_of_stringproperty"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest">
-                <methods>
-                    <include name="testConstraintWithNoExplicitlySpecifiedGroupBelongsToDefault"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.ConstraintInheritanceTest">
@@ -259,20 +253,9 @@
                     <include name="testValidationConsidersConstraintsFromSuperTypes"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest">
-                <methods>
-                    <include name="testDefaultGroupIsReturnedIfNoGroupSpecifiedInDeclaration"/>
-                    <include name="testGetGroupsOnInterface"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
                 <methods>
                     <include name="testAddBeanNode"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
-                <methods>
-                    <include name="testConstraintDescriptorWithoutExplicitGroup"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
