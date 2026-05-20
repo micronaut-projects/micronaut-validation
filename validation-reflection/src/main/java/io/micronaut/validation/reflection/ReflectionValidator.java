@@ -370,13 +370,23 @@ public class ReflectionValidator extends DefaultValidator {
                 new ReflectionPath(null)
             );
             for (Map.Entry<String, List<ReflectionProperty>> entry : metadata.properties.entrySet()) {
-                if (isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey())) {
+                boolean ignorePropertyAnnotations = isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey());
+                List<ReflectionContainerElement> providerContainerElements = providerPropertyContainerElements(object.getClass(), entry.getKey());
+                if (ignorePropertyAnnotations && providerContainerElements.isEmpty()) {
                     continue;
                 }
                 List<ReflectionProperty> properties = entry.getValue();
                 boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
                 for (ReflectionProperty property : properties) {
-                    validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);
+                    validateProperty(
+                        object,
+                        object,
+                        effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
+                        groupContext,
+                        violations,
+                        suppressGeneratedPropertyConstraints,
+                        true
+                    );
                 }
             }
             if (violations.size() > violationCount) {
@@ -427,13 +437,23 @@ public class ReflectionValidator extends DefaultValidator {
             new ReflectionPath(null)
         );
         for (Map.Entry<String, List<ReflectionProperty>> entry : metadata.properties.entrySet()) {
-            if (isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey())) {
+            boolean ignorePropertyAnnotations = isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey());
+            List<ReflectionContainerElement> providerContainerElements = providerPropertyContainerElements(object.getClass(), entry.getKey());
+            if (ignorePropertyAnnotations && providerContainerElements.isEmpty()) {
                 continue;
             }
             List<ReflectionProperty> properties = entry.getValue();
             boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
             for (ReflectionProperty property : properties) {
-                validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);
+                validateProperty(
+                    object,
+                    object,
+                    effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
+                    groupContext,
+                    violations,
+                    suppressGeneratedPropertyConstraints,
+                    true
+                );
             }
         }
     }
@@ -587,8 +607,18 @@ public class ReflectionValidator extends DefaultValidator {
         for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
             int violationCount = violations.size();
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            boolean ignorePropertyAnnotations = isPropertyAnnotationMetadataIgnored(object.getClass(), propertyName);
+            List<ReflectionContainerElement> providerContainerElements = providerPropertyContainerElements(object.getClass(), propertyName);
             for (ReflectionProperty property : properties) {
-                validateProperty(object, object, property, groupContext, violations, false, true);
+                validateProperty(
+                    object,
+                    object,
+                    effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
+                    groupContext,
+                    violations,
+                    false,
+                    true
+                );
             }
             if (violations.size() > violationCount) {
                 break;
@@ -618,6 +648,71 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return Collections.unmodifiableSet(violations);
+    }
+
+    private ReflectionProperty effectiveProperty(ReflectionProperty property,
+                                                 boolean ignorePropertyAnnotations,
+                                                 List<ReflectionContainerElement> providerContainerElements) {
+        if (!ignorePropertyAnnotations && providerContainerElements.isEmpty()) {
+            return property;
+        }
+        List<ReflectionContainerElement> containerElements = new ArrayList<>(ignorePropertyAnnotations ? List.of() : property.containerElements);
+        containerElements.addAll(providerContainerElements);
+        return new ReflectionProperty(
+            property.name,
+            property.type,
+            property.source,
+            ignorePropertyAnnotations ? List.of() : property.constraints,
+            ignorePropertyAnnotations ? Set.of() : property.groupConversions,
+            List.copyOf(containerElements)
+        );
+    }
+
+    private List<ReflectionContainerElement> providerPropertyContainerElements(Class<?> beanType, String propertyName) {
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+            if (provider instanceof ReflectionValidationMetadataProvider) {
+                continue;
+            }
+            BeanDescriptor beanDescriptor = provider.getConstraintsForClass(beanType).orElse(null);
+            if (beanDescriptor == null) {
+                continue;
+            }
+            PropertyDescriptor propertyDescriptor = beanDescriptor.getConstraintsForProperty(propertyName);
+            if (propertyDescriptor != null) {
+                containerElements.addAll(containerElements(propertyDescriptor.getConstrainedContainerElementTypes()));
+            }
+        }
+        return List.copyOf(containerElements);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static List<ReflectionContainerElement> containerElements(Set<ContainerElementTypeDescriptor> descriptors) {
+        if (descriptors.isEmpty()) {
+            return List.of();
+        }
+        List<ReflectionContainerElement> containerElements = new ArrayList<>(descriptors.size());
+        for (ContainerElementTypeDescriptor descriptor : descriptors) {
+            List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+            for (ConstraintDescriptor<?> constraintDescriptor : descriptor.getConstraintDescriptors()) {
+                constraints.add(new ReflectionConstraintDescriptor(constraintDescriptor.getAnnotation()));
+            }
+            Set<ReflectionGroupConversionDescriptor> groupConversions = descriptor.getGroupConversions()
+                .stream()
+                .map(groupConversion -> new ReflectionGroupConversionDescriptor(groupConversion.getFrom(), groupConversion.getTo()))
+                .collect(Collectors.toUnmodifiableSet());
+            containerElements.add(new ReflectionContainerElement(
+                descriptor.getContainerClass(),
+                descriptor.getTypeArgumentIndex(),
+                descriptor.getElementClass(),
+                constraints,
+                descriptor.isCascaded(),
+                groupConversions,
+                containerElements(descriptor.getConstrainedContainerElementTypes()),
+                true
+            ));
+        }
+        return List.copyOf(containerElements);
     }
 
     private static <T> Set<ConstraintViolation<T>> mergeViolations(Set<ConstraintViolation<T>> existing,
@@ -1552,7 +1647,7 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static boolean isSupplementalContainerElement(ReflectionContainerElement containerElement) {
-        return containerElement.cascaded || containerElement.constraints.stream()
+        return containerElement.providerDeclared || containerElement.cascaded || containerElement.constraints.stream()
             .anyMatch(constraint -> !constraint.getConstraintValidatorClasses().isEmpty());
     }
 
@@ -1935,7 +2030,8 @@ public class ReflectionValidator extends DefaultValidator {
                     constraints,
                     cascaded,
                     groupConversionsFor(typeArgument),
-                    nestedContainerElements
+                    nestedContainerElements,
+                    false
                 ));
             }
         }
@@ -2324,7 +2420,8 @@ public class ReflectionValidator extends DefaultValidator {
         List<ReflectionConstraintDescriptor<?>> constraints,
         boolean cascaded,
         Set<ReflectionGroupConversionDescriptor> groupConversions,
-        List<ReflectionContainerElement> nestedContainerElements
+        List<ReflectionContainerElement> nestedContainerElements,
+        boolean providerDeclared
     ) {
     }
 

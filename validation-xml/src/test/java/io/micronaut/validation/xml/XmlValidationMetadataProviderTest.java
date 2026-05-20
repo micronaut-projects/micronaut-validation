@@ -28,6 +28,7 @@ import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -35,9 +36,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.lang.annotation.ElementType.METHOD;
@@ -302,6 +305,39 @@ class XmlValidationMetadataProviderTest {
         assertEquals(2, included.getConstraintDescriptors().size());
     }
 
+    @Test
+    void parsesPropertyContainerElementConstraints() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="lines">
+                        <container-element-type type-argument-index="1">
+                            <constraint annotation="jakarta.validation.constraints.DecimalMin">
+                                <element name="value">
+                                    <value>0</value>
+                                </element>
+                                <element name="inclusive">
+                                    <value>false</value>
+                                </element>
+                            </constraint>
+                        </container-element-type>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlContainerElementBean.class.getName()));
+
+        PropertyDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("lines");
+
+        assertEquals(1, descriptor.getConstrainedContainerElementTypes().size());
+        var containerElement = descriptor.getConstrainedContainerElementTypes().iterator().next();
+        assertEquals(Map.class, containerElement.getContainerClass());
+        assertEquals(1, containerElement.getTypeArgumentIndex());
+        assertEquals(BigDecimal.class, containerElement.getElementClass());
+        assertEquals(DecimalMin.class, containerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
+    }
+
     @Target(METHOD)
     @Retention(RUNTIME)
     @Constraint(validatedBy = CrossParameterValidator.class)
@@ -380,4 +416,10 @@ final class XmlPropertyIgnoreBean {
     String getIncluded() {
         return included;
     }
+}
+
+final class XmlContainerElementBean {
+
+    @SuppressWarnings("unused")
+    private Map<String, BigDecimal> lines;
 }
