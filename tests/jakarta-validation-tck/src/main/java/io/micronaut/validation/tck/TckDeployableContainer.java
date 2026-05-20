@@ -197,14 +197,30 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     private void bindJndiValidator(ApplicationContext applicationContext, ClassLoader classLoader) {
         oldInitialContextFactory = System.getProperty("java.naming.factory.initial");
         System.setProperty("java.naming.factory.initial", TckInitialContextFactory.class.getName());
-        jndiValidatorFactory = buildValidatorFactory(applicationContext, classLoader);
+        try {
+            jndiValidatorFactory = buildValidatorFactory(applicationContext, classLoader);
+        } catch (ValidationException | UnsupportedOperationException e) {
+            LOGGER.debug("Falling back to XML-free JNDI validator factory for TCK deployment bootstrap", e);
+            jndiValidatorFactory = buildValidatorFactoryIgnoringXml(applicationContext, classLoader);
+        }
         TckInitialContextFactory.bind("java:comp/ValidatorFactory", jndiValidatorFactory);
         TckInitialContextFactory.bind("java:comp/Validator", jndiValidatorFactory.getValidator());
     }
 
     private static ValidatorFactory buildValidatorFactory(ApplicationContext applicationContext, ClassLoader classLoader) {
-        ValidatorFactory bootstrapFactory = Validation.buildDefaultValidatorFactory();
+        return buildValidatorFactory(applicationContext, classLoader, true);
+    }
+
+    private static ValidatorFactory buildValidatorFactoryIgnoringXml(ApplicationContext applicationContext, ClassLoader classLoader) {
+        return buildValidatorFactory(applicationContext, classLoader, false);
+    }
+
+    private static ValidatorFactory buildValidatorFactory(ApplicationContext applicationContext, ClassLoader classLoader, boolean applyXmlConfiguration) {
+        ValidatorFactory bootstrapFactory = buildMicronautFactoryIgnoringXml(classLoader);
         BootstrapConfiguration bootstrapConfiguration = loadBootstrapConfiguration(classLoader).orElse(null);
+        if (!applyXmlConfiguration) {
+            bootstrapConfiguration = null;
+        }
         DefaultValidatorConfiguration validatorConfiguration = applicationContext.getBean(DefaultValidatorConfiguration.class);
         validatorConfiguration.setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector.forClassLoader(classLoader));
         validatorConfiguration.setMessageInterpolator(resolveConfiguredBean(
@@ -243,6 +259,23 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             createValidator(validatorConfiguration, classLoader),
             validatorConfiguration
         );
+    }
+
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static ValidatorFactory buildMicronautFactoryIgnoringXml(ClassLoader classLoader) {
+        try {
+            Class providerClass = Class.forName(
+                "io.micronaut.validation.bootstrap.MicronautValidationProvider",
+                true,
+                classLoader
+            ).asSubclass(jakarta.validation.spi.ValidationProvider.class);
+            return Validation.byProvider(providerClass)
+                .configure()
+                .ignoreXmlConfiguration()
+                .buildValidatorFactory();
+        } catch (ClassNotFoundException e) {
+            throw new ValidationException("Cannot load Micronaut Validation provider", e);
+        }
     }
 
     private static void registerDeploymentSupportSingletons(ApplicationContext applicationContext,
