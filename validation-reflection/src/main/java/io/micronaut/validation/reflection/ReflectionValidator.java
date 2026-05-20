@@ -173,9 +173,12 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("object", object);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
-            return validateReflectivelyWithInheritedDefaultGroupSequence(object, getBeanIntrospection(object) != null);
+            return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
         }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
+        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context)) {
+            return validateReflectively(object, context, false);
+        }
         if (introspection != null) {
             boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
             boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
@@ -203,9 +206,12 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("object", object);
         BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
         if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
-            return validateReflectivelyWithInheritedDefaultGroupSequence(object, getBeanIntrospection(object) != null);
+            return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
         }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
+        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context)) {
+            return validateReflectively(object, context, false);
+        }
         if (introspection != null) {
             boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
             boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
@@ -427,10 +433,14 @@ public class ReflectionValidator extends DefaultValidator {
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        boolean defaultGroupRedefined = ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context);
+        Set<String> defaultGroupCascadedProperties = defaultGroupRedefined ? new LinkedHashSet<>() : null;
         for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
             int violationCount = violations.size();
+            long blockingViolationCount = countLeafBeanViolations(violations, object);
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
-            Set<String> cascadedProperties = new LinkedHashSet<>();
+            BeanValidationContext cascadedContext = defaultGroupRedefined ? BeanValidationContext.DEFAULT : groupContext;
+            Set<String> cascadedProperties = defaultGroupCascadedProperties == null ? new LinkedHashSet<>() : defaultGroupCascadedProperties;
             validateConstraints(
                 object,
                 object.getClass(),
@@ -457,6 +467,7 @@ public class ReflectionValidator extends DefaultValidator {
                         object.getClass(),
                         effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
                         groupContext,
+                        cascadedContext,
                         violations,
                         suppressGeneratedPropertyConstraints,
                         true,
@@ -466,8 +477,9 @@ public class ReflectionValidator extends DefaultValidator {
                     );
                 }
             }
-            validateProviderOnlyProperties(object, metadata, groupContext, violations);
-            if (violations.size() > violationCount) {
+            validateProviderOnlyProperties(object, metadata, groupContext, cascadedContext, cascadedProperties, violations);
+            if (violations.size() > violationCount
+                && (!defaultGroupRedefined || countLeafBeanViolations(violations, object) > blockingViolationCount)) {
                 break;
             }
         }
@@ -482,28 +494,49 @@ public class ReflectionValidator extends DefaultValidator {
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        validateReflectionGroupPass(object, metadata, BeanValidationContext.fromGroups(object.getClass()), violations, supplementIntrospection);
+        Set<String> cascadedProperties = new LinkedHashSet<>();
+        validateReflectionGroupPass(object, metadata, BeanValidationContext.fromGroups(object.getClass()), BeanValidationContext.DEFAULT, cascadedProperties, violations, supplementIntrospection);
         for (List<Class<?>> groupPass : ReflectionGroupSequences.inheritedDefaultGroupSequencePasses(object.getClass())) {
             int violationCount = violations.size();
+            long blockingViolationCount = countLeafBeanViolations(violations, object);
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
-            validateReflectionGroupPass(object, metadata, groupContext, violations, supplementIntrospection);
-            if (violations.size() > violationCount) {
+            validateReflectionGroupPass(object, metadata, groupContext, BeanValidationContext.DEFAULT, cascadedProperties, violations, supplementIntrospection);
+            if (violations.size() > violationCount && countLeafBeanViolations(violations, object) > blockingViolationCount) {
                 break;
             }
         }
         return Collections.unmodifiableSet(violations);
     }
 
+    private static long countLeafBeanViolations(Set<? extends ConstraintViolation<?>> violations, Object leafBean) {
+        return violations.stream()
+            .filter(violation -> isSequenceBlockingViolation(violation, leafBean))
+            .count();
+    }
+
+    private static boolean isSequenceBlockingViolation(ConstraintViolation<?> violation, Object leafBean) {
+        if (violation.getLeafBean() != leafBean) {
+            return false;
+        }
+        Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
+        if (!nodes.hasNext()) {
+            return true;
+        }
+        nodes.next();
+        return !nodes.hasNext();
+    }
+
     private <T> void validateReflectionGroupPass(T object,
                                                  ReflectionBeanMetadata metadata,
                                                  BeanValidationContext groupContext,
+                                                 BeanValidationContext cascadedContext,
+                                                 Set<String> cascadedProperties,
                                                  Set<ConstraintViolation<T>> violations,
                                                  boolean supplementIntrospection) {
         Map<ConstraintKey, Integer> generatedTypeConstraints = supplementIntrospection
             ? generatedTypeConstraints(object.getClass())
             : Map.of();
         boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
-        Set<String> cascadedProperties = new LinkedHashSet<>();
         validateConstraints(
             object,
             object.getClass(),
@@ -530,16 +563,17 @@ public class ReflectionValidator extends DefaultValidator {
                     object.getClass(),
                     effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
                     groupContext,
-                        violations,
-                        suppressGeneratedPropertyConstraints,
-                        true,
-                        true,
-                        null,
-                        cascadedProperties
-                    );
+                    cascadedContext,
+                    violations,
+                    suppressGeneratedPropertyConstraints,
+                    true,
+                    true,
+                    null,
+                    cascadedProperties
+                );
             }
         }
-        validateProviderOnlyProperties(object, metadata, groupContext, violations);
+        validateProviderOnlyProperties(object, metadata, groupContext, cascadedContext, cascadedProperties, violations);
     }
 
     private Map<ConstraintKey, Integer> generatedTypeConstraints(Class<?> beanType) {
@@ -753,6 +787,7 @@ public class ReflectionValidator extends DefaultValidator {
                     object.getClass(),
                     effectiveProperty(property, ignorePropertyAnnotations, providerContainerElements),
                     groupContext,
+                    groupContext,
                     violations,
                     false,
                     true,
@@ -815,10 +850,11 @@ public class ReflectionValidator extends DefaultValidator {
     private <T> void validateProviderOnlyProperties(T object,
                                                     ReflectionBeanMetadata metadata,
                                                     BeanValidationContext groupContext,
+                                                    BeanValidationContext cascadedContext,
+                                                    Set<String> cascadedProperties,
                                                     Set<ConstraintViolation<T>> violations) {
-        Set<String> cascadedProperties = new LinkedHashSet<>();
         for (ReflectionProperty property : providerOnlyProperties(object.getClass(), metadata.properties.keySet())) {
-            validateProperty(object, object, object.getClass(), property, groupContext, violations, false, true, true, null, cascadedProperties);
+            validateProperty(object, object, object.getClass(), property, groupContext, cascadedContext, violations, false, true, true, null, cascadedProperties);
         }
     }
 
@@ -1774,6 +1810,7 @@ public class ReflectionValidator extends DefaultValidator {
                                       @Nullable Class<?> rootBeanClass,
                                       ReflectionProperty property,
                                       BeanValidationContext context,
+                                      BeanValidationContext cascadedContext,
                                       Set<ConstraintViolation<T>> violations,
                                       boolean supplementIntrospection,
                                       boolean validatePropertyConstraints,
@@ -1803,7 +1840,7 @@ public class ReflectionValidator extends DefaultValidator {
                 value,
                 value,
                 property.type,
-                convertGroups(context, property.groupConversions),
+                convertGroups(cascadedContext, property.groupConversions),
                 violations,
                 propertyPath,
                 validatedObjectsIncluding(leafBean)
@@ -4185,7 +4222,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4206,7 +4243,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(

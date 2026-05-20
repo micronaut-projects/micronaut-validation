@@ -549,6 +549,21 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void isolatesCascadedViolationsFromRootDefaultGroupSequence() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            SequenceContainer bean = new SequenceContainer();
+
+            assertEquals(Set.of("size", "nested.nickname"), propertyPaths(validator.validate(bean)));
+
+            bean.size = 10;
+            assertEquals(Set.of("name", "nested.nickname"), propertyPaths(validator.validate(bean)));
+        }
+    }
+
+    @Test
     void appliesImplicitInterfaceGroupsToSupplementalReflectionConstraints() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -1077,6 +1092,32 @@ class ReflectionValidatorTest {
         public String getName() {
             return name;
         }
+    }
+
+    private static Set<String> propertyPaths(Set<? extends ConstraintViolation<?>> violations) {
+        return violations.stream()
+            .map(violation -> violation.getPropertyPath().toString())
+            .collect(java.util.stream.Collectors.toSet());
+    }
+
+    @GroupSequence({MinimalSequence.class, SequenceContainer.class})
+    private static final class SequenceContainer {
+        @Max(value = 10, groups = MinimalSequence.class)
+        private int size = 20;
+
+        @Size(max = 20)
+        private String name = "this name is too long";
+
+        @Valid
+        private SequenceNested nested = new SequenceNested();
+    }
+
+    private static final class SequenceNested {
+        @Size(max = 20)
+        private String nickname = "and this nickname as well";
+    }
+
+    private interface MinimalSequence {
     }
 
     private record IgnoringMetadataProvider(Class<?> ignoredType) implements ValidationMetadataProvider {

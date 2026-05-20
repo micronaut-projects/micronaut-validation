@@ -79,6 +79,19 @@ final class ReflectionGroupSequences {
         return false;
     }
 
+    static boolean hasDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
+        List<Class<?>> groups = context.groups();
+        if (!groups.isEmpty() && !(groups.size() == 1 && groups.contains(Default.class))) {
+            return false;
+        }
+        for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
+            if (current.getDeclaredAnnotation(GroupSequence.class) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType) {
         for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
             GroupSequence groupSequence = current.getDeclaredAnnotation(GroupSequence.class);

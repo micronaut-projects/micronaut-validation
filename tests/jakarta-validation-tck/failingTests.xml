@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 11 classes, 54 methods,
+        Current tracker shape: 10 classes, 49 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -107,6 +107,7 @@
         - org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest
         - org.hibernate.beanvalidation.tck.tests.constraints.groups.DefaultGroupRedefinitionTest#testValidatingAgainstRedefinedDefaultGroup
         - org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest
         - org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest
         - org.hibernate.beanvalidation.tck.tests.metadata.ElementDescriptorTest
@@ -214,15 +215,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
-                <methods>
-                    <include name="testCorrectDefaultSequenceContainedCaseWithGroupRedefinitionOnContainedEntity"/>
-                    <include name="testCorrectDefaultSequenceContainedCaseWithoutGroupRedefinitionOnContainedEntity"/>
-                    <include name="testCorrectDefaultSequenceInheritance"/>
-                    <include name="testCorrectDefaultSequenceInheritance2"/>
-                    <include name="testCorrectDefaultSequenceInheritance3"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
                 <methods>
                     <include name="testConstrainedParameterInOneMethodOfParallelInterfacesCausesException"/>
