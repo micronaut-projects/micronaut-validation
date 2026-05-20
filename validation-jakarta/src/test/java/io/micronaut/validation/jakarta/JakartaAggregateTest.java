@@ -16,16 +16,25 @@
 package io.micronaut.validation.jakarta;
 
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.metadata.ConstraintDescriptor;
 import javafx.beans.property.ReadOnlyDoubleWrapper;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.lang.annotation.Retention;
+import java.util.List;
 import java.util.Set;
 
+import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JakartaAggregateTest {
 
@@ -55,6 +64,36 @@ class JakartaAggregateTest {
         }
     }
 
+    @Test
+    void aggregateAppliesProgrammaticXmlConstraintDefinitionsToReflectionMetadata() {
+        String mapping = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.0">
+                <constraint-definition annotation="io.micronaut.validation.jakarta.JakartaAggregateTest$XmlLength">
+                    <validated-by include-existing-validators="true">
+                        <value>io.micronaut.validation.jakarta.JakartaAggregateTest$XmlLengthXmlValidator</value>
+                    </validated-by>
+                </constraint-definition>
+            </constraint-mappings>
+            """;
+
+        try (ValidatorFactory validatorFactory = Validation.byDefaultProvider()
+            .configure()
+            .addMapping(new ByteArrayInputStream(mapping.getBytes(java.nio.charset.StandardCharsets.UTF_8)))
+            .buildValidatorFactory()) {
+            ConstraintDescriptor<?> descriptor = validatorFactory.getValidator()
+                .getConstraintsForClass(XmlLengthBean.class)
+                .getConstraintsForProperty("name")
+                .getConstraintDescriptors()
+                .iterator()
+                .next();
+
+            List<Class<? extends ConstraintValidator<?, ?>>> validators = (List) descriptor.getConstraintValidatorClasses();
+            assertEquals(2, validators.size());
+            assertTrue(validators.contains(XmlLengthValidator.class));
+            assertTrue(validators.contains(XmlLengthXmlValidator.class));
+        }
+    }
+
     static final class PlainBean {
         @Size(min = 3, message = "length ${validatedValue.length()} must be at least {min}")
         private final String name;
@@ -67,5 +106,35 @@ class JakartaAggregateTest {
     static final class JavaFxBean {
         @Max(3)
         private final ReadOnlyDoubleWrapper rating = new ReadOnlyDoubleWrapper(4.5);
+    }
+
+    static final class XmlLengthBean {
+        @XmlLength
+        private String name;
+    }
+
+    @jakarta.validation.Constraint(validatedBy = XmlLengthValidator.class)
+    @java.lang.annotation.Target(FIELD)
+    @Retention(RUNTIME)
+    @interface XmlLength {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends jakarta.validation.Payload>[] payload() default {};
+    }
+
+    static final class XmlLengthValidator implements ConstraintValidator<XmlLength, String> {
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
+            return true;
+        }
+    }
+
+    static final class XmlLengthXmlValidator implements ConstraintValidator<XmlLength, String> {
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
+            return true;
+        }
     }
 }

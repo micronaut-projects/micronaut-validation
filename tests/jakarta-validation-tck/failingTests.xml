@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 3 classes, 24 methods,
+        Current tracker shape: 2 classes, 22 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -247,12 +247,6 @@
                     <include name="testElementConversionInXmlConfiguredConstraint"/>
                     <include name="testFieldConstraintDefinedInXml"/>
                     <include name="testPropertyConstraintDefinedInXml"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdefinition.XmlConfiguredConstraintValidatorTest">
-                <methods>
-                    <include name="testExcludeExistingValidators"/>
-                    <include name="testIncludeExistingValidators"/>
                 </methods>
             </class>
         </classes>
