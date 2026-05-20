@@ -1792,6 +1792,7 @@ public class ReflectionValidator extends DefaultValidator {
         if (validateCascaded
             && value != null
             && property.isCascaded()
+            && property.containerElements.stream().noneMatch(ReflectionContainerElement::cascaded)
             && (cascadedProperties == null || cascadedProperties.add(property.name))
             && isCascadable(leafBean, property, rootBeanClass, pathToLeafBean)) {
             validateCascadedValueOrContainer(
@@ -2701,7 +2702,7 @@ public class ReflectionValidator extends DefaultValidator {
                         key,
                         index,
                         declaredType,
-                        valueExtractorDefinition.typeArgumentIndex()
+                        legacyCascadedTypeArgumentIndex(declaredType, valueExtractorDefinition)
                     );
                     validateCascadedValue(
                         rootBean,
@@ -2719,6 +2720,11 @@ public class ReflectionValidator extends DefaultValidator {
         if (!container) {
             validateCascadedValue(rootBean, rootBeanClass, leafBean, value, context, violations, beanPath, validatedObjects);
         }
+    }
+
+    private static @Nullable Integer legacyCascadedTypeArgumentIndex(Class<?> declaredType,
+                                                                     ValueExtractorDefinition<?> valueExtractorDefinition) {
+        return declaredType.getTypeParameters().length == 0 ? null : valueExtractorDefinition.typeArgumentIndex();
     }
 
     private static boolean shouldCascadeContainerValue(Class<?> declaredType,

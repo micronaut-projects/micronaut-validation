@@ -301,12 +301,6 @@
                     <include name="testAddingNodesInClassLevelConstraintKeepsInIterableKeyAndIndex"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.LegacyValidOnContainerCascadingTest">
-                <methods>
-                    <include name="testValidOnListAndOnTypeArgument"/>
-                    <include name="testValidOnListWithoutTypeArgument"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnProperty"/>

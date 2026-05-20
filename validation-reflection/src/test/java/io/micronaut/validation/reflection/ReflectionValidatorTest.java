@@ -480,6 +480,38 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void doesNotDuplicateLegacyAndTypeArgumentCascadedListValidation() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<LegacyAndTypeArgumentListBean>> violations = validator.validate(new LegacyAndTypeArgumentListBean());
+
+            assertEquals(1, violations.size());
+        }
+    }
+
+    @Test
+    void usesNullTypeArgumentIndexForLegacyRawListCascading() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            ConstraintViolation<LegacyRawListBean> violation = validator.validate(new LegacyRawListBean()).iterator().next();
+            Path.Node nameNode = null;
+            for (Path.Node node : violation.getPropertyPath()) {
+                nameNode = node;
+            }
+
+            assertNotNull(nameNode);
+            assertEquals("name", nameNode.getName());
+            assertNull(nameNode.as(Path.PropertyNode.class).getTypeArgumentIndex());
+        }
+    }
+
+    @Test
     void appliesRedefinedDefaultGroupSequenceToSupplementalReflectionConstraints() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -892,6 +924,27 @@ class ReflectionValidatorTest {
         private void addPlayedWith(CyclicActorArray actor) {
             playedWith[current++] = actor;
         }
+    }
+
+    private static final class LegacyAndTypeArgumentListBean {
+        @Valid
+        private final List<@Valid InvalidVisitor> visitors = List.of(new InvalidVisitor());
+    }
+
+    private static final class LegacyRawListBean {
+        @Valid
+        private final RawVisitorList visitors = new RawVisitorList();
+    }
+
+    private static final class RawVisitorList extends ArrayList<InvalidVisitor> {
+        private RawVisitorList() {
+            add(new InvalidVisitor());
+        }
+    }
+
+    private static final class InvalidVisitor {
+        @NotNull
+        private final String name = null;
     }
 
     @Introspected
