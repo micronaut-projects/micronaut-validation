@@ -218,19 +218,11 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
                 <methods>
-                    <include name="constructorParameterValidationIsAppliedGroupWise"/>
-                    <include name="constructorParameterValidationTargetsParameterCrossParameterAndCascadedConstraints"/>
                     <include name="constructorParameterValidationUsingSequence"/>
-                    <include name="constructorParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="constructorParameterValidationWithRedefinedDefaultGroupSequence"/>
                     <include name="constructorReturnValueValidationUsingSequence"/>
                     <include name="constructorReturnValueValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodParameterValidationIncludesConstraintsFromImplementedInterface"/>
-                    <include name="methodParameterValidationIncludesConstraintsFromSuperClass"/>
-                    <include name="methodParameterValidationIsAppliedGroupWise"/>
-                    <include name="methodParameterValidationTargetsParameterCrossParameterAndCascadedConstraints"/>
                     <include name="methodParameterValidationUsingSequence"/>
-                    <include name="methodParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="methodParameterValidationWithRedefinedDefaultGroupSequence"/>
                     <include name="methodReturnValueValidationUsingSequence"/>
                     <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
@@ -238,10 +230,7 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorParametersTest">
                 <methods>
-                    <include name="testCrossParameterConstraintGivenSeveralTimes"/>
-                    <include name="testCrossParameterConstraintValidationWithGroup"/>
                     <include name="testOneViolation"/>
-                    <include name="testOneViolationFromCrossParameterConstraint"/>
                     <include name="testTwoConstraintsOfSameType"/>
                     <include name="testUnexpectedType"/>
                 </methods>
@@ -254,11 +243,8 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest">
                 <methods>
-                    <include name="testCrossParameterConstraintGivenSeveralTimes"/>
-                    <include name="testCrossParameterConstraintValidationWithGroup"/>
                     <include name="testOneViolation"/>
                     <include name="testOneViolationForCascadedValidation"/>
-                    <include name="testOneViolationFromCrossParameterConstraint"/>
                     <include name="testUnexpectedType"/>
                 </methods>
             </class>
@@ -281,8 +267,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
                 <methods>
                     <include name="testGetContainerClassGetTypeArgumentIndex"/>
-                    <include name="testPropertyPathForConstructorCrossParameterConstraint"/>
-                    <include name="testPropertyPathForMethodCrossParameterConstraint"/>
                     <include name="testPropertyPathTraversingConstructorArrayParameter"/>
                     <include name="testPropertyPathTraversingConstructorListParameter"/>
                     <include name="testPropertyPathTraversingConstructorMapParameter"/>

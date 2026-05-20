@@ -1103,7 +1103,7 @@ public class ReflectionValidator extends DefaultValidator {
         if (constraints.isEmpty()) {
             return;
         }
-        jakarta.validation.Path path = new ReflectionConstructorPath(constructor);
+        jakarta.validation.Path path = new ReflectionConstructorCrossParameterPath(constructor);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
@@ -1164,20 +1164,27 @@ public class ReflectionValidator extends DefaultValidator {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable parameters without Micronaut executable metadata");
         ReflectionMethodDeclarations.validateParameterDeclarations(method);
         ReflectionGroupConversions.validateMethodParameterDeclarations(method);
+        List<Method> methodHierarchy = ReflectionMethodDeclarations.hierarchy(method);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
             boolean ignoreParameterAnnotations = isMethodParameterAnnotationMetadataIgnored(method, i);
-            List<ReflectionConstraintDescriptor<?>> constraints = ignoreParameterAnnotations ? List.of() : constraintsFor(parameters[i]);
-            List<ReflectionContainerElement> containerElements = ignoreParameterAnnotations
-                ? new ArrayList<>()
-                : new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
+            List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+            List<ReflectionContainerElement> containerElements = new ArrayList<>();
+            boolean cascaded = false;
+            if (!ignoreParameterAnnotations) {
+                for (Method hierarchyMethod : methodHierarchy) {
+                    Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
+                    constraints.addAll(constraintsFor(hierarchyParameter));
+                    addAllContainerElements(containerElements, containerElementsFor(hierarchyParameter.getAnnotatedType()));
+                    cascaded |= isCascaded(hierarchyParameter);
+                }
+            }
             addAllContainerElements(containerElements, providerParameterContainerElements(method, i));
-            boolean cascaded = !ignoreParameterAnnotations && isCascaded(parameters[i]);
             Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
             if (!ignoreParameterAnnotations) {
-                for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+                for (Method hierarchyMethod : methodHierarchy) {
                     Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
                     groupConversions.addAll(groupConversionsFor(hierarchyParameter, hierarchyParameter.getAnnotatedType()));
                 }
@@ -1426,11 +1433,14 @@ public class ReflectionValidator extends DefaultValidator {
                                                                    BeanValidationContext context,
                                                                    List<String> parameterNames,
                                                                    Set<ConstraintViolation<T>> violations) {
-        List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
+        List<ReflectionConstraintDescriptor<?>> constraints = ReflectionMethodDeclarations.hierarchy(method)
+            .stream()
+            .flatMap(hierarchyMethod -> constraintsFor(hierarchyMethod).stream())
+            .toList();
         if (constraints.isEmpty()) {
             return;
         }
-        jakarta.validation.Path path = new ReflectionMethodExecutablePath(method);
+        jakarta.validation.Path path = new ReflectionMethodCrossParameterPath(method);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
@@ -4720,6 +4730,38 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    private record ReflectionConstructorCrossParameterPath(Constructor<?> constructor) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(
+                new ReflectionConstructorNode(constructor),
+                new ReflectionCrossParameterNode()
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return constructor.getDeclaringClass().getSimpleName() + ".<cross-parameter>";
+        }
+    }
+
+    private record ReflectionMethodCrossParameterPath(Method method) implements jakarta.validation.Path {
+
+        @Override
+        public Iterator<Node> iterator() {
+            return List.<Node>of(
+                new ReflectionMethodNode(method),
+                new ReflectionCrossParameterNode()
+            ).iterator();
+        }
+
+        @Override
+        public String toString() {
+            return method.getName() + ".<cross-parameter>";
+        }
+    }
+
     private record ReflectionConstructorExecutablePath(Constructor<?> constructor, String parameterName, int parameterIndex) implements jakarta.validation.Path {
 
         @Override
@@ -4912,6 +4954,44 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public String toString() {
             return "<return value>";
+        }
+    }
+
+    private static final class ReflectionCrossParameterNode implements Path.CrossParameterNode {
+
+        @Override
+        public String getName() {
+            return "<cross-parameter>";
+        }
+
+        @Override
+        public ElementKind getKind() {
+            return ElementKind.CROSS_PARAMETER;
+        }
+
+        @Override
+        public boolean isInIterable() {
+            return false;
+        }
+
+        @Override
+        public Integer getIndex() {
+            return null;
+        }
+
+        @Override
+        public Object getKey() {
+            return null;
+        }
+
+        @Override
+        public <T extends Path.Node> T as(Class<T> nodeType) {
+            return nodeType.cast(this);
+        }
+
+        @Override
+        public String toString() {
+            return "<cross-parameter>";
         }
     }
 

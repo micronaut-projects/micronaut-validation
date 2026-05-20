@@ -35,6 +35,8 @@ import jakarta.validation.Path;
 import jakarta.validation.Payload;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
@@ -51,17 +53,20 @@ import jakarta.validation.metadata.Scope;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.ElementType;
+import java.lang.annotation.Repeatable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
-import java.lang.annotation.Repeatable;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.FIELD;
+import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -123,6 +128,55 @@ class ReflectionValidatorTest {
             assertEquals(ElementKind.PARAMETER, parameterNode.getKind());
             assertEquals("name", parameterNode.getName());
             assertEquals(0, parameterNode.getParameterIndex());
+            assertFalse(nodes.hasNext());
+        }
+    }
+
+    @Test
+    void validatesInheritedMethodParametersWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Method method = ChildService.class.getDeclaredMethod("submit", String.class);
+
+            Set<ConstraintViolation<ChildService>> violations = validator.forExecutables()
+                .validateParameters(new ChildService(), method, new Object[]{null});
+
+            assertEquals(2, violations.size());
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.name")));
+            ConstraintViolation<ChildService> crossParameterViolation = violations.stream()
+                .filter(violation -> violation.getPropertyPath().toString().equals("submit.<cross-parameter>"))
+                .findFirst()
+                .orElseThrow();
+            Iterator<Path.Node> nodes = crossParameterViolation.getPropertyPath().iterator();
+            assertEquals(ElementKind.METHOD, nodes.next().getKind());
+            Path.Node crossParameterNode = nodes.next();
+            assertEquals(ElementKind.CROSS_PARAMETER, crossParameterNode.getKind());
+            assertEquals("<cross-parameter>", crossParameterNode.getName());
+            assertFalse(nodes.hasNext());
+        }
+    }
+
+    @Test
+    void validatesConstructorCrossParameterPathWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Constructor<CrossParameterConstructorBean> constructor = CrossParameterConstructorBean.class.getDeclaredConstructor(String.class);
+
+            Set<ConstraintViolation<CrossParameterConstructorBean>> violations = validator.forExecutables()
+                .validateConstructorParameters(constructor, new Object[]{"valid"});
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<CrossParameterConstructorBean> violation = violations.iterator().next();
+            assertEquals("CrossParameterConstructorBean.<cross-parameter>", violation.getPropertyPath().toString());
+            Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
+            assertEquals(ElementKind.CONSTRUCTOR, nodes.next().getKind());
+            Path.Node crossParameterNode = nodes.next();
+            assertEquals(ElementKind.CROSS_PARAMETER, crossParameterNode.getKind());
+            assertEquals("<cross-parameter>", crossParameterNode.getName());
             assertFalse(nodes.hasNext());
         }
     }
@@ -363,6 +417,43 @@ class ReflectionValidatorTest {
         @NotBlank
         String displayName() {
             return name;
+        }
+    }
+
+    private static class BaseService {
+        @CrossParameterConstraint
+        void submit(@NotNull String name) {
+        }
+    }
+
+    private static final class ChildService extends BaseService {
+        @Override
+        void submit(String name) {
+        }
+    }
+
+    private static final class CrossParameterConstructorBean {
+        @CrossParameterConstraint
+        CrossParameterConstructorBean(String name) {
+        }
+    }
+
+    @Target({METHOD, CONSTRUCTOR})
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = CrossParameterConstraintValidator.class)
+    private @interface CrossParameterConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @SupportedValidationTarget(ValidationTarget.PARAMETERS)
+    private static final class CrossParameterConstraintValidator implements ConstraintValidator<CrossParameterConstraint, Object[]> {
+        @Override
+        public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            return false;
         }
     }
 
