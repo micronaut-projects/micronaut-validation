@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 56 classes, 293 methods,
+        Current tracker shape: 56 classes, 288 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -137,6 +137,11 @@
         - org.hibernate.beanvalidation.tck.tests.metadata.PropertyDescriptorTest#testGetContainerElementMetaData
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testContainerElementLeafBean
+        - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathForConstructorReturnValueConstraint
+        - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingConstructorParameter
+        - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingConstructorReturnValue
+        - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingMethodParameter
+        - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingMethodReturnValue
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
     -->
@@ -416,13 +421,10 @@
                 <methods>
                     <include name="testGetContainerClassGetTypeArgumentIndex"/>
                     <include name="testPropertyPathForConstructorCrossParameterConstraint"/>
-                    <include name="testPropertyPathForConstructorReturnValueConstraint"/>
                     <include name="testPropertyPathForMethodCrossParameterConstraint"/>
                     <include name="testPropertyPathTraversingConstructorArrayParameter"/>
                     <include name="testPropertyPathTraversingConstructorListParameter"/>
                     <include name="testPropertyPathTraversingConstructorMapParameter"/>
-                    <include name="testPropertyPathTraversingConstructorParameter"/>
-                    <include name="testPropertyPathTraversingConstructorReturnValue"/>
                     <include name="testPropertyPathTraversingConstructorSetParameter"/>
                     <include name="testPropertyPathTraversingMethodArrayParameter"/>
                     <include name="testPropertyPathTraversingMethodArrayReturnValue"/>
@@ -430,8 +432,6 @@
                     <include name="testPropertyPathTraversingMethodListReturnValue"/>
                     <include name="testPropertyPathTraversingMethodMapParameter"/>
                     <include name="testPropertyPathTraversingMethodMapReturnValue"/>
-                    <include name="testPropertyPathTraversingMethodParameter"/>
-                    <include name="testPropertyPathTraversingMethodReturnValue"/>
                     <include name="testPropertyPathTraversingMethodSetParameter"/>
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
                 </methods>
