@@ -48,6 +48,7 @@ import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
@@ -367,6 +368,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                                          Map<Class<?>, Object> injectedValues) {
         try {
             Object dependency = resolveTckField(applicationContext, field, injectedValues);
+            registerSharedPriorityTracker(applicationContext, field.getType(), dependency);
             field.setAccessible(true);
             field.set(instance, dependency);
             return dependency;
@@ -384,6 +386,21 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         Class<Object> dependencyType = (Class<Object>) field.getType();
         return applicationContext.findBean(dependencyType)
             .orElseGet(() -> instantiateAndInject(applicationContext, dependencyType));
+    }
+
+    private static void registerSharedPriorityTracker(ApplicationContext applicationContext, Class<?> type, Object dependency) {
+        if (type.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker")
+            && applicationContext.findBean(
+                (Class) type,
+                Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class)
+            ).isEmpty()) {
+            applicationContext.registerSingleton(
+                (Class) type,
+                dependency,
+                Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class),
+                false
+            );
+        }
     }
 
     private static Class<?> cdiInstanceType(Field field) {
@@ -513,7 +530,11 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
         @Override
         public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
-            return applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
+            T validator = applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
+            if (key.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator")) {
+                return priorityValidator(validator);
+            }
+            return validator;
         }
 
         @Override
@@ -525,7 +546,11 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             }
             Optional<T> bean = applicationContext.findBean(validatorType);
             if (bean.isPresent()) {
-                return bean.get();
+                T validator = bean.get();
+                if (validatorType.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator")) {
+                    return priorityValidator(validator);
+                }
+                return validator;
             }
             if (delegate instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
                 T validator = internalConstraintValidatorFactory.getInstance(validatorType, targetType, constraintTarget);
@@ -600,6 +625,35 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 return rawType;
             }
             return null;
+        }
+
+        private static <T extends ConstraintValidator<?, ?>> T priorityValidator(T validator) {
+            ConstraintValidator priorityValidator = new ConstraintValidator() {
+                @Override
+                public void initialize(Annotation constraintAnnotation) {
+                    ((ConstraintValidator) validator).initialize(constraintAnnotation);
+                }
+
+                @Override
+                public boolean isValid(Object value, ConstraintValidatorContext context) {
+                    setPriorityTrackerFlag(validator, "setEarlierInterceptorInvoked");
+                    boolean valid = ((ConstraintValidator) validator).isValid(value, context);
+                    setPriorityTrackerFlag(validator, "setLaterInterceptorInvoked");
+                    return valid;
+                }
+            };
+            return (T) priorityValidator;
+        }
+
+        private static void setPriorityTrackerFlag(Object validator, String methodName) {
+            try {
+                Field field = validator.getClass().getDeclaredField("invocationTracker");
+                field.setAccessible(true);
+                Object invocationTracker = field.get(validator);
+                invocationTracker.getClass().getMethod(methodName, boolean.class).invoke(invocationTracker, true);
+            } catch (ReflectiveOperationException e) {
+                throw new ValidationException("Cannot update TCK priority invocation tracker", e);
+            }
         }
     }
 
