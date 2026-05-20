@@ -109,12 +109,6 @@
                     <exclude name="testMultipleConstraintViolationOfDifferentTypes"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
-                <methods>
-                    <!-- Combined constraint not implemented -->
-                    <exclude name=".*"/>
-                </methods>
-            </class>
 <!--            &lt;!&ndash; TODO &ndash;&gt;-->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
                 <methods>
