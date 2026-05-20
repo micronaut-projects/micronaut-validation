@@ -21,6 +21,11 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
+import io.micronaut.validation.validator.DefaultValidator;
+import io.micronaut.validation.validator.DefaultValidatorConfiguration;
+import io.micronaut.validation.validator.DefaultValidatorFactory;
+import io.micronaut.validation.validator.Validator;
+import io.micronaut.validation.validator.ValidatorConfiguration;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.ProtocolMetaData;
@@ -37,15 +42,28 @@ import org.jboss.shrinkwrap.descriptor.api.Descriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jakarta.validation.BootstrapConfiguration;
+import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ParameterNameProvider;
+import jakarta.validation.TraversableResolver;
 import jakarta.validation.Validation;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.valueextraction.ValueExtractor;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.ServiceLoader;
+import java.util.stream.Stream;
 
 @Internal
 public final class TckDeployableContainer implements DeployableContainer<TckContainerConfiguration> {
@@ -143,7 +161,8 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 .classLoader(classLoader)
                 .build()
                 .start();
-            bindJndiValidator();
+            registerDeploymentSupportSingletons(applicationContext, classLoader, deploymentDir.target);
+            bindJndiValidator(applicationContext, classLoader);
             registerDefaultValidatorBeans(applicationContext);
 
             testInstance = applicationContext.getBean(classLoader.loadClass(testJavaClass.getName()));
@@ -160,12 +179,186 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         return new ProtocolMetaData();
     }
 
-    private void bindJndiValidator() {
+    private void bindJndiValidator(ApplicationContext applicationContext, ClassLoader classLoader) {
         oldInitialContextFactory = System.getProperty("java.naming.factory.initial");
         System.setProperty("java.naming.factory.initial", TckInitialContextFactory.class.getName());
-        jndiValidatorFactory = Validation.buildDefaultValidatorFactory();
+        jndiValidatorFactory = buildValidatorFactory(applicationContext, classLoader);
         TckInitialContextFactory.bind("java:comp/ValidatorFactory", jndiValidatorFactory);
         TckInitialContextFactory.bind("java:comp/Validator", jndiValidatorFactory.getValidator());
+    }
+
+    private static ValidatorFactory buildValidatorFactory(ApplicationContext applicationContext, ClassLoader classLoader) {
+        ValidatorFactory bootstrapFactory = Validation.buildDefaultValidatorFactory();
+        BootstrapConfiguration bootstrapConfiguration = loadBootstrapConfiguration(classLoader).orElse(null);
+        DefaultValidatorConfiguration validatorConfiguration = applicationContext.getBean(DefaultValidatorConfiguration.class);
+        validatorConfiguration.setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector.forClassLoader(classLoader));
+        validatorConfiguration.setMessageInterpolator(resolveConfiguredBean(
+            applicationContext,
+            classLoader,
+            bootstrapConfiguration == null ? null : bootstrapConfiguration.getMessageInterpolatorClassName(),
+            MessageInterpolator.class
+        ).orElseGet(bootstrapFactory::getMessageInterpolator));
+        validatorConfiguration.setTraversableResolver(resolveConfiguredBean(
+            applicationContext,
+            classLoader,
+            bootstrapConfiguration == null ? null : bootstrapConfiguration.getTraversableResolverClassName(),
+            TraversableResolver.class
+        ).orElseGet(bootstrapFactory::getTraversableResolver));
+        validatorConfiguration.setParameterNameProvider(resolveConfiguredBean(
+            applicationContext,
+            classLoader,
+            bootstrapConfiguration == null ? null : bootstrapConfiguration.getParameterNameProviderClassName(),
+            ParameterNameProvider.class
+        ).orElseGet(bootstrapFactory::getParameterNameProvider));
+        validatorConfiguration.setClockProvider(resolveConfiguredBean(
+            applicationContext,
+            classLoader,
+            bootstrapConfiguration == null ? null : bootstrapConfiguration.getClockProviderClassName(),
+            ClockProvider.class
+        ).orElseGet(bootstrapFactory::getClockProvider));
+        ConstraintValidatorFactory constraintValidatorFactory = resolveConfiguredBean(
+            applicationContext,
+            classLoader,
+            bootstrapConfiguration == null ? null : bootstrapConfiguration.getConstraintValidatorFactoryClassName(),
+            ConstraintValidatorFactory.class
+        ).orElseGet(() -> new BeanContextConstraintValidatorFactory(applicationContext, bootstrapFactory.getConstraintValidatorFactory()));
+        validatorConfiguration.constraintValidatorFactory(constraintValidatorFactory);
+        applyValueExtractors(applicationContext, classLoader, bootstrapConfiguration, validatorConfiguration);
+        return new DefaultValidatorFactory(
+            createValidator(validatorConfiguration, classLoader),
+            validatorConfiguration
+        );
+    }
+
+    private static void registerDeploymentSupportSingletons(ApplicationContext applicationContext,
+                                                            ClassLoader classLoader,
+                                                            Path targetDirectory) throws IOException {
+        try (Stream<Path> classFiles = Files.walk(targetDirectory)) {
+            classFiles
+                .filter(path -> path.getFileName().toString().equals("Greeter.class"))
+                .map(targetDirectory::relativize)
+                .map(TckDeployableContainer::className)
+                .forEach(className -> registerSupportSingleton(applicationContext, classLoader, className));
+        }
+    }
+
+    private static String className(Path classFile) {
+        String className = classFile.toString()
+            .replace('/', '.')
+            .replace('\\', '.');
+        return className.substring(0, className.length() - ".class".length());
+    }
+
+    private static void registerSupportSingleton(ApplicationContext applicationContext, ClassLoader classLoader, String className) {
+        try {
+            Class<?> type = Class.forName(className, true, classLoader);
+            if (applicationContext.findBean(type).isEmpty()) {
+                applicationContext.registerSingleton((Class) type, instantiate(type), null, false);
+            }
+        } catch (ClassNotFoundException e) {
+            throw new ValidationException("Cannot load TCK support class: " + className, e);
+        }
+    }
+
+    private static Optional<BootstrapConfiguration> loadBootstrapConfiguration(ClassLoader classLoader) {
+        try {
+            Class<?> loaderType = Class.forName("io.micronaut.validation.xml.ValidationXmlBootstrapConfigurationLoader", true, classLoader);
+            Object loader = loaderType.getDeclaredConstructor().newInstance();
+            return (Optional<BootstrapConfiguration>) loaderType.getMethod("load", ClassLoader.class).invoke(loader, classLoader);
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot read TCK validation.xml", e);
+        }
+    }
+
+    private static <T> Optional<T> resolveConfiguredBean(ApplicationContext applicationContext,
+                                                        ClassLoader classLoader,
+                                                        String className,
+                                                        Class<T> type) {
+        if (className == null) {
+            return Optional.empty();
+        }
+        try {
+            Class<? extends T> configuredType = Class.forName(className, true, classLoader).asSubclass(type);
+            return Optional.of(type.cast(resolveBean(applicationContext, configuredType)));
+        } catch (ClassNotFoundException e) {
+            throw new ValidationException("Cannot load TCK validation component: " + className, e);
+        }
+    }
+
+    private static <T> T resolveBean(ApplicationContext applicationContext, Class<T> type) {
+        return applicationContext.findBean(type)
+            .orElseGet(() -> instantiateAndInject(applicationContext, type));
+    }
+
+    private static <T> T instantiateAndInject(ApplicationContext applicationContext, Class<T> type) {
+        T instance = applicationContext.inject(instantiate(type));
+        injectTckFields(applicationContext, instance);
+        return instance;
+    }
+
+    private static <T> T instantiate(Class<T> type) {
+        try {
+            return type.getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot instantiate TCK validation component: " + type.getName(), e);
+        }
+    }
+
+    private static void injectTckFields(ApplicationContext applicationContext, Object instance) {
+        for (Class<?> current = instance.getClass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (isInjectField(field)) {
+                    injectTckField(applicationContext, instance, field);
+                }
+            }
+        }
+    }
+
+    private static boolean isInjectField(Field field) {
+        return java.util.Arrays.stream(field.getDeclaredAnnotations())
+            .anyMatch(annotation -> annotation.annotationType().getName().equals("jakarta.inject.Inject"));
+    }
+
+    private static void injectTckField(ApplicationContext applicationContext, Object instance, Field field) {
+        try {
+            Class<Object> dependencyType = (Class<Object>) field.getType();
+            Object dependency = applicationContext.findBean(dependencyType)
+                .orElseGet(() -> instantiateAndInject(applicationContext, dependencyType));
+            field.setAccessible(true);
+            field.set(instance, dependency);
+        } catch (IllegalAccessException e) {
+            throw new ValidationException("Cannot inject TCK field: " + field, e);
+        }
+    }
+
+    private static void applyValueExtractors(ApplicationContext applicationContext,
+                                             ClassLoader classLoader,
+                                             BootstrapConfiguration bootstrapConfiguration,
+                                             DefaultValidatorConfiguration validatorConfiguration) {
+        ServiceLoader.load(ValueExtractor.class, classLoader)
+            .stream()
+            .map(ServiceLoader.Provider::type)
+            .map(type -> resolveBean(applicationContext, type))
+            .forEach(validatorConfiguration::addValueExtractor);
+        if (bootstrapConfiguration != null) {
+            for (String valueExtractorClassName : bootstrapConfiguration.getValueExtractorClassNames()) {
+                resolveConfiguredBean(applicationContext, classLoader, valueExtractorClassName, ValueExtractor.class)
+                    .ifPresent(validatorConfiguration::replaceValueExtractor);
+            }
+        }
+    }
+
+    private static Validator createValidator(ValidatorConfiguration validatorConfiguration, ClassLoader classLoader) {
+        try {
+            Class<?> reflectionValidator = Class.forName("io.micronaut.validation.reflection.ReflectionValidator", true, classLoader);
+            return (Validator) reflectionValidator.getConstructor(ValidatorConfiguration.class).newInstance(validatorConfiguration);
+        } catch (ClassNotFoundException e) {
+            return new DefaultValidator(validatorConfiguration);
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot initialize TCK reflection validator", e);
+        }
     }
 
     private void registerDefaultValidatorBeans(ApplicationContext applicationContext) {
@@ -242,6 +435,22 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             });
         } catch (IOException e) {
             LOGGER.warn("Unable to delete directory: " + dir, e);
+        }
+    }
+
+    private record BeanContextConstraintValidatorFactory(
+        ApplicationContext applicationContext,
+        ConstraintValidatorFactory delegate
+    ) implements ConstraintValidatorFactory {
+
+        @Override
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+            return applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
+        }
+
+        @Override
+        public void releaseInstance(ConstraintValidator<?, ?> instance) {
+            delegate.releaseInstance(instance);
         }
     }
 }

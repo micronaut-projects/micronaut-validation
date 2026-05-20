@@ -25,13 +25,7 @@ import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
-import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.visitor.ValidationVisitor;
-import jakarta.validation.ClockProvider;
-import jakarta.validation.MessageInterpolator;
-import jakarta.validation.TraversableResolver;
-import jakarta.validation.valueextraction.ValueExtractor;
-
 import java.util.Arrays;
 
 @Internal
@@ -67,19 +61,20 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
 
     private void process(ClassElement element) {
         if (element.getName().startsWith("org.hibernate.beanvalidation.tck.tests")) {
-            if (element.isAssignable(ClockProvider.class)) {
+            if (element.isAssignable("jakarta.validation.ClockProvider")) {
+                element.annotate(Vetoed.class);
                 return;
             }
-            if (element.isAssignable(ConstraintValidator.class)) {
+            if (element.isAssignable("jakarta.validation.valueextraction.ValueExtractor")) {
+                element.annotate(Vetoed.class);
                 return;
             }
-            if (element.isAssignable(ValueExtractor.class)) {
+            if (element.isAssignable("jakarta.validation.MessageInterpolator")) {
+                element.annotate(Vetoed.class);
                 return;
             }
-            if (element.isAssignable(MessageInterpolator.class)) {
-                return;
-            }
-            if (element.isAssignable(TraversableResolver.class)) {
+            if (element.isAssignable("jakarta.validation.TraversableResolver")) {
+                element.annotate(Vetoed.class);
                 return;
             }
             element.annotate(Introspected.class, builder -> {
