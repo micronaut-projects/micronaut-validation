@@ -852,8 +852,15 @@ public class ReflectionValidator extends DefaultValidator {
         List<ReflectionContainerElement> containerElements = ignoreReturnValueAnnotations
             ? new ArrayList<>()
             : new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
-            addAllContainerElements(containerElements, providerReturnValueContainerElements(method));
+        addAllContainerElements(containerElements, providerReturnValueContainerElements(method));
         boolean cascaded = !ignoreReturnValueAnnotations && ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        if (!ignoreReturnValueAnnotations) {
+            for (Method hierarchyMethod : methodHierarchy) {
+                groupConversions.addAll(groupConversionsFor(hierarchyMethod, hierarchyMethod.getAnnotatedReturnType()));
+            }
+        }
+        groupConversions.addAll(providerReturnValueGroupConversions(method));
         if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
             return Collections.emptySet();
         }
@@ -927,7 +934,7 @@ public class ReflectionValidator extends DefaultValidator {
                 object.getClass(),
                 returnValue,
                 returnValue,
-                context,
+                convertGroups(context, groupConversions),
                 violations,
                 new ReflectionReturnValueExecutablePath(method)
             );
@@ -1021,6 +1028,8 @@ public class ReflectionValidator extends DefaultValidator {
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
             List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
             addAllContainerElements(containerElements, providerConstructorParameterContainerElements(constructor, i));
+            Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>(groupConversionsFor(parameters[i], parameters[i].getAnnotatedType()));
+            groupConversions.addAll(providerConstructorParameterGroupConversions(constructor, i));
             if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
                 continue;
             }
@@ -1076,7 +1085,7 @@ public class ReflectionValidator extends DefaultValidator {
                     constructor.getDeclaringClass(),
                     value,
                     value,
-                    context,
+                    convertGroups(context, groupConversions),
                     violations,
                     new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
                 );
@@ -1166,6 +1175,14 @@ public class ReflectionValidator extends DefaultValidator {
                 : new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
             addAllContainerElements(containerElements, providerParameterContainerElements(method, i));
             boolean cascaded = !ignoreParameterAnnotations && isCascaded(parameters[i]);
+            Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+            if (!ignoreParameterAnnotations) {
+                for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+                    Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
+                    groupConversions.addAll(groupConversionsFor(hierarchyParameter, hierarchyParameter.getAnnotatedType()));
+                }
+            }
+            groupConversions.addAll(providerParameterGroupConversions(method, i));
             if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
                 continue;
             }
@@ -1221,7 +1238,7 @@ public class ReflectionValidator extends DefaultValidator {
                     object.getClass(),
                     value,
                     value,
-                    context,
+                    convertGroups(context, groupConversions),
                     violations,
                     new ReflectionExecutablePath(method, parameterName, parameterIndex)
                 );
@@ -1259,6 +1276,19 @@ public class ReflectionValidator extends DefaultValidator {
         return List.copyOf(containerElements);
     }
 
+    private Set<ReflectionGroupConversionDescriptor> providerParameterGroupConversions(Method method, int parameterIndex) {
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (MethodDescriptor methodDescriptor : providerMethodDescriptors(hierarchyMethod)) {
+                List<ParameterDescriptor> parameterDescriptors = methodDescriptor.getParameterDescriptors();
+                if (parameterIndex < parameterDescriptors.size()) {
+                    groupConversions.addAll(groupConversions(parameterDescriptors.get(parameterIndex).getGroupConversions()));
+                }
+            }
+        }
+        return Set.copyOf(groupConversions);
+    }
+
     private List<ReflectionContainerElement> providerReturnValueContainerElements(Method method) {
         List<ReflectionContainerElement> containerElements = new ArrayList<>();
         for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
@@ -1267,6 +1297,16 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return List.copyOf(containerElements);
+    }
+
+    private Set<ReflectionGroupConversionDescriptor> providerReturnValueGroupConversions(Method method) {
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (MethodDescriptor methodDescriptor : providerMethodDescriptors(hierarchyMethod)) {
+                groupConversions.addAll(groupConversions(methodDescriptor.getReturnValueDescriptor().getGroupConversions()));
+            }
+        }
+        return Set.copyOf(groupConversions);
     }
 
     private List<MethodDescriptor> providerMethodDescriptors(Method method) {
@@ -1338,6 +1378,28 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return List.copyOf(containerElements);
+    }
+
+    private Set<ReflectionGroupConversionDescriptor> providerConstructorParameterGroupConversions(Constructor<?> constructor, int parameterIndex) {
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+            if (provider instanceof ReflectionValidationMetadataProvider) {
+                continue;
+            }
+            BeanDescriptor beanDescriptor = provider.getConstraintsForClass(constructor.getDeclaringClass()).orElse(null);
+            if (beanDescriptor == null) {
+                continue;
+            }
+            ConstructorDescriptor constructorDescriptor = beanDescriptor.getConstraintsForConstructor(constructor.getParameterTypes());
+            if (constructorDescriptor == null) {
+                continue;
+            }
+            List<ParameterDescriptor> parameterDescriptors = constructorDescriptor.getParameterDescriptors();
+            if (parameterIndex < parameterDescriptors.size()) {
+                groupConversions.addAll(groupConversions(parameterDescriptors.get(parameterIndex).getGroupConversions()));
+            }
+        }
+        return Set.copyOf(groupConversions);
     }
 
     private @Nullable ReturnValueDescriptor providerConstructorReturnValueDescriptor(Constructor<?> constructor) {
