@@ -286,6 +286,12 @@ public class ReflectionValidator extends DefaultValidator {
             .anyMatch(provider -> provider.isBeanAnnotationMetadataIgnored(beanType));
     }
 
+    private boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
+        return configuration.getMetadataProviders()
+            .stream()
+            .anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanType, propertyName));
+    }
+
     @Override
     public <T> Set<ConstraintViolation<T>> validateParameters(T object, Method method, Object[] parameterValues, Class<?>... groups) {
         requireNonNull("object", object);
@@ -344,6 +350,7 @@ public class ReflectionValidator extends DefaultValidator {
         Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
             ? generatedTypeConstraints(object.getClass())
             : Set.of();
+        boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
@@ -357,12 +364,16 @@ public class ReflectionValidator extends DefaultValidator {
                 object,
                 object,
                 object.getClass(),
-                supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
+                ignoreBeanAnnotations ? List.of() : supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
                 groupContext,
                 violations,
                 new ReflectionPath(null)
             );
-            for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            for (Map.Entry<String, List<ReflectionProperty>> entry : metadata.properties.entrySet()) {
+                if (isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey())) {
+                    continue;
+                }
+                List<ReflectionProperty> properties = entry.getValue();
                 boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
                 for (ReflectionProperty property : properties) {
                     validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);
@@ -403,18 +414,23 @@ public class ReflectionValidator extends DefaultValidator {
         Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
             ? generatedTypeConstraints(object.getClass())
             : Set.of();
+        boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
         validateConstraints(
             object,
             object.getClass(),
             object,
             object,
             object.getClass(),
-            supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
+            ignoreBeanAnnotations ? List.of() : supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
             groupContext,
             violations,
             new ReflectionPath(null)
         );
-        for (List<ReflectionProperty> properties : metadata.properties.values()) {
+        for (Map.Entry<String, List<ReflectionProperty>> entry : metadata.properties.entrySet()) {
+            if (isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey())) {
+                continue;
+            }
+            List<ReflectionProperty> properties = entry.getValue();
             boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
             for (ReflectionProperty property : properties) {
                 validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);

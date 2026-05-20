@@ -341,6 +341,17 @@ class ReflectionValidatorTest {
         assertTrue(descriptor.getConstrainedProperties().isEmpty());
     }
 
+    @Test
+    void ignoredPropertyMetadataProviderSuppressesSupplementalReflectionValidation() {
+        DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
+        configuration.setMetadataProviders(List.of(new IgnoringPropertyMetadataProvider(PropertyIgnoredValidationBean.class, "name")));
+        ReflectionValidator validator = new ReflectionValidator(configuration, false);
+
+        Set<ConstraintViolation<PropertyIgnoredValidationBean>> violations = validator.validate(new PropertyIgnoredValidationBean());
+
+        assertTrue(violations.isEmpty());
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
@@ -539,6 +550,16 @@ class ReflectionValidatorTest {
         private int amount;
     }
 
+    @Introspected
+    private static final class PropertyIgnoredValidationBean {
+        @NotNull
+        private String name;
+
+        public String getName() {
+            return name;
+        }
+    }
+
     private record IgnoringMetadataProvider(Class<?> ignoredType) implements ValidationMetadataProvider {
 
         @Override
@@ -559,6 +580,22 @@ class ReflectionValidatorTest {
         @Override
         public boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
             return beanType == ignoredType;
+        }
+    }
+
+    private record IgnoringPropertyMetadataProvider(
+        Class<?> ignoredType,
+        String ignoredProperty
+    ) implements ValidationMetadataProvider {
+
+        @Override
+        public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
+            return Optional.empty();
+        }
+
+        @Override
+        public boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
+            return beanType == ignoredType && propertyName.equals(ignoredProperty);
         }
     }
 
