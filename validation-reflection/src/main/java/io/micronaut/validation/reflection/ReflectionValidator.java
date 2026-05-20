@@ -321,11 +321,18 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("method", method);
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("groups", groups);
-        Set<ConstraintViolation<T>> generatedViolations = filterGeneratedExecutableViolations(
-            method,
-            super.validateParameters(object, method, parameterValues, groups),
-            ConstraintTarget.PARAMETERS
-        );
+        Set<ConstraintViolation<T>> generatedViolations;
+        UnexpectedTypeException generatedException = null;
+        try {
+            generatedViolations = filterGeneratedExecutableViolations(
+                method,
+                super.validateParameters(object, method, parameterValues, groups),
+                ConstraintTarget.PARAMETERS
+            );
+        } catch (UnexpectedTypeException e) {
+            generatedViolations = Collections.emptySet();
+            generatedException = e;
+        }
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
@@ -333,7 +340,13 @@ public class ReflectionValidator extends DefaultValidator {
             (groupContext, cascadedContext) -> validateParametersReflectively(object, method, parameterValues, groupContext, cascadedContext),
             violation -> violation.getLeafBean() == object
         );
-        return reflectedViolations.isEmpty() ? generatedViolations : mergeViolations(generatedViolations, reflectedViolations);
+        if (!reflectedViolations.isEmpty()) {
+            return mergeViolations(generatedViolations, reflectedViolations);
+        }
+        if (generatedException != null) {
+            throw generatedException;
+        }
+        return generatedViolations;
     }
 
     @Override
