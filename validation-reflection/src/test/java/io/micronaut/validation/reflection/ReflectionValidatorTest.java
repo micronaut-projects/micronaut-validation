@@ -24,6 +24,7 @@ import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -304,6 +305,19 @@ class ReflectionValidatorTest {
 
             assertThrows(ValidationException.class, () -> validator.forExecutables()
                 .validateParameters(bean, InvalidExecutableBean.class.getDeclaredMethod("submit", String.class), new Object[]{"a"}));
+        }
+    }
+
+    @Test
+    void rejectsCrossParameterConstraintValidatorForNonParameterType() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            InvalidCrossParameterBean bean = new InvalidCrossParameterBean();
+
+            assertThrows(ConstraintDefinitionException.class, () -> validator.forExecutables()
+                .validateParameters(bean, InvalidCrossParameterBean.class.getDeclaredMethod("submit", String.class), new Object[]{"a"}));
         }
     }
 
@@ -679,6 +693,12 @@ class ReflectionValidatorTest {
         }
     }
 
+    private static final class InvalidCrossParameterBean {
+        @InvalidCrossParameterConstraint
+        public void submit(String value) {
+        }
+    }
+
     private static final class SequenceExecutableBean {
         @CrossParameterConstraint(groups = ExecutableAdvanced.class)
         void submit(@NotNull(groups = ExecutableBasic.class) String name, @NotNull(groups = ExecutableAdvanced.class) String code) {
@@ -725,6 +745,25 @@ class ReflectionValidatorTest {
     private static final class CrossParameterConstraintValidator implements ConstraintValidator<CrossParameterConstraint, Object[]> {
         @Override
         public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Target(METHOD)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = InvalidCrossParameterConstraintValidator.class)
+    private @interface InvalidCrossParameterConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @SupportedValidationTarget(ValidationTarget.PARAMETERS)
+    private static final class InvalidCrossParameterConstraintValidator implements ConstraintValidator<InvalidCrossParameterConstraint, String> {
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
             return false;
         }
     }
