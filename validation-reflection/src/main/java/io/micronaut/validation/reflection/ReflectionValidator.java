@@ -336,20 +336,19 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("constructor", constructor);
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("groups", groups);
+        Set<ConstraintViolation<T>> generatedViolations = Collections.emptySet();
         BeanIntrospection<? extends T> introspection = getBeanIntrospection(constructor.getDeclaringClass());
         if (introspection != null && introspection.getConstructorArguments().length == constructor.getParameterCount()) {
-            Set<ConstraintViolation<T>> violations = super.validateConstructorParameters(constructor, parameterValues, groups);
-            if (!violations.isEmpty()) {
-                return violations;
-            }
+            generatedViolations = super.validateConstructorParameters(constructor, parameterValues, groups);
         }
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        return validateExecutableGroupPasses(
+        Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             constructor.getDeclaringClass(),
             context,
             (groupContext, cascadedContext) -> validateConstructorParametersReflectively(constructor, parameterValues, groupContext, cascadedContext),
             violation -> violation.getLeafBean() == null
         );
+        return reflectedViolations.isEmpty() ? generatedViolations : reflectedViolations;
     }
 
     @Override
@@ -364,7 +363,7 @@ public class ReflectionValidator extends DefaultValidator {
             constructor.getDeclaringClass(),
             context,
             (groupContext, cascadedContext) -> validateConstructorReturnValueReflectively(constructor, createdObject, groupContext, cascadedContext),
-            violation -> violation.getLeafBean() == null
+            violation -> violation.getLeafBean() == createdObject
         );
     }
 
@@ -888,6 +887,41 @@ public class ReflectionValidator extends DefaultValidator {
         return Collections.unmodifiableSet(merged);
     }
 
+    @SuppressWarnings("unchecked")
+    private static <T> Set<ConstraintViolation<T>> withExecutableParameters(Set<ConstraintViolation<T>> violations,
+                                                                            Object[] executableParameters) {
+        if (violations.isEmpty()) {
+            return violations;
+        }
+        Set<ConstraintViolation<T>> mapped = new LinkedHashSet<>(violations.size());
+        for (ConstraintViolation<T> violation : violations) {
+            mapped.add(violation instanceof ReflectionConstraintViolation<?> reflectionViolation
+                ? ((ReflectionConstraintViolation<T>) reflectionViolation).withExecutableParameters(executableParameters)
+                : violation);
+        }
+        return Collections.unmodifiableSet(mapped);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> Set<ConstraintViolation<T>> withExecutableReturnValue(Set<ConstraintViolation<T>> violations,
+                                                                             @Nullable Object executableReturnValue) {
+        if (violations.isEmpty()) {
+            return violations;
+        }
+        Set<ConstraintViolation<T>> mapped = new LinkedHashSet<>(violations.size());
+        for (ConstraintViolation<T> violation : violations) {
+            mapped.add(violation instanceof ReflectionConstraintViolation<?> reflectionViolation
+                ? ((ReflectionConstraintViolation<T>) reflectionViolation).withExecutableReturnValue(executableReturnValue)
+                : violation);
+        }
+        return Collections.unmodifiableSet(mapped);
+    }
+
+    private static UnexpectedTypeException unexpectedType(ReflectionConstraintDescriptor<?> constraint,
+                                                          Class<?> valueType) {
+        return new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraint.getType().getName() + " and type: " + valueType);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T> Set<ConstraintViolation<T>> validateReturnValueReflectively(T object,
                                                                             Method method,
@@ -932,7 +966,7 @@ public class ReflectionValidator extends DefaultValidator {
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
             Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE, true);
             if (valid == null) {
-                continue;
+                throw unexpectedType(constraint, method.getReturnType());
             }
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
@@ -994,7 +1028,7 @@ public class ReflectionValidator extends DefaultValidator {
                 new ReflectionReturnValueExecutablePath(method)
             );
         }
-        return Collections.unmodifiableSet(violations);
+        return withExecutableReturnValue(violations, returnValue);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1025,13 +1059,13 @@ public class ReflectionValidator extends DefaultValidator {
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
             Boolean valid = validateConstraint(constraint, createdObject, constructor.getDeclaringClass(), validatorContext, ConstraintTarget.IMPLICIT, true);
             if (valid == null) {
-                continue;
+                throw unexpectedType(constraint, constructor.getDeclaringClass());
             }
             if (!valid && !validatorContext.defaultViolationDisabled()) {
                 violations.add(new ReflectionConstraintViolation<>(
                     null,
                     (Class<T>) constructor.getDeclaringClass(),
-                    null,
+                    createdObject,
                     createdObject,
                     interpolate(constraint.getMessageTemplate(), constraint, createdObject),
                     constraint.getMessageTemplate(),
@@ -1043,7 +1077,7 @@ public class ReflectionValidator extends DefaultValidator {
                 violations.add(new ReflectionConstraintViolation<>(
                     null,
                     (Class<T>) constructor.getDeclaringClass(),
-                    null,
+                    createdObject,
                     createdObject,
                     interpolate(customViolation.messageTemplate(), constraint, createdObject),
                     customViolation.messageTemplate(),
@@ -1063,7 +1097,7 @@ public class ReflectionValidator extends DefaultValidator {
                 new ReflectionConstructorReturnValueExecutablePath(constructor)
             );
         }
-        return Collections.unmodifiableSet(violations);
+        return withExecutableReturnValue(violations, createdObject);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1082,7 +1116,7 @@ public class ReflectionValidator extends DefaultValidator {
         validateConstructorConstraintDeclarations(constructor, context);
         validateConstructorCrossParameterConstraintsReflectively(constructor, parameterValues, context, violations);
         for (int i = 0; i < parameters.length; i++) {
-            List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
+            List<ReflectionConstraintDescriptor<?>> constraints = parameterConstraints(parameters[i]);
             List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
             addAllContainerElements(containerElements, providerConstructorParameterContainerElements(constructor, i));
             Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>(groupConversionsFor(parameters[i], parameters[i].getAnnotatedType()));
@@ -1097,7 +1131,10 @@ public class ReflectionValidator extends DefaultValidator {
                 }
                 jakarta.validation.Path path = new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i);
                 ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
-                boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[i], validatorContext);
+                Boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[i], validatorContext);
+                if (valid == null) {
+                    throw unexpectedType(constraint, constructor.getParameterTypes()[i]);
+                }
                 if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         null,
@@ -1148,7 +1185,7 @@ public class ReflectionValidator extends DefaultValidator {
                 );
             }
         }
-        return Collections.unmodifiableSet(violations);
+        return withExecutableParameters(violations, parameterValues);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1234,7 +1271,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (!ignoreParameterAnnotations) {
                 for (Method hierarchyMethod : methodHierarchy) {
                     Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
-                    constraints.addAll(constraintsFor(hierarchyParameter));
+                    constraints.addAll(parameterConstraints(hierarchyParameter));
                     addAllContainerElements(containerElements, containerElementsFor(hierarchyParameter.getAnnotatedType()));
                     cascaded |= isCascaded(hierarchyParameter);
                 }
@@ -1258,7 +1295,10 @@ public class ReflectionValidator extends DefaultValidator {
                 }
                 jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i);
                 ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
-                boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext, ConstraintTarget.IMPLICIT, true);
+                Boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext, ConstraintTarget.IMPLICIT, true);
+                if (valid == null) {
+                    throw unexpectedType(constraint, method.getParameterTypes()[i]);
+                }
                 if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         object,
@@ -1309,7 +1349,7 @@ public class ReflectionValidator extends DefaultValidator {
                 );
             }
         }
-        return Collections.unmodifiableSet(violations);
+        return withExecutableParameters(violations, parameterValues);
     }
 
     private static Function<ReflectionContainerContext, jakarta.validation.Path> constructorParameterContainerElementPath(Constructor<?> constructor,
@@ -2614,6 +2654,18 @@ public class ReflectionValidator extends DefaultValidator {
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element) {
         return constraintsFor(element, null);
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> parameterConstraints(Parameter parameter) {
+        List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>(constraintsFor(parameter));
+        for (ReflectionConstraintDescriptor<?> typeUseConstraint : constraintsFor(parameter.getAnnotatedType())) {
+            boolean duplicate = constraints.stream()
+                .anyMatch(constraint -> constraint.getAnnotation().equals(typeUseConstraint.getAnnotation()));
+            if (!duplicate) {
+                constraints.add(typeUseConstraint);
+            }
+        }
+        return constraints;
     }
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element, @Nullable Class<?> implicitGroup) {
@@ -4537,8 +4589,51 @@ public class ReflectionValidator extends DefaultValidator {
         String message,
         String messageTemplate,
         jakarta.validation.Path propertyPath,
-        ConstraintDescriptor<?> constraintDescriptor
+        ConstraintDescriptor<?> constraintDescriptor,
+        Object @Nullable [] executableParameters,
+        @Nullable Object executableReturnValue
     ) implements ConstraintViolation<T> {
+
+        ReflectionConstraintViolation(@Nullable T rootBean,
+                                      @Nullable Class<T> rootBeanClass,
+                                      @Nullable Object leafBean,
+                                      @Nullable Object invalidValue,
+                                      String message,
+                                      String messageTemplate,
+                                      jakarta.validation.Path propertyPath,
+                                      ConstraintDescriptor<?> constraintDescriptor) {
+            this(rootBean, rootBeanClass, leafBean, invalidValue, message, messageTemplate, propertyPath, constraintDescriptor, null, null);
+        }
+
+        ReflectionConstraintViolation<T> withExecutableParameters(Object[] executableParameters) {
+            return new ReflectionConstraintViolation<>(
+                rootBean,
+                rootBeanClass,
+                leafBean,
+                invalidValue,
+                message,
+                messageTemplate,
+                propertyPath,
+                constraintDescriptor,
+                executableParameters,
+                null
+            );
+        }
+
+        ReflectionConstraintViolation<T> withExecutableReturnValue(@Nullable Object executableReturnValue) {
+            return new ReflectionConstraintViolation<>(
+                rootBean,
+                rootBeanClass,
+                leafBean,
+                invalidValue,
+                message,
+                messageTemplate,
+                propertyPath,
+                constraintDescriptor,
+                null,
+                executableReturnValue
+            );
+        }
 
         @Override
         public String getMessage() {
@@ -4567,12 +4662,12 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public Object[] getExecutableParameters() {
-            return null;
+            return executableParameters;
         }
 
         @Override
         public Object getExecutableReturnValue() {
-            return null;
+            return executableReturnValue;
         }
 
         @Override

@@ -68,11 +68,14 @@ import java.util.Set;
 import static java.lang.annotation.ElementType.CONSTRUCTOR;
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.ElementType.TYPE;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -114,13 +117,16 @@ class ReflectionValidatorTest {
         ))) {
             Validator validator = context.getBean(Validator.class);
             Constructor<PlainBean> constructor = PlainBean.class.getDeclaredConstructor(String.class);
+            Object[] parameterValues = new Object[]{""};
 
             Set<ConstraintViolation<PlainBean>> violations = validator.forExecutables()
-                .validateConstructorParameters(constructor, new Object[]{""});
+                .validateConstructorParameters(constructor, parameterValues);
 
             assertEquals(1, violations.size());
             ConstraintViolation<PlainBean> violation = violations.iterator().next();
             assertEquals("", violation.getInvalidValue());
+            assertSame(parameterValues, violation.getExecutableParameters());
+            assertNull(violation.getExecutableReturnValue());
             Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
             Path.Node constructorNode = nodes.next();
             assertEquals(ElementKind.CONSTRUCTOR, constructorNode.getKind());
@@ -140,11 +146,14 @@ class ReflectionValidatorTest {
         ))) {
             Validator validator = context.getBean(Validator.class);
             Method method = ChildService.class.getDeclaredMethod("submit", String.class);
+            Object[] parameterValues = new Object[]{null};
 
             Set<ConstraintViolation<ChildService>> violations = validator.forExecutables()
-                .validateParameters(new ChildService(), method, new Object[]{null});
+                .validateParameters(new ChildService(), method, parameterValues);
 
             assertEquals(2, violations.size());
+            assertTrue(violations.stream().allMatch(violation -> violation.getExecutableParameters() == parameterValues));
+            assertTrue(violations.stream().allMatch(violation -> violation.getExecutableReturnValue() == null));
             assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.name")));
             ConstraintViolation<ChildService> crossParameterViolation = violations.stream()
                 .filter(violation -> violation.getPropertyPath().toString().equals("submit.<cross-parameter>"))
@@ -238,13 +247,17 @@ class ReflectionValidatorTest {
             ReflectionValidator.WARNINGS_ENABLED, false
         ))) {
             Validator validator = context.getBean(Validator.class);
+            PlainBean bean = new PlainBean("x");
+            String returnValue = "";
 
             Set<ConstraintViolation<PlainBean>> violations = validator.forExecutables()
-                .validateReturnValue(new PlainBean("x"), PlainBean.class.getDeclaredMethod("displayName"), "");
+                .validateReturnValue(bean, PlainBean.class.getDeclaredMethod("displayName"), returnValue);
 
             assertEquals(1, violations.size());
             ConstraintViolation<PlainBean> violation = violations.iterator().next();
             assertEquals("", violation.getInvalidValue());
+            assertNull(violation.getExecutableParameters());
+            assertSame(returnValue, violation.getExecutableReturnValue());
             Iterator<Path.Node> nodes = violation.getPropertyPath().iterator();
             Path.Node methodNode = nodes.next();
             assertEquals(ElementKind.METHOD, methodNode.getKind());
@@ -253,6 +266,40 @@ class ReflectionValidatorTest {
             assertEquals(ElementKind.RETURN_VALUE, returnValueNode.getKind());
             assertEquals("<return value>", returnValueNode.getName());
             assertFalse(nodes.hasNext());
+        }
+    }
+
+    @Test
+    void validatesConstructorReturnValueExecutableMetadataWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Constructor<ConstructorReturnBean> constructor = ConstructorReturnBean.class.getDeclaredConstructor();
+            ConstructorReturnBean createdObject = new ConstructorReturnBean();
+
+            Set<ConstraintViolation<ConstructorReturnBean>> violations = validator.forExecutables()
+                .validateConstructorReturnValue(constructor, createdObject);
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<ConstructorReturnBean> violation = violations.iterator().next();
+            assertSame(createdObject, violation.getLeafBean());
+            assertSame(createdObject, violation.getInvalidValue());
+            assertNull(violation.getExecutableParameters());
+            assertSame(createdObject, violation.getExecutableReturnValue());
+        }
+    }
+
+    @Test
+    void rejectsUnexpectedExecutableConstraintTypesWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            InvalidExecutableBean bean = new InvalidExecutableBean();
+
+            assertThrows(ValidationException.class, () -> validator.forExecutables()
+                .validateParameters(bean, InvalidExecutableBean.class.getDeclaredMethod("submit", String.class), new Object[]{"a"}));
         }
     }
 
@@ -489,6 +536,17 @@ class ReflectionValidatorTest {
         }
     }
 
+    private static final class ConstructorReturnBean {
+        @InvalidConstructorReturnConstraint
+        ConstructorReturnBean() {
+        }
+    }
+
+    private static final class InvalidExecutableBean {
+        public void submit(@InvalidIntegerConstraint String value) {
+        }
+    }
+
     private static final class SequenceExecutableBean {
         @CrossParameterConstraint(groups = ExecutableAdvanced.class)
         void submit(@NotNull(groups = ExecutableBasic.class) String name, @NotNull(groups = ExecutableAdvanced.class) String code) {
@@ -535,6 +593,42 @@ class ReflectionValidatorTest {
     private static final class CrossParameterConstraintValidator implements ConstraintValidator<CrossParameterConstraint, Object[]> {
         @Override
         public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Target({PARAMETER, METHOD, CONSTRUCTOR})
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = InvalidIntegerConstraintValidator.class)
+    private @interface InvalidIntegerConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class InvalidIntegerConstraintValidator implements ConstraintValidator<InvalidIntegerConstraint, Integer> {
+        @Override
+        public boolean isValid(Integer value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Target(CONSTRUCTOR)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = InvalidConstructorReturnConstraintValidator.class)
+    private @interface InvalidConstructorReturnConstraint {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class InvalidConstructorReturnConstraintValidator implements ConstraintValidator<InvalidConstructorReturnConstraint, ConstructorReturnBean> {
+        @Override
+        public boolean isValid(ConstructorReturnBean value, ConstraintValidatorContext context) {
             return false;
         }
     }
