@@ -19,6 +19,7 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import io.micronaut.validation.validator.DefaultValidator;
@@ -27,6 +28,7 @@ import io.micronaut.validation.validator.DefaultValidatorFactory;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.ProtocolMetaData;
@@ -221,8 +223,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         if (!applyXmlConfiguration) {
             bootstrapConfiguration = null;
         }
-        DefaultValidatorConfiguration validatorConfiguration = applicationContext.getBean(DefaultValidatorConfiguration.class);
-        validatorConfiguration.setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector.forClassLoader(classLoader));
+        DefaultValidatorConfiguration validatorConfiguration = newDeploymentValidatorConfiguration(applicationContext, classLoader);
         validatorConfiguration.setMessageInterpolator(resolveConfiguredBean(
             applicationContext,
             classLoader,
@@ -259,6 +260,16 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             createValidator(validatorConfiguration, classLoader),
             validatorConfiguration
         );
+    }
+
+    private static DefaultValidatorConfiguration newDeploymentValidatorConfiguration(ApplicationContext applicationContext,
+                                                                                     ClassLoader classLoader) {
+        DefaultValidatorConfiguration validatorConfiguration = new DefaultValidatorConfiguration();
+        applicationContext.findBean(ConversionService.class).ifPresent(validatorConfiguration::setConversionService);
+        validatorConfiguration.setExecutionHandleLocator(applicationContext);
+        validatorConfiguration.setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector.forClassLoader(classLoader));
+        validatorConfiguration.setMetadataProviders(List.copyOf(applicationContext.getBeansOfType(ValidationMetadataProvider.class)));
+        return validatorConfiguration;
     }
 
     @SuppressWarnings({"rawtypes", "unchecked"})

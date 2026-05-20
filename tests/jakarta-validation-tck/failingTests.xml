@@ -17,8 +17,8 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 36 classes, 94 methods,
-        and 1 class-level setup failure.
+        Current tracker shape: 35 classes, 94 methods,
+        and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
         - org.hibernate.beanvalidation.tck.tests.bootstrap.BootstrapConfigurationTest
@@ -343,7 +343,6 @@
                     <include name="testOneViolationFromCrossParameterConstraint"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest"/>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
                 <methods>
                     <include name="testAddParameterNodeUsingCustomParameterNameProvider"/>
