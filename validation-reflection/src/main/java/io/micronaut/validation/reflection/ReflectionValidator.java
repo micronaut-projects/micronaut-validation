@@ -4418,7 +4418,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current, metadataProviders);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, null, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4439,7 +4439,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current, metadataProviders);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, null, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4514,7 +4514,7 @@ public class ReflectionValidator extends DefaultValidator {
             if (type == null || type == Object.class || !visited.add(type)) {
                 return;
             }
-            constraints.addAll(constraintsFor(type, type));
+            constraints.addAll(constraintsFor(type, type.isInterface() ? type : null));
             for (Class<?> interfaceType : type.getInterfaces()) {
                 collectTypeConstraints(interfaceType, constraints, visited);
             }
