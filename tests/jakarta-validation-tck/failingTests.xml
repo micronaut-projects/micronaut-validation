@@ -224,7 +224,6 @@
                     <include name="constructorParameterValidationUsingSequence"/>
                     <include name="constructorParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="constructorParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="constructorReturnValueValidationPerformsGroupConversion"/>
                     <include name="constructorReturnValueValidationUsingSequence"/>
                     <include name="constructorReturnValueValidationWithRedefinedDefaultGroupSequence"/>
                     <include name="methodParameterValidationIncludesConstraintsFromImplementedInterface"/>
@@ -242,7 +241,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorParametersTest">
                 <methods>
-                    <include name="testContainerElementLeafBean"/>
                     <include name="testCrossParameterConstraintGivenSeveralTimes"/>
                     <include name="testCrossParameterConstraintValidationWithGroup"/>
                     <include name="testOneViolation"/>
@@ -259,7 +257,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest">
                 <methods>
-                    <include name="testContainerElementLeafBean"/>
                     <include name="testCrossParameterConstraintGivenSeveralTimes"/>
                     <include name="testCrossParameterConstraintValidationWithGroup"/>
                     <include name="testNullPassedAsSingleGroupCausesException"/>
@@ -305,26 +302,10 @@
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest">
-                <methods>
-                    <include name="cascading_on_container_element_of_constructor_parameter_is_applied"/>
-                    <include name="cascading_on_container_element_of_method_parameter_is_applied"/>
-                    <include name="cascading_on_container_element_of_method_return_value_is_applied"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionDefinedInImplementedClassIsAppliedOnMethodReturnValue"/>
                     <include name="testGroupConversionDefinedInSubClassIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnMethodParameter"/>
-                    <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.containerelement.AnnotationBasedContainerElementGroupConversionValidationTest">
-                <methods>
-                    <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
-                    <include name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
                     <include name="testGroupConversionIsAppliedOnMethodParameter"/>
                     <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
                 </methods>
@@ -333,14 +314,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
-                    <include name="testGroupConversionIsAppliedOnConstructorReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnField"/>
-                    <include name="testGroupConversionIsAppliedOnMethodParameter"/>
-                    <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnProperty"/>
-                    <include name="testGroupConversionIsNotExecutedRecursively"/>
-                    <include name="testGroupConversionWithSequenceAsTo"/>
-                    <include name="testSeveralGroupConversionsAppliedOnField"/>
                 </methods>
             </class>
         </classes>
