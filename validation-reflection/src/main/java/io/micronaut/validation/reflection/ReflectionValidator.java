@@ -187,6 +187,9 @@ public class ReflectionValidator extends DefaultValidator {
                 return reflected;
             }
             boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
+            if (hasReflectionConstraintValidators(object.getClass()) && !hasReflectionContainerElements(object.getClass())) {
+                return reflected;
+            }
             Set<ConstraintViolation<T>> existing;
             try {
                 existing = super.validate(object, groups);
@@ -220,6 +223,9 @@ public class ReflectionValidator extends DefaultValidator {
                 return reflected;
             }
             boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
+            if (hasReflectionConstraintValidators(object.getClass()) && !hasReflectionContainerElements(object.getClass())) {
+                return reflected;
+            }
             Set<ConstraintViolation<T>> existing;
             try {
                 existing = super.validate(object, context);
@@ -748,9 +754,30 @@ public class ReflectionValidator extends DefaultValidator {
     private static boolean requiresReflectionValidation(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
         return hasAmbiguousValidatorResolution(constraint, valueType)
             || supportsMinMaxReflection(constraint, valueType)
+            || !constraint.getConstraintValidatorClasses().isEmpty()
             || constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP
             || constraint.hasValidationAppliesTo()
             || !constraint.composingConstraints.isEmpty();
+    }
+
+    private boolean hasReflectionConstraintValidators(Class<?> beanType) {
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(beanType, configuration.getMetadataProviders());
+        if (metadata.constraints.stream().anyMatch(constraint -> !constraint.getConstraintValidatorClasses().isEmpty())) {
+            return true;
+        }
+        return metadata.properties.values()
+            .stream()
+            .flatMap(List::stream)
+            .flatMap(property -> property.constraints.stream())
+            .anyMatch(constraint -> !constraint.getConstraintValidatorClasses().isEmpty());
+    }
+
+    private boolean hasReflectionContainerElements(Class<?> beanType) {
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(beanType, configuration.getMetadataProviders());
+        return metadata.properties.values()
+            .stream()
+            .flatMap(List::stream)
+            .anyMatch(property -> !property.containerElements.isEmpty());
     }
 
     private boolean hasReflectionRequiredConstraints(Class<?> beanType) {
