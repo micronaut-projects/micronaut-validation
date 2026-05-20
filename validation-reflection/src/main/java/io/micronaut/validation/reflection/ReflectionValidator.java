@@ -1246,7 +1246,8 @@ public class ReflectionValidator extends DefaultValidator {
             ? new ArrayList<>()
             : new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
         addAllContainerElements(containerElements, providerReturnValueContainerElements(method));
-        boolean cascaded = !ignoreReturnValueAnnotations && ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
+        boolean cascaded = !ignoreReturnValueAnnotations && ReflectionMethodDeclarations.hasDirectCascadedReturnValueInHierarchy(method)
+            || providerReturnValueCascaded(method);
         Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
         if (!ignoreReturnValueAnnotations) {
             for (Method hierarchyMethod : methodHierarchy) {
@@ -1726,6 +1727,17 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return Set.copyOf(groupConversions);
+    }
+
+    private boolean providerReturnValueCascaded(Method method) {
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (MethodDescriptor methodDescriptor : providerMethodDescriptors(hierarchyMethod)) {
+                if (methodDescriptor.getReturnValueDescriptor().isCascaded()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private List<MethodDescriptor> providerMethodDescriptors(Method method) {

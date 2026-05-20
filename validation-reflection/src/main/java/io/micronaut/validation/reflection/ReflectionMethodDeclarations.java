@@ -75,6 +75,10 @@ final class ReflectionMethodDeclarations {
         return hierarchy(method).stream().anyMatch(ReflectionMethodDeclarations::hasCascadedReturnValue);
     }
 
+    static boolean hasDirectCascadedReturnValueInHierarchy(Method method) {
+        return hierarchy(method).stream().anyMatch(hierarchyMethod -> hierarchyMethod.isAnnotationPresent(Valid.class));
+    }
+
     private static boolean hasParameterConstraintsOrCascades(Method method) {
         for (Parameter parameter : method.getParameters()) {
             if (hasConstraints(parameter)
