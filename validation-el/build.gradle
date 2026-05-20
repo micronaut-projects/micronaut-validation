@@ -7,13 +7,13 @@ dependencies {
 
     api projects.micronautValidation
     compileOnly libs.managed.jakarta.el
-    runtimeOnly libs.managed.jakarta.el.impl
+    runtimeOnly libs.jakarta.el.impl
 
     testAnnotationProcessor mn.micronaut.inject.java
     testImplementation mn.micronaut.inject.java.test
     testImplementation libs.managed.jakarta.el
     testImplementation mnTest.micronaut.test.junit5
-    testRuntimeOnly libs.managed.jakarta.el.impl
+    testRuntimeOnly libs.jakarta.el.impl
     testRuntimeOnly mnTest.junit.jupiter.engine
 }
 

@@ -1751,6 +1751,67 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateNonExecutableConstraintDeclaration(constraint);
+            ValueExtractorDefinition<Object> unwrappingExtractor = unwrappingExtractor(valueType, constraint);
+            if (unwrappingExtractor != null && value != null) {
+                unwrappingExtractor.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+
+                    @Override
+                    public void value(String nodeName, Object extractedValue) {
+                        validateExtractedValue(nodeName, false, null, null, extractedValue);
+                    }
+
+                    @Override
+                    public void iterableValue(String nodeName, Object extractedValue) {
+                        validateExtractedValue(nodeName, true, null, null, extractedValue);
+                    }
+
+                    @Override
+                    public void indexedValue(String nodeName, int index, Object extractedValue) {
+                        validateExtractedValue(nodeName, true, null, index, extractedValue);
+                    }
+
+                    @Override
+                    public void keyedValue(String nodeName, Object key, Object extractedValue) {
+                        validateExtractedValue(nodeName, true, key, null, extractedValue);
+                    }
+
+                    private void validateExtractedValue(String nodeName,
+                                                        boolean iterable,
+                                                        @Nullable Object key,
+                                                        @Nullable Integer index,
+                                                        @Nullable Object extractedValue) {
+                        Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                            valueType,
+                            unwrappingExtractor.containerType(),
+                            unwrappingExtractor.typeArgumentIndex()
+                        );
+                        jakarta.validation.Path extractedPath = nodeName == null ? propertyPath : new ReflectionNestedContainerElementPath(
+                            propertyPath,
+                            new ReflectionContainerContext(
+                                nodeName,
+                                iterable,
+                                key,
+                                index,
+                                valueType,
+                                typeArgumentIndex
+                            )
+                        );
+                        validateSingleConstraint(
+                            rootBean,
+                            rootBeanClass,
+                            leafBean,
+                            extractedValue,
+                            extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
+                            constraint,
+                            context,
+                            violations,
+                            extractedPath,
+                            resolveMostSpecific
+                        );
+                    }
+                });
+                continue;
+            }
             validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath, resolveMostSpecific);
         }
     }

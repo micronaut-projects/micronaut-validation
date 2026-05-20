@@ -18,7 +18,9 @@ package io.micronaut.validation.jakarta;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Size;
+import javafx.beans.property.ReadOnlyDoubleWrapper;
 import org.junit.jupiter.api.Test;
 
 import java.util.Set;
@@ -40,6 +42,19 @@ class JakartaAggregateTest {
         }
     }
 
+    @Test
+    void aggregateProvidesJavaFxValueExtractors() {
+        try (ValidatorFactory validatorFactory = Validation.buildDefaultValidatorFactory()) {
+            Set<ConstraintViolation<JavaFxBean>> violations = validatorFactory.getValidator()
+                .validate(new JavaFxBean());
+
+            assertEquals(1, violations.size());
+            ConstraintViolation<JavaFxBean> violation = violations.iterator().next();
+            assertEquals("rating", violation.getPropertyPath().toString());
+            assertEquals(4.5, violation.getInvalidValue());
+        }
+    }
+
     static final class PlainBean {
         @Size(min = 3, message = "length ${validatedValue.length()} must be at least {min}")
         private final String name;
@@ -47,5 +62,10 @@ class JakartaAggregateTest {
         PlainBean(String name) {
             this.name = name;
         }
+    }
+
+    static final class JavaFxBean {
+        @Max(3)
+        private final ReadOnlyDoubleWrapper rating = new ReadOnlyDoubleWrapper(4.5);
     }
 }

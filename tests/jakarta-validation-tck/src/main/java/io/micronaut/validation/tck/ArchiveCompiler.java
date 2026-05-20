@@ -50,9 +50,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -64,6 +66,8 @@ import java.util.stream.Stream;
  */
 @Internal
 final class ArchiveCompiler {
+    static final String EXTRA_CLASSPATH_PROPERTY = "micronaut.validation.tck.archive.classpath";
+
     private final DeploymentDir deploymentDir;
     private final Archive<?> deploymentArchive;
 
@@ -151,7 +155,7 @@ final class ArchiveCompiler {
                 null,
                 mgr,
                 diagnostics,
-                Arrays.asList("-d", targetDir, "-verbose", "-parameters"),
+                compilerOptions(targetDir),
                 null,
                 mgr.getJavaFileObjectsFromFiles(
                     Stream.concat(
@@ -168,6 +172,33 @@ final class ArchiveCompiler {
                 outputDiagnostics(diagnostics);
             }
         }
+    }
+
+    private List<String> compilerOptions(String targetDir) throws IOException {
+        List<String> options = new ArrayList<>(Arrays.asList("-d", targetDir, "-verbose", "-parameters"));
+        options.add("-classpath");
+        options.add(compilerClasspath());
+        return options;
+    }
+
+    private String compilerClasspath() throws IOException {
+        Set<String> classpath = new LinkedHashSet<>();
+        addClasspathEntries(classpath, System.getProperty("java.class.path"));
+        addClasspathEntries(classpath, System.getProperty(EXTRA_CLASSPATH_PROPERTY));
+        classpath.add(deploymentDir.target.toString());
+        try (Stream<Path> stream = Files.walk(deploymentDir.lib)) {
+            stream.filter(path -> path.toString().endsWith(".jar"))
+                .map(Path::toString)
+                .forEach(classpath::add);
+        }
+        return String.join(File.pathSeparator, classpath);
+    }
+
+    private static void addClasspathEntries(Set<String> classpath, String pathList) {
+        if (pathList == null || pathList.isBlank()) {
+            return;
+        }
+        classpath.addAll(Arrays.asList(pathList.split(File.pathSeparator)));
     }
 
     private Path applicationClass(Collection<File> testSources) throws IOException {
