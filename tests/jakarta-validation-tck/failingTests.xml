@@ -330,22 +330,6 @@
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForFieldXmlMappingTest">
-                <methods>
-                    <include name="canDeclareContainerElementCascadesForFieldWithXmlMapping"/>
-                    <include name="canDeclareContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                    <include name="canDeclareDeeplyNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                    <include name="canDeclareNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForGetterXmlMappingTest">
-                <methods>
-                    <include name="canDeclareContainerElementCascadesForGetterWithXmlMapping"/>
-                    <include name="canDeclareContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                    <include name="canDeclareDeeplyNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                    <include name="canDeclareNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForParameterXmlMappingTest">
                 <methods>
                     <include name="canDeclareContainerElementCascadesForParameterWithXmlMapping"/>

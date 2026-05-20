@@ -41,6 +41,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.annotation.ElementType.METHOD;
@@ -338,6 +339,32 @@ class XmlValidationMetadataProviderTest {
         assertEquals(DecimalMin.class, containerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
     }
 
+    @Test
+    void defaultsContainerElementTypeArgumentIndexForSingleTypeArgumentContainers() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="nickname">
+                        <container-element-type>
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </container-element-type>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlContainerElementBean.class.getName()));
+
+        PropertyDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("nickname");
+
+        assertEquals(1, descriptor.getConstrainedContainerElementTypes().size());
+        var containerElement = descriptor.getConstrainedContainerElementTypes().iterator().next();
+        assertEquals(Optional.class, containerElement.getContainerClass());
+        assertEquals(0, containerElement.getTypeArgumentIndex());
+        assertEquals(String.class, containerElement.getElementClass());
+        assertEquals(NotNull.class, containerElement.getConstraintDescriptors().iterator().next().getAnnotation().annotationType());
+    }
+
     @Target(METHOD)
     @Retention(RUNTIME)
     @Constraint(validatedBy = CrossParameterValidator.class)
@@ -422,4 +449,7 @@ final class XmlContainerElementBean {
 
     @SuppressWarnings("unused")
     private Map<String, BigDecimal> lines;
+
+    @SuppressWarnings("unused")
+    private Optional<String> nickname;
 }
