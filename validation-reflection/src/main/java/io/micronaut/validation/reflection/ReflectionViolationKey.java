@@ -17,9 +17,7 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
-import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 
@@ -28,57 +26,24 @@ import java.lang.annotation.Annotation;
  *
  * @param constraintType The constraint annotation type
  * @param path The violation path key
- * @param invalidValue The invalid value
  * @since 5.1
  */
 @Internal
 record ReflectionViolationKey(
     Class<? extends Annotation> constraintType,
-    String path,
-    @Nullable Object invalidValue
+    String path
 ) {
 
     static ReflectionViolationKey of(ConstraintViolation<?> violation) {
         ConstraintDescriptor<?> descriptor = violation.getConstraintDescriptor();
         return new ReflectionViolationKey(
             descriptor.getAnnotation().annotationType(),
-            pathKey(violation.getPropertyPath()),
-            violation.getInvalidValue()
+            pathKey(violation.getPropertyPath())
         );
     }
 
     private static String pathKey(jakarta.validation.Path path) {
-        StringBuilder key = new StringBuilder();
-        for (Path.Node node : path) {
-            key.append(node.getKind())
-                .append('|').append(node.getName())
-                .append('|').append(node.isInIterable())
-                .append('|').append(node.getKey())
-                .append('|').append(node.getIndex())
-                .append('|').append(containerClass(node))
-                .append('|').append(typeArgumentIndex(node))
-                .append(';');
-        }
-        return key.toString();
+        return path.toString();
     }
 
-    private static @Nullable Class<?> containerClass(Path.Node node) {
-        if (node instanceof Path.PropertyNode propertyNode) {
-            return propertyNode.getContainerClass();
-        }
-        if (node instanceof Path.ContainerElementNode containerElementNode) {
-            return containerElementNode.getContainerClass();
-        }
-        return null;
-    }
-
-    private static @Nullable Integer typeArgumentIndex(Path.Node node) {
-        if (node instanceof Path.PropertyNode propertyNode) {
-            return propertyNode.getTypeArgumentIndex();
-        }
-        if (node instanceof Path.ContainerElementNode containerElementNode) {
-            return containerElementNode.getTypeArgumentIndex();
-        }
-        return null;
-    }
 }
