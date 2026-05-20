@@ -34,6 +34,8 @@ import org.jboss.shrinkwrap.descriptor.api.Descriptor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import jakarta.validation.Validation;
+import jakarta.validation.ValidatorFactory;
 import java.io.IOException;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
@@ -67,6 +69,8 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     private Instance<TestClass> testClass;
 
     static Object testInstance;
+    private String oldInitialContextFactory;
+    private ValidatorFactory jndiValidatorFactory;
 
     @Override
     public void deploy(Descriptor descriptor) {
@@ -130,17 +134,18 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
             ClassLoader classLoader = new DeploymentClassLoader(deploymentDir);
             applicationClassLoader.set(classLoader);
+            Thread.currentThread().setContextClassLoader(classLoader);
 
             ApplicationContext applicationContext = ApplicationContext.builder()
                 .classLoader(classLoader)
                 .build()
                 .start();
+            bindJndiValidator();
 
             testInstance = applicationContext.getBean(classLoader.loadClass(testJavaClass.getName()));
 
             runningApplicationContext.set(applicationContext);
             APP.set(applicationContext);
-            Thread.currentThread().setContextClassLoader(classLoader);
 
         } catch (Throwable e) {
             throw new RuntimeException(e);
@@ -151,9 +156,27 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         return new ProtocolMetaData();
     }
 
+    private void bindJndiValidator() {
+        oldInitialContextFactory = System.getProperty("java.naming.factory.initial");
+        System.setProperty("java.naming.factory.initial", TckInitialContextFactory.class.getName());
+        jndiValidatorFactory = Validation.buildDefaultValidatorFactory();
+        TckInitialContextFactory.bind("java:comp/ValidatorFactory", jndiValidatorFactory);
+        TckInitialContextFactory.bind("java:comp/Validator", jndiValidatorFactory.getValidator());
+    }
+
     @Override
     public void undeploy(Archive<?> archive) {
         try {
+            TckInitialContextFactory.clear();
+            if (oldInitialContextFactory == null) {
+                System.clearProperty("java.naming.factory.initial");
+            } else {
+                System.setProperty("java.naming.factory.initial", oldInitialContextFactory);
+            }
+            if (jndiValidatorFactory != null) {
+                jndiValidatorFactory.close();
+                jndiValidatorFactory = null;
+            }
             ApplicationContext appContext = runningApplicationContext.get();
             if (appContext != null) {
                 Thread.currentThread().setContextClassLoader(runningApplicationContext.get().getClassLoader());

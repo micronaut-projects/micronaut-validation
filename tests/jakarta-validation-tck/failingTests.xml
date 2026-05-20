@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 14 classes, 6 methods,
+        Current tracker shape: 13 classes, 4 methods,
         and 9 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -182,6 +182,7 @@
         - org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest
+        - org.hibernate.beanvalidation.tck.tests.integration.ee.JndiRetrievalTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -209,12 +210,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedValueExtractorsTest"/>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedXmlAndServiceLoaderValueExtractorsTest"/>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.DefaultInjectionTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.JndiRetrievalTest">
-                <methods>
-                    <include name="testDefaultValidatorCanBeRetrievedFromJndi"/>
-                    <include name="testDefaultValidatorFactoryCanBeRetrievedFromJndi"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
