@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 35 classes, 94 methods,
+        Current tracker shape: 34 classes, 93 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -25,6 +25,7 @@
         - org.hibernate.beanvalidation.tck.tests.bootstrap.customprovider.BootstrapCustomProviderDefinedInServiceFileTest
         - org.hibernate.beanvalidation.tck.tests.bootstrap.customprovider.BootstrapCustomProviderDefinedInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DefaultProviderSpecifiedInValidationXmlTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest
         - org.hibernate.beanvalidation.tck.tests.validatorfactory.CustomConstraintValidatorTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.ParameterNameProviderSpecifiedInValidationXmlTest
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.parameternameprovider.ParameterNameProviderTest
@@ -203,11 +204,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest">
-                <methods>
-                    <include name="testClassLevelConstraints"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
                 <methods>
                     <include name="getter_constraint_provided_on_type_parameter_of_an_custom_container_gets_validated"/>
