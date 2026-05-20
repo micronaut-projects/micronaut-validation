@@ -28,6 +28,8 @@ import jakarta.validation.GroupSequence;
 import jakarta.validation.Payload;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
@@ -59,10 +61,13 @@ import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
-import java.util.Collections;
+import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -261,8 +266,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
                 }
                 case "constructor" -> {
-                    ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage);
-                    validateConstructorExists(beanType, constructor.parameterTypes());
+                    ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage, beanAnnotationsIgnored);
+                    Constructor<?> source = findConstructor(beanType, constructor.parameterTypes());
+                    if (source == null) {
+                        throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + constructor.parameterTypes());
+                    }
+                    constructor = constructor.withSource(source);
                     ExecutableKey key = new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes());
                     if (constructors.putIfAbsent(key, constructor) != null) {
                         throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
@@ -270,8 +279,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 }
                 case "method" -> {
                     String methodName = requireAttribute(element, "name");
-                    ExecutableMapping method = parseExecutable(methodName, element, defaultPackage);
-                    validateMethodExists(beanType, methodName, method.parameterTypes());
+                    ExecutableMapping method = parseExecutable(methodName, element, defaultPackage, beanAnnotationsIgnored);
+                    Method source = findMethod(beanType, methodName, method.parameterTypes());
+                    if (source == null) {
+                        throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
+                    }
+                    method = method.withSource(source);
                     if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
                         throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
                     }
@@ -344,32 +357,33 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return false;
     }
 
-    private static void validateConstructorExists(Class<?> beanType, List<Class<?>> parameterTypes) {
+    private static Constructor<?> findConstructor(Class<?> beanType, List<Class<?>> parameterTypes) {
         try {
-            beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new));
+            return beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new));
         } catch (NoSuchMethodException e) {
-            throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + parameterTypes, e);
+            return null;
         }
     }
 
-    private static void validateMethodExists(Class<?> beanType, String methodName, List<Class<?>> parameterTypes) {
+    private static Method findMethod(Class<?> beanType, String methodName, List<Class<?>> parameterTypes) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
             for (Method method : currentType.getDeclaredMethods()) {
                 if (method.getName().equals(methodName)
                     && Arrays.equals(method.getParameterTypes(), parameterTypes.toArray(Class<?>[]::new))) {
-                    return;
+                    return method;
                 }
             }
             currentType = currentType.getSuperclass();
         }
-        throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + parameterTypes);
+        return null;
     }
 
-    private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage) {
+    private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage, boolean beanAnnotationsIgnored) {
+        boolean executableAnnotationsIgnored = booleanAttribute(executable, "ignore-annotations", beanAnnotationsIgnored);
         List<ParameterMapping> parameters = new ArrayList<>();
-        ElementMapping crossParameter = ElementMapping.EMPTY;
-        ElementMapping returnValue = ElementMapping.EMPTY;
+        ElementMapping crossParameter = ElementMapping.empty(executableAnnotationsIgnored);
+        ElementMapping returnValue = ElementMapping.empty(executableAnnotationsIgnored);
         NodeList children = executable.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
@@ -381,23 +395,33 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     MutableAnnotationMetadata parameterMetadata = new MutableAnnotationMetadata();
                     parseElementMetadata(element, defaultPackage, parameterMetadata);
                     Class<?> parameterType = loadClass(resolveClassName(requireAttribute(element, "type"), defaultPackage));
-                    parameters.add(new ParameterMapping(parameterType, parameterMetadata));
+                    parameters.add(new ParameterMapping(
+                        parameterType,
+                        parameterMetadata,
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                    ));
                 }
                 case "cross-parameter" -> {
                     MutableAnnotationMetadata crossParameterMetadata = new MutableAnnotationMetadata();
                     parseConstraints(element, defaultPackage, crossParameterMetadata);
-                    crossParameter = new ElementMapping(crossParameterMetadata);
+                    crossParameter = new ElementMapping(
+                        crossParameterMetadata,
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                    );
                 }
                 case "return-value" -> {
                     MutableAnnotationMetadata returnValueMetadata = new MutableAnnotationMetadata();
                     parseElementMetadata(element, defaultPackage, returnValueMetadata);
-                    returnValue = new ElementMapping(returnValueMetadata);
+                    returnValue = new ElementMapping(
+                        returnValueMetadata,
+                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored)
+                    );
                 }
                 default -> {
                 }
             }
         }
-        return new ExecutableMapping(name, List.copyOf(parameters), crossParameter, returnValue);
+        return new ExecutableMapping(name, null, List.copyOf(parameters), crossParameter, returnValue);
     }
 
     private void parseElementMetadata(Element element,
@@ -705,6 +729,25 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return descriptors;
     }
 
+    private static Set<GroupConversionDescriptor> groupConversions(AnnotationMetadata annotationMetadata,
+                                                                   java.lang.reflect.AnnotatedElement annotatedElement,
+                                                                   boolean annotationsIgnored) {
+        Set<GroupConversionDescriptor> descriptors = new LinkedHashSet<>(groupConversions(annotationMetadata));
+        if (!annotationsIgnored) {
+            ConvertGroup convertGroup = annotatedElement.getAnnotation(ConvertGroup.class);
+            if (convertGroup != null) {
+                descriptors.add(new XmlGroupConversionDescriptor(convertGroup.from(), convertGroup.to()));
+            }
+            ConvertGroup.List convertGroups = annotatedElement.getAnnotation(ConvertGroup.List.class);
+            if (convertGroups != null) {
+                for (ConvertGroup listedConvertGroup : convertGroups.value()) {
+                    descriptors.add(new XmlGroupConversionDescriptor(listedConvertGroup.from(), listedConvertGroup.to()));
+                }
+            }
+        }
+        return Set.copyOf(descriptors);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
         if (!annotationMetadata.hasStereotype(Constraint.class)) {
@@ -718,6 +761,43 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
         }
         return Set.copyOf(descriptors);
+    }
+
+    private static Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata,
+                                                                     java.lang.reflect.AnnotatedElement annotatedElement,
+                                                                     boolean annotationsIgnored,
+                                                                     ConstraintTarget target) {
+        Set<ConstraintDescriptor<?>> descriptors = new LinkedHashSet<>(constraintDescriptors(annotationMetadata));
+        if (!annotationsIgnored) {
+            for (Annotation annotation : annotatedElement.getAnnotations()) {
+                if (annotation.annotationType().isAnnotationPresent(Constraint.class) && appliesTo(annotation, target)) {
+                    descriptors.add(new AnnotationConstraintDescriptor<>(annotation));
+                }
+            }
+        }
+        return Set.copyOf(descriptors);
+    }
+
+    private static boolean appliesTo(Annotation annotation, ConstraintTarget target) {
+        Constraint constraint = annotation.annotationType().getAnnotation(Constraint.class);
+        if (constraint == null) {
+            return false;
+        }
+        Set<ValidationTarget> supportedTargets = new LinkedHashSet<>();
+        for (Class<? extends ConstraintValidator<?, ?>> validatorClass : constraint.validatedBy()) {
+            SupportedValidationTarget supportedValidationTarget = validatorClass.getAnnotation(SupportedValidationTarget.class);
+            if (supportedValidationTarget == null) {
+                supportedTargets.add(ValidationTarget.ANNOTATED_ELEMENT);
+            } else {
+                supportedTargets.addAll(Arrays.asList(supportedValidationTarget.value()));
+            }
+        }
+        if (supportedTargets.isEmpty()) {
+            supportedTargets.add(ValidationTarget.ANNOTATED_ELEMENT);
+        }
+        return target == ConstraintTarget.PARAMETERS
+            ? supportedTargets.contains(ValidationTarget.PARAMETERS)
+            : supportedTargets.contains(ValidationTarget.ANNOTATED_ELEMENT);
     }
 
     private static ClassLoader currentClassLoader() {
@@ -830,27 +910,32 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         public List<ParameterDescriptor> getParameterDescriptors() {
             List<ParameterDescriptor> descriptors = new ArrayList<>(executable.parameters().size());
+            Parameter[] sourceParameters = executable.source().getParameters();
             for (int i = 0; i < executable.parameters().size(); i++) {
-                descriptors.add(new XmlParameterDescriptor(i, executable.parameters().get(i)));
+                descriptors.add(new XmlParameterDescriptor(i, executable.parameters().get(i), sourceParameters[i]));
             }
             return List.copyOf(descriptors);
         }
 
         public CrossParameterDescriptor getCrossParameterDescriptor() {
-            return new XmlCrossParameterDescriptor(executable.crossParameter());
+            return new XmlCrossParameterDescriptor(executable.crossParameter(), executable.source());
         }
 
         public ReturnValueDescriptor getReturnValueDescriptor() {
-            return new XmlReturnValueDescriptor(executable.returnValue());
+            return new XmlReturnValueDescriptor(executable.returnValue(), executable.source());
         }
 
         public boolean hasConstrainedParameters() {
-            return !executable.crossParameter().metadata().isEmpty()
-                || executable.parameters().stream().anyMatch(parameter -> !parameter.metadata().isEmpty());
+            if (getCrossParameterDescriptor().hasConstraints()) {
+                return true;
+            }
+            return getParameterDescriptors().stream()
+                .anyMatch(parameter -> parameter.hasConstraints() || parameter.isCascaded() || !parameter.getGroupConversions().isEmpty());
         }
 
         public boolean hasConstrainedReturnValue() {
-            return !executable.returnValue().metadata().isEmpty();
+            ReturnValueDescriptor descriptor = getReturnValueDescriptor();
+            return descriptor.hasConstraints() || descriptor.isCascaded() || !descriptor.getGroupConversions().isEmpty();
         }
 
         public boolean hasConstraints() {
@@ -899,7 +984,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private record XmlParameterDescriptor(int index, ParameterMapping parameter)
+    private record XmlParameterDescriptor(int index, ParameterMapping parameter, Parameter source)
         implements ParameterDescriptor, ElementDescriptor.ConstraintFinder {
 
         @Override
@@ -914,12 +999,13 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public boolean isCascaded() {
-            return parameter.metadata().hasAnnotation(Valid.class);
+            return parameter.metadata().hasAnnotation(Valid.class)
+                || !parameter.annotationsIgnored() && source.isAnnotationPresent(Valid.class);
         }
 
         @Override
         public Set<GroupConversionDescriptor> getGroupConversions() {
-            return groupConversions(parameter.metadata());
+            return groupConversions(parameter.metadata(), source, parameter.annotationsIgnored());
         }
 
         @Override
@@ -929,7 +1015,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public boolean hasConstraints() {
-            return parameter.metadata().hasStereotype(Constraint.class);
+            return !getConstraintDescriptors().isEmpty();
         }
 
         @Override
@@ -939,7 +1025,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            return constraintDescriptors(parameter.metadata());
+            return constraintDescriptors(parameter.metadata(), source, parameter.annotationsIgnored(), ConstraintTarget.RETURN_VALUE);
         }
 
         @Override
@@ -963,17 +1049,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private record XmlReturnValueDescriptor(ElementMapping returnValue)
+    private record XmlReturnValueDescriptor(ElementMapping returnValue, Executable source)
         implements ReturnValueDescriptor, ElementDescriptor.ConstraintFinder {
 
         @Override
         public boolean isCascaded() {
-            return returnValue.metadata().hasAnnotation(Valid.class);
+            return returnValue.metadata().hasAnnotation(Valid.class)
+                || !returnValue.annotationsIgnored() && source.isAnnotationPresent(Valid.class);
         }
 
         @Override
         public Set<GroupConversionDescriptor> getGroupConversions() {
-            return groupConversions(returnValue.metadata());
+            return groupConversions(returnValue.metadata(), source, returnValue.annotationsIgnored());
         }
 
         @Override
@@ -983,7 +1070,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public boolean hasConstraints() {
-            return returnValue.metadata().hasStereotype(Constraint.class);
+            return !getConstraintDescriptors().isEmpty();
         }
 
         @Override
@@ -993,7 +1080,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            return constraintDescriptors(returnValue.metadata());
+            return constraintDescriptors(returnValue.metadata(), source, returnValue.annotationsIgnored(), ConstraintTarget.RETURN_VALUE);
         }
 
         @Override
@@ -1017,7 +1104,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private record XmlCrossParameterDescriptor(ElementMapping crossParameter)
+    private record XmlCrossParameterDescriptor(ElementMapping crossParameter, Executable source)
         implements CrossParameterDescriptor, ElementDescriptor.ConstraintFinder {
 
         @Override
@@ -1027,12 +1114,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public boolean hasConstraints() {
-            return crossParameter.metadata().hasStereotype(Constraint.class);
+            return !getConstraintDescriptors().isEmpty();
         }
 
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            return constraintDescriptors(crossParameter.metadata());
+            return constraintDescriptors(crossParameter.metadata(), source, crossParameter.annotationsIgnored(), ConstraintTarget.PARAMETERS);
         }
 
         @Override
@@ -1141,6 +1228,99 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
+    private static final class AnnotationConstraintDescriptor<A extends Annotation> implements ConstraintDescriptor<A> {
+
+        private final A annotation;
+        private final Class<A> type;
+
+        @SuppressWarnings("unchecked")
+        private AnnotationConstraintDescriptor(A annotation) {
+            this.annotation = annotation;
+            this.type = (Class<A>) annotation.annotationType();
+        }
+
+        @Override
+        public A getAnnotation() {
+            return annotation;
+        }
+
+        @Override
+        public String getMessageTemplate() {
+            return (String) readMember(annotation, "message", "{" + type.getName() + ".message}");
+        }
+
+        @Override
+        public Set<Class<?>> getGroups() {
+            Class<?>[] groups = (Class<?>[]) readMember(annotation, "groups", new Class<?>[0]);
+            return groups.length == 0 ? Set.of(Default.class) : Set.of(groups);
+        }
+
+        @Override
+        public Set<Class<? extends Payload>> getPayload() {
+            return Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
+        }
+
+        @Override
+        public ConstraintTarget getValidationAppliesTo() {
+            return (ConstraintTarget) readMember(annotation, "validationAppliesTo", null);
+        }
+
+        @Override
+        public List<Class<? extends ConstraintValidator<A, ?>>> getConstraintValidatorClasses() {
+            Constraint constraint = type.getAnnotation(Constraint.class);
+            return constraint == null ? Collections.emptyList() : (List) List.of(constraint.validatedBy());
+        }
+
+        @Override
+        public Map<String, Object> getAttributes() {
+            Map<String, Object> attributes = new LinkedHashMap<>();
+            for (Method method : type.getDeclaredMethods()) {
+                attributes.put(method.getName(), readMember(annotation, method.getName(), method.getDefaultValue()));
+            }
+            return Map.copyOf(attributes);
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getComposingConstraints() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean isReportAsSingleViolation() {
+            return false;
+        }
+
+        @Override
+        public ValidateUnwrappedValue getValueUnwrapping() {
+            Set<Class<? extends Payload>> payload = getPayload();
+            if (payload.contains(Unwrapping.Unwrap.class)) {
+                return ValidateUnwrappedValue.UNWRAP;
+            }
+            if (payload.contains(Unwrapping.Skip.class)) {
+                return ValidateUnwrappedValue.SKIP;
+            }
+            return ValidateUnwrappedValue.DEFAULT;
+        }
+
+        @Override
+        public <U> U unwrap(Class<U> type) {
+            if (type.isInstance(this)) {
+                return type.cast(this);
+            }
+            throw new ValidationException("Cannot unwrap " + getClass().getName() + " as " + type.getName());
+        }
+
+        private static Object readMember(Annotation annotation, String member, Object defaultValue) {
+            try {
+                return annotation.annotationType().getDeclaredMethod(member).invoke(annotation);
+            } catch (NoSuchMethodException e) {
+                return defaultValue;
+            } catch (ReflectiveOperationException e) {
+                throw new ValidationException("Cannot read annotation member " + annotation.annotationType().getName() + "." + member, e);
+            }
+        }
+    }
+
     private record XmlGroupConversionDescriptor(Class<?> from, Class<?> to) implements GroupConversionDescriptor {
 
         @Override
@@ -1174,6 +1354,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record ExecutableMapping(String name,
+                                     Executable source,
                                      List<ParameterMapping> parameters,
                                      ElementMapping crossParameter,
                                      ElementMapping returnValue) {
@@ -1183,14 +1364,22 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 .map(ParameterMapping::type)
                 .toList();
         }
+
+        ExecutableMapping withSource(Executable source) {
+            return new ExecutableMapping(name, source, parameters, crossParameter, returnValue);
+        }
     }
 
     private record ParameterMapping(Class<?> type,
-                                    AnnotationMetadata metadata) {
+                                    AnnotationMetadata metadata,
+                                    boolean annotationsIgnored) {
     }
 
-    private record ElementMapping(AnnotationMetadata metadata) {
+    private record ElementMapping(AnnotationMetadata metadata,
+                                  boolean annotationsIgnored) {
 
-        private static final ElementMapping EMPTY = new ElementMapping(AnnotationMetadata.EMPTY_METADATA);
+        private static ElementMapping empty(boolean annotationsIgnored) {
+            return new ElementMapping(AnnotationMetadata.EMPTY_METADATA, annotationsIgnored);
+        }
     }
 }

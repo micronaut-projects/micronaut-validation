@@ -67,6 +67,7 @@ import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -582,7 +583,13 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Inject
     public void setMetadataProviders(List<ValidationMetadataProvider> metadataProviders) {
-        this.metadataProviders = metadataProviders == null ? List.of() : List.copyOf(metadataProviders);
+        if (metadataProviders == null) {
+            this.metadataProviders = List.of();
+        } else {
+            this.metadataProviders = metadataProviders.stream()
+                .sorted(Comparator.comparingInt(ValidationMetadataProvider::getOrder))
+                .toList();
+        }
     }
 
     private static void determineValueExtractorDefinitions(List<AnnotatedType> valueExtractorDefinitions, Class<?> extractorImplementationType) {

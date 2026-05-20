@@ -47,7 +47,39 @@ class ValidationMetadataProviderTest {
         assertSame(descriptor, resolved);
     }
 
+    @Test
+    void metadataProvidersAreAppliedInOrder() {
+        DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
+        TestBeanDescriptor firstDescriptor = new TestBeanDescriptor(TestBean.class);
+        TestBeanDescriptor lastDescriptor = new TestBeanDescriptor(TestBean.class);
+        configuration.setMetadataProviders(List.of(
+            new TestMetadataProvider(100, lastDescriptor),
+            new TestMetadataProvider(0, firstDescriptor)
+        ));
+        DefaultValidator validator = new DefaultValidator(configuration);
+
+        BeanDescriptor resolved = validator.getConstraintsForClass(TestBean.class);
+
+        assertSame(firstDescriptor, resolved);
+    }
+
     static final class TestBean {
+    }
+
+    private record TestMetadataProvider(
+        int order,
+        BeanDescriptor descriptor
+    ) implements ValidationMetadataProvider {
+
+        @Override
+        public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
+            return Optional.of(descriptor);
+        }
+
+        @Override
+        public int getOrder() {
+            return order;
+        }
     }
 
     private record TestBeanDescriptor(
