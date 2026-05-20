@@ -3195,6 +3195,9 @@ public class ReflectionValidator extends DefaultValidator {
         if (groups.isEmpty()) {
             return descriptorGroups.contains(jakarta.validation.groups.Default.class);
         }
+        if (descriptor.matchesImplicitGroup(context)) {
+            return true;
+        }
         return groups.stream().anyMatch(group -> descriptorGroups.contains(group)
             || descriptorGroups.contains(jakarta.validation.groups.Default.class) && group.getDeclaredAnnotation(GroupSequence.class) != null);
     }
@@ -4472,11 +4475,12 @@ public class ReflectionValidator extends DefaultValidator {
         static ReflectionBeanMetadata of(Class<?> beanType, List<ValidationMetadataProvider> metadataProviders) {
             Map<String, List<ReflectionProperty>> properties = new LinkedHashMap<>();
             for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
+                Class<?> implicitGroup = current.isInterface() ? null : current;
                 for (Field field : current.getDeclaredFields()) {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, null, metadataProviders);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, implicitGroup, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4497,7 +4501,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, null, metadataProviders);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4821,6 +4825,9 @@ public class ReflectionValidator extends DefaultValidator {
             }
             Set<Class<?>> effectiveGroups = effectiveGroups();
             for (Class<?> requestedGroup : effectiveGroups) {
+                if (descriptor.matchesImplicitGroup(requestedGroup)) {
+                    return true;
+                }
                 for (Class<?> descriptorGroup : descriptor.getGroups()) {
                     if (descriptorGroup.isAssignableFrom(requestedGroup)) {
                         return true;
@@ -4956,7 +4963,7 @@ public class ReflectionValidator extends DefaultValidator {
             ReflectionConstraintDefinitions.validate(type);
             this.members = annotationMembers(annotation, false);
             this.groups = groups(annotation, implicitGroup);
-            this.implicitGroup = implicitGroup;
+            this.implicitGroup = implicitGroup(annotation, implicitGroup);
             this.payload = Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
             this.validators = validatorClasses(type, metadataProviders);
             this.annotationValue = new AnnotationValue<>(type.getName(), members, annotationMembers(annotation, true));
@@ -5016,6 +5023,10 @@ public class ReflectionValidator extends DefaultValidator {
 
         boolean matchesImplicitGroup(BeanValidationContext context) {
             return implicitGroup != null && context.groups().contains(implicitGroup);
+        }
+
+        boolean matchesImplicitGroup(Class<?> group) {
+            return implicitGroup != null && implicitGroup == group;
         }
 
         @Override
@@ -5090,11 +5101,22 @@ public class ReflectionValidator extends DefaultValidator {
 
         private static Set<Class<?>> groups(Annotation annotation, @Nullable Class<?> implicitGroup) {
             Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0])));
-            if (implicitGroup != null && (groups.isEmpty() || groups.contains(jakarta.validation.groups.Default.class))) {
+            Class<?> resolvedImplicitGroup = implicitGroup(annotation, implicitGroup);
+            if (resolvedImplicitGroup != null) {
                 groups.add(jakarta.validation.groups.Default.class);
-                groups.add(implicitGroup);
+                if (resolvedImplicitGroup.isInterface()) {
+                    groups.add(resolvedImplicitGroup);
+                }
             }
             return Set.copyOf(groups);
+        }
+
+        private static @Nullable Class<?> implicitGroup(Annotation annotation, @Nullable Class<?> implicitGroup) {
+            if (implicitGroup == null) {
+                return null;
+            }
+            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0])));
+            return groups.isEmpty() || groups.contains(jakarta.validation.groups.Default.class) ? implicitGroup : null;
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
