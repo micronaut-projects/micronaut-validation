@@ -19,8 +19,10 @@ import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.validator.BeanValidationContext;
@@ -302,14 +304,15 @@ public class ReflectionValidator extends DefaultValidator {
                 object,
                 object,
                 object.getClass(),
-                supplementalTypeConstraints(metadata.constraints, generatedTypeConstraints),
+                supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
                 groupContext,
                 violations,
                 new ReflectionPath(null)
             );
             for (List<ReflectionProperty> properties : metadata.properties.values()) {
+                boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
                 for (ReflectionProperty property : properties) {
-                    validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
+                    validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);
                 }
             }
             if (violations.size() > violationCount) {
@@ -353,14 +356,15 @@ public class ReflectionValidator extends DefaultValidator {
             object,
             object,
             object.getClass(),
-            supplementalTypeConstraints(metadata.constraints, generatedTypeConstraints),
+            supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass()),
             groupContext,
             violations,
             new ReflectionPath(null)
         );
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
             for (ReflectionProperty property : properties) {
-                validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
+                validateProperty(object, object, property, groupContext, violations, suppressGeneratedPropertyConstraints, true);
             }
         }
     }
@@ -373,15 +377,95 @@ public class ReflectionValidator extends DefaultValidator {
             .collect(Collectors.toUnmodifiableSet());
     }
 
-    private static List<ReflectionConstraintDescriptor<?>> supplementalTypeConstraints(
+    private Map<ConstraintKey, Integer> generatedPropertyConstraints(Class<?> beanType, String propertyName) {
+        BeanIntrospection<?> introspection = getBeanIntrospection(beanType);
+        if (introspection == null) {
+            return Map.of();
+        }
+        BeanProperty<?, ?> beanProperty = introspection.getProperty(propertyName).orElse(null);
+        if (beanProperty == null) {
+            return Map.of();
+        }
+        return constraintCounts(beanProperty.getAnnotationMetadata());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Map<ConstraintKey, Integer> constraintCounts(AnnotationMetadata annotationMetadata) {
+        Map<ConstraintKey, Integer> counts = new LinkedHashMap<>();
+        Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
+        List<Class<? extends Annotation>> constraintTypes = annotationMetadata.getAnnotationTypesByStereotype(Constraint.class);
+        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> isDeclaredConstraint(declaredAnnotationNames, type));
+        for (Class<? extends Annotation> type : constraintTypes) {
+            if (hasDeclaredConstraint && !isDeclaredConstraint(declaredAnnotationNames, type)) {
+                continue;
+            }
+            for (AnnotationValue<? extends Annotation> annotationValue : annotationMetadata.getAnnotationValuesByType(type)) {
+                counts.merge(ConstraintKey.of((Class) type, annotationValue), 1, Integer::sum);
+            }
+        }
+        return counts;
+    }
+
+    private static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames,
+                                                Class<? extends Annotation> constraintType) {
+        String constraintName = constraintType.getName();
+        return declaredAnnotationNames.contains(constraintName)
+            || declaredAnnotationNames.contains(constraintName + "$List");
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> supplementalConstraints(
         List<ReflectionConstraintDescriptor<?>> constraints,
-        Set<Class<? extends Annotation>> generatedTypeConstraints) {
-        if (generatedTypeConstraints.isEmpty()) {
+        Set<Class<? extends Annotation>> generatedConstraints,
+        Class<?> valueType) {
+        if (generatedConstraints.isEmpty()) {
             return constraints;
         }
         return constraints.stream()
-            .filter(constraint -> !generatedTypeConstraints.contains(constraint.getAnnotation().annotationType()))
+            .filter(constraint -> !generatedConstraints.contains(constraint.getAnnotation().annotationType())
+                || hasAmbiguousValidatorResolution(constraint, valueType))
             .toList();
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static boolean hasAmbiguousValidatorResolution(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
+        try {
+            ReflectionConstraintValidatorResolution.resolve(
+                constraint.getType(),
+                (List) constraint.getConstraintValidatorClasses(),
+                valueType,
+                ConstraintTarget.IMPLICIT
+            );
+            return false;
+        } catch (UnexpectedTypeException e) {
+            return true;
+        }
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> supplementalPropertyConstraints(
+        List<ReflectionConstraintDescriptor<?>> constraints,
+        Map<ConstraintKey, Integer> generatedConstraints,
+        Class<?> valueType) {
+        if (generatedConstraints.isEmpty()) {
+            return constraints;
+        }
+        Map<ConstraintKey, Integer> reflectedConstraints = new LinkedHashMap<>();
+        for (ReflectionConstraintDescriptor<?> constraint : constraints) {
+            reflectedConstraints.merge(ConstraintKey.of(constraint), 1, Integer::sum);
+        }
+        Map<ConstraintKey, Integer> remainingGeneratedConstraints = new LinkedHashMap<>(generatedConstraints);
+        List<ReflectionConstraintDescriptor<?>> supplemental = new ArrayList<>(constraints.size());
+        for (ReflectionConstraintDescriptor<?> constraint : constraints) {
+            ConstraintKey key = ConstraintKey.of(constraint);
+            int remaining = remainingGeneratedConstraints.getOrDefault(key, 0);
+            if (remaining > 0
+                && reflectedConstraints.getOrDefault(key, 0) <= generatedConstraints.getOrDefault(key, 0)
+                && !hasAmbiguousValidatorResolution(constraint, valueType)) {
+                remainingGeneratedConstraints.put(key, remaining - 1);
+            } else {
+                supplemental.add(constraint);
+            }
+        }
+        return supplemental;
     }
 
     private <T> Set<ConstraintViolation<T>> validatePropertyReflectively(T object,
@@ -915,7 +999,7 @@ public class ReflectionValidator extends DefaultValidator {
                                       boolean validatePropertyConstraints) {
         Object value = property.read(leafBean);
         if (validatePropertyConstraints) {
-            validatePropertyConstraints(rootBean, leafBean, property, value, context, violations);
+            validatePropertyConstraints(rootBean, leafBean, property, value, context, violations, supplementIntrospection);
         }
         validateContainerElements(rootBean, leafBean, property, value, context, violations, supplementIntrospection);
     }
@@ -930,12 +1014,26 @@ public class ReflectionValidator extends DefaultValidator {
                                          BeanValidationContext context,
                                          Set<ConstraintViolation<T>> violations,
                                          jakarta.validation.Path propertyPath) {
+        validateConstraints(rootBean, rootBeanClass, leafBean, value, valueType, constraints, context, violations, propertyPath, true);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateConstraints(@Nullable T rootBean,
+                                         @Nullable Class<?> rootBeanClass,
+                                         @Nullable Object leafBean,
+                                         @Nullable Object value,
+                                         Class<?> valueType,
+                                         List<ReflectionConstraintDescriptor<?>> constraints,
+                                         BeanValidationContext context,
+                                         Set<ConstraintViolation<T>> violations,
+                                         jakarta.validation.Path propertyPath,
+                                         boolean resolveMostSpecific) {
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
             validateNonExecutableConstraintDeclaration(constraint);
-            validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath);
+            validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath, resolveMostSpecific);
         }
     }
 
@@ -944,8 +1042,12 @@ public class ReflectionValidator extends DefaultValidator {
                                                  ReflectionProperty property,
                                                  @Nullable Object value,
                                                  BeanValidationContext context,
-                                                 Set<ConstraintViolation<T>> violations) {
-        for (ReflectionConstraintDescriptor<?> constraint : property.constraints) {
+                                                 Set<ConstraintViolation<T>> violations,
+                                                 boolean supplementIntrospection) {
+        List<ReflectionConstraintDescriptor<?>> constraints = supplementIntrospection && rootBean != null
+            ? supplementalPropertyConstraints(property.constraints, generatedPropertyConstraints(rootBean.getClass(), property.name), property.type)
+            : property.constraints;
+        for (ReflectionConstraintDescriptor<?> constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
             }
@@ -1062,8 +1164,22 @@ public class ReflectionValidator extends DefaultValidator {
                                               BeanValidationContext context,
                                               Set<ConstraintViolation<T>> violations,
                                               jakarta.validation.Path propertyPath) {
+        validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath, true);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateSingleConstraint(@Nullable T rootBean,
+                                              @Nullable Class<?> rootBeanClass,
+                                              @Nullable Object leafBean,
+                                              @Nullable Object value,
+                                              Class<?> valueType,
+                                              ReflectionConstraintDescriptor constraint,
+                                              BeanValidationContext context,
+                                              Set<ConstraintViolation<T>> violations,
+                                              jakarta.validation.Path propertyPath,
+                                              boolean resolveMostSpecific) {
         ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate(), propertyPath);
-        Boolean valid = validateConstraint(constraint, value, valueType, validatorContext);
+        Boolean valid = validateConstraint(constraint, value, valueType, validatorContext, ConstraintTarget.IMPLICIT, resolveMostSpecific);
         if (valid == null) {
             if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations)) {
                 return;
@@ -1211,7 +1327,8 @@ public class ReflectionValidator extends DefaultValidator {
                                 containerElement.constraints,
                                 context,
                                 violations,
-                                new ReflectionContainerElementPath(property.name, containerContext)
+                                new ReflectionContainerElementPath(property.name, containerContext),
+                                false
                             );
                         }
                         if (containerElement.cascaded && value != null) {
@@ -1707,6 +1824,67 @@ public class ReflectionValidator extends DefaultValidator {
                 ? field.getAnnotatedType()
                 : ((Method) source).getAnnotatedReturnType();
             return annotatedType.isAnnotationPresent(Valid.class);
+        }
+    }
+
+    private record ConstraintKey(
+        Class<? extends Annotation> annotationType,
+        Map<String, Object> attributes
+    ) {
+
+        static ConstraintKey of(ReflectionConstraintDescriptor<?> constraint) {
+            return new ConstraintKey(constraint.getAnnotation().annotationType(), normalizeAttributes(constraint.getAttributes()));
+        }
+
+        static ConstraintKey of(Class<? extends Annotation> annotationType,
+                                AnnotationValue<? extends Annotation> annotationValue) {
+            Map<String, Object> attributes = new LinkedHashMap<>();
+            annotationValue.getValues().forEach((key, value) -> {
+                String attributeName = key.toString();
+                if (!attributeName.startsWith("$")) {
+                    attributes.put(attributeName, normalize(value));
+                }
+            });
+            Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
+            if (defaultValues != null) {
+                defaultValues.forEach((key, value) -> {
+                    String attributeName = key.toString();
+                    if (!attributeName.startsWith("$")) {
+                        attributes.putIfAbsent(attributeName, normalize(value));
+                    }
+                });
+            }
+            return new ConstraintKey(annotationType, attributes);
+        }
+
+        private static Map<String, Object> normalizeAttributes(Map<String, Object> attributes) {
+            return attributes.entrySet()
+                .stream()
+                .filter(entry -> !entry.getKey().startsWith("$"))
+                .collect(Collectors.toMap(
+                    Map.Entry::getKey,
+                    entry -> normalize(entry.getValue()),
+                    (left, right) -> left,
+                    LinkedHashMap::new
+                ));
+        }
+
+        private static Object normalize(Object value) {
+            if (value instanceof Class<?> classValue) {
+                return classValue.getName();
+            }
+            if (value instanceof Class<?>[] classValues) {
+                return Arrays.stream(classValues)
+                    .map(Class::getName)
+                    .sorted()
+                    .toList();
+            }
+            if (value instanceof Object[] array) {
+                return Arrays.stream(array)
+                    .map(ConstraintKey::normalize)
+                    .toList();
+            }
+            return value;
         }
     }
 
