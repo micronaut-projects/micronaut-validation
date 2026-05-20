@@ -311,11 +311,6 @@
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
-                <methods>
-                    <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
-                </methods>
-            </class>
         </classes>
     </test>
 </suite>
