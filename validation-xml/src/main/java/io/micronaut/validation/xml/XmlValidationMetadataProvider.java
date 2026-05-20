@@ -528,7 +528,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         Set<Integer> configuredIndexes = new LinkedHashSet<>();
         List<ContainerElementMapping> mappings = new ArrayList<>();
         for (Element containerElementType : containerElementTypes) {
-            int typeArgumentIndex = Integer.parseInt(requireAttribute(containerElementType, "type-argument-index"));
+            int typeArgumentIndex = typeArgumentIndex(containerElementType, typeArguments.length, containerType);
             if (typeArgumentIndex < 0 || typeArgumentIndex >= typeArguments.length) {
                 throw new ValidationException("Invalid container element type argument index " + typeArgumentIndex + " for " + containerType.getTypeName());
             }
@@ -550,6 +550,16 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
         }
         return List.copyOf(mappings);
+    }
+
+    private static int typeArgumentIndex(Element containerElementType, int typeArgumentCount, Type containerType) {
+        if (containerElementType.hasAttribute("type-argument-index")) {
+            return Integer.parseInt(containerElementType.getAttribute("type-argument-index"));
+        }
+        if (typeArgumentCount == 1) {
+            return 0;
+        }
+        throw new ValidationException("Missing required validation XML attribute type-argument-index on container-element-type for " + containerType.getTypeName());
     }
 
     private static Class<?> classFromType(Type type) {
