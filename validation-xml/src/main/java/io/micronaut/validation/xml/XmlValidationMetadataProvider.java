@@ -63,6 +63,7 @@ import java.lang.annotation.ElementType;
 import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.ArrayList;
@@ -240,7 +241,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 }
                 case "field", "getter" -> {
                     String propertyName = requireAttribute(element, "name");
-                    validatePropertyExists(beanType, elementName, propertyName);
+                    java.lang.reflect.AnnotatedElement source = findPropertySource(beanType, elementName, propertyName);
+                    if (source == null) {
+                        throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
+                    }
                     if ("field".equals(elementName) && !configuredFields.add(propertyName)) {
                         throw new ValidationException("Field configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
                     }
@@ -263,7 +267,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     }
                     parseGroupConversions(element, defaultPackage, propertyMetadata);
                     boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
-                    properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored));
+                    properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored, source, propertyElementClass(source)));
                 }
                 case "constructor" -> {
                     ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage, beanAnnotationsIgnored);
@@ -302,59 +306,68 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private static void validatePropertyExists(Class<?> beanType, String elementName, String propertyName) {
-        boolean found = switch (elementName) {
-            case "field" -> hasField(beanType, propertyName);
-            case "getter" -> hasGetter(beanType, propertyName);
-            default -> true;
+    private static java.lang.reflect.AnnotatedElement findPropertySource(Class<?> beanType, String elementName, String propertyName) {
+        return switch (elementName) {
+            case "field" -> findField(beanType, propertyName);
+            case "getter" -> findGetter(beanType, propertyName);
+            default -> null;
         };
-        if (!found) {
-            throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
-        }
     }
 
-    private static boolean hasField(Class<?> beanType, String fieldName) {
+    private static Field findField(Class<?> beanType, String fieldName) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
             try {
-                currentType.getDeclaredField(fieldName);
-                return true;
+                return currentType.getDeclaredField(fieldName);
             } catch (NoSuchFieldException e) {
                 currentType = currentType.getSuperclass();
             }
         }
-        return false;
+        return null;
     }
 
-    private static boolean hasGetter(Class<?> beanType, String propertyName) {
+    private static Method findGetter(Class<?> beanType, String propertyName) {
         String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
-        return hasGetterMethod(beanType, "get" + suffix, false) || hasGetterMethod(beanType, "is" + suffix, true);
+        Method getter = findGetterMethod(beanType, "get" + suffix, false);
+        return getter == null ? findGetterMethod(beanType, "is" + suffix, true) : getter;
     }
 
     private static Set<String> getterMethodNames(Class<?> beanType, String propertyName) {
         String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
         Set<String> methodNames = new LinkedHashSet<>();
-        if (hasGetterMethod(beanType, "get" + suffix, false)) {
+        if (findGetterMethod(beanType, "get" + suffix, false) != null) {
             methodNames.add("get" + suffix);
         }
-        if (hasGetterMethod(beanType, "is" + suffix, true)) {
+        if (findGetterMethod(beanType, "is" + suffix, true) != null) {
             methodNames.add("is" + suffix);
         }
         return methodNames;
     }
 
-    private static boolean hasGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
+    private static Method findGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
             for (Method method : currentType.getDeclaredMethods()) {
                 if (method.getParameterCount() == 0 && method.getName().equals(methodName)) {
                     Class<?> returnType = method.getReturnType();
-                    return returnType != void.class && (!booleanGetter || returnType == boolean.class || returnType == Boolean.class);
+                    if (returnType != void.class && (!booleanGetter || returnType == boolean.class || returnType == Boolean.class)) {
+                        return method;
+                    }
                 }
             }
             currentType = currentType.getSuperclass();
         }
-        return false;
+        return null;
+    }
+
+    private static Class<?> propertyElementClass(java.lang.reflect.AnnotatedElement source) {
+        if (source instanceof Field field) {
+            return field.getType();
+        }
+        if (source instanceof Method method) {
+            return method.getReturnType();
+        }
+        return Object.class;
     }
 
     private static Constructor<?> findConstructor(Class<?> beanType, List<Class<?>> parameterTypes) {
@@ -822,12 +835,22 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public PropertyDescriptor getConstraintsForProperty(String propertyName) {
-            return null;
+            if (propertyName == null) {
+                throw new IllegalArgumentException("Property name cannot be null");
+            }
+            return Optional.ofNullable(mapping.properties().get(propertyName))
+                .map(mapping -> new XmlPropertyDescriptor(propertyName, mapping))
+                .map(PropertyDescriptor.class::cast)
+                .orElse(null);
         }
 
         @Override
         public Set<PropertyDescriptor> getConstrainedProperties() {
-            return Collections.emptySet();
+            return mapping.properties().entrySet()
+                .stream()
+                .map(entry -> new XmlPropertyDescriptor(entry.getKey(), entry.getValue()))
+                .filter(XmlPropertyDescriptor::isConstrained)
+                .collect(Collectors.toSet());
         }
 
         @Override
@@ -893,6 +916,70 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         @Override
         public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
             return this;
+        }
+    }
+
+    private record XmlPropertyDescriptor(String propertyName, PropertyMapping property)
+        implements PropertyDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public String getPropertyName() {
+            return propertyName;
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return property.metadata().hasAnnotation(Valid.class)
+                || !property.annotationsIgnored() && property.source().isAnnotationPresent(Valid.class);
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return groupConversions(property.metadata(), property.source(), property.annotationsIgnored());
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return property.elementClass();
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return constraintDescriptors(property.metadata(), property.source(), property.annotationsIgnored(), ConstraintTarget.IMPLICIT);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+
+        private boolean isConstrained() {
+            return hasConstraints() || isCascaded() || !getGroupConversions().isEmpty() || !getConstrainedContainerElementTypes().isEmpty();
         }
     }
 
@@ -1347,7 +1434,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record PropertyMapping(AnnotationMetadata metadata,
-                                   boolean annotationsIgnored) {
+                                   boolean annotationsIgnored,
+                                   java.lang.reflect.AnnotatedElement source,
+                                   Class<?> elementClass) {
     }
 
     private record ExecutableKey(String name, List<Class<?>> parameterTypes) {
