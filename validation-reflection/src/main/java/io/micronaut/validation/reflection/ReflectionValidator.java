@@ -2689,6 +2689,9 @@ public class ReflectionValidator extends DefaultValidator {
             }
             PropertyDescriptor generatedProperty = generated.getConstraintsForProperty(propertyName);
             PropertyDescriptor reflectedProperty = reflected.getConstraintsForProperty(propertyName);
+            if (generatedProperty != null && !isConstrained(generatedProperty)) {
+                return null;
+            }
             if (generatedProperty == null) {
                 return reflectedProperty;
             }
@@ -2819,6 +2822,13 @@ public class ReflectionValidator extends DefaultValidator {
                 .stream()
                 .mapToInt(ReflectionSupplementedBeanDescriptor::constraintWeight)
                 .sum();
+        }
+
+        private static boolean isConstrained(PropertyDescriptor propertyDescriptor) {
+            return propertyDescriptor.hasConstraints()
+                || propertyDescriptor.isCascaded()
+                || !propertyDescriptor.getGroupConversions().isEmpty()
+                || !propertyDescriptor.getConstrainedContainerElementTypes().isEmpty();
         }
 
         private static boolean hasDuplicateConstraintTypes(PropertyDescriptor propertyDescriptor) {

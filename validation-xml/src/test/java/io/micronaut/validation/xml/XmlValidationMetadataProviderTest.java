@@ -27,6 +27,7 @@ import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.MethodDescriptor;
+import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -249,6 +250,58 @@ class XmlValidationMetadataProviderTest {
         assertTrue(descriptor.getParameterDescriptors().get(1).hasConstraints());
     }
 
+    @Test
+    void fieldDescriptorsHonorIgnoreAnnotations() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <field name="ignored" ignore-annotations="true"/>
+                    <field name="included">
+                        <constraint annotation="jakarta.validation.constraints.Pattern">
+                            <element name="regexp">[a-z]+</element>
+                        </constraint>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlPropertyIgnoreBean.class.getName()));
+
+        PropertyDescriptor ignored = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("ignored");
+        PropertyDescriptor included = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("included");
+
+        assertFalse(ignored != null && ignored.hasConstraints());
+        assertEquals(2, included.getConstraintDescriptors().size());
+    }
+
+    @Test
+    void getterDescriptorsHonorIgnoreAnnotations() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <getter name="ignored" ignore-annotations="true"/>
+                    <getter name="included">
+                        <constraint annotation="jakarta.validation.constraints.Pattern">
+                            <element name="regexp">[a-z]+</element>
+                        </constraint>
+                    </getter>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlPropertyIgnoreBean.class.getName()));
+
+        PropertyDescriptor ignored = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("ignored");
+        PropertyDescriptor included = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
+            .orElseThrow()
+            .getConstraintsForProperty("included");
+
+        assertFalse(ignored != null && ignored.hasConstraints());
+        assertEquals(2, included.getConstraintDescriptors().size());
+    }
+
     @Target(METHOD)
     @Retention(RUNTIME)
     @Constraint(validatedBy = CrossParameterValidator.class)
@@ -307,5 +360,24 @@ final class XmlExecutableIgnoreBean {
     @NotNull
     String handle(@Valid @NotNull String ignored, @Valid @NotNull String applied) {
         return "";
+    }
+}
+
+final class XmlPropertyIgnoreBean {
+
+    @NotNull
+    private String ignored = "";
+
+    @NotNull
+    private String included = "";
+
+    @NotNull
+    String getIgnored() {
+        return ignored;
+    }
+
+    @NotNull
+    String getIncluded() {
+        return included;
     }
 }

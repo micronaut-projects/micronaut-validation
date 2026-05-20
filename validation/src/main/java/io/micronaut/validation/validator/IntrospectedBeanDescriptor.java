@@ -119,6 +119,11 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             .filter(descriptor -> descriptor != null)
             .findFirst()
             .orElse(null);
+        boolean annotationsIgnored = metadataProviders.stream()
+            .anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName));
+        if (annotationsIgnored) {
+            return metadataDescriptor;
+        }
         if (introspectedDescriptor == null) {
             return metadataDescriptor;
         }
@@ -144,7 +149,31 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                 property,
                 (existing, replacement) -> replacement.getConstraintDescriptors().size() > existing.getConstraintDescriptors().size() ? replacement : existing
             ));
+        for (BeanProperty<?, ?> beanProperty : beanIntrospection.getBeanProperties()) {
+            String propertyName = beanProperty.getName();
+            if (metadataProviders.stream().anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName))) {
+                PropertyDescriptor metadataDescriptor = metadataProviders.stream()
+                    .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
+                    .map(descriptor -> descriptor.getConstraintsForProperty(propertyName))
+                    .filter(descriptor -> descriptor != null)
+                    .filter(IntrospectedBeanDescriptor::isConstrained)
+                    .findFirst()
+                    .orElse(null);
+                if (metadataDescriptor == null) {
+                    properties.remove(propertyName);
+                } else {
+                    properties.put(propertyName, metadataDescriptor);
+                }
+            }
+        }
         return new LinkedHashSet<>(properties.values());
+    }
+
+    private static boolean isConstrained(PropertyDescriptor property) {
+        return property.hasConstraints()
+            || property.isCascaded()
+            || !property.getGroupConversions().isEmpty()
+            || !property.getConstrainedContainerElementTypes().isEmpty();
     }
 
     @Override
