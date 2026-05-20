@@ -125,7 +125,18 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
             return;
         }
         int lastIndex = nodes.size() - 1;
-        if (!(nodes.get(lastIndex) instanceof ReflectionNode last)) {
+        Path.Node lastNode = nodes.get(lastIndex);
+        if (lastNode instanceof ReflectionBeanNode last) {
+            nodes.set(lastIndex, new ReflectionBeanNode(
+                inIterable == null ? last.inIterable() : inIterable,
+                key == null ? last.key() : key,
+                index == null ? last.index() : index,
+                containerClass == null ? last.containerClass() : containerClass,
+                typeArgumentIndex == null ? last.typeArgumentIndex() : typeArgumentIndex
+            ));
+            return;
+        }
+        if (!(lastNode instanceof ReflectionNode last)) {
             return;
         }
         nodes.set(lastIndex, new ReflectionNode(
