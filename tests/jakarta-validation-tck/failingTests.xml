@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 0 classes, 0 methods,
+        Current tracker shape: 17 classes, 19 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -247,6 +247,94 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.DefaultSequenceDefinedInXmlTest#testDefaultGroupDefinitionDefinedInEntityApplies
     -->
     <test name="Known Failing Jakarta TCK Tests">
-        <classes/>
+        <classes>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_type_parameter_of_an_custom_container_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintListTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_type_parameter_of_a_list_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_key_type_parameter_of_a_map_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_value_type_parameter_of_a_map_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_type_parameter_of_an_optional_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest">
+                <methods>
+                    <include name="getter_constraint_provided_on_type_parameter_of_a_set_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest">
+                <methods>
+                    <include name="validation_of_nested_type_arguments_works_on_getter_with_map_of_list_of_optional"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.customconstraint.CustomConstraintValidatorTest">
+                <methods>
+                    <include name="testRuntimeExceptionFromInitializeIsWrapped"/>
+                    <include name="testRuntimeExceptionFromIsValidIsWrapped"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
+                <methods>
+                    <include name="testCorrectDefaultSequenceInheritance3"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
+                <methods>
+                    <include name="testAddParameterNodeForFieldLevelConstraintCausesException"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
+                <methods>
+                    <include name="testMultipleConstraintViolationOfDifferentTypes"/>
+                    <include name="testUnexpectedTypeException"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
+                <methods>
+                    <include name="testCorrectGroupsAreAppliedForValidate"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
+                <methods>
+                    <include name="testSeveralGroupConversionsAppliedOnField"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.validatorcontext.ConstraintValidatorContextTest">
+                <methods>
+                    <include name="testDisableDefaultErrorWithoutAddingCustomError"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
+                <methods>
+                    <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
+                <methods>
+                    <include name="ignoreAnnotationsOnEncapsulatingGetterAppliesToContainerElementType"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
+                <methods>
+                    <include name="testSeveralGroupConversionsAppliedOnField"/>
+                </methods>
+            </class>
+        </classes>
     </test>
 </suite>
