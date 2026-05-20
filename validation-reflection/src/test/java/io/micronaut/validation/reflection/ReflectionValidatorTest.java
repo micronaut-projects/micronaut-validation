@@ -429,6 +429,57 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void avoidsCircularGraphValidationThroughCascadedContainers() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            CyclicActorList clint = new CyclicActorList("Eastwood");
+            CyclicActorList morgan = new CyclicActorList(null);
+            CyclicActorList charlie = new CyclicActorList("Sheen");
+            clint.addPlayedWith(charlie);
+            charlie.addPlayedWith(clint);
+            charlie.addPlayedWith(morgan);
+            morgan.addPlayedWith(charlie);
+            morgan.addPlayedWith(clint);
+            clint.addPlayedWith(morgan);
+
+            Set<ConstraintViolation<CyclicActorList>> violations = validator.validate(clint);
+
+            assertEquals(2, violations.size());
+        }
+    }
+
+    @Test
+    void usesObjectArrayAsCascadedArrayContainerClass() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            CyclicActorArray clint = new CyclicActorArray("Eastwood");
+            CyclicActorArray morgan = new CyclicActorArray(null);
+            CyclicActorArray charlie = new CyclicActorArray("Sheen");
+            clint.addPlayedWith(charlie);
+            charlie.addPlayedWith(clint);
+            charlie.addPlayedWith(morgan);
+            morgan.addPlayedWith(charlie);
+            morgan.addPlayedWith(clint);
+            clint.addPlayedWith(morgan);
+
+            Set<ConstraintViolation<CyclicActorArray>> violations = validator.validate(clint);
+
+            assertEquals(2, violations.size());
+            for (ConstraintViolation<CyclicActorArray> violation : violations) {
+                for (Path.Node node : violation.getPropertyPath()) {
+                    if (node.isInIterable()) {
+                        assertEquals(Object[].class, node.as(Path.PropertyNode.class).getContainerClass());
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
     void appliesRedefinedDefaultGroupSequenceToSupplementalReflectionConstraints() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -804,6 +855,42 @@ class ReflectionValidatorTest {
     private static final class FieldAccessChild extends FieldAccessBase {
         public String getName() {
             return null;
+        }
+    }
+
+    private abstract static class CyclicActor {
+        @NotNull
+        private final String lastName;
+
+        private CyclicActor(String lastName) {
+            this.lastName = lastName;
+        }
+    }
+
+    private static final class CyclicActorList extends CyclicActor {
+        @Valid
+        private final List<CyclicActorList> playedWith = new ArrayList<>();
+
+        private CyclicActorList(String lastName) {
+            super(lastName);
+        }
+
+        private void addPlayedWith(CyclicActorList actor) {
+            playedWith.add(actor);
+        }
+    }
+
+    private static final class CyclicActorArray extends CyclicActor {
+        @Valid
+        private final CyclicActorArray[] playedWith = new CyclicActorArray[4];
+        private int current;
+
+        private CyclicActorArray(String lastName) {
+            super(lastName);
+        }
+
+        private void addPlayedWith(CyclicActorArray actor) {
+            playedWith[current++] = actor;
         }
     }
 
