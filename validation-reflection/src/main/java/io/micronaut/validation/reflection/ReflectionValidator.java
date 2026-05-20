@@ -1325,6 +1325,9 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateNonExecutableConstraintDeclaration(constraint);
+            if (!isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE)) {
+                continue;
+            }
             jakarta.validation.Path path = new ReflectionConstructorReturnValueExecutablePath(constructor);
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
             Boolean valid = validateConstraint(constraint, createdObject, constructor.getDeclaringClass(), validatorContext, ConstraintTarget.IMPLICIT, true);
@@ -1357,13 +1360,16 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         if (cascaded) {
+            BeanValidationContext effectiveCascadedContext = constructor.getDeclaringClass().isInstance(createdObject)
+                ? context
+                : cascadedContext;
             validateCascadedValueOrContainer(
                 null,
                 constructor.getDeclaringClass(),
                 createdObject,
                 createdObject,
                 constructor.getDeclaringClass(),
-                convertGroups(cascadedContext, groupConversions),
+                convertGroups(effectiveCascadedContext, groupConversions),
                 violations,
                 new ReflectionConstructorReturnValueExecutablePath(constructor)
             );
