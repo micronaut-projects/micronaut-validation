@@ -16,7 +16,10 @@
 package io.micronaut.validation.tck;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.context.annotation.Primary;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
@@ -141,6 +144,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 .build()
                 .start();
             bindJndiValidator();
+            registerDefaultValidatorBeans(applicationContext);
 
             testInstance = applicationContext.getBean(classLoader.loadClass(testJavaClass.getName()));
 
@@ -162,6 +166,24 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         jndiValidatorFactory = Validation.buildDefaultValidatorFactory();
         TckInitialContextFactory.bind("java:comp/ValidatorFactory", jndiValidatorFactory);
         TckInitialContextFactory.bind("java:comp/Validator", jndiValidatorFactory.getValidator());
+    }
+
+    private void registerDefaultValidatorBeans(ApplicationContext applicationContext) {
+        applicationContext.registerSingleton(
+            ValidatorFactory.class,
+            jndiValidatorFactory,
+            Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, "jakarta.enterprise.inject.Default")
+        );
+        applicationContext.registerSingleton(
+            jakarta.validation.Validator.class,
+            jndiValidatorFactory.getValidator(),
+            Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, "jakarta.enterprise.inject.Default")
+        );
+        applicationContext.registerSingleton(
+            jakarta.validation.Validator.class,
+            jndiValidatorFactory.getValidator(),
+            Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class)
+        );
     }
 
     @Override

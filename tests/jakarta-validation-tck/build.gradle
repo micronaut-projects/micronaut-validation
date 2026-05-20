@@ -34,6 +34,8 @@ dependencies {
     implementation projects.micronautValidationProcessor
 
     implementation libs.arquillian.container
+    implementation libs.jakarta.cdi.api
+    implementation libs.jakarta.ejb.api
     implementation libs.jakarta.validation.tck.tests
 
     runtimeOnly(mnLogging.logback.classic)

@@ -22,6 +22,7 @@ import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
+import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
@@ -95,6 +96,22 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                     ce.annotate(Executable.class);
                 }
             });
+            element.getFields().forEach(this::processField);
+        }
+    }
+
+    @Override
+    public void visitField(FieldElement element, VisitorContext context) {
+        processField(element);
+    }
+
+    private void processField(FieldElement field) {
+        if (field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests")
+            && (field.hasAnnotation("jakarta.ejb.EJB")
+                || field.hasAnnotation("jakarta.annotation.Resource")
+                || field.getType().isAssignable(jakarta.validation.Validator.class)
+                || field.getType().isAssignable(jakarta.validation.ValidatorFactory.class))) {
+            field.annotate("jakarta.inject.Inject");
         }
     }
 }
