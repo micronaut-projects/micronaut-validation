@@ -48,6 +48,7 @@ import jakarta.validation.Path;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
@@ -2021,6 +2022,14 @@ public class ReflectionValidator extends DefaultValidator {
                 : ((Method) source).getAnnotatedReturnType();
             return annotatedType.isAnnotationPresent(Valid.class);
         }
+
+        Class<?> declaringClass() {
+            return source instanceof Field field ? field.getDeclaringClass() : ((Method) source).getDeclaringClass();
+        }
+
+        ElementType elementType() {
+            return source instanceof Field ? ElementType.FIELD : ElementType.METHOD;
+        }
     }
 
     private record ConstraintKey(
@@ -2410,8 +2419,15 @@ public class ReflectionValidator extends DefaultValidator {
 
     private record ReflectionPropertyDescriptor(
         String propertyName,
-        List<ReflectionProperty> properties
+        List<ReflectionProperty> properties,
+        Set<Class<?>> groups,
+        Scope scope,
+        Set<ElementType> declaredOn
     ) implements PropertyDescriptor, ElementDescriptor.ConstraintFinder {
+
+        private ReflectionPropertyDescriptor(String propertyName, List<ReflectionProperty> properties) {
+            this(propertyName, properties, Set.of(), Scope.HIERARCHY, Set.of());
+        }
 
         @Override
         public String getPropertyName() {
@@ -2445,29 +2461,74 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
+            return new ReflectionPropertyDescriptor(propertyName, properties, Set.of(groups), scope, declaredOn);
         }
 
         @Override
         public ConstraintFinder lookingAt(Scope scope) {
-            return this;
+            return new ReflectionPropertyDescriptor(propertyName, properties, groups, scope, declaredOn);
         }
 
         @Override
         public ConstraintFinder declaredOn(ElementType... types) {
-            return this;
+            return new ReflectionPropertyDescriptor(propertyName, properties, groups, scope, Set.of(types));
         }
 
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return properties.stream()
+                .filter(this::matchesScope)
+                .filter(this::matchesDeclaredOn)
                 .flatMap(property -> property.constraints.stream())
+                .filter(this::matchesGroups)
                 .collect(Collectors.toUnmodifiableSet());
         }
 
         @Override
         public ConstraintFinder findConstraints() {
-            return this;
+            return new ReflectionPropertyDescriptor(propertyName, properties);
+        }
+
+        private boolean matchesScope(ReflectionProperty property) {
+            return scope == Scope.HIERARCHY || property.declaringClass() == localDeclaringClass();
+        }
+
+        private boolean matchesDeclaredOn(ReflectionProperty property) {
+            return declaredOn.isEmpty() || declaredOn.contains(property.elementType());
+        }
+
+        private boolean matchesGroups(ReflectionConstraintDescriptor<?> descriptor) {
+            if (groups.isEmpty()) {
+                return true;
+            }
+            Set<Class<?>> effectiveGroups = effectiveGroups();
+            for (Class<?> requestedGroup : effectiveGroups) {
+                for (Class<?> descriptorGroup : descriptor.getGroups()) {
+                    if (descriptorGroup.isAssignableFrom(requestedGroup)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private Set<Class<?>> effectiveGroups() {
+            Set<Class<?>> effectiveGroups = new LinkedHashSet<>(groups);
+            if (groups.contains(jakarta.validation.groups.Default.class)) {
+                GroupSequence groupSequence = localDeclaringClass().getAnnotation(GroupSequence.class);
+                if (groupSequence != null) {
+                    for (Class<?> group : groupSequence.value()) {
+                        if (group != localDeclaringClass()) {
+                            effectiveGroups.add(group);
+                        }
+                    }
+                }
+            }
+            return effectiveGroups;
+        }
+
+        private Class<?> localDeclaringClass() {
+            return properties.get(0).declaringClass();
         }
     }
 
