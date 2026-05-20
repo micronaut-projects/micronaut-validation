@@ -347,13 +347,48 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         @Override
         public Iterator<Node> iterator() {
             List<Node> pathNodes = new ArrayList<>();
+            @Nullable
+            Node inheritedContainerNode = null;
             for (Node node : basePath) {
-                if (node.getKind() != ElementKind.BEAN || nodes.isEmpty()) {
+                if (nodes.isEmpty()) {
+                    pathNodes.add(node);
+                } else if (node.getKind() == ElementKind.BEAN) {
+                    inheritedContainerNode = node;
+                } else if (node.getKind() != ElementKind.CROSS_PARAMETER) {
                     pathNodes.add(node);
                 }
             }
-            pathNodes.addAll(nodes);
+            if (inheritedContainerNode != null && !nodes.isEmpty()) {
+                pathNodes.add(withContainerContext(nodes.get(0), inheritedContainerNode));
+                pathNodes.addAll(nodes.subList(1, nodes.size()));
+            } else {
+                pathNodes.addAll(nodes);
+            }
             return pathNodes.iterator();
+        }
+
+        private static Node withContainerContext(Node node, Node containerNode) {
+            if (node instanceof ReflectionNode reflectionNode) {
+                return new ReflectionNode(
+                    reflectionNode.kind(),
+                    reflectionNode.name(),
+                    reflectionNode.inIterable() || containerNode.isInIterable(),
+                    reflectionNode.key() == null ? containerNode.getKey() : reflectionNode.key(),
+                    reflectionNode.index() == null ? containerNode.getIndex() : reflectionNode.index(),
+                    reflectionNode.containerClass() == null ? containerNode.as(Path.BeanNode.class).getContainerClass() : reflectionNode.containerClass(),
+                    reflectionNode.typeArgumentIndex() == null ? containerNode.as(Path.BeanNode.class).getTypeArgumentIndex() : reflectionNode.typeArgumentIndex()
+                );
+            }
+            if (node instanceof ReflectionBeanNode) {
+                return new ReflectionBeanNode(
+                    containerNode.isInIterable(),
+                    containerNode.getKey(),
+                    containerNode.getIndex(),
+                    containerNode.as(Path.BeanNode.class).getContainerClass(),
+                    containerNode.as(Path.BeanNode.class).getTypeArgumentIndex()
+                );
+            }
+            return node;
         }
 
         @Override
@@ -404,7 +439,17 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
     }
 
-    private record ReflectionBeanNode() implements Path.BeanNode {
+    private record ReflectionBeanNode(
+        boolean inIterable,
+        @Nullable Object key,
+        @Nullable Integer index,
+        @Nullable Class<?> containerClass,
+        @Nullable Integer typeArgumentIndex
+    ) implements Path.BeanNode {
+
+        private ReflectionBeanNode() {
+            this(false, null, null, null, null);
+        }
 
         @Override
         public ElementKind getKind() {
@@ -418,17 +463,17 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public boolean isInIterable() {
-            return false;
+            return inIterable;
         }
 
         @Override
         public Integer getIndex() {
-            return null;
+            return index;
         }
 
         @Override
         public Object getKey() {
-            return null;
+            return key;
         }
 
         @Override
@@ -438,12 +483,12 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
 
         @Override
         public Class<?> getContainerClass() {
-            return null;
+            return containerClass;
         }
 
         @Override
         public Integer getTypeArgumentIndex() {
-            return null;
+            return typeArgumentIndex;
         }
     }
 
