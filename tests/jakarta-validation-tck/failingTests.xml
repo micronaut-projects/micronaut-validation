@@ -218,13 +218,8 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
                 <methods>
-                    <include name="constructorParameterValidationUsingSequence"/>
                     <include name="constructorParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="constructorReturnValueValidationUsingSequence"/>
-                    <include name="constructorReturnValueValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodParameterValidationUsingSequence"/>
                     <include name="methodParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodReturnValueValidationUsingSequence"/>
                     <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
                 </methods>
             </class>
