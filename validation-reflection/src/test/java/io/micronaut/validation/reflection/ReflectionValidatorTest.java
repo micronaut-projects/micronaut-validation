@@ -34,6 +34,7 @@ import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Path;
 import jakarta.validation.Payload;
 import jakarta.validation.ReportAsSingleViolation;
+import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
@@ -200,6 +201,32 @@ class ReflectionValidatorTest {
                 .validateParameters(bean, method, new Object[]{"name", null}, ExecutableSequence.class);
 
             assertEquals(2, violations.size());
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.code")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.<cross-parameter>")));
+        }
+    }
+
+    @Test
+    void validatesExecutableRedefinedDefaultGroupSequencesWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Method method = RedefinedExecutableBean.class.getDeclaredMethod("submit", String.class, RedefinedAssociatedBean.class, String.class);
+            RedefinedExecutableBean bean = new RedefinedExecutableBean();
+
+            Set<ConstraintViolation<RedefinedExecutableBean>> violations = validator.forExecutables()
+                .validateParameters(bean, method, new Object[]{null, new RedefinedAssociatedBean(null), null});
+
+            assertEquals(2, violations.size());
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.name")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.associated.name")));
+
+            violations = validator.forExecutables()
+                .validateParameters(bean, method, new Object[]{"name", new RedefinedAssociatedBean(null), null});
+
+            assertEquals(3, violations.size());
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.associated.name")));
             assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.code")));
             assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.<cross-parameter>")));
         }
@@ -476,6 +503,21 @@ class ReflectionValidatorTest {
 
     @GroupSequence({ExecutableBasic.class, ExecutableAdvanced.class})
     private interface ExecutableSequence {
+    }
+
+    @GroupSequence({ExecutableBasic.class, RedefinedExecutableBean.class})
+    private static final class RedefinedExecutableBean {
+        @CrossParameterConstraint
+        void submit(
+            @NotNull(groups = ExecutableBasic.class) String name,
+            @Valid RedefinedAssociatedBean associated,
+            @NotNull String code) {
+        }
+    }
+
+    private record RedefinedAssociatedBean(
+        @NotNull String name
+    ) {
     }
 
     @Target({METHOD, CONSTRUCTOR})

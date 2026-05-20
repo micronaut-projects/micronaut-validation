@@ -216,13 +216,6 @@
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
-                <methods>
-                    <include name="constructorParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorParametersTest">
                 <methods>
                     <include name="testOneViolation"/>
