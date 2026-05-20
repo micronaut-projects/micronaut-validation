@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 42 classes, 142 methods,
+        Current tracker shape: 38 classes, 138 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -138,6 +138,10 @@
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testContainerElementLeafBean
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathForConstructorReturnValueConstraint
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.IgnoreAnnotationsInConstructorConfigurationTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.IgnoreAnnotationsOnConstructorTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsOnMethodTest
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingConstructorParameter
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingConstructorReturnValue
         - org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest#testPropertyPathTraversingMethodParameter
@@ -424,16 +428,6 @@
                     <include name="testIncludeAnnotations"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.IgnoreAnnotationsInConstructorConfigurationTest">
-                <methods>
-                    <include name="testIgnoreAnnotationsOnReturnValueParameterAndCrossParameter"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.IgnoreAnnotationsOnConstructorTest">
-                <methods>
-                    <include name="testIgnoreAnnotationsOnConstructorLevel"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnConstructorParameter"/>
@@ -445,16 +439,6 @@
                     <include name="testGroupConversionIsNotExecutedRecursively"/>
                     <include name="testGroupConversionWithSequenceAsTo"/>
                     <include name="testSeveralGroupConversionsAppliedOnField"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest">
-                <methods>
-                    <include name="testIgnoreAnnotationsOnReturnValueParameterAndCrossParameter"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsOnMethodTest">
-                <methods>
-                    <include name="testIgnoreAnnotationsOnMethodLevel"/>
                 </methods>
             </class>
         </classes>

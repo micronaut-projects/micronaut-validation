@@ -16,12 +16,22 @@
 package io.micronaut.validation.xml;
 
 import io.micronaut.core.annotation.AnnotationValue;
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
+import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
+import jakarta.validation.Valid;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.MethodDescriptor;
+import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -29,7 +39,10 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -210,6 +223,53 @@ class XmlValidationMetadataProviderTest {
         assertEquals(XmlArrayParameterBean[].class, descriptor.getParameterDescriptors().get(0).getElementClass());
     }
 
+    @Test
+    void executableIgnoreAnnotationsControlsReflectedExecutableMetadata() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <default-package>io.micronaut.validation.xml</default-package>
+                <bean class="XmlExecutableIgnoreBean" ignore-annotations="false">
+                    <method name="handle">
+                        <parameter type="java.lang.String" ignore-annotations="true"/>
+                        <parameter type="java.lang.String"/>
+                        <cross-parameter ignore-annotations="true"/>
+                        <return-value ignore-annotations="true"/>
+                    </method>
+                </bean>
+            </constraint-mappings>
+            """);
+
+        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlExecutableIgnoreBean.class)
+            .orElseThrow()
+            .getConstraintsForMethod("handle", String.class, String.class);
+
+        assertFalse(descriptor.getCrossParameterDescriptor().hasConstraints());
+        assertFalse(descriptor.getReturnValueDescriptor().hasConstraints());
+        assertFalse(descriptor.getParameterDescriptors().get(0).hasConstraints());
+        assertTrue(descriptor.getParameterDescriptors().get(1).hasConstraints());
+    }
+
+    @Target(METHOD)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = CrossParameterValidator.class)
+    @interface CrossParameterConstraint {
+
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @SupportedValidationTarget(ValidationTarget.PARAMETERS)
+    static final class CrossParameterValidator implements ConstraintValidator<CrossParameterConstraint, Object[]> {
+
+        @Override
+        public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
     private static XmlValidationMetadataProvider metadataProvider(String... xmls) {
         Set<InputStream> mappingStreams = new LinkedHashSet<>();
         for (String xml : xmls) {
@@ -237,5 +297,15 @@ class XmlValidationMetadataProviderTest {
 final class XmlArrayParameterBean {
 
     void add(XmlArrayParameterBean... beans) {
+    }
+}
+
+final class XmlExecutableIgnoreBean {
+
+    @Valid
+    @XmlValidationMetadataProviderTest.CrossParameterConstraint
+    @NotNull
+    String handle(@Valid @NotNull String ignored, @Valid @NotNull String applied) {
+        return "";
     }
 }

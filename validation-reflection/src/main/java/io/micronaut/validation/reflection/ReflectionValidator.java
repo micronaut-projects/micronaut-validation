@@ -260,10 +260,12 @@ public class ReflectionValidator extends DefaultValidator {
     @Override
     public BeanDescriptor getConstraintsForClass(Class<?> clazz) {
         requireNonNull("clazz", clazz);
+        BeanDescriptor generated = super.getConstraintsForClass(clazz);
+        ReflectionBeanMetadata reflected = ReflectionBeanMetadata.of(clazz);
         if (getBeanIntrospection(clazz) != null) {
-            return new ReflectionSupplementedBeanDescriptor(super.getConstraintsForClass(clazz), ReflectionBeanMetadata.of(clazz));
+            return new ReflectionSupplementedBeanDescriptor(generated, reflected);
         }
-        return ReflectionBeanMetadata.of(clazz);
+        return generated.isBeanConstrained() ? new ReflectionSupplementedBeanDescriptor(generated, reflected) : reflected;
     }
 
     @Override
@@ -2725,26 +2727,62 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public @Nullable MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+            MethodDescriptor generatedMethod = generated.getConstraintsForMethod(methodName, parameterTypes);
+            if (generatedMethod != null) {
+                return generatedMethod;
+            }
             MethodDescriptor reflectedMethod = reflected.getConstraintsForMethod(methodName, parameterTypes);
-            return reflectedMethod == null ? generated.getConstraintsForMethod(methodName, parameterTypes) : reflectedMethod;
+            return reflectedMethod == null ? null : reflectedMethod;
         }
 
         @Override
         public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
+            Map<ExecutableDescriptorKey, MethodDescriptor> methods = generated.getConstrainedMethods(methodType, methodTypes)
+                .stream()
+                .collect(Collectors.toMap(
+                    method -> ExecutableDescriptorKey.of(method.getName(), method.getParameterDescriptors()),
+                    Function.identity(),
+                    (left, right) -> left,
+                    LinkedHashMap::new
+                ));
             Set<MethodDescriptor> reflectedMethods = reflected.getConstrainedMethods(methodType, methodTypes);
-            return reflectedMethods.isEmpty() ? generated.getConstrainedMethods(methodType, methodTypes) : reflectedMethods;
+            for (MethodDescriptor reflectedMethod : reflectedMethods) {
+                methods.putIfAbsent(
+                    ExecutableDescriptorKey.of(reflectedMethod.getName(), reflectedMethod.getParameterDescriptors()),
+                    reflectedMethod
+                );
+            }
+            return new LinkedHashSet<>(methods.values());
         }
 
         @Override
         public @Nullable ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
+            ConstructorDescriptor generatedConstructor = generated.getConstraintsForConstructor(parameterTypes);
+            if (generatedConstructor != null) {
+                return generatedConstructor;
+            }
             ConstructorDescriptor reflectedConstructor = reflected.getConstraintsForConstructor(parameterTypes);
-            return reflectedConstructor == null ? generated.getConstraintsForConstructor(parameterTypes) : reflectedConstructor;
+            return reflectedConstructor == null ? null : reflectedConstructor;
         }
 
         @Override
         public Set<ConstructorDescriptor> getConstrainedConstructors() {
+            Map<ExecutableDescriptorKey, ConstructorDescriptor> constructors = generated.getConstrainedConstructors()
+                .stream()
+                .collect(Collectors.toMap(
+                    constructor -> ExecutableDescriptorKey.of(null, constructor.getParameterDescriptors()),
+                    Function.identity(),
+                    (left, right) -> left,
+                    LinkedHashMap::new
+                ));
             Set<ConstructorDescriptor> reflectedConstructors = reflected.getConstrainedConstructors();
-            return reflectedConstructors.isEmpty() ? generated.getConstrainedConstructors() : reflectedConstructors;
+            for (ConstructorDescriptor reflectedConstructor : reflectedConstructors) {
+                constructors.putIfAbsent(
+                    ExecutableDescriptorKey.of(null, reflectedConstructor.getParameterDescriptors()),
+                    reflectedConstructor
+                );
+            }
+            return new LinkedHashSet<>(constructors.values());
         }
 
         @Override
@@ -2765,6 +2803,15 @@ public class ReflectionValidator extends DefaultValidator {
         @Override
         public ConstraintFinder findConstraints() {
             return generated.findConstraints();
+        }
+
+        private record ExecutableDescriptorKey(@Nullable String name, List<Class<?>> parameterTypes) {
+
+            private static ExecutableDescriptorKey of(@Nullable String name, List<ParameterDescriptor> parameterDescriptors) {
+                return new ExecutableDescriptorKey(name, parameterDescriptors.stream()
+                    .map(ParameterDescriptor::getElementClass)
+                    .toList());
+            }
         }
 
         private static int constraintWeight(PropertyDescriptor propertyDescriptor) {
