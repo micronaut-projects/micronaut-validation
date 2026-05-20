@@ -173,11 +173,11 @@ public class ReflectionValidator extends DefaultValidator {
     public <T> Set<ConstraintViolation<T>> validate(T object, Class<?>... groups) {
         requireNonNull("object", object);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
+        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
         }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
-        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context)) {
+        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectively(object, context, false);
         }
         if (introspection != null) {
@@ -209,11 +209,11 @@ public class ReflectionValidator extends DefaultValidator {
     public <T> Set<ConstraintViolation<T>> validate(T object, BeanValidationContext validationContext) {
         requireNonNull("object", object);
         BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
-        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context)) {
+        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
         }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
-        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context)) {
+        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectively(object, context, false);
         }
         if (introspection != null) {
@@ -448,9 +448,9 @@ public class ReflectionValidator extends DefaultValidator {
                                                                           BeanValidationContext context,
                                                                           BiFunction<BeanValidationContext, BeanValidationContext, Set<ConstraintViolation<T>>> validator,
                                                                           Predicate<ConstraintViolation<T>> sequenceBlockingViolation) {
-        boolean defaultGroupRedefined = isDefaultGroupContext(context) && beanType.getDeclaredAnnotation(GroupSequence.class) != null;
+        boolean defaultGroupRedefined = ReflectionGroupSequences.hasDefaultGroupSequence(beanType, context, configuration.getMetadataProviders());
         Set<ConstraintViolation<T>> collectedViolations = defaultGroupRedefined ? new LinkedHashSet<>() : Collections.emptySet();
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context)) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context, configuration.getMetadataProviders())) {
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
             BeanValidationContext cascadedContext = defaultGroupRedefined ? BeanValidationContext.DEFAULT : groupContext;
             Set<ConstraintViolation<T>> violations = validator.apply(groupContext, cascadedContext);
@@ -485,9 +485,9 @@ public class ReflectionValidator extends DefaultValidator {
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        boolean defaultGroupRedefined = ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context);
+        boolean defaultGroupRedefined = ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders());
         Set<String> defaultGroupCascadedProperties = defaultGroupRedefined ? new LinkedHashSet<>() : null;
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context, configuration.getMetadataProviders())) {
             int violationCount = violations.size();
             long blockingViolationCount = countLeafBeanViolations(violations, object);
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
@@ -552,7 +552,7 @@ public class ReflectionValidator extends DefaultValidator {
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         Set<String> cascadedProperties = new LinkedHashSet<>();
         validateReflectionGroupPass(object, metadata, BeanValidationContext.fromGroups(object.getClass()), BeanValidationContext.DEFAULT, cascadedProperties, violations, supplementIntrospection);
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.inheritedDefaultGroupSequencePasses(object.getClass())) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.inheritedDefaultGroupSequencePasses(object.getClass(), configuration.getMetadataProviders())) {
             int violationCount = violations.size();
             long blockingViolationCount = countLeafBeanViolations(violations, object);
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
@@ -862,7 +862,7 @@ public class ReflectionValidator extends DefaultValidator {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context, configuration.getMetadataProviders())) {
             int violationCount = violations.size();
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
             boolean ignorePropertyAnnotations = isPropertyAnnotationMetadataIgnored(object.getClass(), propertyName);
@@ -901,7 +901,7 @@ public class ReflectionValidator extends DefaultValidator {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context)) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context, configuration.getMetadataProviders())) {
             int violationCount = violations.size();
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
             for (ReflectionProperty property : properties) {
@@ -2962,9 +2962,9 @@ public class ReflectionValidator extends DefaultValidator {
         if (!validatedObjects.add(value)) {
             return;
         }
-        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(value.getClass());
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(value.getClass(), configuration.getMetadataProviders());
         try {
-            for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(value.getClass(), context)) {
+            for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(value.getClass(), context, configuration.getMetadataProviders())) {
                 int violationCount = violations.size();
                 BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
                 validateCascadedValuePass(rootBean, rootBeanClass, leafBean, value, groupContext, violations, beanPath, metadata, validatedObjects);
