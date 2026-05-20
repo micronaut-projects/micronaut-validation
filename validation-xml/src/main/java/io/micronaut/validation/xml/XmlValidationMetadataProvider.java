@@ -66,6 +66,8 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -267,7 +269,14 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     }
                     parseGroupConversions(element, defaultPackage, propertyMetadata);
                     boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
-                    properties.put(propertyName, new PropertyMapping(propertyMetadata, propertyAnnotationsIgnored, source, propertyElementClass(source)));
+                    Type propertyType = propertyGenericType(source);
+                    properties.put(propertyName, new PropertyMapping(
+                        propertyMetadata,
+                        propertyAnnotationsIgnored,
+                        source,
+                        propertyElementClass(source),
+                        parseContainerElements(element, defaultPackage, propertyType)
+                    ));
                 }
                 case "constructor" -> {
                     ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage, beanAnnotationsIgnored);
@@ -366,6 +375,16 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
         if (source instanceof Method method) {
             return method.getReturnType();
+        }
+        return Object.class;
+    }
+
+    private static Type propertyGenericType(java.lang.reflect.AnnotatedElement source) {
+        if (source instanceof Field field) {
+            return field.getGenericType();
+        }
+        if (source instanceof Method method) {
+            return method.getGenericReturnType();
         }
         return Object.class;
     }
@@ -493,6 +512,54 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     .build()
             );
         }
+    }
+
+    private List<ContainerElementMapping> parseContainerElements(Element parent,
+                                                                String defaultPackage,
+                                                                Type containerType) {
+        List<Element> containerElementTypes = children(parent, "container-element-type");
+        if (containerElementTypes.isEmpty()) {
+            return List.of();
+        }
+        if (!(containerType instanceof ParameterizedType parameterizedType)) {
+            throw new ValidationException("Cannot configure container element constraints on non-generic type: " + containerType.getTypeName());
+        }
+        Type[] typeArguments = parameterizedType.getActualTypeArguments();
+        Set<Integer> configuredIndexes = new LinkedHashSet<>();
+        List<ContainerElementMapping> mappings = new ArrayList<>();
+        for (Element containerElementType : containerElementTypes) {
+            int typeArgumentIndex = Integer.parseInt(requireAttribute(containerElementType, "type-argument-index"));
+            if (typeArgumentIndex < 0 || typeArgumentIndex >= typeArguments.length) {
+                throw new ValidationException("Invalid container element type argument index " + typeArgumentIndex + " for " + containerType.getTypeName());
+            }
+            if (!configuredIndexes.add(typeArgumentIndex)) {
+                throw new ValidationException("Container element type argument configured more than once: " + typeArgumentIndex + " for " + containerType.getTypeName());
+            }
+            Type elementType = typeArguments[typeArgumentIndex];
+            MutableAnnotationMetadata metadata = new MutableAnnotationMetadata();
+            parseElementMetadata(containerElementType, defaultPackage, metadata);
+            ContainerElementMapping mapping = new ContainerElementMapping(
+                classFromType(parameterizedType.getRawType()),
+                typeArgumentIndex,
+                classFromType(elementType),
+                metadata,
+                parseContainerElements(containerElementType, defaultPackage, elementType)
+            );
+            if (mapping.isConstrained()) {
+                mappings.add(mapping);
+            }
+        }
+        return List.copyOf(mappings);
+    }
+
+    private static Class<?> classFromType(Type type) {
+        if (type instanceof Class<?> clazz) {
+            return clazz;
+        }
+        if (type instanceof ParameterizedType parameterizedType) {
+            return classFromType(parameterizedType.getRawType());
+        }
+        return Object.class;
     }
 
     private void validateMandatoryAnnotationMembers(Class<? extends Annotation> annotationType, Map<CharSequence, Object> values) {
@@ -940,7 +1007,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            return Collections.emptySet();
+            return containerElementDescriptors(property.containerElements());
         }
 
         @Override
@@ -1421,6 +1488,79 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
+    private record XmlContainerElementTypeDescriptor(ContainerElementMapping mapping)
+        implements ContainerElementTypeDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return containerElementDescriptors(mapping.containerElements());
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return mapping.metadata().hasAnnotation(Valid.class);
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return groupConversions(mapping.metadata());
+        }
+
+        @Override
+        public Class<?> getContainerClass() {
+            return mapping.containerClass();
+        }
+
+        @Override
+        public Integer getTypeArgumentIndex() {
+            return mapping.typeArgumentIndex();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return mapping.elementClass();
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return constraintDescriptors(mapping.metadata());
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private static Set<ContainerElementTypeDescriptor> containerElementDescriptors(List<ContainerElementMapping> mappings) {
+        if (mappings.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return mappings.stream()
+            .map(XmlContainerElementTypeDescriptor::new)
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
     private record BeanMapping(AnnotationMetadata classMetadata,
                                boolean beanAnnotationsIgnored,
                                boolean classAnnotationsIgnored,
@@ -1436,7 +1576,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private record PropertyMapping(AnnotationMetadata metadata,
                                    boolean annotationsIgnored,
                                    java.lang.reflect.AnnotatedElement source,
-                                   Class<?> elementClass) {
+                                   Class<?> elementClass,
+                                   List<ContainerElementMapping> containerElements) {
     }
 
     private record ExecutableKey(String name, List<Class<?>> parameterTypes) {
@@ -1469,6 +1610,20 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         private static ElementMapping empty(boolean annotationsIgnored) {
             return new ElementMapping(AnnotationMetadata.EMPTY_METADATA, annotationsIgnored);
+        }
+    }
+
+    private record ContainerElementMapping(Class<?> containerClass,
+                                           int typeArgumentIndex,
+                                           Class<?> elementClass,
+                                           AnnotationMetadata metadata,
+                                           List<ContainerElementMapping> containerElements) {
+
+        private boolean isConstrained() {
+            return metadata.hasStereotype(Constraint.class)
+                || metadata.hasAnnotation(Valid.class)
+                || !groupConversions(metadata).isEmpty()
+                || !containerElements.isEmpty();
         }
     }
 }

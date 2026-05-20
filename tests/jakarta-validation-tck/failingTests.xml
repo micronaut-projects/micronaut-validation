@@ -336,11 +336,6 @@
                     <include name="canDeclareContainerElementTypeConstraintsForFieldWithXmlMapping"/>
                     <include name="canDeclareDeeplyNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
                     <include name="canDeclareNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                    <include name="configuringSameContainerElementTwiceCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintForNonExistingNestedTypeArgumentIndexOnFieldCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintForNonExistingTypeArgumentIndexOnFieldCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintOnNonGenericFieldCausesException"/>
-                    <include name="omittingTypeArgumentForMultiTypeArgumentTypeOnFieldCausesException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForGetterXmlMappingTest">
@@ -349,11 +344,6 @@
                     <include name="canDeclareContainerElementTypeConstraintsForGetterWithXmlMapping"/>
                     <include name="canDeclareDeeplyNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
                     <include name="canDeclareNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                    <include name="configuringSameContainerElementTwiceCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintForNonExistingNestedTypeArgumentIndexOnFieldCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintForNonExistingTypeArgumentIndexOnFieldCausesException"/>
-                    <include name="declaringContainerElementTypeConstraintOnNonGenericFieldCausesException"/>
-                    <include name="omittingTypeArgumentForMultiTypeArgumentTypeOnFieldCausesException"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForParameterXmlMappingTest">
@@ -383,8 +373,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
                 <methods>
-                    <include name="ignoreAnnotationsOnEncapsulatingFieldAppliesToContainerElementType"/>
-                    <include name="ignoreAnnotationsOnEncapsulatingGetterAppliesToContainerElementType"/>
                     <include name="ignoreAnnotationsOnEncapsulatingMethodParameterAppliesToContainerElementType"/>
                     <include name="ignoreAnnotationsOnEncapsulatingMethodReturnValueAppliesToContainerElementType"/>
                 </methods>
