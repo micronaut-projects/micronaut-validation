@@ -301,13 +301,6 @@
                     <include name="testAddingNodesInClassLevelConstraintKeepsInIterableKeyAndIndex"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest">
-                <methods>
-                    <include name="validate_forced_unwrapping_having_two_reverted_type_parameters_correctly_identifies_type_parameter"/>
-                    <include name="validate_forced_unwrapping_having_two_type_parameters_and_only_one_maximally_specific_value_extractor_is_ok"/>
-                    <include name="validate_wrapped_value_if_value_extractor_unwraps_by_default_and_unwrapping_enabled_per_constraint_for_non_generic_container"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.XmlConfigurationTest">
                 <methods>
                     <include name="testAnnotationDefinedConstraintApplies"/>
