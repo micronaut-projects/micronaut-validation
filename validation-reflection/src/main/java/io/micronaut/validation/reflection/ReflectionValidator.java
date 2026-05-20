@@ -106,7 +106,9 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -306,7 +308,8 @@ public class ReflectionValidator extends DefaultValidator {
         return validateExecutableGroupPasses(
             object.getClass(),
             context,
-            groupContext -> validateParametersReflectively(object, method, parameterValues, groupContext)
+            (groupContext, cascadedContext) -> validateParametersReflectively(object, method, parameterValues, groupContext, cascadedContext),
+            violation -> violation.getLeafBean() == object
         );
     }
 
@@ -323,7 +326,8 @@ public class ReflectionValidator extends DefaultValidator {
         return validateExecutableGroupPasses(
             object.getClass(),
             context,
-            groupContext -> validateReturnValueReflectively(object, method, returnValue, groupContext)
+            (groupContext, cascadedContext) -> validateReturnValueReflectively(object, method, returnValue, groupContext, cascadedContext),
+            violation -> violation.getLeafBean() == object
         );
     }
 
@@ -343,7 +347,8 @@ public class ReflectionValidator extends DefaultValidator {
         return validateExecutableGroupPasses(
             constructor.getDeclaringClass(),
             context,
-            groupContext -> validateConstructorParametersReflectively(constructor, parameterValues, groupContext)
+            (groupContext, cascadedContext) -> validateConstructorParametersReflectively(constructor, parameterValues, groupContext, cascadedContext),
+            violation -> violation.getLeafBean() == null
         );
     }
 
@@ -358,20 +363,37 @@ public class ReflectionValidator extends DefaultValidator {
         return validateExecutableGroupPasses(
             constructor.getDeclaringClass(),
             context,
-            groupContext -> validateConstructorReturnValueReflectively(constructor, createdObject, groupContext)
+            (groupContext, cascadedContext) -> validateConstructorReturnValueReflectively(constructor, createdObject, groupContext, cascadedContext),
+            violation -> violation.getLeafBean() == null
         );
     }
 
     private <T> Set<ConstraintViolation<T>> validateExecutableGroupPasses(Class<?> beanType,
                                                                           BeanValidationContext context,
-                                                                          Function<BeanValidationContext, Set<ConstraintViolation<T>>> validator) {
+                                                                          BiFunction<BeanValidationContext, BeanValidationContext, Set<ConstraintViolation<T>>> validator,
+                                                                          Predicate<ConstraintViolation<T>> sequenceBlockingViolation) {
+        boolean defaultGroupRedefined = isDefaultGroupContext(context) && beanType.getDeclaredAnnotation(GroupSequence.class) != null;
+        Set<ConstraintViolation<T>> collectedViolations = defaultGroupRedefined ? new LinkedHashSet<>() : Collections.emptySet();
         for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context)) {
-            Set<ConstraintViolation<T>> violations = validator.apply(BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new)));
+            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+            BeanValidationContext cascadedContext = defaultGroupRedefined ? BeanValidationContext.DEFAULT : groupContext;
+            Set<ConstraintViolation<T>> violations = validator.apply(groupContext, cascadedContext);
             if (!violations.isEmpty()) {
-                return violations;
+                if (!defaultGroupRedefined) {
+                    return violations;
+                }
+                collectedViolations = new LinkedHashSet<>(mergeViolations(collectedViolations, violations));
+                if (violations.stream().anyMatch(sequenceBlockingViolation)) {
+                    return Collections.unmodifiableSet(collectedViolations);
+                }
             }
         }
-        return Collections.emptySet();
+        return defaultGroupRedefined ? Collections.unmodifiableSet(collectedViolations) : Collections.emptySet();
+    }
+
+    private static boolean isDefaultGroupContext(BeanValidationContext context) {
+        return context.groups().isEmpty()
+            || context.groups().size() == 1 && context.groups().contains(jakarta.validation.groups.Default.class);
     }
 
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object,
@@ -870,7 +892,8 @@ public class ReflectionValidator extends DefaultValidator {
     private <T> Set<ConstraintViolation<T>> validateReturnValueReflectively(T object,
                                                                             Method method,
                                                                             @Nullable Object returnValue,
-                                                                            BeanValidationContext context) {
+                                                                            BeanValidationContext context,
+                                                                            BeanValidationContext cascadedContext) {
         warnOnce(method.getDeclaringClass().getName(), method.getName(), "validating executable return value without Micronaut executable metadata");
         ReflectionMethodDeclarations.validateReturnValueDeclarations(method);
         ReflectionGroupConversions.validateMethodReturnValueDeclarations(method);
@@ -966,7 +989,7 @@ public class ReflectionValidator extends DefaultValidator {
                 object.getClass(),
                 returnValue,
                 returnValue,
-                convertGroups(context, groupConversions),
+                convertGroups(cascadedContext, groupConversions),
                 violations,
                 new ReflectionReturnValueExecutablePath(method)
             );
@@ -977,7 +1000,8 @@ public class ReflectionValidator extends DefaultValidator {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T> Set<ConstraintViolation<T>> validateConstructorReturnValueReflectively(Constructor<? extends T> constructor,
                                                                                        T createdObject,
-                                                                                       BeanValidationContext context) {
+                                                                                       BeanValidationContext context,
+                                                                                       BeanValidationContext cascadedContext) {
         warnOnce(constructor.getDeclaringClass().getName(), constructor.getName(), "validating constructor return value without Micronaut executable metadata");
         ReflectionGroupConversions.validateConstructorReturnValueDeclaration(constructor);
         List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(constructor);
@@ -1034,7 +1058,7 @@ public class ReflectionValidator extends DefaultValidator {
                 constructor.getDeclaringClass(),
                 createdObject,
                 createdObject,
-                convertGroups(context, groupConversions),
+                convertGroups(cascadedContext, groupConversions),
                 violations,
                 new ReflectionConstructorReturnValueExecutablePath(constructor)
             );
@@ -1045,7 +1069,8 @@ public class ReflectionValidator extends DefaultValidator {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T> Set<ConstraintViolation<T>> validateConstructorParametersReflectively(Constructor<? extends T> constructor,
                                                                                       Object[] parameterValues,
-                                                                                      BeanValidationContext context) {
+                                                                                      BeanValidationContext context,
+                                                                                      BeanValidationContext cascadedContext) {
         Parameter[] parameters = constructor.getParameters();
         if (parameters.length != parameterValues.length) {
             throw new IllegalArgumentException("The constructor parameter array must have exactly " + parameters.length + " elements.");
@@ -1117,7 +1142,7 @@ public class ReflectionValidator extends DefaultValidator {
                     constructor.getDeclaringClass(),
                     value,
                     value,
-                    convertGroups(context, groupConversions),
+                    convertGroups(cascadedContext, groupConversions),
                     violations,
                     new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
                 );
@@ -1188,7 +1213,8 @@ public class ReflectionValidator extends DefaultValidator {
     private <T> Set<ConstraintViolation<T>> validateParametersReflectively(T object,
                                                                            Method method,
                                                                            Object[] parameterValues,
-                                                                           BeanValidationContext context) {
+                                                                           BeanValidationContext context,
+                                                                           BeanValidationContext cascadedContext) {
         Parameter[] parameters = method.getParameters();
         if (parameters.length != parameterValues.length) {
             throw new IllegalArgumentException("The method parameter array must have exactly " + parameters.length + " elements.");
@@ -1277,7 +1303,7 @@ public class ReflectionValidator extends DefaultValidator {
                     object.getClass(),
                     value,
                     value,
-                    convertGroups(context, groupConversions),
+                    convertGroups(cascadedContext, groupConversions),
                     violations,
                     new ReflectionExecutablePath(method, parameterName, parameterIndex)
                 );
@@ -2463,7 +2489,8 @@ public class ReflectionValidator extends DefaultValidator {
         if (groups.isEmpty()) {
             return descriptorGroups.contains(jakarta.validation.groups.Default.class);
         }
-        return groups.stream().anyMatch(descriptorGroups::contains);
+        return groups.stream().anyMatch(group -> descriptorGroups.contains(group)
+            || descriptorGroups.contains(jakarta.validation.groups.Default.class) && group.getDeclaredAnnotation(GroupSequence.class) != null);
     }
 
     private static BeanValidationContext convertGroups(BeanValidationContext context,
