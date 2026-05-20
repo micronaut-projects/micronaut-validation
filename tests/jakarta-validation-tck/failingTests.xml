@@ -219,7 +219,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
                 <methods>
                     <include name="constructorParameterValidationIsAppliedGroupWise"/>
-                    <include name="constructorParameterValidationPerformsGroupConversion"/>
                     <include name="constructorParameterValidationTargetsParameterCrossParameterAndCascadedConstraints"/>
                     <include name="constructorParameterValidationUsingSequence"/>
                     <include name="constructorParameterValidationValidatesEachConstraintOnlyOnce"/>
@@ -229,12 +228,10 @@
                     <include name="methodParameterValidationIncludesConstraintsFromImplementedInterface"/>
                     <include name="methodParameterValidationIncludesConstraintsFromSuperClass"/>
                     <include name="methodParameterValidationIsAppliedGroupWise"/>
-                    <include name="methodParameterValidationPerformsGroupConversion"/>
                     <include name="methodParameterValidationTargetsParameterCrossParameterAndCascadedConstraints"/>
                     <include name="methodParameterValidationUsingSequence"/>
                     <include name="methodParameterValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="methodParameterValidationWithRedefinedDefaultGroupSequence"/>
-                    <include name="methodReturnValueValidationPerformsGroupConversion"/>
                     <include name="methodReturnValueValidationUsingSequence"/>
                     <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
                 </methods>
@@ -300,14 +297,6 @@
                     <include name="testPropertyPathTraversingMethodMapReturnValue"/>
                     <include name="testPropertyPathTraversingMethodSetParameter"/>
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
-                <methods>
-                    <include name="testGroupConversionDefinedInImplementedClassIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionDefinedInSubClassIsAppliedOnMethodReturnValue"/>
-                    <include name="testGroupConversionIsAppliedOnMethodParameter"/>
-                    <include name="testGroupConversionIsAppliedOnMethodReturnValue"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
