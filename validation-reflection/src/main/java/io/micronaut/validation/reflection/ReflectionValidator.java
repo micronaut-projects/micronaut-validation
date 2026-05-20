@@ -313,17 +313,19 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("method", method);
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("groups", groups);
-        Set<ConstraintViolation<T>> violations = super.validateParameters(object, method, parameterValues, groups);
-        if (!violations.isEmpty()) {
-            return violations;
-        }
+        Set<ConstraintViolation<T>> generatedViolations = filterGeneratedExecutableViolations(
+            method,
+            super.validateParameters(object, method, parameterValues, groups),
+            ConstraintTarget.PARAMETERS
+        );
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        return validateExecutableGroupPasses(
+        Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
             context,
             (groupContext, cascadedContext) -> validateParametersReflectively(object, method, parameterValues, groupContext, cascadedContext),
             violation -> violation.getLeafBean() == object
         );
+        return reflectedViolations.isEmpty() ? generatedViolations : mergeViolations(generatedViolations, reflectedViolations);
     }
 
     @Override
@@ -331,17 +333,19 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("object", object);
         requireNonNull("method", method);
         requireNonNull("groups", groups);
-        Set<ConstraintViolation<T>> violations = super.validateReturnValue(object, method, returnValue, groups);
-        if (!violations.isEmpty()) {
-            return violations;
-        }
+        Set<ConstraintViolation<T>> generatedViolations = filterGeneratedExecutableViolations(
+            method,
+            super.validateReturnValue(object, method, returnValue, groups),
+            ConstraintTarget.RETURN_VALUE
+        );
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        return validateExecutableGroupPasses(
+        Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
             context,
             (groupContext, cascadedContext) -> validateReturnValueReflectively(object, method, returnValue, groupContext, cascadedContext),
             violation -> violation.getLeafBean() == object
         );
+        return reflectedViolations.isEmpty() ? generatedViolations : mergeViolations(generatedViolations, reflectedViolations);
     }
 
     @Override
@@ -599,7 +603,7 @@ public class ReflectionValidator extends DefaultValidator {
             int remaining = remainingGeneratedConstraints.getOrDefault(key, 0);
             if (remaining > 0
                 && reflectedConstraints.getOrDefault(key, 0) <= generatedConstraints.getOrDefault(key, 0)
-                && !hasAmbiguousValidatorResolution(constraint, valueType)) {
+                && !requiresReflectionValidation(constraint, valueType)) {
                 remainingGeneratedConstraints.put(key, remaining - 1);
             } else {
                 supplemental.add(constraint);
@@ -654,6 +658,7 @@ public class ReflectionValidator extends DefaultValidator {
         return hasAmbiguousValidatorResolution(constraint, valueType)
             || supportsMinMaxReflection(constraint, valueType)
             || constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP
+            || constraint.hasValidationAppliesTo()
             || !constraint.composingConstraints.isEmpty();
     }
 
@@ -946,6 +951,42 @@ public class ReflectionValidator extends DefaultValidator {
         return Collections.unmodifiableSet(merged);
     }
 
+    private static <T> Set<ConstraintViolation<T>> filterGeneratedExecutableViolations(Method method,
+                                                                                       Set<ConstraintViolation<T>> violations,
+                                                                                       ConstraintTarget target) {
+        if (violations.isEmpty()) {
+            return violations;
+        }
+        Set<ConstraintViolation<T>> filtered = new LinkedHashSet<>(violations.size());
+        boolean changed = false;
+        for (ConstraintViolation<T> violation : violations) {
+            if (isWrongExecutableTarget(method, violation.getConstraintDescriptor(), target)) {
+                changed = true;
+            } else {
+                filtered.add(violation);
+            }
+        }
+        return changed ? Collections.unmodifiableSet(filtered) : violations;
+    }
+
+    private static boolean isWrongExecutableTarget(Method method,
+                                                   ConstraintDescriptor<?> descriptor,
+                                                   ConstraintTarget target) {
+        boolean foundMethodConstraint = false;
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (ReflectionConstraintDescriptor<?> methodConstraint : constraintsFor(hierarchyMethod)) {
+                if (methodConstraint.getType() != descriptor.getAnnotation().annotationType()) {
+                    continue;
+                }
+                foundMethodConstraint = true;
+                if (isTargetedConstraint(methodConstraint, target)) {
+                    return false;
+                }
+            }
+        }
+        return foundMethodConstraint;
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> Set<ConstraintViolation<T>> withExecutableParameters(Set<ConstraintViolation<T>> violations,
                                                                             Object[] executableParameters) {
@@ -1018,7 +1059,7 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateExecutableConstraintDeclaration(constraint, method);
-            if (!appliesTo(constraint, ConstraintTarget.RETURN_VALUE)) {
+            if (!isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE)) {
                 continue;
             }
             jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
@@ -1261,7 +1302,7 @@ public class ReflectionValidator extends DefaultValidator {
         }
         jakarta.validation.Path path = new ReflectionConstructorCrossParameterPath(constructor);
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context) || !appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
+            if (!isGroupIncluded(constraint, context) || !isTargetedConstraint(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
@@ -1607,7 +1648,7 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateExecutableConstraintDeclaration(constraint, method);
-            if (!appliesTo(constraint, ConstraintTarget.PARAMETERS)) {
+            if (!isTargetedConstraint(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
