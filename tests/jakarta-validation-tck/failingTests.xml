@@ -301,13 +301,6 @@
                     <include name="testAddingNodesInClassLevelConstraintKeepsInIterableKeyAndIndex"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
-                <methods>
-                    <include name="testContainerElementLeafBean"/>
-                    <include name="testGraphValidationWithArray"/>
-                    <include name="testGraphValidationWithList"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
                 <methods>
                     <include name="testGraphNavigationDeterminism"/>

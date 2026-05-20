@@ -1802,7 +1802,8 @@ public class ReflectionValidator extends DefaultValidator {
                 property.type,
                 convertGroups(context, property.groupConversions),
                 violations,
-                propertyPath
+                propertyPath,
+                validatedObjectsIncluding(leafBean)
             );
         }
     }
@@ -2608,6 +2609,14 @@ public class ReflectionValidator extends DefaultValidator {
         validateCascadedValueOrContainer(rootBean, rootBeanClass, leafBean, value, declaredType, context, violations, beanPath, Collections.newSetFromMap(new IdentityHashMap<>()));
     }
 
+    private static Set<Object> validatedObjectsIncluding(@Nullable Object value) {
+        Set<Object> validatedObjects = Collections.newSetFromMap(new IdentityHashMap<>());
+        if (value != null) {
+            validatedObjects.add(value);
+        }
+        return validatedObjects;
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T> void validateCascadedValueOrContainer(@Nullable T rootBean,
                                                       @Nullable Class<?> rootBeanClass,
@@ -2633,7 +2642,7 @@ public class ReflectionValidator extends DefaultValidator {
                     true,
                     null,
                     i,
-                    declaredType,
+                    Object[].class,
                     null
                 );
                 validateCascadedValue(
