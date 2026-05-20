@@ -302,7 +302,12 @@ public class ReflectionValidator extends DefaultValidator {
         if (!violations.isEmpty()) {
             return violations;
         }
-        return validateParametersReflectively(object, method, parameterValues, BeanValidationContext.fromGroups(groups));
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        return validateExecutableGroupPasses(
+            object.getClass(),
+            context,
+            groupContext -> validateParametersReflectively(object, method, parameterValues, groupContext)
+        );
     }
 
     @Override
@@ -314,7 +319,12 @@ public class ReflectionValidator extends DefaultValidator {
         if (!violations.isEmpty()) {
             return violations;
         }
-        return validateReturnValueReflectively(object, method, returnValue, BeanValidationContext.fromGroups(groups));
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        return validateExecutableGroupPasses(
+            object.getClass(),
+            context,
+            groupContext -> validateReturnValueReflectively(object, method, returnValue, groupContext)
+        );
     }
 
     @Override
@@ -329,7 +339,12 @@ public class ReflectionValidator extends DefaultValidator {
                 return violations;
             }
         }
-        return validateConstructorParametersReflectively(constructor, parameterValues, BeanValidationContext.fromGroups(groups));
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        return validateExecutableGroupPasses(
+            constructor.getDeclaringClass(),
+            context,
+            groupContext -> validateConstructorParametersReflectively(constructor, parameterValues, groupContext)
+        );
     }
 
     @Override
@@ -339,7 +354,24 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("constructor", constructor);
         requireNonNull("createdObject", createdObject);
         requireNonNull("groups", groups);
-        return validateConstructorReturnValueReflectively(constructor, createdObject, BeanValidationContext.fromGroups(groups));
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        return validateExecutableGroupPasses(
+            constructor.getDeclaringClass(),
+            context,
+            groupContext -> validateConstructorReturnValueReflectively(constructor, createdObject, groupContext)
+        );
+    }
+
+    private <T> Set<ConstraintViolation<T>> validateExecutableGroupPasses(Class<?> beanType,
+                                                                          BeanValidationContext context,
+                                                                          Function<BeanValidationContext, Set<ConstraintViolation<T>>> validator) {
+        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(beanType, context)) {
+            Set<ConstraintViolation<T>> violations = validator.apply(BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new)));
+            if (!violations.isEmpty()) {
+                return violations;
+            }
+        }
+        return Collections.emptySet();
     }
 
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object,

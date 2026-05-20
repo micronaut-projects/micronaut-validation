@@ -182,6 +182,30 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void validatesExecutableGroupSequencesWithoutMicronautExecutableMetadata() throws Exception {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            Method method = SequenceExecutableBean.class.getDeclaredMethod("submit", String.class, String.class);
+            SequenceExecutableBean bean = new SequenceExecutableBean();
+
+            Set<ConstraintViolation<SequenceExecutableBean>> violations = validator.forExecutables()
+                .validateParameters(bean, method, new Object[]{null, null}, ExecutableSequence.class);
+
+            assertEquals(1, violations.size());
+            assertEquals("submit.name", violations.iterator().next().getPropertyPath().toString());
+
+            violations = validator.forExecutables()
+                .validateParameters(bean, method, new Object[]{"name", null}, ExecutableSequence.class);
+
+            assertEquals(2, violations.size());
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.code")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("submit.<cross-parameter>")));
+        }
+    }
+
+    @Test
     void validatesReturnValueWithoutMicronautExecutableMetadata() throws Exception {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -436,6 +460,22 @@ class ReflectionValidatorTest {
         @CrossParameterConstraint
         CrossParameterConstructorBean(String name) {
         }
+    }
+
+    private static final class SequenceExecutableBean {
+        @CrossParameterConstraint(groups = ExecutableAdvanced.class)
+        void submit(@NotNull(groups = ExecutableBasic.class) String name, @NotNull(groups = ExecutableAdvanced.class) String code) {
+        }
+    }
+
+    private interface ExecutableBasic {
+    }
+
+    private interface ExecutableAdvanced {
+    }
+
+    @GroupSequence({ExecutableBasic.class, ExecutableAdvanced.class})
+    private interface ExecutableSequence {
     }
 
     @Target({METHOD, CONSTRUCTOR})
