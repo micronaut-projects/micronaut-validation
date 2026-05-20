@@ -330,12 +330,6 @@
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest"/>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
-                <methods>
-                    <include name="ignoreAnnotationsOnEncapsulatingMethodParameterAppliesToContainerElementType"/>
-                    <include name="ignoreAnnotationsOnEncapsulatingMethodReturnValueAppliesToContainerElementType"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
                 <methods>
                     <include name="testGroupConversionIsAppliedOnConstructorParameter"/>

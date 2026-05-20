@@ -78,6 +78,34 @@ public interface ValidationMetadataProvider extends Ordered {
     }
 
     /**
+     * @param beanType The bean type
+     * @param methodName The method name
+     * @param parameterTypes The method parameter types
+     * @param parameterIndex The parameter index
+     * @return Whether regular method parameter annotations should be ignored
+     * @since 5.1
+     */
+    default boolean isMethodParameterAnnotationMetadataIgnored(Class<?> beanType,
+                                                              String methodName,
+                                                              Class<?>[] parameterTypes,
+                                                              int parameterIndex) {
+        return false;
+    }
+
+    /**
+     * @param beanType The bean type
+     * @param methodName The method name
+     * @param parameterTypes The method parameter types
+     * @return Whether regular method return value annotations should be ignored
+     * @since 5.1
+     */
+    default boolean isMethodReturnValueAnnotationMetadataIgnored(Class<?> beanType,
+                                                                String methodName,
+                                                                Class<?>[] parameterTypes) {
+        return false;
+    }
+
+    /**
      * @param constraintType The constraint annotation type
      * @param existingValidatorClasses The existing validator classes declared by the constraint annotation
      * @param <A> The constraint annotation type
