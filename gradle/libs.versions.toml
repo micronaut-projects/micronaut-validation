@@ -1,6 +1,6 @@
 [versions]
 managed-validation = "3.1.1"
-managed-jakarta-el = "5.0.1"
+jakarta-el-api = "5.0.1"
 jakarta-el-impl = "5.0.0-M1"
 javafx = "21.0.6"
 
@@ -48,7 +48,7 @@ javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 # managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
-managed-jakarta-el = { module = "jakarta.el:jakarta.el-api", version.ref = "managed-jakarta-el" }
+jakarta-el-api = { module = "jakarta.el:jakarta.el-api", version.ref = "jakarta-el-api" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
