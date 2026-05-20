@@ -311,11 +311,6 @@
                     <include name="testPropertyConstraintDefinedInXml"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfigurationViaXmlAndAnnotationsTest">
-                <methods>
-                    <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
                 <methods>
                     <include name="ignoreAnnotationsOnEncapsulatingGetterAppliesToContainerElementType"/>
