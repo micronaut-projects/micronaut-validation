@@ -23,13 +23,19 @@ import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
+import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.visitor.ValidationVisitor;
+import jakarta.validation.executable.ExecutableType;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Optional;
 
 @Internal
 public final class TestClassVisitor implements TypeElementVisitor<Object, Object> {
+
+    private static final String VALIDATE_ON_EXECUTION = "jakarta.validation.executable.ValidateOnExecution";
 
     @Override
     public VisitorKind getVisitorKind() {
@@ -81,14 +87,15 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                 builder.member("accessKind", new Introspected.AccessKind[]{Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD});
                 builder.member("visibility", Introspected.Visibility.ANY);
             });
-            element.annotate(Executable.class);
             element.annotate(Prototype.class);
 
             element.getMethods().forEach(ce -> {
                 if (ce.isStatic() || !ce.isAccessible()) {
                     ce.annotate(Vetoed.class);
-                } else {
+                } else if (isValidatedExecutable(ce)) {
                     ce.annotate(Executable.class);
+                } else {
+                    ce.annotate(Vetoed.class);
                 }
             });
             element.getFields().forEach(this::processField);
@@ -108,5 +115,101 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                 || field.getType().isAssignable(jakarta.validation.ValidatorFactory.class))) {
             field.annotate("jakarta.inject.Inject");
         }
+    }
+
+    private static boolean isValidatedExecutable(MethodElement method) {
+        boolean getter = isGetter(method);
+        Optional<ExecutableType[]> methodTypes = executableTypes(method);
+        if (methodTypes.isPresent()) {
+            return includes(methodTypes.get(), getter);
+        }
+        Optional<ExecutableType[]> inheritedTypes = inheritedExecutableTypes(method);
+        if (inheritedTypes.isPresent()) {
+            return includes(inheritedTypes.get(), getter);
+        }
+        Optional<ExecutableType[]> declaringTypeTypes = executableTypes(method.getDeclaringType());
+        return declaringTypeTypes.map(executableTypes -> includes(executableTypes, getter)).orElse(!getter);
+    }
+
+    private static Optional<ExecutableType[]> inheritedExecutableTypes(MethodElement method) {
+        return inheritedExecutableTypes(method, method.getDeclaringType().getInterfaces())
+            .or(() -> method.getDeclaringType().getSuperType()
+                .flatMap(superType -> inheritedExecutableTypes(method, superType)));
+    }
+
+    private static Optional<ExecutableType[]> inheritedExecutableTypes(MethodElement method, Collection<ClassElement> types) {
+        for (ClassElement type : types) {
+            Optional<ExecutableType[]> executableTypes = inheritedExecutableTypes(method, type);
+            if (executableTypes.isPresent()) {
+                return executableTypes;
+            }
+        }
+        return Optional.empty();
+    }
+
+    private static Optional<ExecutableType[]> inheritedExecutableTypes(MethodElement method, ClassElement type) {
+        Optional<MethodElement> overriddenMethod = type.findMethod(method.getName())
+            .filter(candidate -> candidate.getParameters().length == method.getParameters().length);
+        if (overriddenMethod.isPresent()) {
+            Optional<ExecutableType[]> methodTypes = executableTypes(overriddenMethod.get());
+            if (methodTypes.isPresent()) {
+                return methodTypes;
+            }
+            Optional<ExecutableType[]> typeTypes = executableTypes(type);
+            if (typeTypes.isPresent()) {
+                return typeTypes;
+            }
+        }
+        return inheritedExecutableTypes(method, type.getInterfaces())
+            .or(() -> type.getSuperType().flatMap(superType -> inheritedExecutableTypes(method, superType)));
+    }
+
+    private static Optional<ExecutableType[]> executableTypes(MethodElement method) {
+        if (!method.getMethodAnnotationMetadata().hasAnnotation(VALIDATE_ON_EXECUTION)) {
+            return Optional.empty();
+        }
+        ExecutableType[] executableTypes = method.getMethodAnnotationMetadata()
+            .findAnnotation(VALIDATE_ON_EXECUTION)
+            .filter(annotationValue -> annotationValue.contains("type"))
+            .map(annotationValue -> annotationValue.enumValues("type", ExecutableType.class))
+            .orElse(new ExecutableType[] {ExecutableType.IMPLICIT});
+        return Optional.of(executableTypes);
+    }
+
+    private static Optional<ExecutableType[]> executableTypes(ClassElement type) {
+        if (!type.hasAnnotation(VALIDATE_ON_EXECUTION)) {
+            return Optional.empty();
+        }
+        ExecutableType[] executableTypes = type.getAnnotationMetadata()
+            .findAnnotation(VALIDATE_ON_EXECUTION)
+            .filter(annotationValue -> annotationValue.contains("type"))
+            .map(annotationValue -> annotationValue.enumValues("type", ExecutableType.class))
+            .orElse(new ExecutableType[] {ExecutableType.IMPLICIT});
+        if (executableTypes.length == 1 && executableTypes[0] == ExecutableType.IMPLICIT) {
+            return Optional.empty();
+        }
+        return Optional.of(executableTypes);
+    }
+
+    private static boolean includes(ExecutableType[] executableTypes, boolean getter) {
+        if (executableTypes.length == 0) {
+            return false;
+        }
+        for (ExecutableType executableType : executableTypes) {
+            if (executableType == ExecutableType.ALL
+                || executableType == ExecutableType.IMPLICIT
+                || (getter && executableType == ExecutableType.GETTER_METHODS)
+                || (!getter && executableType == ExecutableType.NON_GETTER_METHODS)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGetter(MethodElement method) {
+        return method.getParameters().length == 0
+            && method.getReturnType() != null
+            && !method.getReturnType().isAssignable(Void.TYPE)
+            && (method.getName().startsWith("get") || method.getName().startsWith("is"));
     }
 }

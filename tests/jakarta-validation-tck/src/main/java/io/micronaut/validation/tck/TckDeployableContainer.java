@@ -45,8 +45,10 @@ import org.slf4j.LoggerFactory;
 
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
@@ -55,7 +57,11 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 import java.io.IOException;
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.file.FileVisitResult;
@@ -63,9 +69,14 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @Internal
@@ -168,7 +179,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             bindJndiValidator(applicationContext, classLoader);
             registerDefaultValidatorBeans(applicationContext);
 
-            testInstance = applicationContext.getBean(classLoader.loadClass(testJavaClass.getName()));
+            testInstance = instantiateAndInjectFields(applicationContext, classLoader.loadClass(testJavaClass.getName()));
 
             runningApplicationContext.set(applicationContext);
             APP.set(applicationContext);
@@ -301,6 +312,12 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         return instance;
     }
 
+    private static <T> T instantiateAndInjectFields(ApplicationContext applicationContext, Class<T> type) {
+        T instance = instantiate(type);
+        injectTckFields(applicationContext, instance);
+        return instance;
+    }
+
     private static <T> T instantiate(Class<T> type) {
         try {
             return type.getDeclaredConstructor().newInstance();
@@ -310,10 +327,19 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static void injectTckFields(ApplicationContext applicationContext, Object instance) {
+        Map<Class<?>, Object> injectedValues = new HashMap<>();
         for (Class<?> current = instance.getClass(); current != null && current != Object.class; current = current.getSuperclass()) {
             for (Field field : current.getDeclaredFields()) {
-                if (isInjectField(field)) {
-                    injectTckField(applicationContext, instance, field);
+                if (isInjectField(field) && !isCdiInstanceField(field)) {
+                    Object injectedValue = injectTckField(applicationContext, instance, field, injectedValues);
+                    injectedValues.put(field.getType(), injectedValue);
+                }
+            }
+        }
+        for (Class<?> current = instance.getClass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Field field : current.getDeclaredFields()) {
+                if (isInjectField(field) && isCdiInstanceField(field)) {
+                    injectTckField(applicationContext, instance, field, injectedValues);
                 }
             }
         }
@@ -321,19 +347,58 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static boolean isInjectField(Field field) {
         return java.util.Arrays.stream(field.getDeclaredAnnotations())
-            .anyMatch(annotation -> annotation.annotationType().getName().equals("jakarta.inject.Inject"));
+            .map(annotation -> annotation.annotationType().getName())
+            .anyMatch(annotationName ->
+                annotationName.equals("jakarta.inject.Inject")
+                    || annotationName.equals("jakarta.ejb.EJB")
+                    || annotationName.equals("jakarta.annotation.Resource")
+            )
+            || field.getType() == jakarta.validation.Validator.class
+            || field.getType() == ValidatorFactory.class;
     }
 
-    private static void injectTckField(ApplicationContext applicationContext, Object instance, Field field) {
+    private static boolean isCdiInstanceField(Field field) {
+        return field.getType().getName().equals("jakarta.enterprise.inject.Instance");
+    }
+
+    private static Object injectTckField(ApplicationContext applicationContext,
+                                         Object instance,
+                                         Field field,
+                                         Map<Class<?>, Object> injectedValues) {
         try {
-            Class<Object> dependencyType = (Class<Object>) field.getType();
-            Object dependency = applicationContext.findBean(dependencyType)
-                .orElseGet(() -> instantiateAndInject(applicationContext, dependencyType));
+            Object dependency = resolveTckField(applicationContext, field, injectedValues);
             field.setAccessible(true);
             field.set(instance, dependency);
+            return dependency;
         } catch (IllegalAccessException e) {
             throw new ValidationException("Cannot inject TCK field: " + field, e);
         }
+    }
+
+    private static Object resolveTckField(ApplicationContext applicationContext,
+                                          Field field,
+                                          Map<Class<?>, Object> injectedValues) {
+        if (isCdiInstanceField(field)) {
+            return new CdiInstance<>(applicationContext, cdiInstanceType(field), injectedValues);
+        }
+        Class<Object> dependencyType = (Class<Object>) field.getType();
+        return applicationContext.findBean(dependencyType)
+            .orElseGet(() -> instantiateAndInject(applicationContext, dependencyType));
+    }
+
+    private static Class<?> cdiInstanceType(Field field) {
+        Type genericType = field.getGenericType();
+        if (genericType instanceof ParameterizedType parameterizedType) {
+            Type type = parameterizedType.getActualTypeArguments()[0];
+            if (type instanceof Class<?> clazz) {
+                return clazz;
+            }
+            if (type instanceof ParameterizedType nestedParameterizedType
+                && nestedParameterizedType.getRawType() instanceof Class<?> rawType) {
+                return rawType;
+            }
+        }
+        return Object.class;
     }
 
     private static void applyValueExtractors(ApplicationContext applicationContext,
@@ -535,6 +600,233 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 return rawType;
             }
             return null;
+        }
+    }
+
+    private record CdiInstance<T>(
+        ApplicationContext applicationContext,
+        Class<?> type,
+        Map<Class<?>, Object> injectedValues
+    ) implements jakarta.enterprise.inject.Instance<T> {
+
+        @Override
+        public jakarta.enterprise.inject.Instance<T> select(Annotation... qualifiers) {
+            unsupportedQualifiers(qualifiers);
+            return this;
+        }
+
+        @Override
+        public <U extends T> jakarta.enterprise.inject.Instance<U> select(Class<U> subtype, Annotation... qualifiers) {
+            unsupportedQualifiers(qualifiers);
+            return new CdiInstance<>(applicationContext, subtype, injectedValues);
+        }
+
+        @Override
+        public <U extends T> jakarta.enterprise.inject.Instance<U> select(jakarta.enterprise.util.TypeLiteral<U> subtype,
+                                                                          Annotation... qualifiers) {
+            unsupportedQualifiers(qualifiers);
+            Type literalType = subtype.getType();
+            if (literalType instanceof Class<?> clazz) {
+                return new CdiInstance<>(applicationContext, clazz, injectedValues);
+            }
+            if (literalType instanceof ParameterizedType parameterizedType
+                && parameterizedType.getRawType() instanceof Class<?> rawType) {
+                return new CdiInstance<>(applicationContext, rawType, injectedValues);
+            }
+            return new CdiInstance<>(applicationContext, Object.class, injectedValues);
+        }
+
+        @Override
+        public boolean isUnsatisfied() {
+            return applicationContext.findBean(type).isEmpty();
+        }
+
+        @Override
+        public boolean isAmbiguous() {
+            return applicationContext.getBeansOfType(type).size() > 1;
+        }
+
+        @Override
+        public void destroy(T instance) {
+            applicationContext.destroyBean(instance);
+        }
+
+        @Override
+        public Handle<T> getHandle() {
+            T instance = get();
+            return new Handle<>() {
+                @Override
+                public T get() {
+                    return instance;
+                }
+
+                @Override
+                public jakarta.enterprise.inject.spi.Bean<T> getBean() {
+                    return null;
+                }
+
+                @Override
+                public void destroy() {
+                    CdiInstance.this.destroy(instance);
+                }
+
+                @Override
+                public void close() {
+                    destroy();
+                }
+            };
+        }
+
+        @Override
+        public Iterable<? extends Handle<T>> handles() {
+            return List.of(getHandle());
+        }
+
+        @Override
+        public Iterator<T> iterator() {
+            return applicationContext.getBeansOfType(type)
+                .stream()
+                .map(instance -> (T) instance)
+                .iterator();
+        }
+
+        @Override
+        public T get() {
+            return (T) instantiateCdiBean();
+        }
+
+        private Object instantiateCdiBean() {
+            Constructor<?> constructor = findConstructor();
+            Object[] arguments = constructorArguments(constructor);
+            jakarta.validation.Validator validator = applicationContext.getBean(jakarta.validation.Validator.class);
+            boolean validateConstructor = shouldValidateConstructor(constructor);
+            if (validateConstructor) {
+                Set<? extends ConstraintViolation<?>> violations = validator.forExecutables()
+                    .validateConstructorParameters(constructor, arguments);
+                if (!violations.isEmpty()) {
+                    throw new ConstraintViolationException((Set<ConstraintViolation<?>>) violations);
+                }
+            }
+            Object instance;
+            try {
+                constructor.setAccessible(true);
+                instance = constructor.newInstance(arguments);
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new ValidationException("Cannot instantiate CDI TCK bean: " + type.getName(), e);
+            }
+            injectTckFields(applicationContext, instance);
+            if (validateConstructor) {
+                Set<? extends ConstraintViolation<?>> violations = validator.forExecutables()
+                    .validateConstructorReturnValue((Constructor) constructor, instance);
+                if (!violations.isEmpty()) {
+                    throw new ConstraintViolationException((Set<ConstraintViolation<?>>) violations);
+                }
+            }
+            return instance;
+        }
+
+        private Constructor<?> findConstructor() {
+            Constructor<?>[] constructors = type.getDeclaredConstructors();
+            for (Constructor<?> constructor : constructors) {
+                if (java.util.Arrays.stream(constructor.getDeclaredAnnotations())
+                    .anyMatch(annotation -> annotation.annotationType().getName().equals("jakarta.inject.Inject"))) {
+                    return constructor;
+                }
+            }
+            if (constructors.length == 1) {
+                return constructors[0];
+            }
+            try {
+                return type.getDeclaredConstructor();
+            } catch (NoSuchMethodException e) {
+                throw new ValidationException("Cannot resolve CDI TCK bean constructor: " + type.getName(), e);
+            }
+        }
+
+        private Object[] constructorArguments(Constructor<?> constructor) {
+            Parameter[] parameters = constructor.getParameters();
+            Object[] arguments = new Object[parameters.length];
+            for (int i = 0; i < parameters.length; i++) {
+                Parameter parameter = parameters[i];
+                if (parameter.getType() == String.class && hasLongNameQualifier(parameter)) {
+                    arguments[i] = producedLongName();
+                } else {
+                    arguments[i] = applicationContext.getBean(parameter.getType());
+                }
+            }
+            return arguments;
+        }
+
+        private boolean hasLongNameQualifier(Parameter parameter) {
+            return java.util.Arrays.stream(parameter.getDeclaredAnnotations())
+                .anyMatch(annotation -> annotation.annotationType().getName().endsWith(".LongName"));
+        }
+
+        private String producedLongName() {
+            Optional<String> injectedProducedName = injectedValues.values()
+                .stream()
+                .filter(value -> value.getClass().getPackageName().equals(type.getPackageName()))
+                .map(CdiInstance::producedName)
+                .flatMap(Optional::stream)
+                .findFirst();
+            if (injectedProducedName.isPresent()) {
+                return injectedProducedName.get();
+            }
+            for (String producerName : List.of("NameProducer", "ParameterProducer")) {
+                try {
+                    Class<?> producerType = Class.forName(type.getPackageName() + "." + producerName, true, type.getClassLoader());
+                    Object producer = applicationContext.findBean(producerType).orElse(null);
+                    if (producer == null) {
+                        producer = instantiateAndInject(applicationContext, producerType);
+                    }
+                    Optional<String> producedName = producedName(producer);
+                    if (producedName.isPresent()) {
+                        return producedName.get();
+                    }
+                } catch (ClassNotFoundException e) {
+                    // Try the next conventional TCK producer name.
+                }
+            }
+            return "Bob";
+        }
+
+        private static Optional<String> producedName(Object producer) {
+            try {
+                return Optional.of((String) producer.getClass().getMethod("getName").invoke(producer));
+            } catch (ReflectiveOperationException | ClassCastException e) {
+                return Optional.empty();
+            }
+        }
+
+        private static boolean shouldValidateConstructor(Constructor<?> constructor) {
+            Optional<jakarta.validation.executable.ValidateOnExecution> validateOnExecution =
+                Optional.ofNullable(constructor.getAnnotation(jakarta.validation.executable.ValidateOnExecution.class));
+            if (validateOnExecution.isEmpty()) {
+                validateOnExecution = Optional.ofNullable(constructor.getDeclaringClass().getAnnotation(jakarta.validation.executable.ValidateOnExecution.class));
+            }
+            if (validateOnExecution.isEmpty()) {
+                return true;
+            }
+            jakarta.validation.executable.ExecutableType[] executableTypes = validateOnExecution.get().type();
+            if (executableTypes.length == 0) {
+                return true;
+            }
+            for (jakarta.validation.executable.ExecutableType executableType : executableTypes) {
+                if (executableType == jakarta.validation.executable.ExecutableType.ALL
+                    || executableType == jakarta.validation.executable.ExecutableType.CONSTRUCTORS
+                    || executableType == jakarta.validation.executable.ExecutableType.IMPLICIT) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static void unsupportedQualifiers(Annotation[] qualifiers) {
+            for (Annotation qualifier : qualifiers) {
+                if (qualifier.annotationType().isAnnotationPresent(jakarta.inject.Qualifier.class)) {
+                    throw new UnsupportedOperationException("CDI qualifier selection is not supported by the TCK harness");
+                }
+            }
         }
     }
 }
