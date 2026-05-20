@@ -770,7 +770,7 @@ public class ReflectionValidator extends DefaultValidator {
             return property;
         }
         List<ReflectionContainerElement> containerElements = new ArrayList<>(ignorePropertyAnnotations ? List.of() : property.containerElements);
-        containerElements.addAll(providerContainerElements);
+        addAllContainerElements(containerElements, providerContainerElements);
         return new ReflectionProperty(
             property.name,
             property.type,

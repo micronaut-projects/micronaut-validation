@@ -17,9 +17,12 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ElementKind;
+import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
 import java.lang.annotation.Annotation;
+import java.util.StringJoiner;
 
 /**
  * Violation identity used to merge generated and reflection validation results.
@@ -42,8 +45,46 @@ record ReflectionViolationKey(
         );
     }
 
-    private static String pathKey(jakarta.validation.Path path) {
-        return path.toString();
+    private static String pathKey(Path path) {
+        StringJoiner joiner = new StringJoiner("/");
+        for (Path.Node node : path) {
+            StringBuilder builder = new StringBuilder();
+            builder.append(node.getKind())
+                .append(':')
+                .append(node.getName())
+                .append(':')
+                .append(node.isInIterable())
+                .append(':')
+                .append(node.getKey())
+                .append(':')
+                .append(node.getIndex());
+            appendNodeDetails(builder, node);
+            joiner.add(builder);
+        }
+        return joiner.toString();
+    }
+
+    private static void appendNodeDetails(StringBuilder builder, Path.Node node) {
+        ElementKind kind = node.getKind();
+        if (kind == ElementKind.CONTAINER_ELEMENT) {
+            Path.ContainerElementNode containerElementNode = node.as(Path.ContainerElementNode.class);
+            appendContainerDetails(builder, containerElementNode.getContainerClass(), containerElementNode.getTypeArgumentIndex());
+        } else if (kind == ElementKind.PROPERTY) {
+            Path.PropertyNode propertyNode = node.as(Path.PropertyNode.class);
+            appendContainerDetails(builder, propertyNode.getContainerClass(), propertyNode.getTypeArgumentIndex());
+        } else if (kind == ElementKind.PARAMETER) {
+            builder.append(':')
+                .append(node.as(Path.ParameterNode.class).getParameterIndex());
+        }
+    }
+
+    private static void appendContainerDetails(StringBuilder builder,
+                                               Class<?> containerClass,
+                                               Integer typeArgumentIndex) {
+        builder.append(':')
+            .append(containerClass == null ? null : containerClass.getName())
+            .append(':')
+            .append(typeArgumentIndex);
     }
 
 }
