@@ -60,6 +60,7 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
@@ -72,8 +73,10 @@ import java.nio.file.FileVisitor;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -256,6 +259,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         ).orElseGet(() -> new BeanContextConstraintValidatorFactory(applicationContext, bootstrapFactory.getConstraintValidatorFactory()));
         validatorConfiguration.constraintValidatorFactory(constraintValidatorFactory);
         applyValueExtractors(applicationContext, classLoader, bootstrapConfiguration, validatorConfiguration);
+        applyXmlMappings(classLoader, bootstrapConfiguration, validatorConfiguration);
         return new DefaultValidatorFactory(
             createValidator(validatorConfiguration, classLoader),
             validatorConfiguration
@@ -329,6 +333,47 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot read TCK validation.xml", e);
         }
+    }
+
+    private static void applyXmlMappings(ClassLoader classLoader,
+                                         BootstrapConfiguration bootstrapConfiguration,
+                                         DefaultValidatorConfiguration validatorConfiguration) {
+        if (bootstrapConfiguration == null || bootstrapConfiguration.getConstraintMappingResourcePaths().isEmpty()) {
+            return;
+        }
+        xmlMappingMetadataProvider(classLoader, bootstrapConfiguration)
+            .ifPresent(provider -> {
+                List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
+                metadataProviders.add(provider);
+                validatorConfiguration.setMetadataProviders(metadataProviders);
+            });
+    }
+
+    private static Optional<ValidationMetadataProvider> xmlMappingMetadataProvider(ClassLoader classLoader,
+                                                                                  BootstrapConfiguration bootstrapConfiguration) {
+        Set<InputStream> mappingStreams = new LinkedHashSet<>();
+        for (String mappingPath : bootstrapConfiguration.getConstraintMappingResourcePaths()) {
+            mappingStreams.add(getConstraintMappingResource(classLoader, mappingPath));
+        }
+        try {
+            Class<?> providerClass = Class.forName("io.micronaut.validation.xml.XmlValidationMetadataProvider", true, classLoader);
+            return Optional.of((ValidationMetadataProvider) providerClass
+                .getConstructor(ClassLoader.class, Set.class)
+                .newInstance(classLoader, mappingStreams));
+        } catch (ClassNotFoundException e) {
+            return Optional.empty();
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot initialize TCK XML validation metadata provider", e);
+        }
+    }
+
+    private static InputStream getConstraintMappingResource(ClassLoader classLoader, String mappingPath) {
+        String resourcePath = mappingPath.startsWith("/") ? mappingPath.substring(1) : mappingPath;
+        InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
+        if (inputStream == null) {
+            throw new ValidationException("Cannot read TCK constraint mapping resource: " + mappingPath);
+        }
+        return inputStream;
     }
 
     private static <T> Optional<T> resolveConfiguredBean(ApplicationContext applicationContext,
