@@ -285,7 +285,7 @@ public class ReflectionValidator extends DefaultValidator {
     public BeanDescriptor getConstraintsForClass(Class<?> clazz) {
         requireNonNull("clazz", clazz);
         BeanDescriptor generated = super.getConstraintsForClass(clazz);
-        ReflectionBeanMetadata reflected = ReflectionBeanMetadata.of(clazz);
+        ReflectionBeanMetadata reflected = ReflectionBeanMetadata.of(clazz, configuration.getMetadataProviders());
         if (getBeanIntrospection(clazz) != null) {
             return new ReflectionSupplementedBeanDescriptor(generated, reflected, clazz, configuration.getMetadataProviders());
         }
@@ -3184,13 +3184,19 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element, @Nullable Class<?> implicitGroup) {
+        return constraintsFor(element, implicitGroup, List.of());
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> constraintsFor(AnnotatedElement element,
+                                                                          @Nullable Class<?> implicitGroup,
+                                                                          List<ValidationMetadataProvider> metadataProviders) {
         List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
         for (Annotation annotation : element.getDeclaredAnnotations()) {
             Class<? extends Annotation> annotationType = annotation.annotationType();
             if (annotationType.isAnnotationPresent(Constraint.class)) {
-                constraints.add(new ReflectionConstraintDescriptor<>(annotation, implicitGroup));
+                constraints.add(new ReflectionConstraintDescriptor<>(annotation, implicitGroup, metadataProviders));
             } else {
-                constraints.addAll(containedConstraints(annotation, implicitGroup));
+                constraints.addAll(containedConstraints(annotation, implicitGroup, metadataProviders));
             }
         }
         return constraints;
@@ -3309,6 +3315,12 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private static List<ReflectionConstraintDescriptor<?>> containedConstraints(Annotation container, @Nullable Class<?> implicitGroup) {
+        return containedConstraints(container, implicitGroup, List.of());
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> containedConstraints(Annotation container,
+                                                                               @Nullable Class<?> implicitGroup,
+                                                                               List<ValidationMetadataProvider> metadataProviders) {
         try {
             Method valueMethod = container.annotationType().getDeclaredMethod("value");
             if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
@@ -3318,7 +3330,7 @@ public class ReflectionValidator extends DefaultValidator {
             Annotation[] annotations = (Annotation[]) valueMethod.invoke(container);
             return Arrays.stream(annotations)
                 .filter(annotation -> annotation.annotationType().isAnnotationPresent(Constraint.class))
-                .map(annotation -> new ReflectionConstraintDescriptor<>(annotation, implicitGroup))
+                .map(annotation -> new ReflectionConstraintDescriptor<>(annotation, implicitGroup, metadataProviders))
                 .collect(Collectors.toCollection(ArrayList::new));
         } catch (NoSuchMethodException e) {
             return List.of();
@@ -3334,6 +3346,7 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             try {
+                method.setAccessible(true);
                 Object value = defaultsOnly ? method.getDefaultValue() : method.invoke(annotation);
                 if (value != null) {
                     values.put(method.getName(), value);
@@ -4082,6 +4095,14 @@ public class ReflectionValidator extends DefaultValidator {
             if (hasExpandedComposedConstraints(generatedProperty, reflectedProperty)) {
                 return reflectedProperty;
             }
+            boolean generatedHasConfiguredValidators = hasConfiguredConstraintValidatorClasses(generatedProperty);
+            boolean reflectedHasConfiguredValidators = hasConfiguredConstraintValidatorClasses(reflectedProperty);
+            if (generatedHasConfiguredValidators && !reflectedHasConfiguredValidators) {
+                return generatedProperty;
+            }
+            if (reflectedHasConfiguredValidators && !generatedHasConfiguredValidators) {
+                return reflectedProperty;
+            }
             return constraintWeight(reflectedProperty) >= constraintWeight(generatedProperty)
                 ? reflectedProperty
                 : generatedProperty;
@@ -4099,11 +4120,17 @@ public class ReflectionValidator extends DefaultValidator {
                 properties.merge(
                     reflectedProperty.getPropertyName(),
                     reflectedProperty,
-                    (generatedProperty, replacement) -> hasDuplicateConstraintTypes(generatedProperty) && !hasDuplicateConstraintTypes(replacement)
-                        || hasExpandedComposedConstraints(generatedProperty, replacement)
-                        || constraintWeight(replacement) >= constraintWeight(generatedProperty)
-                        ? replacement
-                        : generatedProperty
+                    (generatedProperty, replacement) -> {
+                        boolean generatedHasConfiguredValidators = hasConfiguredConstraintValidatorClasses(generatedProperty);
+                        boolean replacementHasConfiguredValidators = hasConfiguredConstraintValidatorClasses(replacement);
+                        return hasDuplicateConstraintTypes(generatedProperty) && !hasDuplicateConstraintTypes(replacement)
+                            || hasExpandedComposedConstraints(generatedProperty, replacement)
+                            || replacementHasConfiguredValidators && !generatedHasConfiguredValidators
+                            || replacementHasConfiguredValidators == generatedHasConfiguredValidators
+                            && constraintWeight(replacement) >= constraintWeight(generatedProperty)
+                            ? replacement
+                            : generatedProperty;
+                    }
                 );
             }
             return new LinkedHashSet<>(properties.values());
@@ -4240,6 +4267,19 @@ public class ReflectionValidator extends DefaultValidator {
                 .anyMatch(descriptor -> !descriptor.getComposingConstraints().isEmpty());
         }
 
+        private static boolean hasConfiguredConstraintValidatorClasses(PropertyDescriptor propertyDescriptor) {
+            for (ConstraintDescriptor<?> descriptor : propertyDescriptor.getConstraintDescriptors()) {
+                Constraint constraint = descriptor.getAnnotation().annotationType().getAnnotation(Constraint.class);
+                List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> defaultValidators = constraint == null
+                    ? List.of()
+                    : (List) List.of(constraint.validatedBy());
+                if (!descriptor.getConstraintValidatorClasses().equals(defaultValidators)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private static int constraintWeight(ConstraintDescriptor<?> descriptor) {
             return 1 + descriptor.getComposingConstraints()
                 .stream()
@@ -4263,13 +4303,17 @@ public class ReflectionValidator extends DefaultValidator {
         }
 
         static ReflectionBeanMetadata of(Class<?> beanType) {
+            return of(beanType, List.of());
+        }
+
+        static ReflectionBeanMetadata of(Class<?> beanType, List<ValidationMetadataProvider> metadataProviders) {
             Map<String, List<ReflectionProperty>> properties = new LinkedHashMap<>();
             for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
                 for (Field field : current.getDeclaredFields()) {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4290,7 +4334,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current, metadataProviders);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(
@@ -4737,6 +4781,13 @@ public class ReflectionValidator extends DefaultValidator {
 
         @SuppressWarnings({"unchecked", "rawtypes"})
         private ReflectionConstraintDescriptor(A annotation, @Nullable Class<?> implicitGroup) {
+            this(annotation, implicitGroup, List.of());
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private ReflectionConstraintDescriptor(A annotation,
+                                               @Nullable Class<?> implicitGroup,
+                                               List<ValidationMetadataProvider> metadataProviders) {
             this.annotation = annotation;
             this.type = (Class<A>) annotation.annotationType();
             ReflectionConstraintDefinitions.validate(type);
@@ -4744,7 +4795,7 @@ public class ReflectionValidator extends DefaultValidator {
             this.groups = groups(annotation, implicitGroup);
             this.implicitGroup = implicitGroup;
             this.payload = Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
-            this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
+            this.validators = validatorClasses(type, metadataProviders);
             this.annotationValue = new AnnotationValue<>(type.getName(), members, annotationMembers(annotation, true));
             this.composingConstraints = composingConstraints(annotation, groups, payload);
             this.hasValidationAppliesTo = hasMember(annotation.annotationType(), "validationAppliesTo");
@@ -4856,6 +4907,7 @@ public class ReflectionValidator extends DefaultValidator {
         private static Object readMember(Annotation annotation, String member, Object defaultValue) {
             try {
                 Method method = annotation.annotationType().getDeclaredMethod(member);
+                method.setAccessible(true);
                 return method.invoke(annotation);
             } catch (NoSuchMethodException e) {
                 return defaultValue;
@@ -4880,6 +4932,23 @@ public class ReflectionValidator extends DefaultValidator {
                 groups.add(implicitGroup);
             }
             return Set.copyOf(groups);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static <A extends Annotation> List<Class<? extends jakarta.validation.ConstraintValidator<A, ?>>> validatorClasses(
+            Class<A> constraintType,
+            List<ValidationMetadataProvider> metadataProviders) {
+            List<Class<? extends jakarta.validation.ConstraintValidator<A, ?>>> validators = new ArrayList<>(
+                (List) List.of(constraintType.getAnnotation(Constraint.class).validatedBy())
+            );
+            for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+                Optional<List<Class<? extends jakarta.validation.ConstraintValidator<A, ?>>>> configured =
+                    metadataProvider.getConstraintValidatorClasses(constraintType, validators);
+                if (configured.isPresent()) {
+                    validators = configured.get();
+                }
+            }
+            return List.copyOf(validators);
         }
 
         private static List<ReflectionConstraintDescriptor<?>> composingConstraints(

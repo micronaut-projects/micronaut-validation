@@ -25,7 +25,6 @@ import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.inject.Singleton;
 import jakarta.validation.Constraint;
 import jakarta.validation.metadata.BeanDescriptor;
-import jakarta.validation.ConstraintValidator;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -84,17 +83,6 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
     @Override
     public int getOrder() {
         return LOWEST_PRECEDENCE;
-    }
-
-    @Override
-    public <A extends Annotation> Optional<List<Class<? extends ConstraintValidator<A, ?>>>> getConstraintValidatorClasses(
-        Class<A> constraintType,
-        List<Class<? extends ConstraintValidator<A, ?>>> existingValidatorClasses) {
-        Constraint constraint = constraintType.getAnnotation(Constraint.class);
-        if (constraint == null || constraint.validatedBy().length == 0) {
-            return Optional.empty();
-        }
-        return Optional.of((List) List.of(constraint.validatedBy()));
     }
 
     private static AnnotationMetadata annotationMetadata(AnnotatedElement element) {
