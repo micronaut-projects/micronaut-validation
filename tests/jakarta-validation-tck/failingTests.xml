@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 61 classes, 299 methods,
+        Current tracker shape: 56 classes, 293 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -134,6 +134,11 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testTwoValidatorsForSameTypeCauseUnexpectedTypeException
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testResolutionOfMinMaxForDifferentTypes
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testTargetedTypeIsTypeArgumentForNonGenericContainerInheritingFromGenericTypeWithValueExtractor
+        - org.hibernate.beanvalidation.tck.tests.metadata.PropertyDescriptorTest#testGetContainerElementMetaData
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest
+        - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testContainerElementLeafBean
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -298,11 +303,6 @@
                     <include name="testIsCascadedForMethod"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.PropertyDescriptorTest">
-                <methods>
-                    <include name="testGetContainerElementMetaData"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ReturnValueDescriptorTest">
                 <methods>
                     <include name="testGetContainerElementMetaDataForReturnValue"/>
@@ -317,12 +317,6 @@
                     <include name="testIsCascadedForConstructorReturnValue"/>
                     <include name="testIsCascadedForMethodReturnValue"/>
                     <include name="testIsCascadedForVoidMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest">
-                <methods>
-                    <include name="testValidateConstructorReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnExecutableLevel"/>
-                    <include name="testValidateConstructorReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnTypeLevel"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest">
@@ -442,11 +436,6 @@
                     <include name="testPropertyPathTraversingMethodSetReturnValue"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
-                <methods>
-                    <include name="testContainerElementLeafBean"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest">
                 <methods>
                     <include name="cascading_on_container_element_of_constructor_parameter_is_applied"/>
@@ -560,19 +549,9 @@
                     <include name="testIncludeAnnotations"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest">
-                <methods>
-                    <include name="testAnnotationsIncluded"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.ExcludePropertyLevelAnnotationsDueToBeanDefaultsTest">
                 <methods>
                     <include name="testIgnoreAnnotations"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest">
-                <methods>
-                    <include name="testAnnotationsIncluded"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.PropertyLevelOverridingTest">
