@@ -178,8 +178,9 @@ public class ReflectionValidator extends DefaultValidator {
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
-            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !reflectionCascadingAuthoritative);
-            if (reflectionCascadingAuthoritative) {
+            boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
+            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !(reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative));
+            if (reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative) {
                 return reflected;
             }
             boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
@@ -207,8 +208,9 @@ public class ReflectionValidator extends DefaultValidator {
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
-            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !reflectionCascadingAuthoritative);
-            if (reflectionCascadingAuthoritative) {
+            boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
+            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !(reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative));
+            if (reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative) {
                 return reflected;
             }
             boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
@@ -686,6 +688,28 @@ public class ReflectionValidator extends DefaultValidator {
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
             for (ReflectionProperty property : properties) {
                 if (property.isCascaded() || property.containerElements.stream().anyMatch(ReflectionContainerElement::cascaded)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasReflectionRequiredPropertyAccess(Class<?> beanType) {
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(beanType);
+        for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            boolean constrainedField = false;
+            boolean constrainedGetter = false;
+            for (ReflectionProperty property : properties) {
+                if (property.constraints.isEmpty()) {
+                    continue;
+                }
+                if (property.source instanceof Field) {
+                    constrainedField = true;
+                } else {
+                    constrainedGetter = true;
+                }
+                if (constrainedField && constrainedGetter) {
                     return true;
                 }
             }

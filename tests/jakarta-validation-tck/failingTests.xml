@@ -94,7 +94,6 @@
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testConstraintDescriptorWithoutExplicitGroup
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testOnlyFirstGroupInSequenceGetEvaluated
         - org.hibernate.beanvalidation.tck.tests.validation.ValidateTest#testClassLevelConstraintViolation
-        - org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.CascadingValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.resolution.ContainerElementValueExtractorResolutionAlgorithmTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.unwrapping.ValueExtractionUnwrappingTest
@@ -313,11 +312,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
                 <methods>
                     <include name="testCorrectGroupsAreAppliedForValidate"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
-                <methods>
-                    <include name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">
