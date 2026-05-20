@@ -59,6 +59,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -396,6 +397,23 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void usesFieldValueForFieldConstraintWhenGetterUsesDifferentValue() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+            ValueRecordingValidator.values.clear();
+            BeanValueRecordingValidator.value = null;
+            FieldAndGetterValueBean bean = new FieldAndGetterValueBean();
+
+            assertEquals(0, validator.validate(bean).size());
+
+            assertEquals(List.of("field", "getter"), ValueRecordingValidator.values);
+            assertSame(bean, BeanValueRecordingValidator.value);
+        }
+    }
+
+    @Test
     void validatePropertyUsesConstrainedFieldValueWhenGetterIsUnconstrained() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -719,6 +737,60 @@ class ReflectionValidatorTest {
         @Max(5)
         public int getAmount() {
             return amount;
+        }
+    }
+
+    @Introspected
+    @BeanValueRecording
+    private static final class FieldAndGetterValueBean {
+        @ValueRecording
+        private final String name = "field";
+
+        @ValueRecording
+        public String getName() {
+            return "getter";
+        }
+    }
+
+    @Target(TYPE)
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = BeanValueRecordingValidator.class)
+    private @interface BeanValueRecording {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class BeanValueRecordingValidator implements ConstraintValidator<BeanValueRecording, FieldAndGetterValueBean> {
+        private static FieldAndGetterValueBean value;
+
+        @Override
+        public boolean isValid(FieldAndGetterValueBean value, ConstraintValidatorContext context) {
+            BeanValueRecordingValidator.value = value;
+            return true;
+        }
+    }
+
+    @Target({FIELD, METHOD})
+    @Retention(RUNTIME)
+    @Constraint(validatedBy = ValueRecordingValidator.class)
+    private @interface ValueRecording {
+        String message() default "invalid";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    private static final class ValueRecordingValidator implements ConstraintValidator<ValueRecording, String> {
+        private static final List<String> values = new ArrayList<>();
+
+        @Override
+        public boolean isValid(String value, ConstraintValidatorContext context) {
+            values.add(value);
+            return true;
         }
     }
 

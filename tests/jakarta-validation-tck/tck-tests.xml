@@ -115,12 +115,6 @@
                     <exclude name=".*"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
-                <methods>
-                    <!-- Micronaut Validation accessed the values using a getter -->
-                    <exclude name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
-                </methods>
-            </class>
 <!--            &lt;!&ndash; TODO &ndash;&gt;-->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
                 <methods>
