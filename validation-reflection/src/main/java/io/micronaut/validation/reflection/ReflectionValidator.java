@@ -443,7 +443,7 @@ public class ReflectionValidator extends DefaultValidator {
             }
             jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
-            Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE);
+            Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE, true);
             if (valid == null) {
                 continue;
             }
@@ -516,7 +516,7 @@ public class ReflectionValidator extends DefaultValidator {
             validateNonExecutableConstraintDeclaration(constraint);
             jakarta.validation.Path path = new ReflectionConstructorReturnValueExecutablePath(constructor);
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
-            Boolean valid = validateConstraint(constraint, createdObject, constructor.getDeclaringClass(), validatorContext);
+            Boolean valid = validateConstraint(constraint, createdObject, constructor.getDeclaringClass(), validatorContext, ConstraintTarget.IMPLICIT, true);
             if (valid == null) {
                 continue;
             }
@@ -665,7 +665,8 @@ public class ReflectionValidator extends DefaultValidator {
                 parameterValues,
                 Object[].class,
                 validatorContext,
-                ConstraintTarget.PARAMETERS
+                ConstraintTarget.PARAMETERS,
+                true
             );
             if (valid == null) {
                 continue;
@@ -725,7 +726,7 @@ public class ReflectionValidator extends DefaultValidator {
                 }
                 jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i);
                 ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
-                boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext);
+                boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext, ConstraintTarget.IMPLICIT, true);
                 if (!valid && !validatorContext.defaultViolationDisabled()) {
                     violations.add(new ReflectionConstraintViolation<>(
                         object,
@@ -827,7 +828,8 @@ public class ReflectionValidator extends DefaultValidator {
                 parameterValues,
                 Object[].class,
                 validatorContext,
-                ConstraintTarget.PARAMETERS
+                ConstraintTarget.PARAMETERS,
+                true
             );
             if (valid == null) {
                 continue;
@@ -1371,7 +1373,27 @@ public class ReflectionValidator extends DefaultValidator {
                                        Class<?> valueType,
                                        ReflectionConstraintValidatorContext validatorContext,
                                        ConstraintTarget constraintTarget) {
-        for (Object validatorClass : constraint.getConstraintValidatorClasses()) {
+        return validateConstraint(constraint, value, valueType, validatorContext, constraintTarget, false);
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private @Nullable Boolean validateConstraint(ReflectionConstraintDescriptor constraint,
+                                       @Nullable Object value,
+                                       Class<?> valueType,
+                                       ReflectionConstraintValidatorContext validatorContext,
+                                       ConstraintTarget constraintTarget,
+                                       boolean resolveMostSpecific) {
+        List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
+        if (resolveMostSpecific) {
+            Class<? extends jakarta.validation.ConstraintValidator<?, ?>> validatorClass = ReflectionConstraintValidatorResolution.resolve(
+                constraint.getType(),
+                validatorClasses,
+                valueType,
+                constraintTarget
+            );
+            validatorClasses = validatorClass == null ? List.of() : List.of(validatorClass);
+        }
+        for (Object validatorClass : validatorClasses) {
             Class<? extends jakarta.validation.ConstraintValidator> validatorType = (Class<? extends jakarta.validation.ConstraintValidator>) validatorClass;
             jakarta.validation.ConstraintValidatorFactory constraintValidatorFactory = configuration.getConstraintValidatorFactory();
             jakarta.validation.ConstraintValidator validator = constraintValidatorFactory instanceof InternalConstraintValidatorFactory internalFactory
