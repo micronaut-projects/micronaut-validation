@@ -657,6 +657,13 @@ public class ReflectionValidator extends DefaultValidator {
         return constraintCounts(beanProperty.getAnnotationMetadata());
     }
 
+    private Map<ConstraintKey, Integer> generatedPropertyConstraints(Class<?> beanType, ReflectionProperty property) {
+        if (property.declaringClass() != beanType) {
+            return Map.of();
+        }
+        return generatedPropertyConstraints(beanType, property.name);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static Map<ConstraintKey, Integer> constraintCounts(AnnotationMetadata annotationMetadata) {
         Map<ConstraintKey, Integer> counts = new LinkedHashMap<>();
@@ -2092,7 +2099,7 @@ public class ReflectionValidator extends DefaultValidator {
                                                  boolean supplementIntrospection,
                                                  jakarta.validation.Path propertyPath) {
         List<ReflectionConstraintDescriptor<?>> constraints = supplementIntrospection && rootBean != null
-            ? supplementalPropertyConstraints(property.constraints, generatedPropertyConstraints(rootBean.getClass(), property.name), property.type, context)
+            ? supplementalPropertyConstraints(property.constraints, generatedPropertyConstraints(rootBean.getClass(), property), property.type, context)
             : property.constraints;
         for (ReflectionConstraintDescriptor<?> constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
