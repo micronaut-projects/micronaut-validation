@@ -193,20 +193,11 @@
         - org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest#testJndiBoundValidatorFactoryIsCdiEnabled
         - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.ExecutableValidationTest
         - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.types.ExecutableTypesTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.global.ExecutableValidationBasedOnGlobalConfigurationTest
+        - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.globallydisabled.ExecutableValidationGloballyDisabledTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.global.ExecutableValidationBasedOnGlobalConfigurationTest">
-                <methods>
-                    <include name="testValidationOfConstrainedMethodOnTypeAnnotatedWithValidateOnExecutionContainingExecutableType"/>
-                    <include name="testValidationOfConstrainedMethodOnTypeAnnotatedWithValidateOnExecutionNotContainingExecutableType"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.globallydisabled.ExecutableValidationGloballyDisabledTest">
-                <methods>
-                    <include name="testExecutableValidationGloballyTurnedOff"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.ValidationInterceptorPriorityTest"/>
         </classes>
     </test>
