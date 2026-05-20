@@ -17,6 +17,7 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
@@ -39,6 +40,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Reflection metadata provider fallback.
@@ -62,15 +65,16 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
     @Override
     public AnnotationMetadata getPropertyAnnotationMetadata(Class<?> beanType, String propertyName) {
         MutableAnnotationMetadata metadata = new MutableAnnotationMetadata();
+        Set<String> generatedConstraints = generatedPropertyConstraints(beanType, propertyName);
         for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Field field : current.getDeclaredFields()) {
                 if (field.getName().equals(propertyName)) {
-                    addConstraintAnnotations(metadata, field);
+                    addConstraintAnnotations(metadata, field, generatedConstraints);
                 }
             }
             for (Method method : current.getDeclaredMethods()) {
                 if (propertyName.equals(propertyName(method))) {
-                    addConstraintAnnotations(metadata, method);
+                    addConstraintAnnotations(metadata, method, generatedConstraints);
                 }
             }
         }
@@ -100,14 +104,36 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
     }
 
     private static void addConstraintAnnotations(MutableAnnotationMetadata metadata, AnnotatedElement element) {
+        addConstraintAnnotations(metadata, element, Set.of());
+    }
+
+    private static void addConstraintAnnotations(MutableAnnotationMetadata metadata,
+                                                 AnnotatedElement element,
+                                                 Set<String> excludedAnnotationNames) {
         for (Annotation annotation : element.getDeclaredAnnotations()) {
             Class<? extends Annotation> annotationType = annotation.annotationType();
             if (annotationType.isAnnotationPresent(Constraint.class)) {
-                addConstraintAnnotation(metadata, annotation, null);
+                if (!excludedAnnotationNames.contains(annotationType.getName())) {
+                    addConstraintAnnotation(metadata, annotation, null);
+                }
             } else {
-                containedConstraints(annotation).forEach(contained -> addConstraintAnnotation(metadata, contained, annotationType.getName()));
+                containedConstraints(annotation)
+                    .stream()
+                    .filter(contained -> !excludedAnnotationNames.contains(contained.annotationType().getName()))
+                    .forEach(contained -> addConstraintAnnotation(metadata, contained, annotationType.getName()));
             }
         }
+    }
+
+    private static Set<String> generatedPropertyConstraints(Class<?> beanType, String propertyName) {
+        return BeanIntrospector.SHARED.findIntrospection(beanType)
+            .flatMap(introspection -> introspection.getProperty(propertyName))
+            .map(property -> property.getAnnotationMetadata()
+                .getAnnotationTypesByStereotype(Constraint.class)
+                .stream()
+                .map(Class::getName)
+                .collect(Collectors.toUnmodifiableSet()))
+            .orElse(Set.of());
     }
 
     private static void addConstraintAnnotation(MutableAnnotationMetadata metadata, Annotation annotation, @Nullable String containerName) {
