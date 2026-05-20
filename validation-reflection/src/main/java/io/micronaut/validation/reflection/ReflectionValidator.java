@@ -1790,7 +1790,7 @@ public class ReflectionValidator extends DefaultValidator {
 
     private static boolean appliesTo(ReflectionConstraintDescriptor<?> descriptor, ConstraintTarget target) {
         ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
-        return validationAppliesTo == ConstraintTarget.IMPLICIT || validationAppliesTo == target;
+        return validationAppliesTo == null || validationAppliesTo == ConstraintTarget.IMPLICIT || validationAppliesTo == target;
     }
 
     private static void validateNonExecutableConstraintDeclaration(ReflectionConstraintDescriptor<?> descriptor) {
@@ -2112,7 +2112,13 @@ public class ReflectionValidator extends DefaultValidator {
             if (reflectedProperty == null) {
                 return generatedProperty;
             }
-            return constraintWeight(reflectedProperty) > constraintWeight(generatedProperty)
+            if (hasDuplicateConstraintTypes(generatedProperty) && !hasDuplicateConstraintTypes(reflectedProperty)) {
+                return reflectedProperty;
+            }
+            if (hasExpandedComposedConstraints(generatedProperty, reflectedProperty)) {
+                return reflectedProperty;
+            }
+            return constraintWeight(reflectedProperty) >= constraintWeight(generatedProperty)
                 ? reflectedProperty
                 : generatedProperty;
         }
@@ -2126,7 +2132,9 @@ public class ReflectionValidator extends DefaultValidator {
                 properties.merge(
                     reflectedProperty.getPropertyName(),
                     reflectedProperty,
-                    (generatedProperty, replacement) -> constraintWeight(replacement) > constraintWeight(generatedProperty)
+                    (generatedProperty, replacement) -> hasDuplicateConstraintTypes(generatedProperty) && !hasDuplicateConstraintTypes(replacement)
+                        || hasExpandedComposedConstraints(generatedProperty, replacement)
+                        || constraintWeight(replacement) >= constraintWeight(generatedProperty)
                         ? replacement
                         : generatedProperty
                 );
@@ -2181,6 +2189,24 @@ public class ReflectionValidator extends DefaultValidator {
                 .sum();
         }
 
+        private static boolean hasDuplicateConstraintTypes(PropertyDescriptor propertyDescriptor) {
+            Set<Class<? extends Annotation>> constraintTypes = new LinkedHashSet<>();
+            for (ConstraintDescriptor<?> descriptor : propertyDescriptor.getConstraintDescriptors()) {
+                if (!constraintTypes.add(descriptor.getAnnotation().annotationType())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static boolean hasExpandedComposedConstraints(PropertyDescriptor generatedProperty,
+                                                              PropertyDescriptor reflectedProperty) {
+            return generatedProperty.getConstraintDescriptors().size() > reflectedProperty.getConstraintDescriptors().size()
+                && reflectedProperty.getConstraintDescriptors()
+                .stream()
+                .anyMatch(descriptor -> !descriptor.getComposingConstraints().isEmpty());
+        }
+
         private static int constraintWeight(ConstraintDescriptor<?> descriptor) {
             return 1 + descriptor.getComposingConstraints()
                 .stream()
@@ -2210,7 +2236,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, current);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
                         addProperty(properties, new ReflectionProperty(field.getName(), field.getType(), field, constraints, containerElements));
@@ -2224,7 +2250,7 @@ public class ReflectionValidator extends DefaultValidator {
                     if (propertyName == null) {
                         continue;
                     }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, current);
+                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
                         addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
@@ -2514,7 +2540,10 @@ public class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public ConstraintTarget getValidationAppliesTo() {
+        public @Nullable ConstraintTarget getValidationAppliesTo() {
+            if (!hasValidationAppliesTo) {
+                return null;
+            }
             return (ConstraintTarget) readMember(annotation, "validationAppliesTo", ConstraintTarget.IMPLICIT);
         }
 
