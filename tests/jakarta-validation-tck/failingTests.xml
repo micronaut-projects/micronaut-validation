@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 2 classes, 2 methods,
+        Current tracker shape: 0 classes, 0 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -243,19 +243,10 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest#testAttributesDefinedOnComposingConstraints
         - org.hibernate.beanvalidation.tck.tests.constraints.inheritance.ConstraintInheritanceTest#testValidationConsidersConstraintsFromSuperTypes
         - org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.CascadingOnContainerElementsTest#cascading_on_container_element_of_method_return_value_is_applied
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfigurationViaXmlAndAnnotationsTest#testDefaultGroupDefinitionDefinedInEntityApplies
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.DefaultSequenceDefinedInXmlTest#testDefaultGroupDefinitionDefinedInEntityApplies
     -->
     <test name="Known Failing Jakarta TCK Tests">
-        <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfigurationViaXmlAndAnnotationsTest">
-                <methods>
-                    <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.DefaultSequenceDefinedInXmlTest">
-                <methods>
-                    <include name="testDefaultGroupDefinitionDefinedInEntityApplies"/>
-                </methods>
-            </class>
-        </classes>
+        <classes/>
     </test>
 </suite>

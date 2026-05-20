@@ -17,9 +17,11 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.BeanValidationContext;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.GroupDefinitionException;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.groups.Default;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -39,13 +41,27 @@ final class ReflectionGroupSequences {
     }
 
     static List<List<Class<?>>> validationGroupPasses(Class<?> beanType, BeanValidationContext context) {
+        return validationGroupPasses(beanType, context, List.of());
+    }
+
+    static List<List<Class<?>>> validationGroupPasses(Class<?> beanType,
+                                                      BeanValidationContext context,
+                                                      List<ValidationMetadataProvider> metadataProviders) {
         List<Class<?>> groups = context.groups();
-        if (groups.isEmpty()) {
-            return defaultGroupPasses(beanType);
+        if (groups.isEmpty() || groups.size() == 1 && groups.contains(Default.class)) {
+            return defaultGroupPasses(beanType, metadataProviders);
         }
         List<List<Class<?>>> passes = new ArrayList<>();
         List<Class<?>> regularGroups = new ArrayList<>();
         for (Class<?> group : groups) {
+            if (group == Default.class) {
+                if (!regularGroups.isEmpty()) {
+                    passes.add(List.copyOf(regularGroups));
+                    regularGroups.clear();
+                }
+                passes.addAll(defaultGroupPasses(beanType, metadataProviders));
+                continue;
+            }
             GroupSequence groupSequence = group.getAnnotation(GroupSequence.class);
             if (groupSequence == null) {
                 addInheritedGroups(group, regularGroups);
@@ -64,15 +80,21 @@ final class ReflectionGroupSequences {
     }
 
     static boolean hasInheritedDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
+        return hasInheritedDefaultGroupSequence(beanType, context, List.of());
+    }
+
+    static boolean hasInheritedDefaultGroupSequence(Class<?> beanType,
+                                                   BeanValidationContext context,
+                                                   List<ValidationMetadataProvider> metadataProviders) {
         List<Class<?>> groups = context.groups();
         if (!groups.isEmpty() && !(groups.size() == 1 && groups.contains(Default.class))) {
             return false;
         }
-        if (beanType.getDeclaredAnnotation(GroupSequence.class) != null) {
+        if (groupSequence(beanType, metadataProviders) != null) {
             return false;
         }
         for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
-            if (current.getDeclaredAnnotation(GroupSequence.class) != null) {
+            if (groupSequence(current, metadataProviders) != null) {
                 return true;
             }
         }
@@ -80,12 +102,18 @@ final class ReflectionGroupSequences {
     }
 
     static boolean hasDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
+        return hasDefaultGroupSequence(beanType, context, List.of());
+    }
+
+    static boolean hasDefaultGroupSequence(Class<?> beanType,
+                                           BeanValidationContext context,
+                                           List<ValidationMetadataProvider> metadataProviders) {
         List<Class<?>> groups = context.groups();
         if (!groups.isEmpty() && !(groups.size() == 1 && groups.contains(Default.class))) {
             return false;
         }
         for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
-            if (current.getDeclaredAnnotation(GroupSequence.class) != null) {
+            if (groupSequence(current, metadataProviders) != null) {
                 return true;
             }
         }
@@ -93,24 +121,34 @@ final class ReflectionGroupSequences {
     }
 
     static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType) {
+        return inheritedDefaultGroupSequencePasses(beanType, List.of());
+    }
+
+    static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType,
+                                                                    List<ValidationMetadataProvider> metadataProviders) {
         for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
-            GroupSequence groupSequence = current.getDeclaredAnnotation(GroupSequence.class);
+            Class<?>[] groupSequence = groupSequence(current, metadataProviders);
             if (groupSequence != null) {
-                return defaultGroupPasses(current, groupSequence.value(), current);
+                return defaultGroupPasses(current, groupSequence, current);
             }
         }
         return List.of();
     }
 
     private static List<List<Class<?>>> defaultGroupPasses(Class<?> beanType) {
-        GroupSequence groupSequence = beanType.getDeclaredAnnotation(GroupSequence.class);
+        return defaultGroupPasses(beanType, List.of());
+    }
+
+    private static List<List<Class<?>>> defaultGroupPasses(Class<?> beanType,
+                                                           List<ValidationMetadataProvider> metadataProviders) {
+        Class<?>[] groupSequence = groupSequence(beanType, metadataProviders);
         if (groupSequence != null) {
-            return defaultGroupPasses(beanType, groupSequence.value(), Default.class);
+            return defaultGroupPasses(beanType, groupSequence, Default.class);
         }
         for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
-            groupSequence = current.getDeclaredAnnotation(GroupSequence.class);
+            groupSequence = groupSequence(current, metadataProviders);
             if (groupSequence != null) {
-                List<List<Class<?>>> passes = defaultGroupPasses(current, groupSequence.value(), current);
+                List<List<Class<?>>> passes = defaultGroupPasses(current, groupSequence, current);
                 List<Class<?>> firstPass = new ArrayList<>(passes.get(0));
                 firstPass.add(0, beanType);
                 passes.set(0, List.copyOf(firstPass));
@@ -159,6 +197,23 @@ final class ReflectionGroupSequences {
                 addGroupSequencePasses(beanType, defaultGroupReplacement, passes, nestedSequence.value(), processedGroups);
             }
         }
+    }
+
+    private static Class<?> @Nullable [] groupSequence(Class<?> beanType,
+                                                       List<ValidationMetadataProvider> metadataProviders) {
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            Class<?>[] groupSequence = metadataProvider.getBeanAnnotationMetadata(beanType).classValues(GroupSequence.class);
+            if (groupSequence.length > 0) {
+                return groupSequence;
+            }
+        }
+        boolean annotationsIgnored = metadataProviders.stream()
+            .anyMatch(metadataProvider -> metadataProvider.isBeanAnnotationMetadataIgnored(beanType));
+        if (annotationsIgnored) {
+            return null;
+        }
+        GroupSequence groupSequence = beanType.getDeclaredAnnotation(GroupSequence.class);
+        return groupSequence == null ? null : groupSequence.value();
     }
 
     private static void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
