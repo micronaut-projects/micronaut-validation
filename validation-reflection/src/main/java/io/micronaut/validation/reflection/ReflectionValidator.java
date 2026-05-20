@@ -47,6 +47,8 @@ import jakarta.validation.Path;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
@@ -78,6 +80,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -156,7 +159,16 @@ public class ReflectionValidator extends DefaultValidator {
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, true);
-            Set<ConstraintViolation<T>> existing = super.validate(object, groups);
+            boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
+            Set<ConstraintViolation<T>> existing;
+            try {
+                existing = super.validate(object, groups);
+            } catch (UnexpectedTypeException e) {
+                if (reflectionAuthoritative) {
+                    return reflected;
+                }
+                throw e;
+            }
             return mergeViolations(existing, reflected);
         }
         return validateReflectively(object, context, false);
@@ -172,7 +184,17 @@ public class ReflectionValidator extends DefaultValidator {
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
             Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, true);
-            return mergeViolations(super.validate(object, context), reflected);
+            boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
+            Set<ConstraintViolation<T>> existing;
+            try {
+                existing = super.validate(object, context);
+            } catch (UnexpectedTypeException e) {
+                if (reflectionAuthoritative) {
+                    return reflected;
+                }
+                throw e;
+            }
+            return mergeViolations(existing, reflected);
         }
         return validateReflectively(object, context, false);
     }
@@ -459,13 +481,44 @@ public class ReflectionValidator extends DefaultValidator {
             int remaining = remainingGeneratedConstraints.getOrDefault(key, 0);
             if (remaining > 0
                 && reflectedConstraints.getOrDefault(key, 0) <= generatedConstraints.getOrDefault(key, 0)
-                && !hasAmbiguousValidatorResolution(constraint, valueType)) {
+                && !requiresReflectionValidation(constraint, valueType)) {
                 remainingGeneratedConstraints.put(key, remaining - 1);
             } else {
                 supplemental.add(constraint);
             }
         }
         return supplemental;
+    }
+
+    private static boolean requiresReflectionValidation(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
+        return hasAmbiguousValidatorResolution(constraint, valueType)
+            || supportsMinMaxReflection(constraint, valueType)
+            || constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP;
+    }
+
+    private static boolean hasReflectionRequiredConstraints(Class<?> beanType) {
+        ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(beanType);
+        for (ReflectionConstraintDescriptor<?> constraint : metadata.constraints) {
+            if (requiresReflectionValidation(constraint, beanType)) {
+                return true;
+            }
+        }
+        for (List<ReflectionProperty> properties : metadata.properties.values()) {
+            for (ReflectionProperty property : properties) {
+                for (ReflectionConstraintDescriptor<?> constraint : property.constraints) {
+                    if (requiresReflectionValidation(constraint, property.type)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean supportsMinMaxReflection(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
+        Class<?> constraintType = constraint.getType();
+        return (CharSequence.class.isAssignableFrom(valueType) || Number.class.isAssignableFrom(valueType))
+            && (constraintType == Min.class || constraintType == Max.class);
     }
 
     private <T> Set<ConstraintViolation<T>> validatePropertyReflectively(T object,
@@ -1576,7 +1629,37 @@ public class ReflectionValidator extends DefaultValidator {
         if (validator.isPresent()) {
             return validator.get().isValid(value, constraint.annotationValue, validatorContext);
         }
+        Boolean minMaxResult = validateMinMaxCharSequence(constraint, value, valueType);
+        if (minMaxResult != null) {
+            return minMaxResult;
+        }
         return null;
+    }
+
+    private @Nullable Boolean validateMinMaxCharSequence(ReflectionConstraintDescriptor<?> constraint,
+                                                         @Nullable Object value,
+                                                         Class<?> valueType) {
+        if (!CharSequence.class.isAssignableFrom(valueType) && !Number.class.isAssignableFrom(valueType)) {
+            return null;
+        }
+        Class<?> constraintType = constraint.getType();
+        if (constraintType != Min.class && constraintType != Max.class) {
+            return null;
+        }
+        if (value == null) {
+            return true;
+        }
+        BigDecimal number;
+        try {
+            number = value instanceof Number numericValue
+                ? new BigDecimal(numericValue.toString())
+                : new BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            return false;
+        }
+        long limit = (Long) constraint.getAttributes().get("value");
+        int comparison = number.compareTo(BigDecimal.valueOf(limit));
+        return constraintType == Min.class ? comparison >= 0 : comparison <= 0;
     }
 
     private String interpolate(String template, ReflectionConstraintDescriptor<?> descriptor, @Nullable Object value) {
