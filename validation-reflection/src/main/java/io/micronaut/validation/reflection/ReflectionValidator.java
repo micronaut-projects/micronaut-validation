@@ -321,6 +321,19 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("method", method);
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("groups", groups);
+        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
+        Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
+            object.getClass(),
+            context,
+            (groupContext, cascadedContext) -> validateParametersReflectively(object, method, parameterValues, groupContext, cascadedContext),
+            violation -> violation.getLeafBean() == object
+        );
+        if (!reflectedViolations.isEmpty()) {
+            return reflectedViolations;
+        }
+        if (hasReflectiveParameterValidation(method, object.getClass())) {
+            return reflectedViolations;
+        }
         Set<ConstraintViolation<T>> generatedViolations;
         UnexpectedTypeException generatedException = null;
         try {
@@ -333,16 +346,6 @@ public class ReflectionValidator extends DefaultValidator {
             generatedViolations = Collections.emptySet();
             generatedException = e;
         }
-        BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
-            object.getClass(),
-            context,
-            (groupContext, cascadedContext) -> validateParametersReflectively(object, method, parameterValues, groupContext, cascadedContext),
-            violation -> violation.getLeafBean() == object
-        );
-        if (!reflectedViolations.isEmpty()) {
-            return mergeViolations(generatedViolations, reflectedViolations);
-        }
         if (generatedException != null) {
             throw generatedException;
         }
@@ -354,11 +357,6 @@ public class ReflectionValidator extends DefaultValidator {
         requireNonNull("object", object);
         requireNonNull("method", method);
         requireNonNull("groups", groups);
-        Set<ConstraintViolation<T>> generatedViolations = filterGeneratedExecutableViolations(
-            method,
-            super.validateReturnValue(object, method, returnValue, groups),
-            ConstraintTarget.RETURN_VALUE
-        );
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
@@ -366,7 +364,41 @@ public class ReflectionValidator extends DefaultValidator {
             (groupContext, cascadedContext) -> validateReturnValueReflectively(object, method, returnValue, groupContext, cascadedContext),
             violation -> violation.getLeafBean() == object
         );
-        return reflectedViolations.isEmpty() ? generatedViolations : mergeViolations(generatedViolations, reflectedViolations);
+        if (!reflectedViolations.isEmpty()) {
+            return reflectedViolations;
+        }
+        if (hasReflectiveReturnValueValidation(method)) {
+            return reflectedViolations;
+        }
+        Set<ConstraintViolation<T>> generatedViolations = filterGeneratedExecutableViolations(
+            method,
+            super.validateReturnValue(object, method, returnValue, groups),
+            ConstraintTarget.RETURN_VALUE
+        );
+        return generatedViolations;
+    }
+
+    private static boolean hasReflectiveParameterValidation(Method method, Class<?> beanType) {
+        if (!crossParameterConstraintsFor(method, beanType).isEmpty()) {
+            return true;
+        }
+        for (ReflectionExecutableParameter parameter : parametersFor(method)) {
+            if (!parameter.constraints.isEmpty()
+                || parameter.cascaded
+                || !parameter.groupConversions.isEmpty()
+                || !parameter.containerElements.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasReflectiveReturnValueValidation(Method method) {
+        ReflectionExecutableReturnValue returnValue = returnValueFor(method);
+        return !returnValue.constraints.isEmpty()
+            || returnValue.cascaded
+            || !returnValue.groupConversions.isEmpty()
+            || !returnValue.containerElements.isEmpty();
     }
 
     @Override
@@ -1017,7 +1049,9 @@ public class ReflectionValidator extends DefaultValidator {
             } else {
                 existingCounts.put(key, remaining - 1);
                 ConstraintViolation<T> existingViolation = existingViolations.getOrDefault(key, List.of()).remove(0);
-                if (existingViolation.getInvalidValue() == null && violation.getInvalidValue() != null) {
+                if (existingViolation.getInvalidValue() == null && violation.getInvalidValue() != null
+                    || !Objects.equals(existingViolation.getMessage(), violation.getMessage())
+                    || !Objects.equals(existingViolation.getMessageTemplate(), violation.getMessageTemplate())) {
                     merged.remove(existingViolation);
                     merged.add(violation);
                 }
