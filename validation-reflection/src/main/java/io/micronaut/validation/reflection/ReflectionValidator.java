@@ -843,12 +843,17 @@ public class ReflectionValidator extends DefaultValidator {
         ReflectionMethodDeclarations.validateReturnValueDeclarations(method);
         ReflectionGroupConversions.validateMethodReturnValueDeclarations(method);
         List<Method> methodHierarchy = ReflectionMethodDeclarations.hierarchy(method);
-        List<ReflectionConstraintDescriptor<?>> constraints = methodHierarchy.stream()
-            .flatMap(hierarchyMethod -> constraintsFor(hierarchyMethod).stream())
-            .toList();
-        List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
+        boolean ignoreReturnValueAnnotations = isMethodReturnValueAnnotationMetadataIgnored(method);
+        List<ReflectionConstraintDescriptor<?>> constraints = ignoreReturnValueAnnotations
+            ? List.of()
+            : methodHierarchy.stream()
+                .flatMap(hierarchyMethod -> constraintsFor(hierarchyMethod).stream())
+                .toList();
+        List<ReflectionContainerElement> containerElements = ignoreReturnValueAnnotations
+            ? new ArrayList<>()
+            : new ArrayList<>(containerElementsFor(method.getAnnotatedReturnType()));
         containerElements.addAll(providerReturnValueContainerElements(method));
-        boolean cascaded = ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
+        boolean cascaded = !ignoreReturnValueAnnotations && ReflectionMethodDeclarations.hasCascadedReturnValueInHierarchy(method);
         if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
             return Collections.emptySet();
         }
@@ -1148,10 +1153,14 @@ public class ReflectionValidator extends DefaultValidator {
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
-            List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(parameters[i]);
-            List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
+            boolean ignoreParameterAnnotations = isMethodParameterAnnotationMetadataIgnored(method, i);
+            List<ReflectionConstraintDescriptor<?>> constraints = ignoreParameterAnnotations ? List.of() : constraintsFor(parameters[i]);
+            List<ReflectionContainerElement> containerElements = ignoreParameterAnnotations
+                ? new ArrayList<>()
+                : new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
             containerElements.addAll(providerParameterContainerElements(method, i));
-            if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
+            boolean cascaded = !ignoreParameterAnnotations && isCascaded(parameters[i]);
+            if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
                 continue;
             }
             Object value = parameterValues[i];
@@ -1198,7 +1207,7 @@ public class ReflectionValidator extends DefaultValidator {
                 violations,
                 parameterContainerElementPath(method, parameterNames, parameters[i], i)
             );
-            if (isCascaded(parameters[i]) && value != null) {
+            if (cascaded && value != null) {
                 int parameterIndex = i;
                 String parameterName = parameterName(parameterNames, parameters[i], i);
                 validateCascadedValue(
@@ -1270,6 +1279,37 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return List.copyOf(descriptors);
+    }
+
+    private boolean isMethodParameterAnnotationMetadataIgnored(Method method, int parameterIndex) {
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+                if (provider.isMethodParameterAnnotationMetadataIgnored(
+                    hierarchyMethod.getDeclaringClass(),
+                    hierarchyMethod.getName(),
+                    hierarchyMethod.getParameterTypes(),
+                    parameterIndex
+                )) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean isMethodReturnValueAnnotationMetadataIgnored(Method method) {
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (ValidationMetadataProvider provider : configuration.getMetadataProviders()) {
+                if (provider.isMethodReturnValueAnnotationMetadataIgnored(
+                    hierarchyMethod.getDeclaringClass(),
+                    hierarchyMethod.getName(),
+                    hierarchyMethod.getParameterTypes()
+                )) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private List<ReflectionContainerElement> providerConstructorParameterContainerElements(Constructor<?> constructor, int parameterIndex) {

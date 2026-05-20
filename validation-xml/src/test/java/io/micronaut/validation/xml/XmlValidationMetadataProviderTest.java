@@ -252,6 +252,9 @@ class XmlValidationMetadataProviderTest {
         assertFalse(descriptor.getReturnValueDescriptor().hasConstraints());
         assertFalse(descriptor.getParameterDescriptors().get(0).hasConstraints());
         assertTrue(descriptor.getParameterDescriptors().get(1).hasConstraints());
+        assertTrue(provider.isMethodParameterAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}, 0));
+        assertFalse(provider.isMethodParameterAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}, 1));
+        assertTrue(provider.isMethodReturnValueAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}));
     }
 
     @Test

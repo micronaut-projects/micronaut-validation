@@ -47,6 +47,7 @@ import jakarta.validation.metadata.ReturnValueDescriptor;
 import jakarta.validation.metadata.Scope;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
+import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -142,6 +143,33 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
         PropertyMapping propertyMapping = mapping.properties.get(propertyName);
         return propertyMapping == null ? mapping.beanAnnotationsIgnored : propertyMapping.annotationsIgnored;
+    }
+
+    @Override
+    public boolean isMethodParameterAnnotationMetadataIgnored(Class<?> beanType,
+                                                             String methodName,
+                                                             Class<?>[] parameterTypes,
+                                                             int parameterIndex) {
+        ExecutableMapping method = methodMapping(beanType, methodName, parameterTypes);
+        return method != null
+            && parameterIndex < method.parameters.size()
+            && method.parameters.get(parameterIndex).annotationsIgnored();
+    }
+
+    @Override
+    public boolean isMethodReturnValueAnnotationMetadataIgnored(Class<?> beanType,
+                                                               String methodName,
+                                                               Class<?>[] parameterTypes) {
+        ExecutableMapping method = methodMapping(beanType, methodName, parameterTypes);
+        return method != null && method.returnValue.annotationsIgnored();
+    }
+
+    private @Nullable ExecutableMapping methodMapping(Class<?> beanType, String methodName, Class<?>[] parameterTypes) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        if (mapping == null) {
+            return null;
+        }
+        return mapping.methods.get(new ExecutableKey(methodName, List.of(parameterTypes)));
     }
 
     @Override
