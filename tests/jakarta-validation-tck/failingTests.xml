@@ -317,11 +317,6 @@
                     <include name="testIncludeExistingValidators"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.containerelement.XmlBasedContainerElementGroupConversionValidationTest">
-                <methods>
-                    <include name="testGroupConversionIsAppliedOnProperty"/>
-                </methods>
-            </class>
         </classes>
     </test>
 </suite>
