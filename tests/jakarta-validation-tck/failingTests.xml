@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 17 classes, 23 methods,
+        Current tracker shape: 16 classes, 19 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -179,6 +179,7 @@
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.MethodValidationTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
+        - org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
@@ -215,14 +216,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
                 <methods>
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
-                <methods>
-                    <include name="testCorrectCallsToIsReachableAndIsCascadable"/>
-                    <include name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
-                    <include name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
-                    <include name="testCorrectCallsToIsReachableAndIsCascadableForValidateValue"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
