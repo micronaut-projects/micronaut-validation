@@ -256,7 +256,6 @@
                 <methods>
                     <include name="testCrossParameterConstraintGivenSeveralTimes"/>
                     <include name="testCrossParameterConstraintValidationWithGroup"/>
-                    <include name="testNullPassedAsSingleGroupCausesException"/>
                     <include name="testOneViolation"/>
                     <include name="testOneViolationForCascadedValidation"/>
                     <include name="testOneViolationFromCrossParameterConstraint"/>
@@ -266,7 +265,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateReturnValueTest">
                 <methods>
                     <include name="testContainerElementLeafBean"/>
-                    <include name="testNullPassedAsSingleGroupCausesException"/>
                     <include name="testOneViolation"/>
                     <include name="testOneViolationForCascadedValidation"/>
                     <include name="testUnexpectedType"/>
