@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 32 classes, 87 methods,
+        Current tracker shape: 25 classes, 80 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -202,44 +202,16 @@
         - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.globallydisabled.ExecutableValidationGloballyDisabledTest
         - org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.ValidationInterceptorPriorityTest
         - org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintListTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_type_parameter_of_an_custom_container_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintListTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_type_parameter_of_a_list_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_key_type_parameter_of_a_map_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_value_type_parameter_of_a_map_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_type_parameter_of_an_optional_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest">
-                <methods>
-                    <include name="getter_constraint_provided_on_type_parameter_of_a_set_gets_validated"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest">
-                <methods>
-                    <include name="validation_of_nested_type_arguments_works_on_getter_with_map_of_list_of_optional"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.GenericAndCrossParameterConstraintTest">
                 <methods>
                     <include name="testAnnotatedElementIsTargetedByDefault"/>
