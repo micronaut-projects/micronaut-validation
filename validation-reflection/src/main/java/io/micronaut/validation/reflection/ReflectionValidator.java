@@ -286,6 +286,9 @@ public class ReflectionValidator extends DefaultValidator {
                                                                  boolean supplementIntrospection) {
         ReflectionGroupConversions.validateBean(object.getClass());
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
+        Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
+            ? generatedTypeConstraints(object.getClass())
+            : Set.of();
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
@@ -293,7 +296,17 @@ public class ReflectionValidator extends DefaultValidator {
         for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(object.getClass(), context)) {
             int violationCount = violations.size();
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
-            validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, groupContext, violations, new ReflectionPath(null));
+            validateConstraints(
+                object,
+                object.getClass(),
+                object,
+                object,
+                object.getClass(),
+                supplementalTypeConstraints(metadata.constraints, generatedTypeConstraints),
+                groupContext,
+                violations,
+                new ReflectionPath(null)
+            );
             for (List<ReflectionProperty> properties : metadata.properties.values()) {
                 for (ReflectionProperty property : properties) {
                     validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
@@ -331,12 +344,44 @@ public class ReflectionValidator extends DefaultValidator {
                                                  BeanValidationContext groupContext,
                                                  Set<ConstraintViolation<T>> violations,
                                                  boolean supplementIntrospection) {
-        validateConstraints(object, object.getClass(), object, object, object.getClass(), metadata.constraints, groupContext, violations, new ReflectionPath(null));
+        Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
+            ? generatedTypeConstraints(object.getClass())
+            : Set.of();
+        validateConstraints(
+            object,
+            object.getClass(),
+            object,
+            object,
+            object.getClass(),
+            supplementalTypeConstraints(metadata.constraints, generatedTypeConstraints),
+            groupContext,
+            violations,
+            new ReflectionPath(null)
+        );
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
             for (ReflectionProperty property : properties) {
                 validateProperty(object, object, property, groupContext, violations, supplementIntrospection, true);
             }
         }
+    }
+
+    private Set<Class<? extends Annotation>> generatedTypeConstraints(Class<?> beanType) {
+        BeanDescriptor descriptor = super.getConstraintsForClass(beanType);
+        return descriptor.getConstraintDescriptors()
+            .stream()
+            .map(constraintDescriptor -> constraintDescriptor.getAnnotation().annotationType())
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
+    private static List<ReflectionConstraintDescriptor<?>> supplementalTypeConstraints(
+        List<ReflectionConstraintDescriptor<?>> constraints,
+        Set<Class<? extends Annotation>> generatedTypeConstraints) {
+        if (generatedTypeConstraints.isEmpty()) {
+            return constraints;
+        }
+        return constraints.stream()
+            .filter(constraint -> !generatedTypeConstraints.contains(constraint.getAnnotation().annotationType()))
+            .toList();
     }
 
     private <T> Set<ConstraintViolation<T>> validatePropertyReflectively(T object,
