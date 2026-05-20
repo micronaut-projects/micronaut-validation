@@ -36,6 +36,8 @@ import java.util.Optional;
 public final class TestClassVisitor implements TypeElementVisitor<Object, Object> {
 
     private static final String VALIDATE_ON_EXECUTION = "jakarta.validation.executable.ValidateOnExecution";
+    private static final String GLOBAL_EXECUTABLE_PACKAGE = "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.global.";
+    private static final String GLOBALLY_DISABLED_EXECUTABLE_PACKAGE = "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.globallydisabled.";
 
     @Override
     public VisitorKind getVisitorKind() {
@@ -92,7 +94,7 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
             element.getMethods().forEach(ce -> {
                 if (ce.isStatic() || !ce.isAccessible()) {
                     ce.annotate(Vetoed.class);
-                } else if (isValidatedExecutable(ce)) {
+                } else if (isValidatedExecutable(element, ce)) {
                     ce.annotate(Executable.class);
                 } else {
                     ce.annotate(Vetoed.class);
@@ -117,8 +119,14 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
         }
     }
 
-    private static boolean isValidatedExecutable(MethodElement method) {
+    private static boolean isValidatedExecutable(ClassElement beanType, MethodElement method) {
         boolean getter = isGetter(method);
+        if (beanType.getName().startsWith(GLOBALLY_DISABLED_EXECUTABLE_PACKAGE)) {
+            return false;
+        }
+        if (beanType.getName().startsWith(GLOBAL_EXECUTABLE_PACKAGE)) {
+            return getter;
+        }
         Optional<ExecutableType[]> methodTypes = executableTypes(method);
         if (methodTypes.isPresent()) {
             return includes(methodTypes.get(), getter);
