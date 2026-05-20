@@ -1987,7 +1987,7 @@ public class ReflectionValidator extends DefaultValidator {
         if (validatePropertyConstraints) {
             validatePropertyConstraints(rootBean, leafBean, property, value, context, violations, supplementIntrospection, propertyPath);
         }
-        validateContainerElements(rootBean, rootBean.getClass(), leafBean, property, value, context, violations, supplementIntrospection, null);
+        validateContainerElements(rootBean, rootBean.getClass(), leafBean, property, value, context, violations, false, null);
         if (validateCascaded
             && value != null
             && property.isCascaded()
