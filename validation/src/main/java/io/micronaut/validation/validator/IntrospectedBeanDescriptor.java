@@ -113,23 +113,16 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             .filter(property -> property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty())
             .map(PropertyDescriptor.class::cast)
             .orElse(null);
-        PropertyDescriptor metadataDescriptor = metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .map(descriptor -> descriptor.getConstraintsForProperty(propertyName))
-            .filter(descriptor -> descriptor != null)
-            .findFirst()
-            .orElse(null);
-        boolean annotationsIgnored = metadataProviders.stream()
-            .anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName));
-        if (annotationsIgnored) {
-            return metadataDescriptor;
+        PropertyMetadataResolution metadata = propertyMetadata(propertyName);
+        if (metadata.annotationsIgnored()) {
+            return metadata.descriptor();
         }
         if (introspectedDescriptor == null) {
-            return metadataDescriptor;
+            return metadata.descriptor();
         }
-        if (metadataDescriptor != null
-            && metadataDescriptor.getConstraintDescriptors().size() > introspectedDescriptor.getConstraintDescriptors().size()) {
-            return metadataDescriptor;
+        if (metadata.descriptor() != null
+            && metadata.descriptor().getConstraintDescriptors().size() > introspectedDescriptor.getConstraintDescriptors().size()) {
+            return metadata.descriptor();
         }
         return introspectedDescriptor;
     }
@@ -151,22 +144,42 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             ));
         for (BeanProperty<?, ?> beanProperty : beanIntrospection.getBeanProperties()) {
             String propertyName = beanProperty.getName();
-            if (metadataProviders.stream().anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName))) {
-                PropertyDescriptor metadataDescriptor = metadataProviders.stream()
-                    .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-                    .map(descriptor -> descriptor.getConstraintsForProperty(propertyName))
-                    .filter(descriptor -> descriptor != null)
-                    .filter(IntrospectedBeanDescriptor::isConstrained)
-                    .findFirst()
-                    .orElse(null);
-                if (metadataDescriptor == null) {
+            PropertyMetadataResolution metadata = propertyMetadata(propertyName);
+            if (metadata.annotationsIgnored()) {
+                if (metadata.descriptor() == null || !isConstrained(metadata.descriptor())) {
                     properties.remove(propertyName);
                 } else {
-                    properties.put(propertyName, metadataDescriptor);
+                    properties.put(propertyName, metadata.descriptor());
                 }
             }
         }
         return new LinkedHashSet<>(properties.values());
+    }
+
+    private PropertyMetadataResolution propertyMetadata(String propertyName) {
+        PropertyDescriptor descriptor = null;
+        boolean annotationsIgnored = false;
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            if (descriptor == null) {
+                descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType())
+                    .map(beanDescriptor -> beanDescriptor.getConstraintsForProperty(propertyName))
+                    .orElse(null);
+            }
+            if (metadataProvider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName)) {
+                annotationsIgnored = true;
+                break;
+            }
+            if (descriptor != null) {
+                break;
+            }
+        }
+        return new PropertyMetadataResolution(descriptor, annotationsIgnored);
+    }
+
+    private record PropertyMetadataResolution(
+        PropertyDescriptor descriptor,
+        boolean annotationsIgnored
+    ) {
     }
 
     private static boolean isConstrained(PropertyDescriptor property) {

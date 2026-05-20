@@ -32,6 +32,7 @@ import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
@@ -263,9 +264,26 @@ public class ReflectionValidator extends DefaultValidator {
         BeanDescriptor generated = super.getConstraintsForClass(clazz);
         ReflectionBeanMetadata reflected = ReflectionBeanMetadata.of(clazz);
         if (getBeanIntrospection(clazz) != null) {
-            return new ReflectionSupplementedBeanDescriptor(generated, reflected);
+            return new ReflectionSupplementedBeanDescriptor(generated, reflected, clazz, configuration.getMetadataProviders());
         }
-        return generated.isBeanConstrained() ? new ReflectionSupplementedBeanDescriptor(generated, reflected) : reflected;
+        if (hasProviderBeanDescriptor(clazz) && isBeanAnnotationMetadataIgnored(clazz) && !generated.isBeanConstrained()) {
+            return generated;
+        }
+        return generated.isBeanConstrained()
+            ? new ReflectionSupplementedBeanDescriptor(generated, reflected, clazz, configuration.getMetadataProviders())
+            : reflected;
+    }
+
+    private boolean hasProviderBeanDescriptor(Class<?> beanType) {
+        return configuration.getMetadataProviders()
+            .stream()
+            .anyMatch(provider -> provider.getConstraintsForClass(beanType).isPresent());
+    }
+
+    private boolean isBeanAnnotationMetadataIgnored(Class<?> beanType) {
+        return configuration.getMetadataProviders()
+            .stream()
+            .anyMatch(provider -> provider.isBeanAnnotationMetadataIgnored(beanType));
     }
 
     @Override
@@ -2674,12 +2692,14 @@ public class ReflectionValidator extends DefaultValidator {
 
     private record ReflectionSupplementedBeanDescriptor(
         BeanDescriptor generated,
-        ReflectionBeanMetadata reflected
+        ReflectionBeanMetadata reflected,
+        Class<?> beanType,
+        List<ValidationMetadataProvider> metadataProviders
     ) implements BeanDescriptor {
 
         @Override
         public boolean isBeanConstrained() {
-            return generated.isBeanConstrained() || reflected.isBeanConstrained();
+            return hasConstraints() || getConstrainedProperties().stream().anyMatch(ReflectionSupplementedBeanDescriptor::isConstrained);
         }
 
         @Override
@@ -2688,7 +2708,9 @@ public class ReflectionValidator extends DefaultValidator {
                 throw new IllegalArgumentException("Property name cannot be null");
             }
             PropertyDescriptor generatedProperty = generated.getConstraintsForProperty(propertyName);
-            PropertyDescriptor reflectedProperty = reflected.getConstraintsForProperty(propertyName);
+            PropertyDescriptor reflectedProperty = isPropertyAnnotationMetadataIgnored(propertyName)
+                ? null
+                : reflected.getConstraintsForProperty(propertyName);
             if (generatedProperty != null && !isConstrained(generatedProperty)) {
                 return null;
             }
@@ -2715,6 +2737,9 @@ public class ReflectionValidator extends DefaultValidator {
                 .stream()
                 .collect(Collectors.toMap(PropertyDescriptor::getPropertyName, Function.identity(), (left, right) -> left, LinkedHashMap::new));
             for (PropertyDescriptor reflectedProperty : reflected.getConstrainedProperties()) {
+                if (isPropertyAnnotationMetadataIgnored(reflectedProperty.getPropertyName())) {
+                    continue;
+                }
                 properties.merge(
                     reflectedProperty.getPropertyName(),
                     reflectedProperty,
@@ -2790,7 +2815,7 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public boolean hasConstraints() {
-            return generated.hasConstraints() || reflected.hasConstraints();
+            return generated.hasConstraints() || (!isBeanAnnotationMetadataIgnored() && reflected.hasConstraints());
         }
 
         @Override
@@ -2815,6 +2840,16 @@ public class ReflectionValidator extends DefaultValidator {
                     .map(ParameterDescriptor::getElementClass)
                     .toList());
             }
+        }
+
+        private boolean isBeanAnnotationMetadataIgnored() {
+            return metadataProviders.stream()
+                .anyMatch(provider -> provider.isBeanAnnotationMetadataIgnored(beanType));
+        }
+
+        private boolean isPropertyAnnotationMetadataIgnored(String propertyName) {
+            return metadataProviders.stream()
+                .anyMatch(provider -> provider.isPropertyAnnotationMetadataIgnored(beanType, propertyName));
         }
 
         private static int constraintWeight(PropertyDescriptor propertyDescriptor) {

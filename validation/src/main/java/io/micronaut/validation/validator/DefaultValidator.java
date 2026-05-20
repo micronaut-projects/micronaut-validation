@@ -1095,7 +1095,10 @@ public class DefaultValidator implements
             if (!additionalMetadata.isEmpty()) {
                 metadata.add(additionalMetadata);
             }
-            ignoreOriginal |= ignoreResolver.apply(provider);
+            if (ignoreResolver.apply(provider)) {
+                ignoreOriginal = true;
+                break;
+            }
         }
         if (metadata.isEmpty()) {
             return ignoreOriginal ? AnnotationMetadata.EMPTY_METADATA : original;

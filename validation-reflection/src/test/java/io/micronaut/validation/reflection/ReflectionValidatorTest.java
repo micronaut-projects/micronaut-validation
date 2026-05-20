@@ -16,10 +16,13 @@
 package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
@@ -37,14 +40,25 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.metadata.BeanDescriptor;
+import jakarta.validation.metadata.ConstructorDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
+import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.MethodDescriptor;
+import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.PropertyDescriptor;
+import jakarta.validation.metadata.Scope;
 import org.junit.jupiter.api.Test;
 
+import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.lang.annotation.Repeatable;
 import java.lang.reflect.Constructor;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.lang.annotation.ElementType.FIELD;
@@ -299,6 +313,34 @@ class ReflectionValidatorTest {
         }
     }
 
+    @Test
+    void ignoredMetadataProviderSuppressesSupplementalReflectionDescriptorConstraints() {
+        DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
+        configuration.setMetadataProviders(List.of(new IgnoringMetadataProvider(IgnoredMetadataBean.class)));
+        ReflectionValidator validator = new ReflectionValidator(configuration, false);
+
+        BeanDescriptor descriptor = validator.getConstraintsForClass(IgnoredMetadataBean.class);
+
+        assertFalse(descriptor.isBeanConstrained());
+        assertFalse(descriptor.hasConstraints());
+        assertTrue(descriptor.getConstraintDescriptors().isEmpty());
+        assertTrue(descriptor.getConstrainedProperties().isEmpty());
+    }
+
+    @Test
+    void ignoredMetadataProviderSuppressesReflectionDescriptorConstraintsWithoutIntrospection() {
+        DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
+        configuration.setMetadataProviders(List.of(new IgnoringMetadataProvider(PlainIgnoredMetadataBean.class)));
+        ReflectionValidator validator = new ReflectionValidator(configuration, false);
+
+        BeanDescriptor descriptor = validator.getConstraintsForClass(PlainIgnoredMetadataBean.class);
+
+        assertFalse(descriptor.isBeanConstrained());
+        assertFalse(descriptor.hasConstraints());
+        assertTrue(descriptor.getConstraintDescriptors().isEmpty());
+        assertTrue(descriptor.getConstrainedProperties().isEmpty());
+    }
+
     static final class PlainBean {
         @NotBlank
         private final String name;
@@ -479,6 +521,118 @@ class ReflectionValidatorTest {
     private record ComposedConstraintBean(
         @ComposedNotEmpty String name
     ) {
+    }
+
+    @Introspected
+    @InvalidTypeConstraint
+    private static final class IgnoredMetadataBean {
+        @Max(20)
+        private int amount;
+
+        public int getAmount() {
+            return amount;
+        }
+    }
+
+    private static final class PlainIgnoredMetadataBean {
+        @Max(20)
+        private int amount;
+    }
+
+    private record IgnoringMetadataProvider(Class<?> ignoredType) implements ValidationMetadataProvider {
+
+        @Override
+        public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
+            return beanType == ignoredType ? Optional.of(new EmptyTestBeanDescriptor(beanType)) : Optional.empty();
+        }
+
+        @Override
+        public AnnotationMetadata getBeanAnnotationMetadata(Class<?> beanType) {
+            return AnnotationMetadata.EMPTY_METADATA;
+        }
+
+        @Override
+        public boolean isBeanAnnotationMetadataIgnored(Class<?> beanType) {
+            return beanType == ignoredType;
+        }
+
+        @Override
+        public boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
+            return beanType == ignoredType;
+        }
+    }
+
+    private record EmptyTestBeanDescriptor(Class<?> elementClass) implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public boolean isBeanConstrained() {
+            return false;
+        }
+
+        @Override
+        public PropertyDescriptor getConstraintsForProperty(String propertyName) {
+            return null;
+        }
+
+        @Override
+        public Set<PropertyDescriptor> getConstrainedProperties() {
+            return Set.of();
+        }
+
+        @Override
+        public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+            return null;
+        }
+
+        @Override
+        public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
+            return Set.of();
+        }
+
+        @Override
+        public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
+            return null;
+        }
+
+        @Override
+        public Set<ConstructorDescriptor> getConstrainedConstructors() {
+            return Set.of();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return false;
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return elementClass;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Set.of();
+        }
+
+        @Override
+        public ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
     }
 
     @Target(FIELD)
