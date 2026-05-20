@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 56 classes, 271 methods,
+        Current tracker shape: 47 classes, 162 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -159,6 +159,15 @@
         - org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorReturnValueTest#testValidationWithSeveralGroups
         - org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest#testGetConstraintsForConstrainedProperty
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.ConfigurationViaXmlAndAnnotationsTest#testDefaultGroupDefinitionDefinedInEntityApplies
+        - org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ConvertGroupDefaultFromTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.CrossParameterDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ParameterDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ReturnValueDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableAnnotationSettingsTest
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest#testValidaAnnotationIsApplied
+        - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.CascadedValidationTest#testValidaAnnotationIsApplied
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.fieldlevel.IncludeFieldLevelAnnotationsDueToBeanDefaultsTest
         - org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.propertylevel.IncludePropertyLevelAnnotationsDueToBeanDefaultsTest
     -->
@@ -199,145 +208,10 @@
                     <include name="testJndiBoundValidatorFactoryIsCdiEnabled"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">
-                <methods>
-                    <include name="testGetConstrainedConstructors"/>
-                    <include name="testGetConstrainedMethodsTypeGETTER"/>
-                    <include name="testGetConstrainedMethodsTypeNON_GETTER"/>
-                    <include name="testGetConstrainedMethodsTypesGETTERAndNON_GETTER"/>
-                    <include name="testGetConstraintsForCascadedParameterConstructor"/>
-                    <include name="testGetConstraintsForCascadedParameterMethod"/>
-                    <include name="testGetConstraintsForCascadedReturnValueConstructor"/>
-                    <include name="testGetConstraintsForCascadedReturnValueMethod"/>
-                    <include name="testGetConstraintsForCrossParameterConstrainedConstructor"/>
-                    <include name="testGetConstraintsForCrossParameterConstrainedMethod"/>
-                    <include name="testGetConstraintsForNullMethod"/>
-                    <include name="testGetConstraintsForNullProperty"/>
-                    <include name="testGetConstraintsForParameterConstrainedConstructor"/>
-                    <include name="testGetConstraintsForParameterConstrainedMethod"/>
-                    <include name="testGetConstraintsForReturnValueConstrainedConstructor"/>
-                    <include name="testGetConstraintsForReturnValueConstrainedMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConvertGroupDefaultFromTest">
-                <methods>
-                    <include name="testConvertGroupDefaultFromForConstructorParameter"/>
-                    <include name="testConvertGroupDefaultFromForMethodParameter"/>
-                    <include name="testConvertGroupDefaultFromForMethodReturnValue"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.CrossParameterDescriptorTest">
-                <methods>
-                    <include name="testFindConstraintsForConstructor"/>
-                    <include name="testFindConstraintsForConstructorWithoutCrossParameterConstraints"/>
-                    <include name="testFindConstraintsForMethod"/>
-                    <include name="testFindConstraintsForMethodDefinedOnSuperTypeLookingAt"/>
-                    <include name="testFindConstraintsForMethodLookingAt"/>
-                    <include name="testFindConstraintsForMethodWithoutCrossParameterConstraints"/>
-                    <include name="testGetConstraintsForConstructor"/>
-                    <include name="testGetConstraintsForConstructorWithoutCrossParameterConstraints"/>
-                    <include name="testGetConstraintsForMethod"/>
-                    <include name="testGetConstraintsForMethodWithoutCrossParameterConstraints"/>
-                    <include name="testGetElementClass"/>
-                    <include name="testHasConstraintsForConstructor"/>
-                    <include name="testHasConstraintsForConstructorWithoutCrossParameterConstraints"/>
-                    <include name="testHasConstraintsForMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableAnnotationSettingsTest">
-                <methods>
-                    <include name="testConstructorDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnConstructorLevel"/>
-                    <include name="testConstructorDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnTypeLevel"/>
-                    <include name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnMethodLevel"/>
-                    <include name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnTypeLevel"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableXmlSettingsTest">
                 <methods>
                     <include name="testConstructorDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEInXml"/>
                     <include name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEInXml"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
-                <methods>
-                    <include name="testAreParametersConstrainedForCascadedConstructor"/>
-                    <include name="testAreParametersConstrainedForCascadedMethod"/>
-                    <include name="testAreParametersConstrainedForConstrainedConstructor"/>
-                    <include name="testAreParametersConstrainedForConstrainedMethod"/>
-                    <include name="testAreParametersConstrainedForCrossParameterConstrainedConstructor"/>
-                    <include name="testAreParametersConstrainedForCrossParameterConstrainedMethod"/>
-                    <include name="testAreParametersConstrainedForNotConstrainedConstructor"/>
-                    <include name="testAreParametersConstrainedForNotConstrainedMethod"/>
-                    <include name="testAreParametersConstrainedForParameterlessConstructor"/>
-                    <include name="testAreParametersConstrainedForParameterlessMethod"/>
-                    <include name="testFindConstraintsForConstructor"/>
-                    <include name="testFindConstraintsForMethod"/>
-                    <include name="testFindConstraintsForMethodDefinedOnSuperTypeLookingAt"/>
-                    <include name="testFindConstraintsForMethodLookingAt"/>
-                    <include name="testGetConstraintsForConstructor"/>
-                    <include name="testGetConstraintsForMethod"/>
-                    <include name="testGetCrossParameterDescriptorForConstructor"/>
-                    <include name="testGetCrossParameterDescriptorForConstructorWithoutCrossParameterConstraints"/>
-                    <include name="testGetCrossParameterDescriptorForMethod"/>
-                    <include name="testGetCrossParameterDescriptorForMethodWithoutCrossParameterConstraints"/>
-                    <include name="testGetElementClassForConstructor"/>
-                    <include name="testGetElementClassForMethod"/>
-                    <include name="testGetElementClassForVoidMethod"/>
-                    <include name="testGetNameForConstructor"/>
-                    <include name="testGetNameForMethod"/>
-                    <include name="testGetParameterDescriptorsForConstructor"/>
-                    <include name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
-                    <include name="testGetParameterDescriptorsForMethod"/>
-                    <include name="testGetParameterDescriptorsForParameterlessConstructor"/>
-                    <include name="testGetParameterDescriptorsForParameterlessMethod"/>
-                    <include name="testGetReturnValueDescriptorForConstructor"/>
-                    <include name="testGetReturnValueDescriptorForMethod"/>
-                    <include name="testGetUnconstrainedReturnValueDescriptorForConstructor"/>
-                    <include name="testGetUnconstrainedReturnValueDescriptorForMethod"/>
-                    <include name="testHasConstraintsForConstructor"/>
-                    <include name="testHasConstraintsForMethod"/>
-                    <include name="testIsReturnValueConstrainedForCascadedConstructor"/>
-                    <include name="testIsReturnValueConstrainedForCascadedMethod"/>
-                    <include name="testIsReturnValueConstrainedForConstrainedConstructor"/>
-                    <include name="testIsReturnValueConstrainedForConstrainedMethod"/>
-                    <include name="testIsReturnValueConstrainedForNotConstrainedConstructor"/>
-                    <include name="testIsReturnValueConstrainedForNotConstrainedMethod"/>
-                    <include name="testIsReturnValueConstrainedForVoidMethod"/>
-                    <include name="testReturnValueDescriptorForVoidMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ParameterDescriptorTest">
-                <methods>
-                    <include name="testGetContainerElementMetaDataForConstructorParameter"/>
-                    <include name="testGetContainerElementMetaDataForMethodParameter"/>
-                    <include name="testGetElementClassForConstructor"/>
-                    <include name="testGetElementClassForMethod"/>
-                    <include name="testGetGroupConversionsForConstructorParameter"/>
-                    <include name="testGetGroupConversionsForMethodParameter"/>
-                    <include name="testGetGroupConversionsReturnsEmptySetForConstructorParameter"/>
-                    <include name="testGetGroupConversionsReturnsEmptySetForMethodParameter"/>
-                    <include name="testGetIndexForConstructor"/>
-                    <include name="testGetIndexForMethod"/>
-                    <include name="testGetNameForConstructor"/>
-                    <include name="testGetNameForMethod"/>
-                    <include name="testIsCascadedForConstructor"/>
-                    <include name="testIsCascadedForMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ReturnValueDescriptorTest">
-                <methods>
-                    <include name="testGetContainerElementMetaDataForReturnValue"/>
-                    <include name="testGetElementClassForConstructor"/>
-                    <include name="testGetElementClassForMethod"/>
-                    <include name="testGetElementClassForVoidMethod"/>
-                    <include name="testGetGroupConversionsForConstructorReturnValue"/>
-                    <include name="testGetGroupConversionsForMethodReturnValue"/>
-                    <include name="testGetGroupConversionsForVoidMethod"/>
-                    <include name="testGetGroupConversionsReturnsEmptySetForConstructorReturnValue"/>
-                    <include name="testGetGroupConversionsReturnsEmptySetForMethodReturnValue"/>
-                    <include name="testIsCascadedForConstructorReturnValue"/>
-                    <include name="testIsCascadedForMethodReturnValue"/>
-                    <include name="testIsCascadedForVoidMethod"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableXmlSettingsTest">
@@ -566,11 +440,6 @@
                     <include name="testIncludeExistingValidators"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.CascadedValidationTest">
-                <methods>
-                    <include name="testValidaAnnotationIsApplied"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constructorvalidation.ConstructorValidationTest">
                 <methods>
                     <include name="testCascadingOnReturnValueAndParameter"/>
@@ -602,11 +471,6 @@
                     <include name="testGroupConversionIsNotExecutedRecursively"/>
                     <include name="testGroupConversionWithSequenceAsTo"/>
                     <include name="testSeveralGroupConversionsAppliedOnField"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.CascadedValidationTest">
-                <methods>
-                    <include name="testValidaAnnotationIsApplied"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest">
