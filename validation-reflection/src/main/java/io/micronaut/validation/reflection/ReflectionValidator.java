@@ -413,9 +413,9 @@ public class ReflectionValidator extends DefaultValidator {
                                                                  boolean supplementIntrospection) {
         ReflectionGroupConversions.validateBean(object.getClass());
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass());
-        Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
+        Map<ConstraintKey, Integer> generatedTypeConstraints = supplementIntrospection
             ? generatedTypeConstraints(object.getClass())
-            : Set.of();
+            : Map.of();
         boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
@@ -492,9 +492,9 @@ public class ReflectionValidator extends DefaultValidator {
                                                  BeanValidationContext groupContext,
                                                  Set<ConstraintViolation<T>> violations,
                                                  boolean supplementIntrospection) {
-        Set<Class<? extends Annotation>> generatedTypeConstraints = supplementIntrospection
+        Map<ConstraintKey, Integer> generatedTypeConstraints = supplementIntrospection
             ? generatedTypeConstraints(object.getClass())
-            : Set.of();
+            : Map.of();
         boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
         Set<String> cascadedProperties = new LinkedHashSet<>();
         validateConstraints(
@@ -534,12 +534,13 @@ public class ReflectionValidator extends DefaultValidator {
         validateProviderOnlyProperties(object, metadata, groupContext, violations);
     }
 
-    private Set<Class<? extends Annotation>> generatedTypeConstraints(Class<?> beanType) {
+    private Map<ConstraintKey, Integer> generatedTypeConstraints(Class<?> beanType) {
         BeanDescriptor descriptor = super.getConstraintsForClass(beanType);
-        return descriptor.getConstraintDescriptors()
-            .stream()
-            .map(constraintDescriptor -> constraintDescriptor.getAnnotation().annotationType())
-            .collect(Collectors.toUnmodifiableSet());
+        Map<ConstraintKey, Integer> counts = new LinkedHashMap<>();
+        for (ConstraintDescriptor<?> constraintDescriptor : descriptor.getConstraintDescriptors()) {
+            counts.merge(ConstraintKey.of(constraintDescriptor), 1, Integer::sum);
+        }
+        return Map.copyOf(counts);
     }
 
     private Map<ConstraintKey, Integer> generatedPropertyConstraints(Class<?> beanType, String propertyName) {
@@ -580,15 +581,29 @@ public class ReflectionValidator extends DefaultValidator {
 
     private static List<ReflectionConstraintDescriptor<?>> supplementalConstraints(
         List<ReflectionConstraintDescriptor<?>> constraints,
-        Set<Class<? extends Annotation>> generatedConstraints,
+        Map<ConstraintKey, Integer> generatedConstraints,
         Class<?> valueType) {
         if (generatedConstraints.isEmpty()) {
             return constraints;
         }
-        return constraints.stream()
-            .filter(constraint -> !generatedConstraints.contains(constraint.getAnnotation().annotationType())
-                || hasAmbiguousValidatorResolution(constraint, valueType))
-            .toList();
+        Map<ConstraintKey, Integer> reflectedConstraints = new LinkedHashMap<>();
+        for (ReflectionConstraintDescriptor<?> constraint : constraints) {
+            reflectedConstraints.merge(ConstraintKey.of(constraint), 1, Integer::sum);
+        }
+        Map<ConstraintKey, Integer> remainingGeneratedConstraints = new LinkedHashMap<>(generatedConstraints);
+        List<ReflectionConstraintDescriptor<?>> supplemental = new ArrayList<>(constraints.size());
+        for (ReflectionConstraintDescriptor<?> constraint : constraints) {
+            ConstraintKey key = ConstraintKey.of(constraint);
+            int remaining = remainingGeneratedConstraints.getOrDefault(key, 0);
+            if (remaining > 0
+                && reflectedConstraints.getOrDefault(key, 0) <= generatedConstraints.getOrDefault(key, 0)
+                && !hasAmbiguousValidatorResolution(constraint, valueType)) {
+                remainingGeneratedConstraints.put(key, remaining - 1);
+            } else {
+                supplemental.add(constraint);
+            }
+        }
+        return supplemental;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -3355,6 +3370,10 @@ public class ReflectionValidator extends DefaultValidator {
     ) {
 
         static ConstraintKey of(ReflectionConstraintDescriptor<?> constraint) {
+            return new ConstraintKey(constraint.getAnnotation().annotationType(), normalizeAttributes(constraint.getAttributes()));
+        }
+
+        static ConstraintKey of(ConstraintDescriptor<?> constraint) {
             return new ConstraintKey(constraint.getAnnotation().annotationType(), normalizeAttributes(constraint.getAttributes()));
         }
 
