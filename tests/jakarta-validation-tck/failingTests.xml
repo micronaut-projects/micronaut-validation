@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 6 classes, 33 methods,
+        Current tracker shape: 5 classes, 31 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -124,6 +124,7 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest
         - org.hibernate.beanvalidation.tck.tests.constraints.invalidconstraintdefinitions.InvalidConstraintDefinitionsTest
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest
+        - org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testClassLevelValidatorForSubTypeHasPredenceOverValidatorForSuperClass
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testCrossParameterConstraintWithoutValidatorCausesConstraintDefinitionException
         - org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest#testCrossParameterValidatorIsUsedForConstraintExplicitlyTargetingParameters
@@ -243,12 +244,6 @@
                     <include name="methodReturnValueValidationUsingSequence"/>
                     <include name="methodReturnValueValidationValidatesEachConstraintOnlyOnce"/>
                     <include name="methodReturnValueValidationWithRedefinedDefaultGroupSequence"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateParametersTest">
-                <methods>
-                    <include name="testCrossParameterConstraintValidationWithGroup"/>
-                    <include name="testOneViolationFromCrossParameterConstraint"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest">
