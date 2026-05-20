@@ -1663,7 +1663,8 @@ public class DefaultValidator implements
         ConstraintTarget constraintTarget = context.getCurrentPath().getConstraintTarget();
         for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
             context.constraint = constraint;
-            if (constraint.getValidationAppliesTo() != ConstraintTarget.IMPLICIT && constraint.getValidationAppliesTo() != constraintTarget) {
+            ConstraintTarget validationAppliesTo = constraint.getValidationAppliesTo();
+            if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT && validationAppliesTo != constraintTarget) {
                 continue;
             }
             Class<Annotation> constraintType = constraint.getType();

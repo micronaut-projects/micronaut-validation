@@ -65,6 +65,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final List<Class<? extends ConstraintValidator<T, ?>>> validatedBy;
     private final boolean constraintValidatorClassesDefined;
 
+    @Nullable
     private final ConstraintTarget validationAppliesTo;
     private final AnnotationValue<T> annotationValue;
     private final AnnotationMetadata annotationMetadata;
@@ -80,7 +81,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             Set.of(annotationValue.classValues("groups")),
             (Set) Set.of(annotationValue.classValues("payload")),
             (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)),
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT),
+            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -96,7 +97,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             (Set) Set.of(annotationValue.classValues("payload")),
             validatedBy,
             true,
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT),
+            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -113,7 +114,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             (Set) Set.of(annotationValue.classValues("payload")),
             validatedBy,
             constraintValidatorClassesDefined,
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT),
+            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -124,7 +125,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                                 @NonNull Set<Class<?>> groups,
                                 @NonNull Set<Class<? extends Payload>> payload,
                                 @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                @NonNull ConstraintTarget validationAppliesTo,
+                                @Nullable ConstraintTarget validationAppliesTo,
                                 @NonNull AnnotationValue<T> annotationValue,
                                 @NonNull AnnotationMetadata annotationMetadata) {
         this(type, message, defaultMessage, groups, payload, validatedBy, !validatedBy.isEmpty(), validationAppliesTo, annotationValue, annotationMetadata);
@@ -137,7 +138,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                                 @NonNull Set<Class<? extends Payload>> payload,
                                 @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
                                 boolean constraintValidatorClassesDefined,
-                                @NonNull ConstraintTarget validationAppliesTo,
+                                @Nullable ConstraintTarget validationAppliesTo,
                                 @NonNull AnnotationValue<T> annotationValue,
                                 @NonNull AnnotationMetadata annotationMetadata) {
         this.type = type;
@@ -196,7 +197,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     }
 
     @Override
-    public ConstraintTarget getValidationAppliesTo() {
+    public @Nullable ConstraintTarget getValidationAppliesTo() {
         return validationAppliesTo;
     }
 
