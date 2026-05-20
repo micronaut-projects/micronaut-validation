@@ -563,6 +563,42 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void propertyConstraintFinderIncludesHiddenFieldConstraints() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            PropertyDescriptor descriptor = validator.getConstraintsForClass(HiddenFieldSubClass.class)
+                .getConstraintsForProperty("myField");
+
+            assertNotNull(descriptor);
+            assertEquals(2, descriptor.getConstraintDescriptors().size());
+            assertEquals(2, descriptor.findConstraints()
+                .unorderedAndMatchingGroups(Default.class, HiddenFieldSuperClass.BasicGroup.class)
+                .getConstraintDescriptors()
+                .size());
+            assertEquals(1, descriptor.findConstraints()
+                .unorderedAndMatchingGroups(HiddenFieldSuperClass.InheritedGroup.class)
+                .getConstraintDescriptors()
+                .size());
+            assertEquals(1, descriptor.findConstraints()
+                .unorderedAndMatchingGroups(Default.class)
+                .getConstraintDescriptors()
+                .size());
+            assertEquals(2, descriptor.findConstraints()
+                .lookingAt(Scope.HIERARCHY)
+                .declaredOn(ElementType.FIELD)
+                .getConstraintDescriptors()
+                .size());
+            assertEquals(1, descriptor.findConstraints()
+                .lookingAt(Scope.LOCAL_ELEMENT)
+                .getConstraintDescriptors()
+                .size());
+        }
+    }
+
+    @Test
     void isolatesCascadedViolationsFromRootDefaultGroupSequence() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -1057,6 +1093,31 @@ class ReflectionValidatorTest {
     }
 
     private interface Second {
+    }
+
+    @Introspected
+    @GroupSequence({HiddenFieldSubClass.class, HiddenFieldSubClass.DefaultGroup.class})
+    private static final class HiddenFieldSubClass extends HiddenFieldSuperClass {
+        @Max(value = 10, groups = HiddenFieldSubClass.DefaultGroup.class)
+        private String myField = "1234567890";
+
+        interface DefaultGroup {
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private static class HiddenFieldSuperClass {
+        @NotNull(groups = BasicGroup.class)
+        private String myField = "12345678901234567890";
+
+        interface UnusedGroup {
+        }
+
+        interface BasicGroup {
+        }
+
+        interface InheritedGroup extends BasicGroup {
+        }
     }
 
     private interface Auditable {
