@@ -43,6 +43,8 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
@@ -60,6 +62,7 @@ import java.lang.annotation.Target;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -512,6 +515,19 @@ class ReflectionValidatorTest {
     }
 
     @Test
+    void appliesNestedContainerGroupConversionOnGetterProperty() {
+        try (ApplicationContext context = ApplicationContext.run(Map.of(
+            ReflectionValidator.WARNINGS_ENABLED, false
+        ))) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<GetterGroupConversionBean>> violations = validator.validate(new GetterGroupConversionBean());
+
+            assertEquals(2, violations.size());
+        }
+    }
+
+    @Test
     void appliesRedefinedDefaultGroupSequenceToSupplementalReflectionConstraints() {
         try (ApplicationContext context = ApplicationContext.run(Map.of(
             ReflectionValidator.WARNINGS_ENABLED, false
@@ -945,6 +961,30 @@ class ReflectionValidatorTest {
     private static final class InvalidVisitor {
         @NotNull
         private final String name = null;
+    }
+
+    private interface PostalGroup {
+    }
+
+    @Introspected
+    private static final class GetterGroupConversionBean {
+        private final Map<String, List<GroupConversionAddress>> addresses = new HashMap<>();
+
+        private GetterGroupConversionBean() {
+            addresses.put("main", List.of(new GroupConversionAddress()));
+        }
+
+        Map<String, List<@Valid @ConvertGroup(from = Default.class, to = PostalGroup.class) GroupConversionAddress>> getAddresses() {
+            return addresses;
+        }
+    }
+
+    private static final class GroupConversionAddress {
+        @NotNull(groups = PostalGroup.class)
+        private final String street = null;
+
+        @Size(min = 3, groups = PostalGroup.class)
+        private final String zipCode = "1";
     }
 
     @Introspected
