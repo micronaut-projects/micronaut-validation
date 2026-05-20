@@ -51,6 +51,8 @@ import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
@@ -762,10 +764,17 @@ public class ReflectionValidator extends DefaultValidator {
     private static boolean requiresReflectionValidation(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
         return hasAmbiguousValidatorResolution(constraint, valueType)
             || supportsMinMaxReflection(constraint, valueType)
+            || unsupportedBooleanConstraintType(constraint, valueType)
             || !constraint.getConstraintValidatorClasses().isEmpty()
             || constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP
             || constraint.hasValidationAppliesTo()
             || !constraint.composingConstraints.isEmpty();
+    }
+
+    private static boolean unsupportedBooleanConstraintType(ReflectionConstraintDescriptor<?> constraint, Class<?> valueType) {
+        Class<?> constraintType = constraint.getType();
+        return (constraintType == AssertTrue.class || constraintType == AssertFalse.class)
+            && ReflectionUtils.getWrapperType(valueType) != Boolean.class;
     }
 
     private boolean hasReflectionConstraintValidators(Class<?> beanType) {
