@@ -37,6 +37,7 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
@@ -2392,21 +2393,68 @@ public class ReflectionValidator extends DefaultValidator {
             Set<Class<?>> groups,
             Set<Class<? extends Payload>> payload) {
             List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
-            for (Annotation annotation : parentAnnotation.annotationType().getDeclaredAnnotations()) {
-                if (annotation.annotationType().isAnnotationPresent(Constraint.class)) {
-                    Map<CharSequence, Object> members = annotationMembers(annotation, false);
-                    applyOverrides(parentAnnotation, annotation.annotationType(), members);
-                    members.put("groups", groups.toArray(Class<?>[]::new));
-                    members.put("payload", payload.toArray(Class<?>[]::new));
-                    constraints.add(new ReflectionConstraintDescriptor(annotation, groups, payload, members));
-                }
+            List<ComposingAnnotation> composingAnnotations = composingAnnotations(parentAnnotation.annotationType().getDeclaredAnnotations());
+            for (ComposingAnnotation composingAnnotation : composingAnnotations) {
+                Map<CharSequence, Object> members = annotationMembers(composingAnnotation.annotation, false);
+                applyOverrides(parentAnnotation, composingAnnotation, composingAnnotations, members);
+                members.put("groups", groups.toArray(Class<?>[]::new));
+                members.put("payload", payload.toArray(Class<?>[]::new));
+                constraints.add(new ReflectionConstraintDescriptor(composingAnnotation.annotation, groups, payload, members));
             }
             return List.copyOf(constraints);
         }
 
+        private static List<ComposingAnnotation> composingAnnotations(Annotation[] annotations) {
+            Map<Class<? extends Annotation>, Boolean> containerTypes = new LinkedHashMap<>();
+            Map<Class<? extends Annotation>, Boolean> directTypes = new LinkedHashMap<>();
+            List<ComposingAnnotation> composingAnnotations = new ArrayList<>();
+            for (Annotation annotation : annotations) {
+                Class<? extends Annotation> annotationType = annotation.annotationType();
+                if (annotationType.isAnnotationPresent(Constraint.class)) {
+                    if (containerTypes.containsKey(annotationType)) {
+                        throw new ConstraintDeclarationException("Cannot mix direct and container composing constraints for " + annotationType.getName());
+                    }
+                    directTypes.put(annotationType, true);
+                    composingAnnotations.add(new ComposingAnnotation(annotation, -1));
+                    continue;
+                }
+                List<Annotation> containedAnnotations = containedConstraintAnnotations(annotation);
+                if (!containedAnnotations.isEmpty()) {
+                    Class<? extends Annotation> containedType = containedAnnotations.get(0).annotationType();
+                    if (directTypes.containsKey(containedType)) {
+                        throw new ConstraintDeclarationException("Cannot mix direct and container composing constraints for " + containedType.getName());
+                    }
+                    containerTypes.put(containedType, true);
+                    for (int i = 0; i < containedAnnotations.size(); i++) {
+                        composingAnnotations.add(new ComposingAnnotation(containedAnnotations.get(i), i));
+                    }
+                }
+            }
+            return composingAnnotations;
+        }
+
+        private static List<Annotation> containedConstraintAnnotations(Annotation container) {
+            try {
+                Method valueMethod = container.annotationType().getDeclaredMethod("value");
+                if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
+                    return List.of();
+                }
+                valueMethod.setAccessible(true);
+                Annotation[] annotations = (Annotation[]) valueMethod.invoke(container);
+                return Arrays.stream(annotations)
+                    .filter(annotation -> annotation.annotationType().isAnnotationPresent(Constraint.class))
+                    .toList();
+            } catch (NoSuchMethodException e) {
+                return List.of();
+            } catch (IllegalAccessException | InvocationTargetException e) {
+                throw new ValidationException("Cannot read constraint container " + container.annotationType().getName(), e);
+            }
+        }
+
         private static void applyOverrides(
             Annotation parentAnnotation,
-            Class<? extends Annotation> composingType,
+            ComposingAnnotation composingAnnotation,
+            List<ComposingAnnotation> composingAnnotations,
             Map<CharSequence, Object> members) {
             Map<CharSequence, Object> parentMembers = annotationMembers(parentAnnotation, false);
             for (Method method : parentAnnotation.annotationType().getDeclaredMethods()) {
@@ -2416,26 +2464,72 @@ public class ReflectionValidator extends DefaultValidator {
                 }
                 OverridesAttribute override = method.getAnnotation(OverridesAttribute.class);
                 if (override != null) {
-                    applyOverride(composingType, members, method, value, override);
+                    applyOverride(composingAnnotation, composingAnnotations, members, method, value, override);
                 }
                 OverridesAttribute.List overrides = method.getAnnotation(OverridesAttribute.List.class);
                 if (overrides != null) {
                     for (OverridesAttribute listedOverride : overrides.value()) {
-                        applyOverride(composingType, members, method, value, listedOverride);
+                        applyOverride(composingAnnotation, composingAnnotations, members, method, value, listedOverride);
                     }
                 }
             }
         }
 
         private static void applyOverride(
-            Class<? extends Annotation> composingType,
+            ComposingAnnotation composingAnnotation,
+            List<ComposingAnnotation> composingAnnotations,
             Map<CharSequence, Object> members,
             Method method,
             Object value,
             OverridesAttribute override) {
-            if (override.constraint() == composingType) {
+            if (override.constraint() == composingAnnotation.type()
+                && (override.constraintIndex() < 0 || override.constraintIndex() == composingAnnotation.index)) {
                 String name = override.name().isEmpty() ? method.getName() : override.name();
+                validateOverride(method, value, composingAnnotation.type(), name);
                 members.put(name, value);
+            } else if (override.constraint() == composingAnnotation.type()
+                && override.constraintIndex() >= composingAnnotations.stream()
+                    .filter(annotation -> annotation.type() == composingAnnotation.type())
+                    .count()) {
+                throw new ConstraintDefinitionException("Invalid constraintIndex " + override.constraintIndex() + " for " + composingAnnotation.type().getName());
+            }
+        }
+
+        private static void validateOverride(Method method,
+                                             Object value,
+                                             Class<? extends Annotation> composingType,
+                                             String memberName) {
+            Method composingMember;
+            try {
+                composingMember = composingType.getDeclaredMethod(memberName);
+            } catch (NoSuchMethodException e) {
+                throw new ConstraintDefinitionException("Cannot override missing member " + composingType.getName() + "." + memberName, e);
+            }
+            if (value != null && !isAssignableToMember(value.getClass(), composingMember.getReturnType())) {
+                throw new ConstraintDefinitionException("Override member " + method.getName() + " is not assignable to " + composingType.getName() + "." + memberName);
+            }
+        }
+
+        private static boolean isAssignableToMember(Class<?> valueType, Class<?> memberType) {
+            if (!memberType.isPrimitive()) {
+                return memberType.isAssignableFrom(valueType);
+            }
+            return (memberType == int.class && valueType == Integer.class)
+                || (memberType == long.class && valueType == Long.class)
+                || (memberType == boolean.class && valueType == Boolean.class)
+                || (memberType == byte.class && valueType == Byte.class)
+                || (memberType == short.class && valueType == Short.class)
+                || (memberType == float.class && valueType == Float.class)
+                || (memberType == double.class && valueType == Double.class)
+                || (memberType == char.class && valueType == Character.class);
+        }
+
+        private record ComposingAnnotation(
+            Annotation annotation,
+            int index
+        ) {
+            Class<? extends Annotation> type() {
+                return annotation.annotationType();
             }
         }
     }
