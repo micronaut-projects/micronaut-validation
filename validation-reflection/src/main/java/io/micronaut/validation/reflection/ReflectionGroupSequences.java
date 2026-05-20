@@ -53,8 +53,9 @@ final class ReflectionGroupSequences {
         }
         List<List<Class<?>>> passes = new ArrayList<>();
         List<Class<?>> regularGroups = new ArrayList<>();
+        boolean defaultGroupSequenced = hasDefaultGroupSequence(beanType, BeanValidationContext.DEFAULT, metadataProviders);
         for (Class<?> group : groups) {
-            if (group == Default.class) {
+            if (group == Default.class && defaultGroupSequenced) {
                 if (!regularGroups.isEmpty()) {
                     passes.add(List.copyOf(regularGroups));
                     regularGroups.clear();
