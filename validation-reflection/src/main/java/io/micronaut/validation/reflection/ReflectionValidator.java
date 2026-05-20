@@ -71,6 +71,7 @@ import jakarta.validation.metadata.ReturnValueDescriptor;
 import jakarta.validation.metadata.Scope;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
+import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -2019,7 +2020,7 @@ public class ReflectionValidator extends DefaultValidator {
             validateNonExecutableConstraintDeclaration(constraint);
             ValueExtractorDefinition<Object> unwrappingExtractor = unwrappingExtractor(valueType, constraint);
             if (unwrappingExtractor != null && value != null) {
-                unwrappingExtractor.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+                extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                     @Override
                     public void value(String nodeName, Object extractedValue) {
@@ -2113,7 +2114,7 @@ public class ReflectionValidator extends DefaultValidator {
                 );
                 continue;
             }
-            unwrappingExtractor.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+            extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
                 public void value(String nodeName, Object extractedValue) {
@@ -2198,6 +2199,18 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return unwrapByDefault;
+    }
+
+    private static void extractValues(ValueExtractorDefinition<Object> definition,
+                                      Object value,
+                                      ValueExtractor.ValueReceiver receiver) {
+        try {
+            definition.valueExtractor().extractValues(value, receiver);
+        } catch (ValidationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ValidationException("Cannot extract values from " + definition.containerType().getName(), e);
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -2403,7 +2416,7 @@ public class ReflectionValidator extends DefaultValidator {
                     continue;
                 }
                 foundExtractor = true;
-                valueExtractorDefinition.valueExtractor().extractValues(containerValue, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
                     public void value(String nodeName, Object value) {
@@ -2520,7 +2533,7 @@ public class ReflectionValidator extends DefaultValidator {
                     continue;
                 }
                 foundExtractor = true;
-                valueExtractorDefinition.valueExtractor().extractValues(containerValue, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
                     public void value(String nodeName, Object value) {
@@ -2637,7 +2650,7 @@ public class ReflectionValidator extends DefaultValidator {
                 if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
                     continue;
                 }
-                valueExtractorDefinition.valueExtractor().extractValues(containerValue, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
                     public void value(String nodeName, Object value) {
@@ -2848,7 +2861,7 @@ public class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             container = true;
-            valueExtractorDefinition.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+            extractValues(valueExtractorDefinition, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
                 public void value(String nodeName, Object value) {
