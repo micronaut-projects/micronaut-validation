@@ -303,7 +303,6 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.containerelement.LegacyValidOnContainerCascadingTest">
                 <methods>
-                    <include name="testValidOnArray"/>
                     <include name="testValidOnListAndOnTypeArgument"/>
                     <include name="testValidOnListWithoutTypeArgument"/>
                 </methods>
