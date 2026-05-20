@@ -41,6 +41,7 @@ import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Payload;
@@ -48,11 +49,11 @@ import jakarta.validation.Path;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
-import jakarta.validation.GroupSequence;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
@@ -1885,16 +1886,35 @@ public class ReflectionValidator extends DefaultValidator {
             AnnotatedType typeArgument = typeArguments[i];
             List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(typeArgument);
             boolean cascaded = typeArgument.isAnnotationPresent(Valid.class);
-            if (!constraints.isEmpty() || cascaded) {
+            List<ReflectionContainerElement> nestedContainerElements = containerElementsFor(typeArgument);
+            if (!constraints.isEmpty() || cascaded || !nestedContainerElements.isEmpty()) {
                 containerElements.add(new ReflectionContainerElement(
+                    getClassFromType(type.getType()),
                     i,
                     getClassFromType(typeArgument.getType()),
                     constraints,
-                    cascaded
+                    cascaded,
+                    groupConversionsFor(typeArgument),
+                    nestedContainerElements
                 ));
             }
         }
         return List.copyOf(containerElements);
+    }
+
+    private static Set<ReflectionGroupConversionDescriptor> groupConversionsFor(AnnotatedType type) {
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        ConvertGroup convertGroup = type.getAnnotation(ConvertGroup.class);
+        if (convertGroup != null) {
+            groupConversions.add(new ReflectionGroupConversionDescriptor(convertGroup.from(), convertGroup.to()));
+        }
+        ConvertGroup.List convertGroups = type.getAnnotation(ConvertGroup.List.class);
+        if (convertGroups != null) {
+            for (ConvertGroup listedConvertGroup : convertGroups.value()) {
+                groupConversions.add(new ReflectionGroupConversionDescriptor(listedConvertGroup.from(), listedConvertGroup.to()));
+            }
+        }
+        return Set.copyOf(groupConversions);
     }
 
     private static Class<?> getClassFromType(Type type) {
@@ -1991,6 +2011,33 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         return values;
+    }
+
+    private static Set<ContainerElementTypeDescriptor> containerElementDescriptors(List<ReflectionContainerElement> containerElements) {
+        Map<ContainerElementKey, List<ReflectionContainerElement>> grouped = new LinkedHashMap<>();
+        for (ReflectionContainerElement containerElement : containerElements) {
+            if (containerElement.constraints.isEmpty()
+                && !containerElement.cascaded
+                && containerElement.nestedContainerElements.isEmpty()) {
+                continue;
+            }
+            grouped.computeIfAbsent(
+                new ContainerElementKey(containerElement.containerType, containerElement.typeArgumentIndex),
+                ignored -> new ArrayList<>()
+            ).add(containerElement);
+        }
+        return grouped.entrySet()
+            .stream()
+            .map(entry -> {
+                ReflectionContainerElement first = entry.getValue().get(0);
+                return new ReflectionContainerElementDescriptor(
+                    entry.getKey().containerType(),
+                    entry.getKey().typeArgumentIndex(),
+                    first.type,
+                    entry.getValue()
+                );
+            })
+            .collect(Collectors.toUnmodifiableSet());
     }
 
     private record ReflectionProperty(
@@ -2094,10 +2141,35 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     private record ReflectionContainerElement(
+        Class<?> containerType,
         int typeArgumentIndex,
         Class<?> type,
         List<ReflectionConstraintDescriptor<?>> constraints,
-        boolean cascaded
+        boolean cascaded,
+        Set<ReflectionGroupConversionDescriptor> groupConversions,
+        List<ReflectionContainerElement> nestedContainerElements
+    ) {
+    }
+
+    private record ReflectionGroupConversionDescriptor(
+        Class<?> from,
+        Class<?> to
+    ) implements GroupConversionDescriptor {
+
+        @Override
+        public Class<?> getFrom() {
+            return from;
+        }
+
+        @Override
+        public Class<?> getTo() {
+            return to;
+        }
+    }
+
+    private record ContainerElementKey(
+        Class<?> containerType,
+        int typeArgumentIndex
     ) {
     }
 
@@ -2446,7 +2518,11 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            return Set.of();
+            return containerElementDescriptors(properties.stream()
+                .filter(this::matchesScope)
+                .filter(this::matchesDeclaredOn)
+                .flatMap(property -> property.containerElements.stream())
+                .toList());
         }
 
         @Override
@@ -2529,6 +2605,80 @@ public class ReflectionValidator extends DefaultValidator {
 
         private Class<?> localDeclaringClass() {
             return properties.get(0).declaringClass();
+        }
+    }
+
+    private record ReflectionContainerElementDescriptor(
+        Class<?> containerType,
+        int typeArgumentIndex,
+        Class<?> elementClass,
+        List<ReflectionContainerElement> containerElements
+    ) implements ContainerElementTypeDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public Class<?> getContainerClass() {
+            return containerType;
+        }
+
+        @Override
+        public Integer getTypeArgumentIndex() {
+            return typeArgumentIndex;
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return containerElements.stream().anyMatch(ReflectionContainerElement::cascaded);
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return containerElements.stream()
+                .flatMap(containerElement -> containerElement.groupConversions.stream())
+                .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return containerElementDescriptors(containerElements.stream()
+                .flatMap(containerElement -> containerElement.nestedContainerElements.stream())
+                .toList());
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return containerElements.stream().anyMatch(containerElement -> !containerElement.constraints.isEmpty());
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return elementClass;
+        }
+
+        @Override
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return containerElements.stream()
+                .flatMap(containerElement -> containerElement.constraints.stream())
+                .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public ConstraintFinder findConstraints() {
+            return this;
         }
     }
 

@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 62 classes, 303 methods,
+        Current tracker shape: 61 classes, 299 methods,
         and 10 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -106,6 +106,7 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest
         - org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest
         - org.hibernate.beanvalidation.tck.tests.metadata.ElementDescriptorTest
+        - org.hibernate.beanvalidation.tck.tests.metadata.ContainerElementTypeDescriptorTest
         - org.hibernate.beanvalidation.tck.tests.validation.CustomPropertyPathTest
         - org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.nestedconstraintcomposition.NestedConstraintCompositionTest
         - org.hibernate.beanvalidation.tck.tests.constraints.groups.inheritance.GroupInheritanceTest
@@ -190,14 +191,6 @@
                     <include name="testGetConstraintsForParameterConstrainedMethod"/>
                     <include name="testGetConstraintsForReturnValueConstrainedConstructor"/>
                     <include name="testGetConstraintsForReturnValueConstrainedMethod"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ContainerElementTypeDescriptorTest">
-                <methods>
-                    <include name="testGetContainerElementMetaDataForAddresses"/>
-                    <include name="testGetContainerElementMetaDataForColleagues"/>
-                    <include name="testGetContainerElementMetaDataForDivision"/>
-                    <include name="testGetContainerElementMetaDataForRoles"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConvertGroupDefaultFromTest">
