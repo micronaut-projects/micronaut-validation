@@ -306,7 +306,6 @@
                     <include name="testContainerElementLeafBean"/>
                     <include name="testGraphValidationWithArray"/>
                     <include name="testGraphValidationWithList"/>
-                    <include name="testMultipleConstraintViolationOfDifferentTypes"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest">

@@ -102,13 +102,6 @@
                     <exclude name="testPropertyPathForConstructor.*"/>
                 </methods>
             </class>
-            <!-- TODO -->
-            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
-                <methods>
-                    <!-- Combined constraint not implemented -->
-                    <exclude name="testMultipleConstraintViolationOfDifferentTypes"/>
-                </methods>
-            </class>
 <!--            &lt;!&ndash; TODO &ndash;&gt;-->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
                 <methods>
