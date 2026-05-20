@@ -26,6 +26,7 @@ import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.ProtocolMetaData;
@@ -55,6 +56,8 @@ import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.file.FileVisitResult;
 import java.nio.file.FileVisitor;
 import java.nio.file.Files;
@@ -441,7 +444,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     private record BeanContextConstraintValidatorFactory(
         ApplicationContext applicationContext,
         ConstraintValidatorFactory delegate
-    ) implements ConstraintValidatorFactory {
+    ) implements InternalConstraintValidatorFactory {
 
         @Override
         public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
@@ -449,8 +452,89 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         }
 
         @Override
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
+                                                                   Class<?> targetType,
+                                                                   jakarta.validation.ConstraintTarget constraintTarget) {
+            if (!supportsTarget(validatorType, targetType)) {
+                return null;
+            }
+            Optional<T> bean = applicationContext.findBean(validatorType);
+            if (bean.isPresent()) {
+                return bean.get();
+            }
+            if (delegate instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
+                T validator = internalConstraintValidatorFactory.getInstance(validatorType, targetType, constraintTarget);
+                if (validator != null) {
+                    return validator;
+                }
+            }
+            return getInstance(validatorType);
+        }
+
+        @Override
         public void releaseInstance(ConstraintValidator<?, ?> instance) {
             delegate.releaseInstance(instance);
+        }
+
+        private static boolean supportsTarget(Class<?> validatorType, Class<?> targetType) {
+            Class<?> validatorTargetType = findConstraintValidatorTargetType(validatorType);
+            if (validatorTargetType == null) {
+                return true;
+            }
+            Class<?> resolvedTargetType = targetType.isPrimitive()
+                ? io.micronaut.core.reflect.ReflectionUtils.getWrapperType(targetType)
+                : targetType;
+            return validatorTargetType.isAssignableFrom(resolvedTargetType);
+        }
+
+        private static Class<?> findConstraintValidatorTargetType(Class<?> type) {
+            for (Type genericInterface : type.getGenericInterfaces()) {
+                Class<?> targetType = findConstraintValidatorTargetType(genericInterface);
+                if (targetType != null) {
+                    return targetType;
+                }
+            }
+            Type genericSuperclass = type.getGenericSuperclass();
+            return genericSuperclass == null ? null : findConstraintValidatorTargetType(genericSuperclass);
+        }
+
+        private static Class<?> findConstraintValidatorTargetType(Type type) {
+            if (type instanceof ParameterizedType parameterizedType) {
+                Class<?> targetType = constraintValidatorTargetType(parameterizedType);
+                if (targetType != null) {
+                    return targetType;
+                }
+                Type rawType = parameterizedType.getRawType();
+                if (rawType instanceof Class<?> rawClass) {
+                    return findConstraintValidatorTargetType(rawClass);
+                }
+                return null;
+            }
+            if (type instanceof Class<?> clazz && clazz != Object.class) {
+                return findConstraintValidatorTargetType(clazz);
+            }
+            return null;
+        }
+
+        private static Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
+            Type rawType = parameterizedType.getRawType();
+            if (rawType == ConstraintValidator.class) {
+                Type[] typeArguments = parameterizedType.getActualTypeArguments();
+                if (typeArguments.length == 2) {
+                    return typeArgumentType(typeArguments[1]);
+                }
+            }
+            return null;
+        }
+
+        private static Class<?> typeArgumentType(Type typeArgument) {
+            if (typeArgument instanceof Class<?> type) {
+                return type;
+            }
+            if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
+                return rawType;
+            }
+            return null;
         }
     }
 }
