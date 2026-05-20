@@ -55,14 +55,17 @@ import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.metadata.BeanDescriptor;
-import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
+import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
+import jakarta.validation.metadata.CrossParameterDescriptor;
 import jakarta.validation.metadata.ElementDescriptor;
 import jakarta.validation.metadata.GroupConversionDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.ParameterDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
+import jakarta.validation.metadata.ReturnValueDescriptor;
 import jakarta.validation.metadata.Scope;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
@@ -77,6 +80,7 @@ import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -1904,17 +1908,28 @@ public class ReflectionValidator extends DefaultValidator {
 
     private static Set<ReflectionGroupConversionDescriptor> groupConversionsFor(AnnotatedType type) {
         Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
-        ConvertGroup convertGroup = type.getAnnotation(ConvertGroup.class);
+        collectGroupConversions(type, groupConversions);
+        return Set.copyOf(groupConversions);
+    }
+
+    private static Set<ReflectionGroupConversionDescriptor> groupConversionsFor(AnnotatedElement element, AnnotatedType type) {
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        collectGroupConversions(element, groupConversions);
+        collectGroupConversions(type, groupConversions);
+        return Set.copyOf(groupConversions);
+    }
+
+    private static void collectGroupConversions(AnnotatedElement element, Set<ReflectionGroupConversionDescriptor> groupConversions) {
+        ConvertGroup convertGroup = element.getAnnotation(ConvertGroup.class);
         if (convertGroup != null) {
             groupConversions.add(new ReflectionGroupConversionDescriptor(convertGroup.from(), convertGroup.to()));
         }
-        ConvertGroup.List convertGroups = type.getAnnotation(ConvertGroup.List.class);
+        ConvertGroup.List convertGroups = element.getAnnotation(ConvertGroup.List.class);
         if (convertGroups != null) {
             for (ConvertGroup listedConvertGroup : convertGroups.value()) {
                 groupConversions.add(new ReflectionGroupConversionDescriptor(listedConvertGroup.from(), listedConvertGroup.to()));
             }
         }
-        return Set.copyOf(groupConversions);
     }
 
     private static Class<?> getClassFromType(Type type) {
@@ -2040,11 +2055,137 @@ public class ReflectionValidator extends DefaultValidator {
             .collect(Collectors.toUnmodifiableSet());
     }
 
+    private static List<ReflectionExecutableParameter> parametersFor(Method method) {
+        List<Method> hierarchy = ReflectionMethodDeclarations.hierarchy(method);
+        Parameter[] localParameters = method.getParameters();
+        List<ReflectionExecutableParameter> parameters = new ArrayList<>(localParameters.length);
+        for (int i = 0; i < localParameters.length; i++) {
+            List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+            List<ReflectionContainerElement> containerElements = new ArrayList<>();
+            Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+            boolean cascaded = false;
+            for (Method hierarchyMethod : hierarchy) {
+                Parameter parameter = hierarchyMethod.getParameters()[i];
+                constraints.addAll(constraintsFor(parameter));
+                containerElements.addAll(containerElementsFor(parameter.getAnnotatedType()));
+                groupConversions.addAll(groupConversionsFor(parameter, parameter.getAnnotatedType()));
+                cascaded |= isCascaded(parameter);
+            }
+            parameters.add(new ReflectionExecutableParameter(
+                i,
+                localParameters[i].getName(),
+                method.getParameterTypes()[i],
+                List.copyOf(constraints),
+                cascaded,
+                Set.copyOf(groupConversions),
+                List.copyOf(containerElements)
+            ));
+        }
+        return List.copyOf(parameters);
+    }
+
+    private static List<ReflectionExecutableParameter> parametersFor(Constructor<?> constructor) {
+        Parameter[] constructorParameters = constructor.getParameters();
+        List<ReflectionExecutableParameter> parameters = new ArrayList<>(constructorParameters.length);
+        for (int i = 0; i < constructorParameters.length; i++) {
+            Parameter parameter = constructorParameters[i];
+            parameters.add(new ReflectionExecutableParameter(
+                i,
+                parameter.getName(),
+                constructor.getParameterTypes()[i],
+                constraintsFor(parameter),
+                isCascaded(parameter),
+                groupConversionsFor(parameter, parameter.getAnnotatedType()),
+                containerElementsFor(parameter.getAnnotatedType())
+            ));
+        }
+        return List.copyOf(parameters);
+    }
+
+    private static ReflectionExecutableReturnValue returnValueFor(Method method) {
+        List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        boolean cascaded = false;
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            constraintsFor(hierarchyMethod).stream()
+                .filter(constraint -> isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE))
+                .forEach(constraints::add);
+            containerElements.addAll(containerElementsFor(hierarchyMethod.getAnnotatedReturnType()));
+            groupConversions.addAll(groupConversionsFor(hierarchyMethod, hierarchyMethod.getAnnotatedReturnType()));
+            cascaded |= isCascaded(hierarchyMethod);
+        }
+        return new ReflectionExecutableReturnValue(
+            method.getReturnType(),
+            List.copyOf(constraints),
+            cascaded,
+            Set.copyOf(groupConversions),
+            List.copyOf(containerElements)
+        );
+    }
+
+    private static ReflectionExecutableReturnValue returnValueFor(Constructor<?> constructor) {
+        List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(constructor).stream()
+            .filter(constraint -> isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE))
+            .toList();
+        return new ReflectionExecutableReturnValue(
+            constructor.getDeclaringClass(),
+            constraints,
+            constructor.isAnnotationPresent(Valid.class),
+            groupConversionsFor(constructor, constructor.getAnnotatedReturnType()),
+            List.of()
+        );
+    }
+
+    private static List<ReflectionExecutableConstraint> crossParameterConstraintsFor(Method method, Class<?> beanType) {
+        List<ReflectionExecutableConstraint> constraints = new ArrayList<>();
+        boolean local = method.getDeclaringClass() == beanType;
+        for (Method hierarchyMethod : ReflectionMethodDeclarations.hierarchy(method)) {
+            for (ReflectionConstraintDescriptor<?> constraint : constraintsFor(hierarchyMethod)) {
+                if (isTargetedConstraint(constraint, ConstraintTarget.PARAMETERS)) {
+                    constraints.add(new ReflectionExecutableConstraint(constraint, local));
+                }
+            }
+            local = false;
+        }
+        return List.copyOf(constraints);
+    }
+
+    private static List<ReflectionExecutableConstraint> crossParameterConstraintsFor(Constructor<?> constructor) {
+        return constraintsFor(constructor).stream()
+            .filter(constraint -> isTargetedConstraint(constraint, ConstraintTarget.PARAMETERS))
+            .map(constraint -> new ReflectionExecutableConstraint(constraint, true))
+            .toList();
+    }
+
+    private static boolean isTargetedConstraint(ReflectionConstraintDescriptor<?> descriptor, ConstraintTarget target) {
+        return appliesTo(descriptor, target) && supportsValidationTarget(descriptor, target);
+    }
+
+    private static boolean supportsValidationTarget(ReflectionConstraintDescriptor<?> descriptor, ConstraintTarget target) {
+        Set<ValidationTarget> targets = new LinkedHashSet<>();
+        for (Class<? extends jakarta.validation.ConstraintValidator<?, ?>> validatorClass : descriptor.getConstraintValidatorClasses()) {
+            SupportedValidationTarget supportedValidationTarget = validatorClass.getAnnotation(SupportedValidationTarget.class);
+            if (supportedValidationTarget == null) {
+                targets.add(ValidationTarget.ANNOTATED_ELEMENT);
+            } else {
+                targets.addAll(Arrays.asList(supportedValidationTarget.value()));
+            }
+        }
+        if (targets.isEmpty()) {
+            targets.add(ValidationTarget.ANNOTATED_ELEMENT);
+        }
+        return target == ConstraintTarget.PARAMETERS
+            ? targets.contains(ValidationTarget.PARAMETERS)
+            : targets.contains(ValidationTarget.ANNOTATED_ELEMENT);
+    }
+
     private record ReflectionProperty(
         String name,
         Class<?> type,
         AccessibleObject source,
         List<ReflectionConstraintDescriptor<?>> constraints,
+        Set<ReflectionGroupConversionDescriptor> groupConversions,
         List<ReflectionContainerElement> containerElements
     ) {
 
@@ -2173,6 +2314,362 @@ public class ReflectionValidator extends DefaultValidator {
     ) {
     }
 
+    private record ReflectionExecutableConstraint(
+        ReflectionConstraintDescriptor<?> descriptor,
+        boolean local
+    ) {
+    }
+
+    private record ReflectionExecutableParameter(
+        int index,
+        String name,
+        Class<?> type,
+        List<ReflectionConstraintDescriptor<?>> constraints,
+        boolean cascaded,
+        Set<ReflectionGroupConversionDescriptor> groupConversions,
+        List<ReflectionContainerElement> containerElements
+    ) {
+    }
+
+    private record ReflectionExecutableReturnValue(
+        Class<?> type,
+        List<ReflectionConstraintDescriptor<?>> constraints,
+        boolean cascaded,
+        Set<ReflectionGroupConversionDescriptor> groupConversions,
+        List<ReflectionContainerElement> containerElements
+    ) {
+    }
+
+    private abstract static class AbstractReflectionExecutableDescriptor implements ElementDescriptor.ConstraintFinder {
+
+        final Executable executable;
+        final List<ReflectionExecutableParameter> parameters;
+        final ReflectionCrossParameterDescriptor crossParameterDescriptor;
+        final ReflectionReturnValueDescriptor returnValueDescriptor;
+
+        AbstractReflectionExecutableDescriptor(Executable executable,
+                                               List<ReflectionExecutableParameter> parameters,
+                                               ReflectionCrossParameterDescriptor crossParameterDescriptor,
+                                               ReflectionReturnValueDescriptor returnValueDescriptor) {
+            this.executable = executable;
+            this.parameters = parameters;
+            this.crossParameterDescriptor = crossParameterDescriptor;
+            this.returnValueDescriptor = returnValueDescriptor;
+        }
+
+        public String getName() {
+            return executable instanceof Constructor<?> constructor ? constructor.getDeclaringClass().getSimpleName() : executable.getName();
+        }
+
+        public List<ParameterDescriptor> getParameterDescriptors() {
+            return parameters.stream()
+                .map(ReflectionParameterDescriptor::new)
+                .collect(Collectors.toUnmodifiableList());
+        }
+
+        public CrossParameterDescriptor getCrossParameterDescriptor() {
+            return crossParameterDescriptor;
+        }
+
+        public ReturnValueDescriptor getReturnValueDescriptor() {
+            return returnValueDescriptor;
+        }
+
+        public boolean hasConstrainedParameters() {
+            return crossParameterDescriptor.hasConstraints() || parameters.stream()
+                .anyMatch(parameter -> !parameter.constraints.isEmpty()
+                    || parameter.cascaded
+                    || !parameter.containerElements.isEmpty());
+        }
+
+        public boolean hasConstrainedReturnValue() {
+            return returnValueDescriptor.hasConstraints()
+                || returnValueDescriptor.isCascaded()
+                || !returnValueDescriptor.getConstrainedContainerElementTypes().isEmpty();
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return false;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return Set.of();
+        }
+
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private static final class ReflectionMethodDescriptor extends AbstractReflectionExecutableDescriptor implements MethodDescriptor {
+
+        private final Method method;
+
+        ReflectionMethodDescriptor(Method method) {
+            this(method, method.getDeclaringClass());
+        }
+
+        ReflectionMethodDescriptor(Method method, Class<?> beanType) {
+            super(
+                method,
+                parametersFor(method),
+                new ReflectionCrossParameterDescriptor(crossParameterConstraintsFor(method, beanType)),
+                new ReflectionReturnValueDescriptor(returnValueFor(method))
+            );
+            this.method = method;
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return method.getReturnType();
+        }
+
+        boolean isConstrained() {
+            return hasConstrainedParameters() || hasConstrainedReturnValue();
+        }
+    }
+
+    private static final class ReflectionConstructorDescriptor extends AbstractReflectionExecutableDescriptor implements ConstructorDescriptor {
+
+        private final Constructor<?> constructor;
+
+        ReflectionConstructorDescriptor(Constructor<?> constructor) {
+            super(
+                constructor,
+                parametersFor(constructor),
+                new ReflectionCrossParameterDescriptor(crossParameterConstraintsFor(constructor)),
+                new ReflectionReturnValueDescriptor(returnValueFor(constructor))
+            );
+            this.constructor = constructor;
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return constructor.getDeclaringClass();
+        }
+
+        boolean isConstrained() {
+            return hasConstrainedParameters() || hasConstrainedReturnValue();
+        }
+    }
+
+    private record ReflectionCrossParameterDescriptor(
+        List<ReflectionExecutableConstraint> constraints,
+        Scope scope,
+        Set<Class<?>> groups
+    ) implements CrossParameterDescriptor, ElementDescriptor.ConstraintFinder {
+
+        private ReflectionCrossParameterDescriptor(List<ReflectionExecutableConstraint> constraints) {
+            this(constraints, Scope.HIERARCHY, Set.of());
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return Object[].class;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return constraints.stream()
+                .filter(this::matchesScope)
+                .map(ReflectionExecutableConstraint::descriptor)
+                .filter(this::matchesGroups)
+                .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return new ReflectionCrossParameterDescriptor(constraints);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return new ReflectionCrossParameterDescriptor(constraints, scope, Set.of(groups));
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return new ReflectionCrossParameterDescriptor(constraints, scope, groups);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+
+        private boolean matchesScope(ReflectionExecutableConstraint constraint) {
+            return scope == Scope.HIERARCHY || constraint.local;
+        }
+
+        private boolean matchesGroups(ReflectionConstraintDescriptor<?> descriptor) {
+            return groups.isEmpty() || groups.stream().anyMatch(descriptor.getGroups()::contains);
+        }
+    }
+
+    private record ReflectionParameterDescriptor(
+        ReflectionExecutableParameter parameter,
+        Set<Class<?>> groups
+    ) implements ParameterDescriptor, ElementDescriptor.ConstraintFinder {
+
+        private ReflectionParameterDescriptor(ReflectionExecutableParameter parameter) {
+            this(parameter, Set.of());
+        }
+
+        @Override
+        public int getIndex() {
+            return parameter.index;
+        }
+
+        @Override
+        public String getName() {
+            return parameter.name;
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return parameter.cascaded;
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return Set.copyOf(parameter.groupConversions);
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return containerElementDescriptors(parameter.containerElements);
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return parameter.type;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return parameter.constraints.stream()
+                .filter(this::matchesGroups)
+                .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return new ReflectionParameterDescriptor(parameter);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return new ReflectionParameterDescriptor(parameter, Set.of(groups));
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+
+        private boolean matchesGroups(ReflectionConstraintDescriptor<?> descriptor) {
+            return groups.isEmpty() || groups.stream().anyMatch(descriptor.getGroups()::contains);
+        }
+    }
+
+    private record ReflectionReturnValueDescriptor(
+        ReflectionExecutableReturnValue returnValue,
+        Set<Class<?>> groups
+    ) implements ReturnValueDescriptor, ElementDescriptor.ConstraintFinder {
+
+        private ReflectionReturnValueDescriptor(ReflectionExecutableReturnValue returnValue) {
+            this(returnValue, Set.of());
+        }
+
+        @Override
+        public boolean isCascaded() {
+            return returnValue.cascaded;
+        }
+
+        @Override
+        public Set<GroupConversionDescriptor> getGroupConversions() {
+            return Set.copyOf(returnValue.groupConversions);
+        }
+
+        @Override
+        public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
+            return containerElementDescriptors(returnValue.containerElements);
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
+
+        @Override
+        public Class<?> getElementClass() {
+            return returnValue.type;
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            return returnValue.constraints.stream()
+                .filter(this::matchesGroups)
+                .collect(Collectors.toUnmodifiableSet());
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder findConstraints() {
+            return new ReflectionReturnValueDescriptor(returnValue);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return new ReflectionReturnValueDescriptor(returnValue, Set.of(groups));
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+
+        private boolean matchesGroups(ReflectionConstraintDescriptor<?> descriptor) {
+            return groups.isEmpty() || groups.stream().anyMatch(descriptor.getGroups()::contains);
+        }
+    }
+
     private record ReflectionSupplementedBeanDescriptor(
         BeanDescriptor generated,
         ReflectionBeanMetadata reflected
@@ -2185,6 +2682,9 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public @Nullable PropertyDescriptor getConstraintsForProperty(String propertyName) {
+            if (propertyName == null) {
+                throw new IllegalArgumentException("Property name cannot be null");
+            }
             PropertyDescriptor generatedProperty = generated.getConstraintsForProperty(propertyName);
             PropertyDescriptor reflectedProperty = reflected.getConstraintsForProperty(propertyName);
             if (generatedProperty == null) {
@@ -2225,22 +2725,26 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public @Nullable MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
-            return generated.getConstraintsForMethod(methodName, parameterTypes);
+            MethodDescriptor reflectedMethod = reflected.getConstraintsForMethod(methodName, parameterTypes);
+            return reflectedMethod == null ? generated.getConstraintsForMethod(methodName, parameterTypes) : reflectedMethod;
         }
 
         @Override
         public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-            return generated.getConstrainedMethods(methodType, methodTypes);
+            Set<MethodDescriptor> reflectedMethods = reflected.getConstrainedMethods(methodType, methodTypes);
+            return reflectedMethods.isEmpty() ? generated.getConstrainedMethods(methodType, methodTypes) : reflectedMethods;
         }
 
         @Override
         public @Nullable ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
-            return generated.getConstraintsForConstructor(parameterTypes);
+            ConstructorDescriptor reflectedConstructor = reflected.getConstraintsForConstructor(parameterTypes);
+            return reflectedConstructor == null ? generated.getConstraintsForConstructor(parameterTypes) : reflectedConstructor;
         }
 
         @Override
         public Set<ConstructorDescriptor> getConstrainedConstructors() {
-            return generated.getConstrainedConstructors();
+            Set<ConstructorDescriptor> reflectedConstructors = reflected.getConstrainedConstructors();
+            return reflectedConstructors.isEmpty() ? generated.getConstrainedConstructors() : reflectedConstructors;
         }
 
         @Override
@@ -2320,7 +2824,14 @@ public class ReflectionValidator extends DefaultValidator {
                     List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
-                        addProperty(properties, new ReflectionProperty(field.getName(), field.getType(), field, constraints, containerElements));
+                        addProperty(properties, new ReflectionProperty(
+                            field.getName(),
+                            field.getType(),
+                            field,
+                            constraints,
+                            groupConversionsFor(field, field.getAnnotatedType()),
+                            containerElements
+                        ));
                     }
                 }
                 for (Method method : current.getDeclaredMethods()) {
@@ -2334,7 +2845,14 @@ public class ReflectionValidator extends DefaultValidator {
                     List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method);
                     List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                     if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
-                        addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
+                        addProperty(properties, new ReflectionProperty(
+                            propertyName,
+                            method.getReturnType(),
+                            method,
+                            constraints,
+                            groupConversionsFor(method, method.getAnnotatedReturnType()),
+                            containerElements
+                        ));
                     }
                 }
             }
@@ -2378,7 +2896,14 @@ public class ReflectionValidator extends DefaultValidator {
                 List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup);
                 List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
                 if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
-                    addProperty(properties, new ReflectionProperty(propertyName, method.getReturnType(), method, constraints, containerElements));
+                    addProperty(properties, new ReflectionProperty(
+                        propertyName,
+                        method.getReturnType(),
+                        method,
+                        constraints,
+                        groupConversionsFor(method, method.getAnnotatedReturnType()),
+                        containerElements
+                    ));
                 }
             }
             for (Class<?> parent : interfaceType.getInterfaces()) {
@@ -2421,6 +2946,9 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public @Nullable PropertyDescriptor getConstraintsForProperty(String propertyName) {
+            if (propertyName == null) {
+                throw new IllegalArgumentException("Property name cannot be null");
+            }
             List<ReflectionProperty> property = properties.get(propertyName);
             return property == null ? null : new ReflectionPropertyDescriptor(propertyName, property);
         }
@@ -2435,22 +2963,56 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public @Nullable MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
-            return null;
+            if (methodName == null) {
+                throw new IllegalArgumentException("Method name cannot be null");
+            }
+            Method method = findMethod(beanType, methodName, parameterTypes);
+            if (method == null) {
+                return null;
+            }
+            ReflectionMethodDescriptor descriptor = new ReflectionMethodDescriptor(method, beanType);
+            return descriptor.isConstrained() ? descriptor : null;
         }
 
         @Override
         public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-            return Set.of();
+            Set<MethodType> requestedTypes = EnumSet.of(methodType, methodTypes);
+            Set<MethodDescriptor> methods = new LinkedHashSet<>();
+            for (Method method : beanType.getMethods()) {
+                if (method.getDeclaringClass() == Object.class) {
+                    continue;
+                }
+                boolean getter = method.getParameterCount() == 0 && propertyName(method) != null;
+                if (requestedTypes.contains(getter ? MethodType.GETTER : MethodType.NON_GETTER)) {
+                    ReflectionMethodDescriptor descriptor = new ReflectionMethodDescriptor(method, beanType);
+                    if (descriptor.isConstrained()) {
+                        methods.add(descriptor);
+                    }
+                }
+            }
+            return Set.copyOf(methods);
         }
 
         @Override
         public @Nullable ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
-            return null;
+            Constructor<?> constructor = findConstructor(beanType, parameterTypes);
+            if (constructor == null) {
+                return null;
+            }
+            ReflectionConstructorDescriptor descriptor = new ReflectionConstructorDescriptor(constructor);
+            return descriptor.isConstrained() ? descriptor : null;
         }
 
         @Override
         public Set<ConstructorDescriptor> getConstrainedConstructors() {
-            return Set.of();
+            Set<ConstructorDescriptor> constructors = new LinkedHashSet<>();
+            for (Constructor<?> constructor : beanType.getDeclaredConstructors()) {
+                ReflectionConstructorDescriptor descriptor = new ReflectionConstructorDescriptor(constructor);
+                if (descriptor.isConstrained()) {
+                    constructors.add(descriptor);
+                }
+            }
+            return Set.copyOf(constructors);
         }
 
         @Override
@@ -2487,6 +3049,29 @@ public class ReflectionValidator extends DefaultValidator {
         public ConstraintFinder findConstraints() {
             return this;
         }
+
+        private static @Nullable Method findMethod(Class<?> beanType, String methodName, Class<?>... parameterTypes) {
+            try {
+                return beanType.getMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException e) {
+                for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
+                    try {
+                        return current.getDeclaredMethod(methodName, parameterTypes);
+                    } catch (NoSuchMethodException ignored) {
+                        // Continue searching hierarchy.
+                    }
+                }
+                return null;
+            }
+        }
+
+        private static @Nullable Constructor<?> findConstructor(Class<?> beanType, Class<?>... parameterTypes) {
+            try {
+                return beanType.getDeclaredConstructor(parameterTypes);
+            } catch (NoSuchMethodException e) {
+                return null;
+            }
+        }
     }
 
     private record ReflectionPropertyDescriptor(
@@ -2508,12 +3093,14 @@ public class ReflectionValidator extends DefaultValidator {
 
         @Override
         public boolean isCascaded() {
-            return false;
+            return properties.stream().anyMatch(ReflectionProperty::isCascaded);
         }
 
         @Override
         public Set<GroupConversionDescriptor> getGroupConversions() {
-            return Set.of();
+            return properties.stream()
+                .flatMap(property -> property.groupConversions.stream())
+                .collect(Collectors.toUnmodifiableSet());
         }
 
         @Override
