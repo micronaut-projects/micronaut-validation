@@ -96,6 +96,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.IdentityHashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -2339,17 +2340,35 @@ public class ReflectionValidator extends DefaultValidator {
                                            BeanValidationContext context,
                                            Set<ConstraintViolation<T>> violations,
                                            jakarta.validation.Path beanPath) {
+        validateCascadedValue(rootBean, rootBeanClass, leafBean, value, context, violations, beanPath, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private <T> void validateCascadedValue(@Nullable T rootBean,
+                                           @Nullable Class<?> rootBeanClass,
+                                           @Nullable Object leafBean,
+                                           @Nullable Object value,
+                                           BeanValidationContext context,
+                                           Set<ConstraintViolation<T>> violations,
+                                           jakarta.validation.Path beanPath,
+                                           Set<Object> validatedObjects) {
         if (value == null) {
             return;
         }
+        if (!validatedObjects.add(value)) {
+            return;
+        }
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(value.getClass());
-        for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(value.getClass(), context)) {
-            int violationCount = violations.size();
-            BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
-            validateCascadedValuePass(rootBean, rootBeanClass, leafBean, value, groupContext, violations, beanPath, metadata);
-            if (violations.size() > violationCount) {
-                break;
+        try {
+            for (List<Class<?>> groupPass : ReflectionGroupSequences.validationGroupPasses(value.getClass(), context)) {
+                int violationCount = violations.size();
+                BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
+                validateCascadedValuePass(rootBean, rootBeanClass, leafBean, value, groupContext, violations, beanPath, metadata, validatedObjects);
+                if (violations.size() > violationCount) {
+                    break;
+                }
             }
+        } finally {
+            validatedObjects.remove(value);
         }
     }
 
@@ -2360,7 +2379,8 @@ public class ReflectionValidator extends DefaultValidator {
                                                BeanValidationContext context,
                                                Set<ConstraintViolation<T>> violations,
                                                jakarta.validation.Path beanPath,
-                                               ReflectionBeanMetadata metadata) {
+                                               ReflectionBeanMetadata metadata,
+                                               Set<Object> validatedObjects) {
         validateConstraints(
             rootBean,
             rootBeanClass,
@@ -2397,7 +2417,8 @@ public class ReflectionValidator extends DefaultValidator {
                         propertyValue,
                         convertGroups(context, property.groupConversions),
                         violations,
-                        propertyPath
+                        propertyPath,
+                        validatedObjects
                     );
                 }
             }
@@ -2425,7 +2446,8 @@ public class ReflectionValidator extends DefaultValidator {
                     propertyValue,
                     context,
                     violations,
-                    propertyPath
+                    propertyPath,
+                    validatedObjects
                 );
             }
         }
