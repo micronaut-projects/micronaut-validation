@@ -33,12 +33,66 @@ import java.util.List;
  * @param typeArgumentIndex The container type argument index
  * @since 5.1
  */
-record ReflectionContainerContext(String nodeName,
+record ReflectionContainerContext(@Nullable String nodeName,
                                   boolean iterable,
                                   @Nullable Object key,
                                   @Nullable Integer index,
                                   Class<?> containerClass,
                                   @Nullable Integer typeArgumentIndex) {
+}
+
+/**
+ * Bean node reached through a cascaded container element.
+ *
+ * @param containerContext The container context
+ * @since 5.1
+ */
+record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) implements Path.BeanNode {
+
+    @Override
+    public ElementKind getKind() {
+        return ElementKind.BEAN;
+    }
+
+    @Override
+    public boolean isInIterable() {
+        return containerContext.iterable();
+    }
+
+    @Override
+    public Integer getIndex() {
+        return containerContext.index();
+    }
+
+    @Override
+    public Object getKey() {
+        return containerContext.key();
+    }
+
+    @Override
+    public String getName() {
+        return null;
+    }
+
+    @Override
+    public <T extends Path.Node> T as(Class<T> nodeType) {
+        return nodeType.cast(this);
+    }
+
+    @Override
+    public Class<?> getContainerClass() {
+        return containerContext.containerClass();
+    }
+
+    @Override
+    public Integer getTypeArgumentIndex() {
+        return containerContext.typeArgumentIndex();
+    }
+
+    @Override
+    public String toString() {
+        return "";
+    }
 }
 
 /**

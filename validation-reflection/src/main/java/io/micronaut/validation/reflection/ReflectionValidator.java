@@ -78,6 +78,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.AccessibleObject;
+import java.lang.reflect.Array;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
@@ -1058,11 +1059,12 @@ public class ReflectionValidator extends DefaultValidator {
             containerContext -> new ReflectionReturnValueContainerElementPath(method, containerContext)
         );
         if (cascaded) {
-            validateCascadedValue(
+            validateCascadedValueOrContainer(
                 object,
                 object.getClass(),
                 returnValue,
                 returnValue,
+                method.getReturnType(),
                 convertGroups(cascadedContext, groupConversions),
                 violations,
                 new ReflectionReturnValueExecutablePath(method)
@@ -1127,11 +1129,12 @@ public class ReflectionValidator extends DefaultValidator {
             }
         }
         if (cascaded) {
-            validateCascadedValue(
+            validateCascadedValueOrContainer(
                 null,
                 constructor.getDeclaringClass(),
                 createdObject,
                 createdObject,
+                constructor.getDeclaringClass(),
                 convertGroups(cascadedContext, groupConversions),
                 violations,
                 new ReflectionConstructorReturnValueExecutablePath(constructor)
@@ -1214,11 +1217,12 @@ public class ReflectionValidator extends DefaultValidator {
             if (isCascaded(parameters[i]) && value != null) {
                 int parameterIndex = i;
                 String parameterName = parameterName(parameterNames, parameters[i], i);
-                validateCascadedValue(
+                validateCascadedValueOrContainer(
                     null,
                     constructor.getDeclaringClass(),
                     value,
                     value,
+                    constructor.getParameterTypes()[i],
                     convertGroups(cascadedContext, groupConversions),
                     violations,
                     new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
@@ -1378,11 +1382,12 @@ public class ReflectionValidator extends DefaultValidator {
             if (cascaded && value != null) {
                 int parameterIndex = i;
                 String parameterName = parameterName(parameterNames, parameters[i], i);
-                validateCascadedValue(
+                validateCascadedValueOrContainer(
                     object,
                     object.getClass(),
                     value,
                     value,
+                    method.getParameterTypes()[i],
                     convertGroups(cascadedContext, groupConversions),
                     violations,
                     new ReflectionExecutablePath(method, parameterName, parameterIndex)
@@ -1704,11 +1709,12 @@ public class ReflectionValidator extends DefaultValidator {
             && property.isCascaded()
             && (cascadedProperties == null || cascadedProperties.add(property.name))
             && isCascadable(leafBean, property, rootBeanClass, pathToLeafBean)) {
-            validateCascadedValue(
+            validateCascadedValueOrContainer(
                 rootBean,
                 rootBeanClass,
                 value,
                 value,
+                property.type,
                 convertGroups(context, property.groupConversions),
                 violations,
                 propertyPath
@@ -2394,7 +2400,13 @@ public class ReflectionValidator extends DefaultValidator {
             metadata.constraints,
             context,
             violations,
-            new ReflectionContainerElementPath(propertyName, containerContext)
+            new ReflectionCascadedContainerElementPath(
+                new ReflectionContainerElementPath(
+                    propertyName,
+                    new ReflectionContainerContext(null, false, null, null, containerContext.containerClass(), null)
+                ),
+                containerContext
+            )
         );
         Set<String> cascadedProperties = new LinkedHashSet<>();
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
@@ -2438,6 +2450,127 @@ public class ReflectionValidator extends DefaultValidator {
                                            Set<ConstraintViolation<T>> violations,
                                            jakarta.validation.Path beanPath) {
         validateCascadedValue(rootBean, rootBeanClass, leafBean, value, context, violations, beanPath, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    private <T> void validateCascadedValueOrContainer(@Nullable T rootBean,
+                                                      @Nullable Class<?> rootBeanClass,
+                                                      @Nullable Object leafBean,
+                                                      @Nullable Object value,
+                                                      Class<?> declaredType,
+                                                      BeanValidationContext context,
+                                                      Set<ConstraintViolation<T>> violations,
+                                                      jakarta.validation.Path beanPath) {
+        validateCascadedValueOrContainer(rootBean, rootBeanClass, leafBean, value, declaredType, context, violations, beanPath, Collections.newSetFromMap(new IdentityHashMap<>()));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <T> void validateCascadedValueOrContainer(@Nullable T rootBean,
+                                                      @Nullable Class<?> rootBeanClass,
+                                                      @Nullable Object leafBean,
+                                                      @Nullable Object value,
+                                                      Class<?> declaredType,
+                                                      BeanValidationContext context,
+                                                      Set<ConstraintViolation<T>> violations,
+                                                      jakarta.validation.Path beanPath,
+                                                      Set<Object> validatedObjects) {
+        if (value == null) {
+            return;
+        }
+        if (declaredType.isArray() || value.getClass().isArray()) {
+            int length = Array.getLength(value);
+            for (int i = 0; i < length; i++) {
+                Object element = Array.get(value, i);
+                if (element == null) {
+                    continue;
+                }
+                ReflectionContainerContext containerContext = new ReflectionContainerContext(
+                    null,
+                    true,
+                    null,
+                    i,
+                    declaredType,
+                    null
+                );
+                validateCascadedValue(
+                    rootBean,
+                    rootBeanClass,
+                    element,
+                    element,
+                    context,
+                    violations,
+                    new ReflectionCascadedContainerElementPath(beanPath, containerContext),
+                    validatedObjects
+                );
+            }
+            return;
+        }
+        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) declaredType);
+        boolean container = false;
+        for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
+            if (!shouldCascadeContainerValue(declaredType, valueExtractorDefinition)) {
+                continue;
+            }
+            container = true;
+            valueExtractorDefinition.valueExtractor().extractValues(value, new jakarta.validation.valueextraction.ValueExtractor.ValueReceiver() {
+
+                @Override
+                public void value(String nodeName, Object value) {
+                    validateContainerValue(nodeName, null, null, false, value);
+                }
+
+                @Override
+                public void iterableValue(String nodeName, Object value) {
+                    validateContainerValue(nodeName, null, null, true, value);
+                }
+
+                @Override
+                public void indexedValue(String nodeName, int index, Object value) {
+                    validateContainerValue(nodeName, null, index, true, value);
+                }
+
+                @Override
+                public void keyedValue(String nodeName, Object key, Object value) {
+                    validateContainerValue(nodeName, key, null, true, value);
+                }
+
+                private void validateContainerValue(@Nullable String nodeName,
+                                                    @Nullable Object key,
+                                                    @Nullable Integer index,
+                                                    boolean iterable,
+                                                    @Nullable Object extractedValue) {
+                    if (extractedValue == null) {
+                        return;
+                    }
+                    ReflectionContainerContext containerContext = new ReflectionContainerContext(
+                        null,
+                        iterable,
+                        key,
+                        index,
+                        declaredType,
+                        valueExtractorDefinition.typeArgumentIndex()
+                    );
+                    validateCascadedValue(
+                        rootBean,
+                        rootBeanClass,
+                        extractedValue,
+                        extractedValue,
+                        context,
+                        violations,
+                        new ReflectionCascadedContainerElementPath(beanPath, containerContext),
+                        validatedObjects
+                    );
+                }
+            });
+        }
+        if (!container) {
+            validateCascadedValue(rootBean, rootBeanClass, leafBean, value, context, violations, beanPath, validatedObjects);
+        }
+    }
+
+    private static boolean shouldCascadeContainerValue(Class<?> declaredType,
+                                                       ValueExtractorDefinition<?> valueExtractorDefinition) {
+        return !Map.class.isAssignableFrom(declaredType)
+            || Objects.equals(valueExtractorDefinition.typeArgumentIndex(), 1);
     }
 
     private <T> void validateCascadedValue(@Nullable T rootBean,
@@ -2513,11 +2646,12 @@ public class ReflectionValidator extends DefaultValidator {
                     && property.isCascaded()
                     && cascadedProperties.add(property.name)
                     && isCascadable(value, property, rootBeanClass, beanPath)) {
-                    validateCascadedValue(
+                    validateCascadedValueOrContainer(
                         rootBean,
                         rootBeanClass,
                         propertyValue,
                         propertyValue,
+                        property.type,
                         convertGroups(context, property.groupConversions),
                         violations,
                         propertyPath,
@@ -2548,11 +2682,12 @@ public class ReflectionValidator extends DefaultValidator {
                 && property.isCascaded()
                 && cascadedProperties.add(property.name)
                 && isCascadable(value, property, rootBeanClass, beanPath)) {
-                validateCascadedValue(
+                validateCascadedValueOrContainer(
                     rootBean,
                     rootBeanClass,
                     propertyValue,
                     propertyValue,
+                    property.type,
                     context,
                     violations,
                     propertyPath,
@@ -4980,6 +5115,7 @@ public class ReflectionValidator extends DefaultValidator {
         public Iterator<Node> iterator() {
             List<Node> nodes = new ArrayList<>();
             parent.iterator().forEachRemaining(nodes::add);
+            nodes.add(new ReflectionContainerBeanNode(containerContext));
             return nodes.iterator();
         }
 
