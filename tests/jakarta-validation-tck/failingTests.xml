@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 25 classes, 80 methods,
+        Current tracker shape: 23 classes, 74 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -209,23 +209,11 @@
         - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest
         - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest
         - org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.GenericAndCrossParameterConstraintTest
+        - org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.GenericAndCrossParameterConstraintTest">
-                <methods>
-                    <include name="testAnnotatedElementIsTargetedByDefault"/>
-                    <include name="testAnnotatedElementIsTargetedUsingSupportedValidationTarget"/>
-                    <include name="testParametersAreTargetedUsingSupportedValidationTarget"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest">
-                <methods>
-                    <include name="testConstraintTargetImplicitOnMethodWithParametersAndReturnValueCausesException"/>
-                    <include name="testConstraintTargetParametersOnMethodWithoutParametersCausesException"/>
-                    <include name="testConstraintTargetReturnValueOnVoidMethodCausesException"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest">
                 <methods>
                     <include name="testImplicitGrouping"/>
