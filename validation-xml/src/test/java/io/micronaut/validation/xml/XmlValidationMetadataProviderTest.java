@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.AnnotationValue;
 import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import jakarta.validation.metadata.MethodDescriptor;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -187,6 +188,28 @@ class XmlValidationMetadataProviderTest {
             """.formatted(BeanWithProperties.class.getName())));
     }
 
+    @Test
+    void resolvesDefaultPackageForJvmArrayParameterTypes() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <default-package>io.micronaut.validation.xml</default-package>
+                <bean class="XmlArrayParameterBean">
+                    <method name="add">
+                        <parameter type="[LXmlArrayParameterBean;">
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </parameter>
+                    </method>
+                </bean>
+            </constraint-mappings>
+            """);
+
+        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlArrayParameterBean.class)
+            .orElseThrow()
+            .getConstraintsForMethod("add", XmlArrayParameterBean[].class);
+
+        assertEquals(XmlArrayParameterBean[].class, descriptor.getParameterDescriptors().get(0).getElementClass());
+    }
+
     private static XmlValidationMetadataProvider metadataProvider(String... xmls) {
         Set<InputStream> mappingStreams = new LinkedHashSet<>();
         for (String xml : xmls) {
@@ -208,5 +231,11 @@ class XmlValidationMetadataProviderTest {
     }
 
     private interface Premium {
+    }
+}
+
+final class XmlArrayParameterBean {
+
+    void add(XmlArrayParameterBean... beans) {
     }
 }
