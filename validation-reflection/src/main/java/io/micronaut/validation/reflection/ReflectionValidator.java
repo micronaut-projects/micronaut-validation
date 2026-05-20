@@ -2615,7 +2615,8 @@ public class ReflectionValidator extends DefaultValidator {
     private static boolean isSupplementalContainerElement(ReflectionContainerElement containerElement) {
         return containerElement.providerDeclared
             || containerElement.cascaded
-            || !containerElement.constraints.isEmpty()
+            || containerElement.constraints.stream()
+                .anyMatch(constraint -> requiresReflectionValidation(constraint, containerElement.type))
             || containerElement.nestedContainerElements.stream().anyMatch(ReflectionValidator::isSupplementalContainerElement);
     }
 
