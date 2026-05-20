@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 9 classes, 47 methods,
+        Current tracker shape: 8 classes, 43 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -215,14 +215,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
-                <methods>
-                    <include name="testConstrainedParameterInOneMethodOfParallelInterfacesCausesException"/>
-                    <include name="testParameterConstraintsAddedInInterfaceImplementationCausesException"/>
-                    <include name="testParameterConstraintsAddedInSubClassCausesException"/>
-                    <include name="testParameterIsConstrainedInInterfaceMethodAndSuperClassMethodCausesException"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.invalidconstraintdefinitions.InvalidConstraintDefinitionsTest">
                 <methods>
                     <include name="testCrossParameterConstraintWithSeveralValidatorsCausesException"/>
