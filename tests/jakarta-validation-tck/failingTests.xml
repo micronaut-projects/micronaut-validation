@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 3 classes, 3 methods,
+        Current tracker shape: 1 classes, 1 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -248,16 +248,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest">
-                <methods>
-                    <include name="validation_of_nested_type_arguments_works_with_map_of_list_of_stringproperty"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
-                <methods>
-                    <include name="instanceAndValueReceiverPassedToExtractValues"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
                 <methods>
                     <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
