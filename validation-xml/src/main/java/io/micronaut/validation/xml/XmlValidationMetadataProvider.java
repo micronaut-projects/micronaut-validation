@@ -255,7 +255,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private void parseBean(Element bean, String defaultPackage) {
         Class<?> beanType = loadClass(resolveClassName(requireAttribute(bean, "class"), defaultPackage));
-            boolean beanAnnotationsIgnored = booleanAttribute(bean, ATTRIBUTE_IGNORE_ANNOTATIONS, true);
+        boolean beanAnnotationsIgnored = booleanAttribute(bean, ATTRIBUTE_IGNORE_ANNOTATIONS, true);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
@@ -272,78 +272,21 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
             String elementName = localName(element);
             switch (elementName) {
-                case "class" -> {
-                    classAnnotationsIgnored = booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
-                    parseGroupSequence(element, defaultPackage, classMetadata);
-                    parseConstraints(element, defaultPackage, classMetadata);
-                }
-                case ELEMENT_FIELD, ELEMENT_GETTER -> {
-                    String propertyName = requireAttribute(element, "name");
-                    AnnotatedElement source = findPropertySource(beanType, elementName, propertyName);
-                    if (source == null) {
-                        throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
-                    }
-                    if (ELEMENT_FIELD.equals(elementName) && !configuredFields.add(propertyName)) {
-                        throw new ValidationException("Field configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
-                    }
-                    if (ELEMENT_GETTER.equals(elementName)) {
-                        if (!configuredGetters.add(propertyName)) {
-                            throw new ValidationException("Getter configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
-                        }
-                        Set<String> getterMethods = getterMethodNames(beanType, propertyName);
-                        for (String getterMethod : getterMethods) {
-                            if (methods.containsKey(new ExecutableKey(getterMethod, List.of()))) {
-                                throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + getterMethod);
-                            }
-                        }
-                        configuredGetterMethods.addAll(getterMethods);
-                    }
-                    MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
-                    parseConstraints(element, defaultPackage, propertyMetadata);
-                    if (child(element, "valid") != null) {
-                        propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
-                    }
-                    parseGroupConversions(element, defaultPackage, propertyMetadata);
-                    boolean propertyAnnotationsIgnored = booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
-                    Type propertyType = propertyGenericType(source);
-                    properties.put(propertyName, new PropertyMapping(
-                        propertyMetadata,
-                        propertyAnnotationsIgnored,
-                        source,
-                        propertyElementClass(source),
-                        parseContainerElements(element, defaultPackage, propertyType)
-                    ));
-                }
-                case "constructor" -> {
-                    ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage, beanAnnotationsIgnored);
-                    Constructor<?> source = findConstructor(beanType, constructor.parameterTypes());
-                    if (source == null) {
-                        throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + constructor.parameterTypes());
-                    }
-                    constructor = constructor.withSource(source)
-                        .withContainerElements(element, defaultPackage, this);
-                    ExecutableKey key = new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes());
-                    if (constructors.putIfAbsent(key, constructor) != null) {
-                        throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
-                    }
-                }
-                case "method" -> {
-                    String methodName = requireAttribute(element, "name");
-                    ExecutableMapping method = parseExecutable(methodName, element, defaultPackage, beanAnnotationsIgnored);
-                    Method source = findMethod(beanType, methodName, method.parameterTypes());
-                    if (source == null) {
-                        throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
-                    }
-                    method = method.withSource(source)
-                        .withContainerElements(element, defaultPackage, this);
-                    if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
-                        throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
-                    }
-                    ExecutableKey key = new ExecutableKey(methodName, method.parameterTypes());
-                    if (methods.putIfAbsent(key, method) != null) {
-                        throw new ValidationException("Method configured more than once in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
-                    }
-                }
+                case "class" -> classAnnotationsIgnored = parseClassMetadata(element, defaultPackage, beanAnnotationsIgnored, classMetadata);
+                case ELEMENT_FIELD, ELEMENT_GETTER -> parseProperty(
+                    beanType,
+                    elementName,
+                    element,
+                    defaultPackage,
+                    beanAnnotationsIgnored,
+                    properties,
+                    methods,
+                    configuredFields,
+                    configuredGetters,
+                    configuredGetterMethods
+                );
+                case "constructor" -> parseConstructor(beanType, element, defaultPackage, beanAnnotationsIgnored, constructors);
+                case "method" -> parseMethod(beanType, element, defaultPackage, beanAnnotationsIgnored, configuredGetterMethods, methods);
                 default -> {
                     // Root element validation rejects unsupported bean children before parsing.
                 }
@@ -351,6 +294,120 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
         if (beanMappings.putIfAbsent(beanType, new BeanMapping(classMetadata, beanAnnotationsIgnored, classAnnotationsIgnored, properties, methods, constructors)) != null) {
             throw new ValidationException("Bean configured more than once in validation XML: " + beanType.getName());
+        }
+    }
+
+    private boolean parseClassMetadata(Element element,
+                                       String defaultPackage,
+                                       boolean beanAnnotationsIgnored,
+                                       MutableAnnotationMetadata classMetadata) {
+        parseGroupSequence(element, defaultPackage, classMetadata);
+        parseConstraints(element, defaultPackage, classMetadata);
+        return booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
+    }
+
+    private void parseProperty(Class<?> beanType,
+                               String elementName,
+                               Element element,
+                               String defaultPackage,
+                               boolean beanAnnotationsIgnored,
+                               Map<String, PropertyMapping> properties,
+                               Map<ExecutableKey, ExecutableMapping> methods,
+                               Set<String> configuredFields,
+                               Set<String> configuredGetters,
+                               Set<String> configuredGetterMethods) {
+        String propertyName = requireAttribute(element, "name");
+        AnnotatedElement source = findPropertySource(beanType, elementName, propertyName);
+        if (source == null) {
+            throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
+        }
+        validatePropertyConfiguredOnce(beanType, elementName, propertyName, methods, configuredFields, configuredGetters, configuredGetterMethods);
+        MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
+        parseConstraints(element, defaultPackage, propertyMetadata);
+        if (child(element, "valid") != null) {
+            propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
+        }
+        parseGroupConversions(element, defaultPackage, propertyMetadata);
+        Type propertyType = propertyGenericType(source);
+        properties.put(propertyName, new PropertyMapping(
+            propertyMetadata,
+            booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored),
+            source,
+            propertyElementClass(source),
+            parseContainerElements(element, defaultPackage, propertyType)
+        ));
+    }
+
+    private static void validatePropertyConfiguredOnce(Class<?> beanType,
+                                                       String elementName,
+                                                       String propertyName,
+                                                       Map<ExecutableKey, ExecutableMapping> methods,
+                                                       Set<String> configuredFields,
+                                                       Set<String> configuredGetters,
+                                                       Set<String> configuredGetterMethods) {
+        if (ELEMENT_FIELD.equals(elementName) && !configuredFields.add(propertyName)) {
+            throw new ValidationException("Field configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
+        }
+        if (ELEMENT_GETTER.equals(elementName)) {
+            validateGetterConfiguredOnce(beanType, propertyName, methods, configuredGetters, configuredGetterMethods);
+        }
+    }
+
+    private static void validateGetterConfiguredOnce(Class<?> beanType,
+                                                     String propertyName,
+                                                     Map<ExecutableKey, ExecutableMapping> methods,
+                                                     Set<String> configuredGetters,
+                                                     Set<String> configuredGetterMethods) {
+        if (!configuredGetters.add(propertyName)) {
+            throw new ValidationException("Getter configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
+        }
+        Set<String> getterMethods = getterMethodNames(beanType, propertyName);
+        for (String getterMethod : getterMethods) {
+            if (methods.containsKey(new ExecutableKey(getterMethod, List.of()))) {
+                throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + getterMethod);
+            }
+        }
+        configuredGetterMethods.addAll(getterMethods);
+    }
+
+    private void parseConstructor(Class<?> beanType,
+                                  Element element,
+                                  String defaultPackage,
+                                  boolean beanAnnotationsIgnored,
+                                  Map<ExecutableKey, ExecutableMapping> constructors) {
+        ExecutableMapping constructor = parseExecutable(beanType.getSimpleName(), element, defaultPackage, beanAnnotationsIgnored);
+        Constructor<?> source = findConstructor(beanType, constructor.parameterTypes());
+        if (source == null) {
+            throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + constructor.parameterTypes());
+        }
+        constructor = constructor.withSource(source)
+            .withContainerElements(element, defaultPackage, this);
+        ExecutableKey key = new ExecutableKey(beanType.getSimpleName(), constructor.parameterTypes());
+        if (constructors.putIfAbsent(key, constructor) != null) {
+            throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
+        }
+    }
+
+    private void parseMethod(Class<?> beanType,
+                             Element element,
+                             String defaultPackage,
+                             boolean beanAnnotationsIgnored,
+                             Set<String> configuredGetterMethods,
+                             Map<ExecutableKey, ExecutableMapping> methods) {
+        String methodName = requireAttribute(element, "name");
+        ExecutableMapping method = parseExecutable(methodName, element, defaultPackage, beanAnnotationsIgnored);
+        Method source = findMethod(beanType, methodName, method.parameterTypes());
+        if (source == null) {
+            throw new ValidationException("Unknown method in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
+        }
+        method = method.withSource(source)
+            .withContainerElements(element, defaultPackage, this);
+        if (method.parameterTypes().isEmpty() && configuredGetterMethods.contains(methodName)) {
+            throw new ValidationException("Getter configured as both getter and method in validation XML: " + beanType.getName() + "." + methodName);
+        }
+        ExecutableKey key = new ExecutableKey(methodName, method.parameterTypes());
+        if (methods.putIfAbsent(key, method) != null) {
+            throw new ValidationException("Method configured more than once in validation XML: " + beanType.getName() + "." + methodName + method.parameterTypes());
         }
     }
 
@@ -677,35 +734,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 return arrayValue(targetType.getComponentType(), element, defaultPackage);
             }
             String value = singleValue(element);
-            if (targetType == String.class) {
-                return value;
-            }
-            if (targetType == byte.class || targetType == Byte.class) {
-                return Byte.parseByte(value);
-            }
-            if (targetType == short.class || targetType == Short.class) {
-                return Short.parseShort(value);
-            }
-            if (targetType == int.class || targetType == Integer.class) {
-                return Integer.parseInt(value);
-            }
-            if (targetType == long.class || targetType == Long.class) {
-                return Long.parseLong(value);
-            }
-            if (targetType == float.class || targetType == Float.class) {
-                return Float.parseFloat(value);
-            }
-            if (targetType == double.class || targetType == Double.class) {
-                return Double.parseDouble(value);
-            }
-            if (targetType == boolean.class || targetType == Boolean.class) {
-                return Boolean.parseBoolean(value);
-            }
-            if (targetType == char.class || targetType == Character.class) {
-                if (value.length() != 1) {
-                    throw new ValidationException("Value is not a single character: " + value);
-                }
-                return value.charAt(0);
+            Object scalarValue = scalarValue(targetType, value);
+            if (scalarValue != null) {
+                return scalarValue;
             }
             if (targetType == Class.class) {
                 return loadClass(resolveClassName(value, defaultPackage));
@@ -727,6 +758,46 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
             throw new ValidationException("Cannot convert XML annotation member value to " + targetType.getName(), e);
         }
+    }
+
+    @Nullable
+    private static Object scalarValue(Class<?> targetType, String value) {
+        if (targetType == String.class) {
+            return value;
+        }
+        if (targetType == byte.class || targetType == Byte.class) {
+            return Byte.parseByte(value);
+        }
+        if (targetType == short.class || targetType == Short.class) {
+            return Short.parseShort(value);
+        }
+        if (targetType == int.class || targetType == Integer.class) {
+            return Integer.parseInt(value);
+        }
+        if (targetType == long.class || targetType == Long.class) {
+            return Long.parseLong(value);
+        }
+        if (targetType == float.class || targetType == Float.class) {
+            return Float.parseFloat(value);
+        }
+        if (targetType == double.class || targetType == Double.class) {
+            return Double.parseDouble(value);
+        }
+        if (targetType == boolean.class || targetType == Boolean.class) {
+            return Boolean.parseBoolean(value);
+        }
+        return characterValue(targetType, value);
+    }
+
+    @Nullable
+    private static Character characterValue(Class<?> targetType, String value) {
+        if (targetType != char.class && targetType != Character.class) {
+            return null;
+        }
+        if (value.length() != 1) {
+            throw new ValidationException("Value is not a single character: " + value);
+        }
+        return value.charAt(0);
     }
 
     private Object arrayValue(Class<?> componentType, Element element, String defaultPackage) {

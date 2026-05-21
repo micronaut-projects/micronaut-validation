@@ -399,6 +399,15 @@ tasks.register('singleTest') {
     dependsOn(singleCoreTck)
 }
 
+def jakartaCoverageProjects = [
+    project(':micronaut-validation'),
+    project(':micronaut-validation-bootstrap'),
+    project(':micronaut-validation-el'),
+    project(':micronaut-validation-jakarta'),
+    project(':micronaut-validation-reflection'),
+    project(':micronaut-validation-xml')
+]
+
 tasks.named('jacocoTestReport') {
     mustRunAfter(
         tasks.named('test'),
@@ -414,6 +423,10 @@ tasks.named('jacocoTestReport') {
     executionData(fileTree(layout.buildDirectory.dir('jacoco')) {
         include '*.exec'
     })
+    dependsOn(jakartaCoverageProjects.collect { it.tasks.named('classes') })
+    additionalSourceDirs.from(jakartaCoverageProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    sourceDirectories.from(jakartaCoverageProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.from(jakartaCoverageProjects.collect { it.sourceSets.main.output })
     reports {
         xml.required = true
         html.required = true

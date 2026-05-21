@@ -165,21 +165,32 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
             return;
         }
         int lastIndex = nodes.size() - 1;
-        Path.Node lastNode = nodes.get(lastIndex);
-        if (lastNode instanceof ReflectionBeanNode last) {
-            nodes.set(lastIndex, new ReflectionBeanNode(
+        Path.Node replacement = replacementNode(nodes.get(lastIndex), inIterable, key, index, containerClass, typeArgumentIndex);
+        if (replacement == null) {
+            return;
+        }
+        nodes.set(lastIndex, replacement);
+    }
+
+    private static Path.@Nullable Node replacementNode(Path.Node node,
+                                                       @Nullable Boolean inIterable,
+                                                       @Nullable Object key,
+                                                       @Nullable Integer index,
+                                                       @Nullable Class<?> containerClass,
+                                                       @Nullable Integer typeArgumentIndex) {
+        if (node instanceof ReflectionBeanNode last) {
+            return new ReflectionBeanNode(
                 inIterable == null ? last.inIterable() : inIterable,
                 key == null ? last.key() : key,
                 index == null ? last.index() : index,
                 containerClass == null ? last.containerClass() : containerClass,
                 typeArgumentIndex == null ? last.typeArgumentIndex() : typeArgumentIndex
-            ));
-            return;
+            );
         }
-        if (!(lastNode instanceof ReflectionNode last)) {
-            return;
+        if (!(node instanceof ReflectionNode last)) {
+            return null;
         }
-        nodes.set(lastIndex, new ReflectionNode(
+        return new ReflectionNode(
             last.kind(),
             last.name(),
             inIterable == null ? last.inIterable() : inIterable,
@@ -187,7 +198,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
             index == null ? last.index() : index,
             containerClass == null ? last.containerClass() : containerClass,
             typeArgumentIndex == null ? last.typeArgumentIndex() : typeArgumentIndex
-        ));
+        );
     }
 
     /**

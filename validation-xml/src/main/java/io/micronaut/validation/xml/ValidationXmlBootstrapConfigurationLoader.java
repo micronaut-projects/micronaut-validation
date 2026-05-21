@@ -187,23 +187,30 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                 continue;
             }
             defaultTypesConfigured = true;
-            NodeList typeNodes = element.getChildNodes();
-            for (int j = 0; j < typeNodes.getLength(); j++) {
-                Node typeNode = typeNodes.item(j);
-                if (typeNode instanceof Element typeElement && "executable-type".equals(localName(typeElement))) {
-                    String executableType = text(typeElement);
-                    try {
-                        executableTypes.add(ExecutableType.valueOf(executableType.replace('-', '_').toUpperCase(Locale.ROOT)));
-                    } catch (IllegalArgumentException e) {
-                        throw new ValidationException("Invalid executable type in validation.xml: " + executableType, e);
-                    }
-                }
-            }
+            addExecutableTypes(executableTypes, element);
         }
         if (defaultTypesConfigured && executableTypes.isEmpty()) {
             throw new ValidationException("At least one executable type must be configured");
         }
         return executableTypes;
+    }
+
+    private static void addExecutableTypes(Set<ExecutableType> executableTypes, Element element) {
+        NodeList typeNodes = element.getChildNodes();
+        for (int j = 0; j < typeNodes.getLength(); j++) {
+            Node typeNode = typeNodes.item(j);
+            if (typeNode instanceof Element typeElement && "executable-type".equals(localName(typeElement))) {
+                executableTypes.add(executableType(text(typeElement)));
+            }
+        }
+    }
+
+    private static ExecutableType executableType(String executableType) {
+        try {
+            return ExecutableType.valueOf(executableType.replace('-', '_').toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("Invalid executable type in validation.xml: " + executableType, e);
+        }
     }
 
     private static String localName(Element element) {

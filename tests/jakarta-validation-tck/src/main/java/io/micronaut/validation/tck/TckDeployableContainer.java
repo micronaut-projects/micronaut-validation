@@ -448,18 +448,21 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static void injectTckFields(ApplicationContext applicationContext, Object instance) {
         Map<Class<?>, Object> injectedValues = new HashMap<>();
+        injectTckFields(applicationContext, instance, injectedValues, false);
+        injectTckFields(applicationContext, instance, injectedValues, true);
+    }
+
+    private static void injectTckFields(ApplicationContext applicationContext,
+                                        Object instance,
+                                        Map<Class<?>, Object> injectedValues,
+                                        boolean cdiInstanceFields) {
         for (Class<?> current = instance.getClass(); current != null && current != Object.class; current = current.getSuperclass()) {
             for (Field field : current.getDeclaredFields()) {
-                if (isInjectField(field) && !isCdiInstanceField(field)) {
+                if (isInjectField(field) && isCdiInstanceField(field) == cdiInstanceFields) {
                     Object injectedValue = injectTckField(applicationContext, instance, field, injectedValues);
-                    injectedValues.put(field.getType(), injectedValue);
-                }
-            }
-        }
-        for (Class<?> current = instance.getClass(); current != null && current != Object.class; current = current.getSuperclass()) {
-            for (Field field : current.getDeclaredFields()) {
-                if (isInjectField(field) && isCdiInstanceField(field)) {
-                    injectTckField(applicationContext, instance, field, injectedValues);
+                    if (!cdiInstanceFields) {
+                        injectedValues.put(field.getType(), injectedValue);
+                    }
                 }
             }
         }

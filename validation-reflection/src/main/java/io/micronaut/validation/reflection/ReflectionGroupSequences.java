@@ -65,10 +65,7 @@ final class ReflectionGroupSequences {
         boolean defaultGroupSequenced = hasDefaultGroupSequence(beanType, BeanValidationContext.DEFAULT, metadataProviders);
         for (Class<?> group : groups) {
             if (group == Default.class && defaultGroupSequenced) {
-                if (!regularGroups.isEmpty()) {
-                    passes.add(List.copyOf(regularGroups));
-                    regularGroups.clear();
-                }
+                flushRegularGroups(passes, regularGroups);
                 passes.addAll(defaultGroupPasses(beanType, metadataProviders));
                 continue;
             }
@@ -76,17 +73,19 @@ final class ReflectionGroupSequences {
             if (groupSequence == null) {
                 addInheritedGroups(group, regularGroups);
             } else {
-                if (!regularGroups.isEmpty()) {
-                    passes.add(List.copyOf(regularGroups));
-                    regularGroups.clear();
-                }
+                flushRegularGroups(passes, regularGroups);
                 addGroupSequencePasses(beanType, Default.class, passes, groupSequence.value(), new LinkedHashSet<>());
             }
         }
+        flushRegularGroups(passes, regularGroups);
+        return passes;
+    }
+
+    private static void flushRegularGroups(List<List<Class<?>>> passes, List<Class<?>> regularGroups) {
         if (!regularGroups.isEmpty()) {
             passes.add(List.copyOf(regularGroups));
+            regularGroups.clear();
         }
-        return passes;
     }
 
     /**
