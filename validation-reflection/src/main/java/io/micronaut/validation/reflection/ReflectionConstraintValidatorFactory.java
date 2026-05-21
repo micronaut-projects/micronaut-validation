@@ -19,8 +19,8 @@ import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.util.StringUtils;
+import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import jakarta.inject.Inject;
@@ -28,13 +28,10 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ValidationException;
-import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -82,8 +79,8 @@ public final class ReflectionConstraintValidatorFactory implements InternalConst
     @Override
     public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> type, Class<?> targetType, ConstraintTarget constraintTarget) {
         ConstraintValidatorEntry entry = findConstraintValidator(type);
-        Class<?> resolvedTargetType = targetType.isPrimitive() ? ReflectionUtils.getWrapperType(targetType) : targetType;
-        if (allowsConstraintTarget(entry.target, constraintTarget) && entry.targetType.isAssignableFrom(resolvedTargetType)) {
+        Class<?> resolvedTargetType = ConstraintValidatorTargetResolver.resolveTargetType(targetType);
+        if (ConstraintValidatorTargetResolver.allowsConstraintTarget(entry.target, constraintTarget) && entry.targetType.isAssignableFrom(resolvedTargetType)) {
             return (T) entry.constraintValidator;
         }
         return null;
@@ -114,7 +111,11 @@ public final class ReflectionConstraintValidatorFactory implements InternalConst
             if (constraintValidator == null) {
                 return null;
             }
-            return new ConstraintValidatorEntry(constraintValidator, getTargetType(type), getValidationTarget(type));
+            return new ConstraintValidatorEntry(
+                constraintValidator,
+                ConstraintValidatorTargetResolver.getTargetType(type),
+                ConstraintValidatorTargetResolver.validationTargets(type)
+            );
         } catch (ValidationException e) {
             return null;
         }
@@ -124,81 +125,14 @@ public final class ReflectionConstraintValidatorFactory implements InternalConst
         try {
             Constructor<T> constructor = type.getDeclaredConstructor();
             constructor.setAccessible(true);
-            return new ConstraintValidatorEntry(constructor.newInstance(), getTargetType(type), getValidationTarget(type));
+            return new ConstraintValidatorEntry(
+                constructor.newInstance(),
+                ConstraintValidatorTargetResolver.getTargetType(type),
+                ConstraintValidatorTargetResolver.validationTargets(type)
+            );
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot initialize validator: " + type.getName(), e);
         }
-    }
-
-    private static Class<?> getTargetType(Class<?> type) {
-        Class<?> targetType = findConstraintValidatorTargetType(type);
-        return targetType == null ? Object.class : targetType;
-    }
-
-    @Nullable
-    private static Class<?> findConstraintValidatorTargetType(Class<?> type) {
-        for (Type genericInterface : type.getGenericInterfaces()) {
-            Class<?> targetType = findConstraintValidatorTargetType(genericInterface);
-            if (targetType != null) {
-                return targetType;
-            }
-        }
-        Type genericSuperclass = type.getGenericSuperclass();
-        return genericSuperclass == null ? null : findConstraintValidatorTargetType(genericSuperclass);
-    }
-
-    @Nullable
-    private static Class<?> findConstraintValidatorTargetType(Type type) {
-        if (type instanceof ParameterizedType parameterizedType) {
-            Class<?> targetType = constraintValidatorTargetType(parameterizedType);
-            if (targetType != null) {
-                return targetType;
-            }
-            Type rawType = parameterizedType.getRawType();
-            if (rawType instanceof Class<?> rawClass) {
-                return findConstraintValidatorTargetType(rawClass);
-            }
-            return null;
-        }
-        if (type instanceof Class<?> clazz && clazz != Object.class) {
-            return findConstraintValidatorTargetType(clazz);
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
-        Type rawType = parameterizedType.getRawType();
-        if (rawType == io.micronaut.validation.validator.constraints.ConstraintValidator.class || rawType == ConstraintValidator.class) {
-            Type[] typeArguments = parameterizedType.getActualTypeArguments();
-            if (typeArguments.length == 2) {
-                return typeArgumentType(typeArguments[1]);
-            }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Class<?> typeArgumentType(Type typeArgument) {
-        if (typeArgument instanceof Class<?> aClass) {
-            return aClass;
-        }
-        if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawClass) {
-            return rawClass;
-        }
-        return null;
-    }
-
-    private static Set<ValidationTarget> getValidationTarget(Class<?> type) {
-        SupportedValidationTarget supportedValidationTarget = type.getAnnotation(SupportedValidationTarget.class);
-        return supportedValidationTarget == null ? Set.of() : Set.of(supportedValidationTarget.value());
-    }
-
-    private static boolean allowsConstraintTarget(Set<ValidationTarget> validationTarget, ConstraintTarget constraintTarget) {
-        if (constraintTarget == ConstraintTarget.PARAMETERS && !validationTarget.contains(ValidationTarget.PARAMETERS)) {
-            return false;
-        }
-        return constraintTarget == ConstraintTarget.PARAMETERS || (validationTarget.isEmpty() || validationTarget.contains(ValidationTarget.ANNOTATED_ELEMENT));
     }
 
     private record ConstraintValidatorEntry(
