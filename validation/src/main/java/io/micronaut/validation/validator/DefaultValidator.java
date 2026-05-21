@@ -1655,7 +1655,7 @@ public class DefaultValidator implements
     private <R, E> void validateConstrains(DefaultConstraintValidatorContext<R> context,
                                            @Nullable Object leftBean,
                                            Argument<E> elementArgument,
-                                           @NonNull E elementValue,
+                                           @Nullable E elementValue,
                                            @NonNull List<DefaultConstraintDescriptor<Annotation>> constraints) {
         if (constraints.isEmpty()) {
             return;

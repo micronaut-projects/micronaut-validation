@@ -116,6 +116,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -187,72 +188,55 @@ public final class ReflectionValidator extends DefaultValidator {
     public <T> Set<ConstraintViolation<T>> validate(T object, Class<?>... groups) {
         requireNonNull(ARGUMENT_OBJECT, object);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
-        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
-            return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
-        }
-        BeanIntrospection<T> introspection = getBeanIntrospection(object);
-        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
-            return validateReflectively(object, context, false);
-        }
-        if (introspection != null) {
-            boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
-            boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
-            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !(reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative));
-            if (reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative) {
-                return reflected;
-            }
-            boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
-            if (hasReflectionConstraintValidators(object.getClass()) && !hasReflectionContainerElements(object.getClass())) {
-                return reflected;
-            }
-            Set<ConstraintViolation<T>> existing;
-            try {
-                existing = super.validate(object, groups);
-            } catch (UnexpectedTypeException e) {
-                if (reflectionAuthoritative) {
-                    return reflected;
-                }
-                throw e;
-            }
-            return mergeViolations(existing, reflected);
-        }
-        return validateReflectively(object, context, false);
+        return validateObject(object, context, () -> super.validate(object, groups));
     }
 
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, @Nullable BeanValidationContext validationContext) {
         requireNonNull(ARGUMENT_OBJECT, object);
         BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
-        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
+        return validateObject(object, context, () -> super.validate(object, context));
+    }
+
+    private <T> Set<ConstraintViolation<T>> validateObject(T object,
+                                                           BeanValidationContext context,
+                                                           Supplier<Set<ConstraintViolation<T>>> introspectionValidator) {
+        Class<?> objectType = object.getClass();
+        if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(objectType, context, configuration.getMetadataProviders())) {
             return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
         }
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
-        if (introspection != null && ReflectionGroupSequences.hasDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
+        if (introspection == null) {
             return validateReflectively(object, context, false);
         }
-        if (introspection != null) {
-            boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(object.getClass());
-            boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(object.getClass());
-            Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !(reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative));
-            if (reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative) {
-                return reflected;
-            }
-            boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(object.getClass());
-            if (hasReflectionConstraintValidators(object.getClass()) && !hasReflectionContainerElements(object.getClass())) {
-                return reflected;
-            }
-            Set<ConstraintViolation<T>> existing;
-            try {
-                existing = super.validate(object, context);
-            } catch (UnexpectedTypeException e) {
-                if (reflectionAuthoritative) {
-                    return reflected;
-                }
-                throw e;
-            }
-            return mergeViolations(existing, reflected);
+        if (ReflectionGroupSequences.hasDefaultGroupSequence(objectType, context, configuration.getMetadataProviders())) {
+            return validateReflectively(object, context, false);
         }
-        return validateReflectively(object, context, false);
+        return validateIntrospectedObject(object, objectType, context, introspectionValidator);
+    }
+
+    private <T> Set<ConstraintViolation<T>> validateIntrospectedObject(T object,
+                                                                       Class<?> objectType,
+                                                                       BeanValidationContext context,
+                                                                       Supplier<Set<ConstraintViolation<T>>> introspectionValidator) {
+        boolean reflectionCascadingAuthoritative = hasReflectionCascadedProperties(objectType);
+        boolean reflectionPropertyAccessAuthoritative = hasReflectionRequiredPropertyAccess(objectType);
+        Set<ConstraintViolation<T>> reflected = validateReflectively(object, context, !(reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative));
+        if (reflectionCascadingAuthoritative || reflectionPropertyAccessAuthoritative) {
+            return reflected;
+        }
+        boolean reflectionAuthoritative = !reflected.isEmpty() || hasReflectionRequiredConstraints(objectType);
+        if (hasReflectionConstraintValidators(objectType) && !hasReflectionContainerElements(objectType)) {
+            return reflected;
+        }
+        try {
+            return mergeViolations(introspectionValidator.get(), reflected);
+        } catch (UnexpectedTypeException e) {
+            if (reflectionAuthoritative) {
+                return reflected;
+            }
+            throw e;
+        }
     }
 
     @Override
@@ -481,20 +465,11 @@ public final class ReflectionValidator extends DefaultValidator {
         return defaultGroupRedefined ? Collections.unmodifiableSet(collectedViolations) : Collections.emptySet();
     }
 
-    private static boolean isDefaultGroupContext(BeanValidationContext context) {
-        return context.groups().isEmpty()
-            || context.groups().size() == 1 && context.groups().contains(jakarta.validation.groups.Default.class);
-    }
-
     private <T> Set<ConstraintViolation<T>> validateReflectively(T object,
                                                                  BeanValidationContext context,
                                                                  boolean supplementIntrospection) {
         ReflectionGroupConversions.validateBean(object.getClass());
         ReflectionBeanMetadata metadata = ReflectionBeanMetadata.of(object.getClass(), configuration.getMetadataProviders());
-        Map<ConstraintKey, Integer> generatedTypeConstraints = supplementIntrospection
-            ? generatedTypeConstraints(object.getClass())
-            : Map.of();
-        boolean ignoreBeanAnnotations = isBeanAnnotationMetadataIgnored(object.getClass());
         warnOnce(object.getClass().getName(), "class", supplementIntrospection
             ? "supplementing Micronaut bean introspection with reflection metadata"
             : "validating without Micronaut bean introspection");
@@ -507,47 +482,7 @@ public final class ReflectionValidator extends DefaultValidator {
             BeanValidationContext groupContext = BeanValidationContext.fromGroups(groupPass.toArray(Class<?>[]::new));
             BeanValidationContext cascadedContext = defaultGroupRedefined ? BeanValidationContext.DEFAULT : groupContext;
             Set<String> cascadedProperties = defaultGroupCascadedProperties == null ? new LinkedHashSet<>() : defaultGroupCascadedProperties;
-            List<ReflectionConstraintDescriptor<?>> typeConstraints = new ArrayList<>(
-                ignoreBeanAnnotations ? List.of() : supplementalConstraints(metadata.constraints, generatedTypeConstraints, object.getClass())
-            );
-            typeConstraints.addAll(providerTypeConstraints(object.getClass()));
-            validateConstraints(
-                object,
-                object.getClass(),
-                object,
-                object,
-                object.getClass(),
-                typeConstraints,
-                groupContext,
-                violations,
-                new ReflectionPath(null)
-            );
-            for (Map.Entry<String, List<ReflectionProperty>> entry : metadata.properties.entrySet()) {
-                boolean ignorePropertyAnnotations = isPropertyAnnotationMetadataIgnored(object.getClass(), entry.getKey());
-                ProviderPropertyMetadata providerMetadata = providerPropertyMetadata(object.getClass(), entry.getKey());
-                if (ignorePropertyAnnotations && providerMetadata.isEmpty()) {
-                    continue;
-                }
-                List<ReflectionProperty> properties = entry.getValue();
-                boolean suppressGeneratedPropertyConstraints = supplementIntrospection && properties.size() == 1;
-                for (ReflectionProperty property : properties) {
-                    validateProperty(
-                        object,
-                        object,
-                        object.getClass(),
-                        effectiveProperty(property, ignorePropertyAnnotations, providerMetadata),
-                        groupContext,
-                        cascadedContext,
-                        violations,
-                        suppressGeneratedPropertyConstraints,
-                        true,
-                        true,
-                        null,
-                        cascadedProperties
-                    );
-                }
-            }
-            validateProviderOnlyProperties(object, metadata, groupContext, cascadedContext, cascadedProperties, violations);
+            validateReflectionGroupPass(object, metadata, groupContext, cascadedContext, cascadedProperties, violations, supplementIntrospection);
             if (violations.size() > violationCount
                 && (!defaultGroupRedefined || countLeafBeanViolations(violations, object) > blockingViolationCount)) {
                 break;
@@ -1276,6 +1211,7 @@ public final class ReflectionValidator extends DefaultValidator {
             return Collections.emptySet();
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        ViolationTarget<T> target = new ViolationTarget<>(object, object.getClass(), object);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
@@ -1291,18 +1227,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 throw unexpectedType(constraint, method.getReturnType());
             }
             validateCustomViolationState(valid, validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    object,
-                    (Class<T>) object.getClass(),
-                    object,
-                    returnValue,
-                    interpolate(constraint.getMessageTemplate(), constraint, returnValue),
-                    constraint.getMessageTemplate(),
-                    path,
-                    constraint
-                ));
-            }
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, returnValue, returnValue, constraint, path);
             validateExecutableComposingConstraints(
                 object,
                 object.getClass(),
@@ -1316,18 +1241,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 ConstraintTarget.RETURN_VALUE,
                 method
             );
-            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    object,
-                    (Class<T>) object.getClass(),
-                    object,
-                    returnValue,
-                    interpolate(customViolation.messageTemplate(), constraint, returnValue),
-                    customViolation.messageTemplate(),
-                    customViolation.path(),
-                    constraint
-                ));
-            }
+            addCustomViolations(violations, target, returnValue, returnValue, constraint, validatorContext);
         }
         validateExecutableContainerElements(
             object,
@@ -1374,6 +1288,7 @@ public final class ReflectionValidator extends DefaultValidator {
             groupConversions.addAll(groupConversions(providerReturnValueDescriptor.getGroupConversions()));
         }
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        ViolationTarget<T> target = new ViolationTarget<>(null, constructor.getDeclaringClass(), createdObject);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
@@ -1389,30 +1304,8 @@ public final class ReflectionValidator extends DefaultValidator {
                 throw unexpectedType(constraint, constructor.getDeclaringClass());
             }
             validateCustomViolationState(valid, validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    null,
-                    (Class<T>) constructor.getDeclaringClass(),
-                    createdObject,
-                    createdObject,
-                    interpolate(constraint.getMessageTemplate(), constraint, createdObject),
-                    constraint.getMessageTemplate(),
-                    path,
-                    constraint
-                ));
-            }
-            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    null,
-                    (Class<T>) constructor.getDeclaringClass(),
-                    createdObject,
-                    createdObject,
-                    interpolate(customViolation.messageTemplate(), constraint, createdObject),
-                    customViolation.messageTemplate(),
-                    customViolation.path(),
-                    constraint
-                ));
-            }
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, createdObject, createdObject, constraint, path);
+            addCustomViolations(violations, target, createdObject, createdObject, constraint, validatorContext);
         }
         if (cascaded) {
             BeanValidationContext effectiveCascadedContext = constructor.getDeclaringClass().isInstance(createdObject)
@@ -1445,81 +1338,85 @@ public final class ReflectionValidator extends DefaultValidator {
         ReflectionGroupConversions.validateConstructorParameterDeclarations(constructor);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(constructor);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        ViolationTarget<T> target = new ViolationTarget<>(null, constructor.getDeclaringClass(), null);
         validateConstructorConstraintDeclarations(constructor, context);
         validateConstructorCrossParameterConstraintsReflectively(constructor, parameterValues, context, violations);
         for (int i = 0; i < parameters.length; i++) {
-            List<ReflectionConstraintDescriptor<?>> constraints = parameterConstraints(parameters[i]);
-            List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameters[i].getAnnotatedType()));
-            addAllContainerElements(containerElements, providerConstructorParameterContainerElements(constructor, i));
-            Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>(groupConversionsFor(parameters[i], parameters[i].getAnnotatedType()));
-            groupConversions.addAll(providerConstructorParameterGroupConversions(constructor, i));
-            if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameters[i])) {
-                continue;
-            }
-            Object value = parameterValues[i];
-            for (ReflectionConstraintDescriptor constraint : constraints) {
-                if (!isGroupIncluded(constraint, context)) {
-                    continue;
-                }
-                jakarta.validation.Path path = new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i);
-                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, null, constraint.getMessageTemplate(), path);
-                Boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[i], validatorContext);
-                if (valid == null) {
-                    throw unexpectedType(constraint, constructor.getParameterTypes()[i]);
-                }
-                validateCustomViolationState(valid, validatorContext);
-                if (!valid && !validatorContext.defaultViolationDisabled()) {
-                    violations.add(new ReflectionConstraintViolation<>(
-                        null,
-                        (Class<T>) constructor.getDeclaringClass(),
-                        null,
-                        value,
-                        interpolate(constraint.getMessageTemplate(), constraint, value),
-                        constraint.getMessageTemplate(),
-                        path,
-                        constraint
-                    ));
-                }
-                for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                    violations.add(new ReflectionConstraintViolation<>(
-                        null,
-                        (Class<T>) constructor.getDeclaringClass(),
-                        null,
-                        value,
-                        interpolate(customViolation.messageTemplate(), constraint, value),
-                        customViolation.messageTemplate(),
-                        customViolation.path(),
-                        constraint
-                    ));
-                }
-            }
-            validateExecutableContainerElements(
-                null,
-                constructor.getDeclaringClass(),
-                null,
-                value,
-                constructor.getParameterTypes()[i],
-                containerElements,
-                context,
-                violations,
-                constructorParameterContainerElementPath(constructor, parameterNames, parameters[i], i)
-            );
-            if (isCascaded(parameters[i]) && value != null) {
-                int parameterIndex = i;
-                String parameterName = parameterName(parameterNames, parameters[i], i);
-                validateCascadedValueOrContainer(
-                    null,
-                    constructor.getDeclaringClass(),
-                    value,
-                    value,
-                    constructor.getParameterTypes()[i],
-                    convertGroups(cascadedContext, groupConversions),
-                    violations,
-                    new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
-                );
-            }
+            validateConstructorParameter(constructor, parameters[i], parameterValues[i], i, parameterNames, context, cascadedContext, violations, target);
         }
         return withExecutableParameters(violations, parameterValues);
+    }
+
+    private <T> void validateConstructorParameter(Constructor<? extends T> constructor,
+                                                 Parameter parameter,
+                                                 @Nullable Object value,
+                                                 int parameterIndex,
+                                                 List<String> parameterNames,
+                                                 BeanValidationContext context,
+                                                 BeanValidationContext cascadedContext,
+                                                 Set<ConstraintViolation<T>> violations,
+                                                 ViolationTarget<T> target) {
+        List<ReflectionConstraintDescriptor<?>> constraints = parameterConstraints(parameter);
+        List<ReflectionContainerElement> containerElements = new ArrayList<>(containerElementsFor(parameter.getAnnotatedType()));
+        addAllContainerElements(containerElements, providerConstructorParameterContainerElements(constructor, parameterIndex));
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>(groupConversionsFor(parameter, parameter.getAnnotatedType()));
+        groupConversions.addAll(providerConstructorParameterGroupConversions(constructor, parameterIndex));
+        if (constraints.isEmpty() && containerElements.isEmpty() && !isCascaded(parameter)) {
+            return;
+        }
+        validateConstructorParameterConstraints(constructor, value, parameterIndex, parameterNames, context, violations, target, constraints);
+        validateExecutableContainerElements(
+            null,
+            constructor.getDeclaringClass(),
+            null,
+            value,
+            constructor.getParameterTypes()[parameterIndex],
+            containerElements,
+            context,
+            violations,
+            constructorParameterContainerElementPath(constructor, parameterNames, parameter, parameterIndex)
+        );
+        if (isCascaded(parameter) && value != null) {
+            String parameterName = parameterName(parameterNames, parameter, parameterIndex);
+            validateCascadedValueOrContainer(
+                null,
+                constructor.getDeclaringClass(),
+                value,
+                value,
+                constructor.getParameterTypes()[parameterIndex],
+                convertGroups(cascadedContext, groupConversions),
+                violations,
+                new ReflectionConstructorExecutablePath(constructor, parameterName, parameterIndex)
+            );
+        }
+    }
+
+    private <T> void validateConstructorParameterConstraints(Constructor<? extends T> constructor,
+                                                            @Nullable Object value,
+                                                            int parameterIndex,
+                                                            List<String> parameterNames,
+                                                            BeanValidationContext context,
+                                                            Set<ConstraintViolation<T>> violations,
+                                                            ViolationTarget<T> target,
+                                                            List<ReflectionConstraintDescriptor<?>> constraints) {
+        for (ReflectionConstraintDescriptor constraint : constraints) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            jakarta.validation.Path path = new ReflectionConstructorExecutablePath(
+                constructor,
+                parameterName(parameterNames, constructor.getParameters()[parameterIndex], parameterIndex),
+                parameterIndex
+            );
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, null, constraint.getMessageTemplate(), path);
+            Boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[parameterIndex], validatorContext);
+            if (valid == null) {
+                throw unexpectedType(constraint, constructor.getParameterTypes()[parameterIndex]);
+            }
+            validateCustomViolationState(valid, validatorContext);
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, value, value, constraint, path);
+            addCustomViolations(violations, target, value, value, constraint, validatorContext);
+        }
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1532,6 +1429,7 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         jakarta.validation.Path path = new ReflectionConstructorCrossParameterPath(constructor);
+        ViolationTarget<T> target = new ViolationTarget<>(null, constructor.getDeclaringClass(), null);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context) || !isTargetedConstraint(constraint, ConstraintTarget.PARAMETERS)) {
                 continue;
@@ -1554,30 +1452,8 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateCustomViolationState(valid, validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    null,
-                    (Class<T>) constructor.getDeclaringClass(),
-                    null,
-                    parameterValues,
-                    interpolate(constraint.getMessageTemplate(), constraint, parameterValues),
-                    constraint.getMessageTemplate(),
-                    path,
-                    constraint
-                ));
-            }
-            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    null,
-                    (Class<T>) constructor.getDeclaringClass(),
-                    null,
-                    parameterValues,
-                    interpolate(customViolation.messageTemplate(), constraint, parameterValues),
-                    customViolation.messageTemplate(),
-                    customViolation.path(),
-                    constraint
-                ));
-            }
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, parameterValues, parameterValues, constraint, path);
+            addCustomViolations(violations, target, parameterValues, parameterValues, constraint, validatorContext);
         }
     }
 
@@ -1597,96 +1473,108 @@ public final class ReflectionValidator extends DefaultValidator {
         List<Method> methodHierarchy = ReflectionMethodDeclarations.hierarchy(method);
         List<String> parameterNames = configuration.getParameterNameProvider().getParameterNames(method);
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
+        ViolationTarget<T> target = new ViolationTarget<>(object, object.getClass(), object);
         validateCrossParameterConstraintsReflectively(object, method, parameterValues, context, parameterNames, violations);
         for (int i = 0; i < parameters.length; i++) {
-            boolean ignoreParameterAnnotations = isMethodParameterAnnotationMetadataIgnored(method, i);
-            List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
-            List<ReflectionContainerElement> containerElements = new ArrayList<>();
-            boolean cascaded = false;
-            if (!ignoreParameterAnnotations) {
-                for (Method hierarchyMethod : methodHierarchy) {
-                    Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
-                    constraints.addAll(parameterConstraints(hierarchyParameter));
-                    addAllContainerElements(containerElements, containerElementsFor(hierarchyParameter.getAnnotatedType()));
-                    cascaded |= isCascaded(hierarchyParameter);
-                }
-            }
-            addAllContainerElements(containerElements, providerParameterContainerElements(method, i));
-            Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
-            if (!ignoreParameterAnnotations) {
-                for (Method hierarchyMethod : methodHierarchy) {
-                    Parameter hierarchyParameter = hierarchyMethod.getParameters()[i];
-                    groupConversions.addAll(groupConversionsFor(hierarchyParameter, hierarchyParameter.getAnnotatedType()));
-                }
-            }
-            groupConversions.addAll(providerParameterGroupConversions(method, i));
-            if (constraints.isEmpty() && containerElements.isEmpty() && !cascaded) {
-                continue;
-            }
-            Object value = parameterValues[i];
-            for (ReflectionConstraintDescriptor constraint : constraints) {
-                if (!isGroupIncluded(constraint, context)) {
-                    continue;
-                }
-                jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i);
-                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
-                Boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext, ConstraintTarget.IMPLICIT, true);
-                if (valid == null) {
-                    throw unexpectedType(constraint, method.getParameterTypes()[i]);
-                }
-                validateCustomViolationState(valid, validatorContext);
-                if (!valid && !validatorContext.defaultViolationDisabled()) {
-                    violations.add(new ReflectionConstraintViolation<>(
-                        object,
-                        (Class<T>) object.getClass(),
-                        object,
-                        value,
-                        interpolate(constraint.getMessageTemplate(), constraint, value),
-                        constraint.getMessageTemplate(),
-                        path,
-                        constraint
-                    ));
-                }
-                for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                    violations.add(new ReflectionConstraintViolation<>(
-                        object,
-                        (Class<T>) object.getClass(),
-                        object,
-                        value,
-                        interpolate(customViolation.messageTemplate(), constraint, value),
-                        customViolation.messageTemplate(),
-                        customViolation.path(),
-                        constraint
-                    ));
-                }
-            }
-            validateExecutableContainerElements(
-                object,
-                object.getClass(),
-                object,
-                value,
-                method.getParameterTypes()[i],
-                containerElements,
-                context,
-                violations,
-                parameterContainerElementPath(method, parameterNames, parameters[i], i)
-            );
-            if (cascaded && value != null) {
-                int parameterIndex = i;
-                String parameterName = parameterName(parameterNames, parameters[i], i);
-                validateCascadedValueOrContainer(
-                    object,
-                    object.getClass(),
-                    value,
-                    value,
-                    method.getParameterTypes()[i],
-                    convertGroups(cascadedContext, groupConversions),
-                    violations,
-                    new ReflectionExecutablePath(method, parameterName, parameterIndex)
-                );
-            }
+            validateMethodParameter(object, method, methodHierarchy, parameters[i], parameterValues[i], i, parameterNames, context, cascadedContext, violations, target);
         }
         return withExecutableParameters(violations, parameterValues);
+    }
+
+    private <T> void validateMethodParameter(T object,
+                                             Method method,
+                                             List<Method> methodHierarchy,
+                                             Parameter parameter,
+                                             @Nullable Object value,
+                                             int parameterIndex,
+                                             List<String> parameterNames,
+                                             BeanValidationContext context,
+                                             BeanValidationContext cascadedContext,
+                                             Set<ConstraintViolation<T>> violations,
+                                             ViolationTarget<T> target) {
+        MethodParameterMetadata parameterMetadata = methodParameterMetadata(method, methodHierarchy, parameterIndex);
+        if (parameterMetadata.constraints().isEmpty() && parameterMetadata.containerElements().isEmpty() && !parameterMetadata.cascaded()) {
+            return;
+        }
+        validateMethodParameterConstraints(object, method, parameter, value, parameterIndex, parameterNames, context, violations, target, parameterMetadata.constraints());
+        validateExecutableContainerElements(
+            object,
+            object.getClass(),
+            object,
+            value,
+            method.getParameterTypes()[parameterIndex],
+            parameterMetadata.containerElements(),
+            context,
+            violations,
+            parameterContainerElementPath(method, parameterNames, parameter, parameterIndex)
+        );
+        if (parameterMetadata.cascaded() && value != null) {
+            String parameterName = parameterName(parameterNames, parameter, parameterIndex);
+            validateCascadedValueOrContainer(
+                object,
+                object.getClass(),
+                value,
+                value,
+                method.getParameterTypes()[parameterIndex],
+                convertGroups(cascadedContext, parameterMetadata.groupConversions()),
+                violations,
+                new ReflectionExecutablePath(method, parameterName, parameterIndex)
+            );
+        }
+    }
+
+    private MethodParameterMetadata methodParameterMetadata(Method method,
+                                                           List<Method> methodHierarchy,
+                                                           int parameterIndex) {
+        boolean ignoreParameterAnnotations = isMethodParameterAnnotationMetadataIgnored(method, parameterIndex);
+        List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
+        List<ReflectionContainerElement> containerElements = new ArrayList<>();
+        Set<ReflectionGroupConversionDescriptor> groupConversions = new LinkedHashSet<>();
+        boolean cascaded = false;
+        if (!ignoreParameterAnnotations) {
+            for (Method hierarchyMethod : methodHierarchy) {
+                Parameter hierarchyParameter = hierarchyMethod.getParameters()[parameterIndex];
+                constraints.addAll(parameterConstraints(hierarchyParameter));
+                addAllContainerElements(containerElements, containerElementsFor(hierarchyParameter.getAnnotatedType()));
+                groupConversions.addAll(groupConversionsFor(hierarchyParameter, hierarchyParameter.getAnnotatedType()));
+                cascaded |= isCascaded(hierarchyParameter);
+            }
+        }
+        addAllContainerElements(containerElements, providerParameterContainerElements(method, parameterIndex));
+        groupConversions.addAll(providerParameterGroupConversions(method, parameterIndex));
+        return new MethodParameterMetadata(constraints, containerElements, cascaded, groupConversions);
+    }
+
+    private <T> void validateMethodParameterConstraints(T object,
+                                                        Method method,
+                                                        Parameter parameter,
+                                                        @Nullable Object value,
+                                                        int parameterIndex,
+                                                        List<String> parameterNames,
+                                                        BeanValidationContext context,
+                                                        Set<ConstraintViolation<T>> violations,
+                                                        ViolationTarget<T> target,
+                                                        List<ReflectionConstraintDescriptor<?>> constraints) {
+        for (ReflectionConstraintDescriptor constraint : constraints) {
+            if (!isGroupIncluded(constraint, context)) {
+                continue;
+            }
+            jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameter, parameterIndex), parameterIndex);
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
+            Boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[parameterIndex], validatorContext, ConstraintTarget.IMPLICIT, true);
+            if (valid == null) {
+                throw unexpectedType(constraint, method.getParameterTypes()[parameterIndex]);
+            }
+            validateCustomViolationState(valid, validatorContext);
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, value, value, constraint, path);
+            addCustomViolations(violations, target, value, value, constraint, validatorContext);
+        }
+    }
+
+    private record MethodParameterMetadata(List<ReflectionConstraintDescriptor<?>> constraints,
+                                           List<ReflectionContainerElement> containerElements,
+                                           boolean cascaded,
+                                           Set<ReflectionGroupConversionDescriptor> groupConversions) {
     }
 
     private static Function<ReflectionContainerContext, jakarta.validation.Path> constructorParameterContainerElementPath(Constructor<?> constructor,
@@ -1887,6 +1775,7 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         jakarta.validation.Path path = new ReflectionMethodCrossParameterPath(method);
+        ViolationTarget<T> target = new ViolationTarget<>(object, object.getClass(), object);
         for (ReflectionConstraintDescriptor constraint : constraints) {
             if (!isGroupIncluded(constraint, context)) {
                 continue;
@@ -1914,18 +1803,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateCustomViolationState(valid, validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    object,
-                    (Class<T>) object.getClass(),
-                    object,
-                    parameterValues,
-                    interpolate(constraint.getMessageTemplate(), constraint, parameterValues),
-                    constraint.getMessageTemplate(),
-                    path,
-                    constraint
-                ));
-            }
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, parameterValues, parameterValues, constraint, path);
             validateExecutableComposingConstraints(
                 object,
                 object.getClass(),
@@ -1939,18 +1817,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 ConstraintTarget.PARAMETERS,
                 method
             );
-            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    object,
-                    (Class<T>) object.getClass(),
-                    object,
-                    parameterValues,
-                    interpolate(customViolation.messageTemplate(), constraint, parameterValues),
-                    customViolation.messageTemplate(),
-                    customViolation.path(),
-                    constraint
-                ));
-            }
+            addCustomViolations(violations, target, parameterValues, parameterValues, constraint, validatorContext);
         }
     }
 
@@ -2062,63 +1929,36 @@ public final class ReflectionValidator extends DefaultValidator {
             validateNonExecutableConstraintDeclaration(constraint);
             ValueExtractorDefinition<Object> unwrappingExtractor = unwrappingExtractor(valueType, constraint);
             if (unwrappingExtractor != null && value != null) {
-                extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
-
-                    @Override
-                    public void value(String nodeName, Object extractedValue) {
-                        validateExtractedValue(nodeName, false, null, null, extractedValue);
-                    }
-
-                    @Override
-                    public void iterableValue(String nodeName, Object extractedValue) {
-                        validateExtractedValue(nodeName, true, null, null, extractedValue);
-                    }
-
-                    @Override
-                    public void indexedValue(String nodeName, int index, Object extractedValue) {
-                        validateExtractedValue(nodeName, true, null, index, extractedValue);
-                    }
-
-                    @Override
-                    public void keyedValue(String nodeName, Object key, Object extractedValue) {
-                        validateExtractedValue(nodeName, true, key, null, extractedValue);
-                    }
-
-                    private void validateExtractedValue(String nodeName,
-                                                        boolean iterable,
-                                                        @Nullable Object key,
-                                                        @Nullable Integer index,
-                                                        @Nullable Object extractedValue) {
-                        Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                extractValues(unwrappingExtractor, value, valueReceiver((nodeName, key, index, iterable, extractedValue) -> {
+                    Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                        valueType,
+                        unwrappingExtractor.containerType(),
+                        unwrappingExtractor.typeArgumentIndex()
+                    );
+                    jakarta.validation.Path extractedPath = nodeName == null ? propertyPath : new ReflectionNestedContainerElementPath(
+                        propertyPath,
+                        new ReflectionContainerContext(
+                            nodeName,
+                            iterable,
+                            key,
+                            index,
                             valueType,
-                            unwrappingExtractor.containerType(),
-                            unwrappingExtractor.typeArgumentIndex()
-                        );
-                        jakarta.validation.Path extractedPath = nodeName == null ? propertyPath : new ReflectionNestedContainerElementPath(
-                            propertyPath,
-                            new ReflectionContainerContext(
-                                nodeName,
-                                iterable,
-                                key,
-                                index,
-                                valueType,
-                                typeArgumentIndex
-                            )
-                        );
-                        validateSingleConstraint(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            extractedValue,
-                            extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
-                            constraint,
-                            context,
-                            violations,
-                            extractedPath,
-                            resolveMostSpecific
-                        );
-                    }
-                });
+                            typeArgumentIndex
+                        )
+                    );
+                    validateSingleConstraint(
+                        rootBean,
+                        rootBeanClass,
+                        leafBean,
+                        extractedValue,
+                        extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
+                        constraint,
+                        context,
+                        violations,
+                        extractedPath,
+                        resolveMostSpecific
+                    );
+                }));
                 continue;
             }
             validateSingleConstraint(rootBean, rootBeanClass, leafBean, value, valueType, constraint, context, violations, propertyPath, resolveMostSpecific);
@@ -2156,62 +1996,35 @@ public final class ReflectionValidator extends DefaultValidator {
                 );
                 continue;
             }
-            extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
-
-                @Override
-                public void value(String nodeName, Object extractedValue) {
-                    validateExtractedValue(nodeName, false, null, null, extractedValue);
-                }
-
-                @Override
-                public void iterableValue(String nodeName, Object extractedValue) {
-                    validateExtractedValue(nodeName, true, null, null, extractedValue);
-                }
-
-                @Override
-                public void indexedValue(String nodeName, int index, Object extractedValue) {
-                    validateExtractedValue(nodeName, true, null, index, extractedValue);
-                }
-
-                @Override
-                public void keyedValue(String nodeName, Object key, Object extractedValue) {
-                    validateExtractedValue(nodeName, true, key, null, extractedValue);
-                }
-
-                private void validateExtractedValue(String nodeName,
-                                                    boolean iterable,
-                                                    @Nullable Object key,
-                                                    @Nullable Integer index,
-                                                    @Nullable Object extractedValue) {
-                    Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+            extractValues(unwrappingExtractor, value, valueReceiver((nodeName, key, index, iterable, extractedValue) -> {
+                Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                    property.type,
+                    unwrappingExtractor.containerType(),
+                    unwrappingExtractor.typeArgumentIndex()
+                );
+                jakarta.validation.Path extractedPath = nodeName == null ? new ReflectionPath(property.name) : new ReflectionContainerElementPath(
+                    property.name,
+                    new ReflectionContainerContext(
+                        nodeName,
+                        iterable,
+                        key,
+                        index,
                         property.type,
-                        unwrappingExtractor.containerType(),
-                        unwrappingExtractor.typeArgumentIndex()
-                    );
-                    jakarta.validation.Path propertyPath = nodeName == null ? new ReflectionPath(property.name) : new ReflectionContainerElementPath(
-                        property.name,
-                        new ReflectionContainerContext(
-                            nodeName,
-                            iterable,
-                            key,
-                            index,
-                            property.type,
-                            typeArgumentIndex
-                        )
-                    );
-                    validateSingleConstraint(
-                        rootBean,
-                        rootBean == null ? null : rootBean.getClass(),
-                        leafBean,
-                        extractedValue,
-                        extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
-                        constraint,
-                        context,
-                        violations,
-                        propertyPath
-                    );
-                }
-            });
+                        typeArgumentIndex
+                    )
+                );
+                validateSingleConstraint(
+                    rootBean,
+                    rootBean == null ? null : rootBean.getClass(),
+                    leafBean,
+                    extractedValue,
+                    extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
+                    constraint,
+                    context,
+                    violations,
+                    extractedPath
+                );
+            }));
         }
     }
 
@@ -2254,6 +2067,41 @@ public final class ReflectionValidator extends DefaultValidator {
         } catch (RuntimeException e) {
             throw new ValidationException("Cannot extract values from " + definition.containerType().getName(), e);
         }
+    }
+
+    private static ValueExtractor.ValueReceiver valueReceiver(ExtractedValueConsumer consumer) {
+        return new ValueExtractor.ValueReceiver() {
+
+            @Override
+            public void value(@Nullable String nodeName, Object value) {
+                consumer.accept(nodeName, null, null, false, value);
+            }
+
+            @Override
+            public void iterableValue(@Nullable String nodeName, Object value) {
+                consumer.accept(nodeName, null, null, true, value);
+            }
+
+            @Override
+            public void indexedValue(@Nullable String nodeName, int index, Object value) {
+                consumer.accept(nodeName, null, index, true, value);
+            }
+
+            @Override
+            public void keyedValue(@Nullable String nodeName, Object key, Object value) {
+                consumer.accept(nodeName, key, null, true, value);
+            }
+        };
+    }
+
+    @FunctionalInterface
+    private interface ExtractedValueConsumer {
+
+        void accept(@Nullable String nodeName,
+                    @Nullable Object key,
+                    @Nullable Integer index,
+                    boolean iterable,
+                    @Nullable Object value);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -2325,6 +2173,66 @@ public final class ReflectionValidator extends DefaultValidator {
         return value;
     }
 
+    private <T> void addDefaultViolationIfEnabled(boolean valid,
+                                                  ReflectionConstraintValidatorContext validatorContext,
+                                                  Set<ConstraintViolation<T>> violations,
+                                                  ViolationTarget<T> target,
+                                                  @Nullable Object invalidValue,
+                                                  @Nullable Object interpolationValue,
+                                                  ReflectionConstraintDescriptor<?> constraint,
+                                                  jakarta.validation.Path path) {
+        if (!valid && !validatorContext.defaultViolationDisabled()) {
+            addViolation(violations, target, invalidValue, interpolationValue, constraint.getMessageTemplate(), constraint, path);
+        }
+    }
+
+    private <T> void addCustomViolations(Set<ConstraintViolation<T>> violations,
+                                         ViolationTarget<T> target,
+                                         @Nullable Object invalidValue,
+                                         @Nullable Object interpolationValue,
+                                         ReflectionConstraintDescriptor<?> constraint,
+                                         ReflectionConstraintValidatorContext validatorContext) {
+        for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
+            addViolation(violations, target, invalidValue, interpolationValue, customViolation.messageTemplate(), constraint, customViolation.path());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private <T> void addViolation(Set<ConstraintViolation<T>> violations,
+                                  ViolationTarget<T> target,
+                                  @Nullable Object invalidValue,
+                                  @Nullable Object interpolationValue,
+                                  String messageTemplate,
+                                  ReflectionConstraintDescriptor<?> constraint,
+                                  jakarta.validation.Path path) {
+        violations.add(new ReflectionConstraintViolation<>(
+            target.rootBean(),
+            (Class<T>) target.rootBeanClass(),
+            target.leafBean(),
+            invalidValue,
+            interpolate(messageTemplate, constraint, interpolationValue),
+            messageTemplate,
+            path,
+            constraint
+        ));
+    }
+
+    private <T> void replaceWithSingleViolation(Set<ConstraintViolation<T>> violations,
+                                                Set<ConstraintViolation<T>> existingViolations,
+                                                ViolationTarget<T> target,
+                                                @Nullable Object invalidValue,
+                                                @Nullable Object interpolationValue,
+                                                ReflectionConstraintDescriptor<?> constraint,
+                                                jakarta.validation.Path path) {
+        violations.removeIf(violation -> !existingViolations.contains(violation));
+        addViolation(violations, target, invalidValue, interpolationValue, constraint.getMessageTemplate(), constraint, path);
+    }
+
+    private record ViolationTarget<T>(@Nullable T rootBean,
+                                      @Nullable Class<?> rootBeanClass,
+                                      @Nullable Object leafBean) {
+    }
+
     private <T> boolean validateComposingConstraints(@Nullable T rootBean,
                                                      @Nullable Class<?> rootBeanClass,
                                                      @Nullable Object leafBean,
@@ -2341,17 +2249,7 @@ public final class ReflectionValidator extends DefaultValidator {
             Set<ConstraintViolation<T>> existingViolations = new LinkedHashSet<>(violations);
             validateConstraints(rootBean, rootBeanClass, leafBean, value, valueType, constraint.composingConstraints, context, violations, propertyPath);
             if (!existingViolations.containsAll(violations)) {
-                violations.removeIf(violation -> !existingViolations.contains(violation));
-                violations.add(new ReflectionConstraintViolation<>(
-                    rootBean,
-                    (Class<T>) rootBeanClass,
-                    leafBean,
-                    value,
-                    interpolate(constraint.getMessageTemplate(), constraint, value),
-                    constraint.getMessageTemplate(),
-                    propertyPath,
-                    constraint
-                ));
+                replaceWithSingleViolation(violations, existingViolations, new ViolationTarget<>(rootBean, rootBeanClass, leafBean), value, value, constraint, propertyPath);
             }
         } else {
             validateConstraints(rootBean, rootBeanClass, leafBean, value, valueType, constraint.composingConstraints, context, violations, propertyPath);
@@ -2377,6 +2275,7 @@ public final class ReflectionValidator extends DefaultValidator {
         Set<ConstraintViolation<T>> existingViolations = constraint.isReportAsSingleViolation()
             ? new LinkedHashSet<>(violations)
             : Set.of();
+        ViolationTarget<T> target = new ViolationTarget<>(rootBean, rootBeanClass, leafBean);
         for (ReflectionConstraintDescriptor composingConstraint : constraint.composingConstraints) {
             if (!isGroupIncluded(composingConstraint, context)) {
                 continue;
@@ -2392,44 +2291,12 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             validateCustomViolationState(valid, validatorContext);
-            if (!valid && !validatorContext.defaultViolationDisabled()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    rootBean,
-                    (Class<T>) rootBeanClass,
-                    leafBean,
-                    value,
-                    interpolate(composingConstraint.getMessageTemplate(), composingConstraint, value),
-                    composingConstraint.getMessageTemplate(),
-                    propertyPath,
-                    composingConstraint
-                ));
-            }
+            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, value, value, composingConstraint, propertyPath);
             validateExecutableComposingConstraints(rootBean, rootBeanClass, leafBean, value, valueType, composingConstraint, context, violations, propertyPath, constraintTarget, method);
-            for (ReflectionConstraintValidatorContext.CustomViolation customViolation : validatorContext.customViolations()) {
-                violations.add(new ReflectionConstraintViolation<>(
-                    rootBean,
-                    (Class<T>) rootBeanClass,
-                    leafBean,
-                    customInvalidValue(propertyPath, value),
-                    interpolate(customViolation.messageTemplate(), composingConstraint, value),
-                    customViolation.messageTemplate(),
-                    customViolation.path(),
-                    composingConstraint
-                ));
-            }
+            addCustomViolations(violations, target, customInvalidValue(propertyPath, value), value, composingConstraint, validatorContext);
         }
         if (constraint.isReportAsSingleViolation() && !existingViolations.containsAll(violations)) {
-            violations.removeIf(violation -> !existingViolations.contains(violation));
-            violations.add(new ReflectionConstraintViolation<>(
-                rootBean,
-                (Class<T>) rootBeanClass,
-                leafBean,
-                value,
-                interpolate(constraint.getMessageTemplate(), constraint, value),
-                constraint.getMessageTemplate(),
-                propertyPath,
-                constraint
-            ));
+            replaceWithSingleViolation(violations, existingViolations, target, value, value, constraint, propertyPath);
         }
     }
 
@@ -2454,107 +2321,55 @@ public final class ReflectionValidator extends DefaultValidator {
             if (containerElement.cascaded && containerElement.constraints.isEmpty()) {
                 extractorLookupType = (Class<Object>) containerValue.getClass();
             }
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors(extractorLookupType);
-            boolean foundExtractor = false;
-            for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
-                if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
-                    continue;
-                }
-                foundExtractor = true;
-                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
-
-                    @Override
-                    public void value(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, false, value);
-                    }
-
-                    @Override
-                    public void iterableValue(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, true, value);
-                    }
-
-                    @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
-                        validateContainerValue(nodeName, null, index, true, value);
-                    }
-
-                    @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
-                        validateContainerValue(nodeName, key, null, true, value);
-                    }
-
-                    private void validateContainerValue(String nodeName,
-                                                        @Nullable Object key,
-                                                        @Nullable Integer index,
-                                                        boolean iterable,
-                                                        @Nullable Object value) {
-                        ReflectionContainerContext containerContext = new ReflectionContainerContext(
-                            nodeName,
-                            iterable,
-                            key,
-                            index,
-                            property.type,
-                            valueExtractorDefinition.typeArgumentIndex()
-                        );
-                        jakarta.validation.Path containerPath = propertyPathPrefix == null
-                            ? new ReflectionContainerElementPath(property.name, containerContext)
-                            : new ReflectionNestedContainerElementPath(propertyPathPrefix, containerContext);
-                        if (!containerElement.constraints.isEmpty()) {
-                            validateConstraints(
-                                rootBean,
-                                rootBeanClass,
-                                leafBean,
-                                value,
-                                containerElement.type,
-                                containerElement.constraints,
-                                context,
-                                violations,
-                                containerPath,
-                                false
-                            );
-                        }
-                        if (containerElement.cascaded && value != null) {
-                            BeanValidationContext cascadedContext = convertGroups(context, containerElement.groupConversions);
-                            if (propertyPathPrefix == null) {
-                                validateContainerCascadedValue(
-                                    rootBean,
-                                    value,
-                                    property.name,
-                                    containerContext,
-                                    rootBeanClass,
-                                    cascadedContext,
-                                    violations
-                                );
-                            } else {
-                                validateCascadedValue(
-                                    rootBean,
-                                    rootBeanClass,
-                                    value,
-                                    value,
-                                    cascadedContext,
-                                    violations,
-                                    new ReflectionCascadedContainerElementPath(propertyPathPrefix, containerContext)
-                                );
-                            }
-                        }
-                        validateNestedContainerElements(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            value,
-                            containerElement.type,
-                            containerElement.nestedContainerElements,
-                            context,
-                            violations,
-                            containerPath
-                        );
-                    }
-                });
-            }
+            boolean foundExtractor = extractContainerValues(
+                extractorLookupType,
+                property.type,
+                containerValue,
+                containerElement,
+                (containerContext, value) -> validatePropertyContainerValue(
+                    rootBean,
+                    rootBeanClass,
+                    leafBean,
+                    property,
+                    propertyPathPrefix,
+                    containerElement,
+                    context,
+                    violations,
+                    containerContext,
+                    value
+                )
+            );
             if (!foundExtractor) {
                 throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for type argument " + containerElement.typeArgumentIndex + " of " + property.type.getName());
             }
         }
+    }
+
+    private <T> void validatePropertyContainerValue(@Nullable T rootBean,
+                                                    @Nullable Class<?> rootBeanClass,
+                                                    Object leafBean,
+                                                    ReflectionProperty property,
+                                                    @Nullable Path propertyPathPrefix,
+                                                    ReflectionContainerElement containerElement,
+                                                    BeanValidationContext context,
+                                                    Set<ConstraintViolation<T>> violations,
+                                                    ReflectionContainerContext containerContext,
+                                                    @Nullable Object value) {
+        jakarta.validation.Path containerPath = propertyPathPrefix == null
+            ? new ReflectionContainerElementPath(property.name, containerContext)
+            : new ReflectionNestedContainerElementPath(propertyPathPrefix, containerContext);
+        if (!containerElement.constraints.isEmpty()) {
+            validateConstraints(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.constraints, context, violations, containerPath, false);
+        }
+        if (containerElement.cascaded && value != null) {
+            BeanValidationContext cascadedContext = convertGroups(context, containerElement.groupConversions);
+            if (propertyPathPrefix == null) {
+                validateContainerCascadedValue(rootBean, value, property.name, containerContext, rootBeanClass, cascadedContext, violations);
+            } else {
+                validateCascadedValue(rootBean, rootBeanClass, value, value, cascadedContext, violations, new ReflectionCascadedContainerElementPath(propertyPathPrefix, containerContext));
+            }
+        }
+        validateNestedContainerElements(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.nestedContainerElements, context, violations, containerPath);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -2571,90 +2386,52 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         for (ReflectionContainerElement containerElement : containerElements) {
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
-            boolean foundExtractor = false;
-            for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
-                if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
-                    continue;
-                }
-                foundExtractor = true;
-                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
-
-                    @Override
-                    public void value(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, false, value);
-                    }
-
-                    @Override
-                    public void iterableValue(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, true, value);
-                    }
-
-                    @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
-                        validateContainerValue(nodeName, null, index, true, value);
-                    }
-
-                    @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
-                        validateContainerValue(nodeName, key, null, true, value);
-                    }
-
-                    private void validateContainerValue(String nodeName,
-                                                        @Nullable Object key,
-                                                        @Nullable Integer index,
-                                                        boolean iterable,
-                                                        @Nullable Object value) {
-                        ReflectionContainerContext containerContext = new ReflectionContainerContext(
-                            nodeName,
-                            iterable,
-                            key,
-                            index,
-                            containerType,
-                            valueExtractorDefinition.typeArgumentIndex()
-                        );
-                        jakarta.validation.Path path = new ReflectionNestedContainerElementPath(parentPath, containerContext);
-                        validateConstraints(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            value,
-                            containerElement.type,
-                            containerElement.constraints,
-                            context,
-                            violations,
-                            path,
-                            false
-                        );
-                        if (containerElement.cascaded && value != null) {
-                            validateCascadedValue(
-                                rootBean,
-                                rootBeanClass,
-                                value,
-                                value,
-                                convertGroups(context, containerElement.groupConversions),
-                                violations,
-                                new ReflectionCascadedContainerElementPath(parentPath, containerContext)
-                            );
-                        }
-                        validateNestedContainerElements(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            value,
-                            containerElement.type,
-                            containerElement.nestedContainerElements,
-                            context,
-                            violations,
-                            path
-                        );
-                    }
-                });
-            }
+            boolean foundExtractor = extractContainerValues(
+                containerType,
+                containerType,
+                containerValue,
+                containerElement,
+                (containerContext, value) -> validateNestedContainerValue(
+                    rootBean,
+                    rootBeanClass,
+                    leafBean,
+                    parentPath,
+                    containerElement,
+                    context,
+                    violations,
+                    containerContext,
+                    value
+                )
+            );
             if (!foundExtractor) {
                 throw new ConstraintDeclarationException("Cannot validate container element constraints without a value extractor for type argument " + containerElement.typeArgumentIndex + " of " + containerType.getName());
             }
         }
+    }
+
+    private <T> void validateNestedContainerValue(@Nullable T rootBean,
+                                                  @Nullable Class<?> rootBeanClass,
+                                                  @Nullable Object leafBean,
+                                                  jakarta.validation.Path parentPath,
+                                                  ReflectionContainerElement containerElement,
+                                                  BeanValidationContext context,
+                                                  Set<ConstraintViolation<T>> violations,
+                                                  ReflectionContainerContext containerContext,
+                                                  @Nullable Object value) {
+        jakarta.validation.Path path = new ReflectionNestedContainerElementPath(parentPath, containerContext);
+        validateConstraints(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.constraints, context, violations, path, false);
+        if (containerElement.cascaded && value != null) {
+            validateCascadedValue(
+                rootBean,
+                rootBeanClass,
+                value,
+                value,
+                convertGroups(context, containerElement.groupConversions),
+                violations,
+                new ReflectionCascadedContainerElementPath(parentPath, containerContext)
+            );
+        }
+        validateNestedContainerElements(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.nestedContainerElements, context, violations, path);
     }
 
     private static boolean isSupplementalContainerElement(ReflectionContainerElement containerElement) {
@@ -2695,84 +2472,84 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         for (ReflectionContainerElement containerElement : containerElements) {
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
-            for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
-                if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
-                    continue;
-                }
-                extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
-
-                    @Override
-                    public void value(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, false, value);
-                    }
-
-                    @Override
-                    public void iterableValue(String nodeName, Object value) {
-                        validateContainerValue(nodeName, null, null, true, value);
-                    }
-
-                    @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
-                        validateContainerValue(nodeName, null, index, true, value);
-                    }
-
-                    @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
-                        validateContainerValue(nodeName, key, null, true, value);
-                    }
-
-                    private void validateContainerValue(String nodeName,
-                                                        @Nullable Object key,
-                                                        @Nullable Integer index,
-                                                        boolean iterable,
-                                                        @Nullable Object value) {
-                        ReflectionContainerContext containerContext = new ReflectionContainerContext(
-                            nodeName,
-                            iterable,
-                            key,
-                            index,
-                            containerType,
-                            valueExtractorDefinition.typeArgumentIndex()
-                        );
-                        jakarta.validation.Path path = pathFactory.apply(containerContext);
-                        validateConstraints(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            value,
-                            containerElement.type,
-                            containerElement.constraints,
-                            context,
-                            violations,
-                            path
-                        );
-                        if (containerElement.cascaded && value != null) {
-                            validateCascadedValue(
-                                rootBean,
-                                rootBeanClass,
-                                value,
-                                value,
-                                convertGroups(context, containerElement.groupConversions),
-                                violations,
-                                new ReflectionCascadedContainerElementPath(pathFactory.apply(new ReflectionContainerContext(null, false, null, null, containerType, null)), containerContext)
-                            );
-                        }
-                        validateNestedContainerElements(
-                            rootBean,
-                            rootBeanClass,
-                            leafBean,
-                            value,
-                            containerElement.type,
-                            containerElement.nestedContainerElements,
-                            context,
-                            violations,
-                            path
-                        );
-                    }
-                });
-            }
+            extractContainerValues(
+                containerType,
+                containerType,
+                containerValue,
+                containerElement,
+                (containerContext, value) -> validateExecutableContainerValue(
+                    rootBean,
+                    rootBeanClass,
+                    leafBean,
+                    containerType,
+                    containerElement,
+                    context,
+                    violations,
+                    pathFactory,
+                    containerContext,
+                    value
+                )
+            );
         }
+    }
+
+    private <T> void validateExecutableContainerValue(@Nullable T rootBean,
+                                                      @Nullable Class<?> rootBeanClass,
+                                                      @Nullable Object leafBean,
+                                                      Class<?> containerType,
+                                                      ReflectionContainerElement containerElement,
+                                                      BeanValidationContext context,
+                                                      Set<ConstraintViolation<T>> violations,
+                                                      Function<ReflectionContainerContext, jakarta.validation.Path> pathFactory,
+                                                      ReflectionContainerContext containerContext,
+                                                      @Nullable Object value) {
+        jakarta.validation.Path path = pathFactory.apply(containerContext);
+        validateConstraints(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.constraints, context, violations, path);
+        if (containerElement.cascaded && value != null) {
+            validateCascadedValue(
+                rootBean,
+                rootBeanClass,
+                value,
+                value,
+                convertGroups(context, containerElement.groupConversions),
+                violations,
+                new ReflectionCascadedContainerElementPath(pathFactory.apply(new ReflectionContainerContext(null, false, null, null, containerType, null)), containerContext)
+            );
+        }
+        validateNestedContainerElements(rootBean, rootBeanClass, leafBean, value, containerElement.type, containerElement.nestedContainerElements, context, violations, path);
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean extractContainerValues(Class<?> extractorLookupType,
+                                           Class<?> contextContainerType,
+                                           Object containerValue,
+                                           ReflectionContainerElement containerElement,
+                                           ContainerValueConsumer consumer) {
+        boolean foundExtractor = false;
+        for (ValueExtractorDefinition<Object> valueExtractorDefinition : reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) extractorLookupType)) {
+            if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
+                continue;
+            }
+            foundExtractor = true;
+            extractValues(valueExtractorDefinition, containerValue, valueReceiver((nodeName, key, index, iterable, value) -> {
+                ReflectionContainerContext containerContext = new ReflectionContainerContext(
+                    nodeName,
+                    iterable,
+                    key,
+                    index,
+                    contextContainerType,
+                    valueExtractorDefinition.typeArgumentIndex()
+                );
+                consumer.accept(containerContext, value);
+            }));
+        }
+        return foundExtractor;
+    }
+
+    @FunctionalInterface
+    private interface ContainerValueConsumer {
+
+        void accept(ReflectionContainerContext containerContext, @Nullable Object value);
     }
 
     private <T> void validateContainerCascadedValue(@Nullable T rootBean,
@@ -3030,75 +2807,46 @@ public final class ReflectionValidator extends DefaultValidator {
         Set<String> cascadedProperties = new LinkedHashSet<>();
         for (List<ReflectionProperty> properties : metadata.properties.values()) {
             for (ReflectionProperty property : properties) {
-                if (!isReachable(value, property, rootBeanClass, beanPath)) {
-                    continue;
-                }
-                Object propertyValue = property.read(value);
-                jakarta.validation.Path propertyPath = new ReflectionAppendedPropertyPath(beanPath, property.name);
-                validateConstraints(
-                    rootBean,
-                    rootBeanClass,
-                    value,
-                    propertyValue,
-                    property.type,
-                    property.constraints,
-                    context,
-                    violations,
-                    propertyPath
-                );
-                validateContainerElements(rootBean, rootBeanClass, value, property, propertyValue, context, violations, false, propertyPath);
-                if (propertyValue != null
-                    && property.isCascaded()
-                    && cascadedProperties.add(property.name)
-                    && isCascadable(value, property, rootBeanClass, beanPath)) {
-                    validateCascadedValueOrContainer(
-                        rootBean,
-                        rootBeanClass,
-                        propertyValue,
-                        propertyValue,
-                        property.type,
-                        convertGroups(context, property.groupConversions),
-                        violations,
-                        propertyPath,
-                        validatedObjects
-                    );
-                }
+                validateCascadedProperty(rootBean, rootBeanClass, value, property, context, convertGroups(context, property.groupConversions), violations, beanPath, cascadedProperties, validatedObjects);
             }
         }
         for (ReflectionProperty property : providerOnlyProperties(value.getClass(), metadata.properties.keySet())) {
-            if (!isReachable(value, property, rootBeanClass, beanPath)) {
-                continue;
-            }
-            Object propertyValue = property.read(value);
-            jakarta.validation.Path propertyPath = new ReflectionAppendedPropertyPath(beanPath, property.name);
-            validateConstraints(
+            validateCascadedProperty(rootBean, rootBeanClass, value, property, context, context, violations, beanPath, cascadedProperties, validatedObjects);
+        }
+    }
+
+    private <T> void validateCascadedProperty(@Nullable T rootBean,
+                                              @Nullable Class<?> rootBeanClass,
+                                              Object bean,
+                                              ReflectionProperty property,
+                                              BeanValidationContext context,
+                                              BeanValidationContext cascadedContext,
+                                              Set<ConstraintViolation<T>> violations,
+                                              jakarta.validation.Path beanPath,
+                                              Set<String> cascadedProperties,
+                                              Set<Object> validatedObjects) {
+        if (!isReachable(bean, property, rootBeanClass, beanPath)) {
+            return;
+        }
+        Object propertyValue = property.read(bean);
+        jakarta.validation.Path propertyPath = new ReflectionAppendedPropertyPath(beanPath, property.name);
+        validateConstraints(rootBean, rootBeanClass, bean, propertyValue, property.type, property.constraints, context, violations, propertyPath);
+        validateContainerElements(rootBean, rootBeanClass, bean, property, propertyValue, context, violations, false, propertyPath);
+        if (propertyValue != null
+            && property.isCascaded()
+            && cascadedProperties.add(property.name)
+            && isCascadable(bean, property, rootBeanClass, beanPath)) {
+            validateCascadedValueOrContainer(
                 rootBean,
                 rootBeanClass,
-                value,
+                propertyValue,
                 propertyValue,
                 property.type,
-                property.constraints,
-                context,
+                cascadedContext,
                 violations,
-                propertyPath
+                propertyPath,
+                validatedObjects
             );
-            validateContainerElements(rootBean, rootBeanClass, value, property, propertyValue, context, violations, false, propertyPath);
-            if (propertyValue != null
-                && property.isCascaded()
-                && cascadedProperties.add(property.name)
-                && isCascadable(value, property, rootBeanClass, beanPath)) {
-                validateCascadedValueOrContainer(
-                    rootBean,
-                    rootBeanClass,
-                    propertyValue,
-                    propertyValue,
-                    property.type,
-                    context,
-                    violations,
-                    propertyPath,
-                    validatedObjects
-                );
-            }
         }
     }
 
@@ -3128,17 +2876,40 @@ public final class ReflectionValidator extends DefaultValidator {
                                        boolean resolveMostSpecific) {
         List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
         if (resolveMostSpecific) {
-            Class<? extends jakarta.validation.ConstraintValidator<?, ?>> validatorClass = ReflectionConstraintValidatorResolution.resolve(
-                constraint.getType(),
-                validatorClasses,
-                valueType,
-                constraintTarget
-            );
-            validatorClasses = validatorClass == null ? List.of() : List.of(validatorClass);
+            validatorClasses = mostSpecificValidatorClass(constraint, valueType, constraintTarget, validatorClasses);
         }
+        Boolean jakartaResult = validateJakartaConstraintValidators(constraint, value, valueType, validatorContext, constraintTarget, validatorClasses);
+        if (jakartaResult != null) {
+            return jakartaResult;
+        }
+        Boolean micronautResult = validateMicronautConstraintValidator(constraint, value, valueType, validatorContext);
+        return micronautResult == null ? validateMinMaxCharSequence(constraint, value, valueType) : micronautResult;
+    }
+
+    private static List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> mostSpecificValidatorClass(
+        ReflectionConstraintDescriptor<?> constraint,
+        Class<?> valueType,
+        ConstraintTarget constraintTarget,
+        List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> validatorClasses) {
+        Class<? extends jakarta.validation.ConstraintValidator<?, ?>> validatorClass = ReflectionConstraintValidatorResolution.resolve(
+            constraint.getType(),
+            validatorClasses,
+            valueType,
+            constraintTarget
+        );
+        return validatorClass == null ? List.of() : List.of(validatorClass);
+    }
+
+    private @Nullable Boolean validateJakartaConstraintValidators(
+        ReflectionConstraintDescriptor constraint,
+        @Nullable Object value,
+        Class<?> valueType,
+        ReflectionConstraintValidatorContext validatorContext,
+        ConstraintTarget constraintTarget,
+        List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> validatorClasses) {
+        jakarta.validation.ConstraintValidatorFactory constraintValidatorFactory = configuration.getConstraintValidatorFactory();
         for (Object validatorClass : validatorClasses) {
             Class<? extends jakarta.validation.ConstraintValidator> validatorType = (Class<? extends jakarta.validation.ConstraintValidator>) validatorClass;
-            jakarta.validation.ConstraintValidatorFactory constraintValidatorFactory = configuration.getConstraintValidatorFactory();
             jakarta.validation.ConstraintValidator validator = constraintValidatorFactory instanceof InternalConstraintValidatorFactory internalFactory
                 ? internalFactory.getInstance(validatorType, valueType, constraintTarget)
                 : constraintValidatorFactory.getInstance(validatorType);
@@ -3156,6 +2927,13 @@ public final class ReflectionValidator extends DefaultValidator {
                 constraintValidatorFactory.releaseInstance(validator);
             }
         }
+        return null;
+    }
+
+    private @Nullable Boolean validateMicronautConstraintValidator(ReflectionConstraintDescriptor constraint,
+                                                                  @Nullable Object value,
+                                                                  Class<?> valueType,
+                                                                  ReflectionConstraintValidatorContext validatorContext) {
         Optional<ConstraintValidator<Annotation, Object>> validator = (Optional) configuration.getConstraintValidatorRegistry()
             .findConstraintValidator(constraint.getType(), ReflectionUtils.getWrapperType(valueType));
         if (validator.isPresent()) {
@@ -3166,10 +2944,6 @@ public final class ReflectionValidator extends DefaultValidator {
             } catch (RuntimeException e) {
                 throw new ValidationException("Cannot validate constraint " + constraint.getType().getName(), e);
             }
-        }
-        Boolean minMaxResult = validateMinMaxCharSequence(constraint, value, valueType);
-        if (minMaxResult != null) {
-            return minMaxResult;
         }
         return null;
     }
@@ -4522,49 +4296,63 @@ public final class ReflectionValidator extends DefaultValidator {
             Map<String, List<ReflectionProperty>> properties = new LinkedHashMap<>();
             for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
                 Class<?> implicitGroup = current.isInterface() ? null : current;
-                for (Field field : current.getDeclaredFields()) {
-                    if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
-                        continue;
-                    }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, implicitGroup, metadataProviders);
-                    List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
-                    if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
-                        addProperty(properties, new ReflectionProperty(
-                            field.getName(),
-                            field.getType(),
-                            field,
-                            constraints,
-                            groupConversionsFor(field, field.getAnnotatedType()),
-                            containerElements
-                        ));
-                    }
-                }
-                for (Method method : current.getDeclaredMethods()) {
-                    if (method.getParameterCount() != 0 || method.getReturnType() == Void.TYPE || java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
-                        continue;
-                    }
-                    String propertyName = propertyName(method);
-                    if (propertyName == null) {
-                        continue;
-                    }
-                    List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup, metadataProviders);
-                    List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
-                    if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
-                        addProperty(properties, new ReflectionProperty(
-                            propertyName,
-                            method.getReturnType(),
-                            method,
-                            constraints,
-                            groupConversionsFor(method, method.getAnnotatedReturnType()),
-                            containerElements
-                        ));
-                    }
-                }
+                collectClassFieldProperties(current, implicitGroup, metadataProviders, properties);
+                collectClassMethodProperties(current, implicitGroup, metadataProviders, properties);
             }
             collectInterfaceProperties(beanType, properties, new LinkedHashSet<>());
             List<ReflectionConstraintDescriptor<?>> constraints = new ArrayList<>();
             collectTypeConstraints(beanType, constraints, new LinkedHashSet<>());
             return new ReflectionBeanMetadata(beanType, constraints, properties);
+        }
+
+        private static void collectClassFieldProperties(Class<?> type,
+                                                        @Nullable Class<?> implicitGroup,
+                                                        List<ValidationMetadataProvider> metadataProviders,
+                                                        Map<String, List<ReflectionProperty>> properties) {
+            for (Field field : type.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(field, implicitGroup, metadataProviders);
+                List<ReflectionContainerElement> containerElements = containerElementsFor(field.getAnnotatedType());
+                if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(field)) {
+                    addProperty(properties, new ReflectionProperty(
+                        field.getName(),
+                        field.getType(),
+                        field,
+                        constraints,
+                        groupConversionsFor(field, field.getAnnotatedType()),
+                        containerElements
+                    ));
+                }
+            }
+        }
+
+        private static void collectClassMethodProperties(Class<?> type,
+                                                         @Nullable Class<?> implicitGroup,
+                                                         List<ValidationMetadataProvider> metadataProviders,
+                                                         Map<String, List<ReflectionProperty>> properties) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (method.getParameterCount() != 0 || method.getReturnType() == Void.TYPE || java.lang.reflect.Modifier.isStatic(method.getModifiers())) {
+                    continue;
+                }
+                String propertyName = propertyName(method);
+                if (propertyName == null) {
+                    continue;
+                }
+                List<ReflectionConstraintDescriptor<?>> constraints = constraintsFor(method, implicitGroup, metadataProviders);
+                List<ReflectionContainerElement> containerElements = containerElementsFor(method.getAnnotatedReturnType());
+                if (!constraints.isEmpty() || !containerElements.isEmpty() || isCascaded(method)) {
+                    addProperty(properties, new ReflectionProperty(
+                        propertyName,
+                        method.getReturnType(),
+                        method,
+                        constraints,
+                        groupConversionsFor(method, method.getAnnotatedReturnType()),
+                        containerElements
+                    ));
+                }
+            }
         }
 
         private static void addProperty(Map<String, List<ReflectionProperty>> properties, ReflectionProperty property) {
@@ -4979,6 +4767,17 @@ public final class ReflectionValidator extends DefaultValidator {
 
     private static final class ReflectionConstraintDescriptor<A extends Annotation> implements ConstraintDescriptor<A> {
 
+        private static final Map<Class<?>, Class<?>> PRIMITIVE_WRAPPERS = Map.of(
+            int.class, Integer.class,
+            long.class, Long.class,
+            boolean.class, Boolean.class,
+            byte.class, Byte.class,
+            short.class, Short.class,
+            float.class, Float.class,
+            double.class, Double.class,
+            char.class, Character.class
+        );
+
         private final A annotation;
         private final Class<A> type;
         private final Set<Class<?>> groups;
@@ -5350,14 +5149,7 @@ public final class ReflectionValidator extends DefaultValidator {
             if (!memberType.isPrimitive()) {
                 return memberType.isAssignableFrom(valueType);
             }
-            return (memberType == int.class && valueType == Integer.class)
-                || (memberType == long.class && valueType == Long.class)
-                || (memberType == boolean.class && valueType == Boolean.class)
-                || (memberType == byte.class && valueType == Byte.class)
-                || (memberType == short.class && valueType == Short.class)
-                || (memberType == float.class && valueType == Float.class)
-                || (memberType == double.class && valueType == Double.class)
-                || (memberType == char.class && valueType == Character.class);
+            return PRIMITIVE_WRAPPERS.get(memberType) == valueType;
         }
 
         @SuppressWarnings("unchecked")
@@ -5489,6 +5281,59 @@ public final class ReflectionValidator extends DefaultValidator {
         @Override
         public Object[] getExecutableParameters() {
             return executableParameters;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (!(object instanceof ReflectionConstraintViolation<?> other)) {
+                return false;
+            }
+            return Objects.equals(rootBean, other.rootBean)
+                && Objects.equals(rootBeanClass, other.rootBeanClass)
+                && Objects.equals(leafBean, other.leafBean)
+                && Objects.equals(invalidValue, other.invalidValue)
+                && Objects.equals(message, other.message)
+                && Objects.equals(messageTemplate, other.messageTemplate)
+                && Objects.equals(propertyPath, other.propertyPath)
+                && Objects.equals(constraintDescriptor, other.constraintDescriptor)
+                && Arrays.equals(executableParameters, other.executableParameters)
+                && Objects.equals(executableReturnValue, other.executableReturnValue);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(
+                rootBean,
+                rootBeanClass,
+                leafBean,
+                invalidValue,
+                message,
+                messageTemplate,
+                propertyPath,
+                constraintDescriptor,
+                executableReturnValue
+            );
+            result = 31 * result + Arrays.hashCode(executableParameters);
+            return result;
+        }
+
+        @Override
+        public String toString() {
+            return "ReflectionConstraintViolation[" +
+                "rootBean=" + rootBean +
+                ", rootBeanClass=" + rootBeanClass +
+                ", leafBean=" + leafBean +
+                ", invalidValue=" + invalidValue +
+                ", message=" + message +
+                ", messageTemplate=" + messageTemplate +
+                ", propertyPath=" + propertyPath +
+                ", constraintDescriptor=" + constraintDescriptor +
+                ", executableParameters=" + Arrays.toString(executableParameters) +
+                ", executableReturnValue=" + executableReturnValue +
+                ']';
         }
 
         @Override

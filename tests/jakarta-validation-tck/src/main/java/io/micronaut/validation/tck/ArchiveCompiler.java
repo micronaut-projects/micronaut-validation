@@ -94,57 +94,55 @@ final class ArchiveCompiler {
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
             if (path.startsWith(WEB_INF_CLASSES) && path.endsWith(".class")) {
-                String sourceFile = path.replace(WEB_INF_CLASSES, "")
-                    .replace(".class", ".java");
-
-                if (sourceFile.contains("$") && !sourceFile.endsWith("$Dollar.java")) {
-                    // skip nested classes
-                    //
-                    // special case for $Dollar, which is the only class in CDI TCK
-                    // whose name actually intentionally contains '$'
-                    //
-                    // this is crude, maybe there's a better way?
-                    continue;
-                }
-
-                Path sourceFilePath = resolveUnderRoot(deploymentDir.source, sourceFile.substring(1)); // sourceFile begins with `/`
-
-                Files.createDirectories(sourceFilePath.getParent()); // make sure the directory exists
-                try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
-                    if (in == null) {
-                        // This might be a non-inner class defined in another class
-                        continue;
-                    }
-                    Files.copy(in, sourceFilePath);
-                }
-
-                sourceFiles.add(sourceFilePath.toFile());
+                copySourceFile(path, sourceFiles);
             } else if (path.startsWith(WEB_INF_CLASSES)) {
-                if (entry.getValue().getAsset() == null) {
-                    continue;
-                }
-                String resourceFile = path.replace(WEB_INF_CLASSES, "");
-                if (resourceFile.isEmpty()) {
-                    continue;
-                }
-                Path resourceFilePath = resolveUnderRoot(deploymentDir.target, resourceFile.substring(1)); // resourceFile begins with `/`
-
-                Files.createDirectories(resourceFilePath.getParent());
-                try (InputStream in = entry.getValue().getAsset().openStream()) {
-                    Files.copy(in, resourceFilePath);
-                }
+                copyResourceFile(path, entry.getValue());
             } else if (path.startsWith("/WEB-INF/lib") && path.endsWith(".jar")) {
-                String jarFile = path.replace("/WEB-INF/lib", "");
-                Path jarFilePath = resolveUnderRoot(deploymentDir.lib, jarFile.substring(1)); // jarFile begins with `/`
-
-                Files.createDirectories(jarFilePath.getParent()); // make sure the directory exists
-                try (InputStream in = entry.getValue().getAsset().openStream()) {
-                    Files.copy(in, jarFilePath);
-                }
+                copyJarFile(path, entry.getValue());
             }
         }
 
         doCompile(sourceFiles, deploymentDir.target.toFile());
+    }
+
+    private void copySourceFile(String path, List<File> sourceFiles) throws ArchiveCompilerException, IOException {
+        String sourceFile = path.replace(WEB_INF_CLASSES, "")
+            .replace(".class", ".java");
+        if (sourceFile.contains("$") && !sourceFile.endsWith("$Dollar.java")) {
+            return;
+        }
+        Path sourceFilePath = resolveUnderRoot(deploymentDir.source, sourceFile.substring(1));
+        Files.createDirectories(sourceFilePath.getParent());
+        try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
+            if (in != null) {
+                Files.copy(in, sourceFilePath);
+                sourceFiles.add(sourceFilePath.toFile());
+            }
+        }
+    }
+
+    private void copyResourceFile(String path, Node node) throws ArchiveCompilerException, IOException {
+        if (node.getAsset() == null) {
+            return;
+        }
+        String resourceFile = path.replace(WEB_INF_CLASSES, "");
+        if (resourceFile.isEmpty()) {
+            return;
+        }
+        copyArchiveAsset(node, deploymentDir.target, resourceFile);
+    }
+
+    private void copyJarFile(String path, Node node) throws ArchiveCompilerException, IOException {
+        String jarFile = path.replace("/WEB-INF/lib", "");
+        copyArchiveAsset(node, deploymentDir.lib, jarFile);
+    }
+
+    private static void copyArchiveAsset(Node node, Path root, String archivePath) throws ArchiveCompilerException, IOException {
+        Path target = resolveUnderRoot(root, archivePath.substring(1));
+        Files.createDirectories(target.getParent());
+        try (InputStream in = node.getAsset().openStream()) {
+            Files.copy(in, target);
+        }
     }
 
     private void doCompile(Collection<File> testSources, File outputDir) throws ArchiveCompilationException, IOException {
