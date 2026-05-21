@@ -63,16 +63,19 @@ record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) 
     }
 
     @Override
+    @Nullable
     public Integer getIndex() {
         return containerContext.index();
     }
 
     @Override
+    @Nullable
     public Object getKey() {
         return containerContext.key();
     }
 
     @Override
+    @Nullable
     public String getName() {
         return null;
     }
@@ -88,6 +91,7 @@ record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) 
     }
 
     @Override
+    @Nullable
     public Integer getTypeArgumentIndex() {
         return containerContext.typeArgumentIndex();
     }
@@ -251,16 +255,19 @@ record ReflectionContainerElementNode(ReflectionContainerContext containerContex
     }
 
     @Override
+    @Nullable
     public Integer getIndex() {
         return containerContext.index();
     }
 
     @Override
+    @Nullable
     public Object getKey() {
         return containerContext.key();
     }
 
     @Override
+    @Nullable
     public String getName() {
         return containerContext.nodeName();
     }
@@ -276,12 +283,14 @@ record ReflectionContainerElementNode(ReflectionContainerContext containerContex
     }
 
     @Override
+    @Nullable
     public Integer getTypeArgumentIndex() {
         return containerContext.typeArgumentIndex();
     }
 
     @Override
     public String toString() {
-        return containerContext.nodeName();
+        String nodeName = containerContext.nodeName();
+        return nodeName == null ? "" : nodeName;
     }
 }

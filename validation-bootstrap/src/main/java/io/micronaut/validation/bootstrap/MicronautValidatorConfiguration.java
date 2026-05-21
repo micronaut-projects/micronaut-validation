@@ -616,11 +616,13 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     private final class DefaultBootstrapState implements BootstrapState {
 
         @Override
+        @Nullable
         public ValidationProviderResolver getValidationProviderResolver() {
             return bootstrapState == null ? null : bootstrapState.getValidationProviderResolver();
         }
 
         @Override
+        @Nullable
         public ValidationProviderResolver getDefaultValidationProviderResolver() {
             return bootstrapState == null ? null : bootstrapState.getDefaultValidationProviderResolver();
         }

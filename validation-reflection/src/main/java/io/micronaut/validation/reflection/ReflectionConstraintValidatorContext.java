@@ -470,6 +470,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
 
         @Override
+        @Nullable
         public String getName() {
             return name;
         }
@@ -480,11 +481,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
@@ -518,6 +521,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
 
         @Override
+        @Nullable
         public String getName() {
             return null;
         }
@@ -528,11 +532,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return index;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return key;
         }
@@ -543,11 +549,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
 
         @Override
+        @Nullable
         public Class<?> getContainerClass() {
             return containerClass;
         }
 
         @Override
+        @Nullable
         public Integer getTypeArgumentIndex() {
             return typeArgumentIndex;
         }

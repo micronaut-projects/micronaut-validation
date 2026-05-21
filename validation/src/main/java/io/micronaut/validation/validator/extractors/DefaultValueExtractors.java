@@ -58,7 +58,19 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
      * Default constructor.
      */
     public DefaultValueExtractors() {
-        this(null);
+        this((BeanContext) null);
+    }
+
+    /**
+     * Copy constructor used when a validator context needs an isolated mutable
+     * registry with the same extractor definitions as the factory configuration.
+     *
+     * @param source The source registry
+     * @since 5.1
+     */
+    public DefaultValueExtractors(DefaultValueExtractors source) {
+        copyValueExtractors(source.internalValueExtractors, internalValueExtractors);
+        copyValueExtractors(source.localValueExtractors, localValueExtractors);
     }
 
     /**
@@ -131,6 +143,13 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         matchingValueExtractors.clear();
     }
 
+    private static void copyValueExtractors(Map<Class<?>, List<ValueExtractorDefinition<?>>> source,
+                                            Map<Class<?>, List<ValueExtractorDefinition<?>>> target) {
+        for (Map.Entry<Class<?>, List<ValueExtractorDefinition<?>>> entry : source.entrySet()) {
+            target.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+    }
+
     @SuppressWarnings("unchecked")
     @NonNull
     @Override
@@ -180,10 +199,10 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         }
     }
 
-    private static boolean isStrictlyMoreSpecific(ValueExtractorDefinition<?> candidate,
-                                                  ValueExtractorDefinition<?> other) {
-        return candidate != other
-            && other.containerType().isAssignableFrom(candidate.containerType());
+    private static boolean isStrictlyMoreSpecific(ValueExtractorDefinition<?> possibleMoreSpecific,
+                                                  ValueExtractorDefinition<?> possibleLessSpecific) {
+        return possibleMoreSpecific != possibleLessSpecific
+            && possibleLessSpecific.containerType().isAssignableFrom(possibleMoreSpecific.containerType());
     }
 
     private record ExtractorKey(Class<?> containerType, Integer typeArgumentIndex) {

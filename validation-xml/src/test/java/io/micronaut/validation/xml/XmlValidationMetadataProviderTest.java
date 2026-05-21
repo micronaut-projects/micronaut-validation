@@ -484,6 +484,7 @@ class XmlValidationMetadataProviderTest {
 final class XmlArrayParameterBean {
 
     void add(XmlArrayParameterBean... beans) {
+        // Method body is irrelevant; the test validates XML parameter metadata.
     }
 }
 

@@ -267,27 +267,39 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
-        if (hasDefaultGroup(ctx.definedGroups)) {
-            Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
-            if (classGroupSequence.length > 0) {
-                if (Arrays.stream(classGroupSequence).anyMatch(Default.class::equals)) {
-                    throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
-                }
-                if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
-                    throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
-                }
-                List<ValidationGroup> dest = new ArrayList<>();
-                for (Class<Object> group : classGroupSequence) {
-                    if (group == beanIntrospection.getBeanType()) {
-                        dest.add(new ValidationGroup(true, true, List.of(Default.class)));
-                    } else {
-                        findGroups(ctx, dest, List.of(group), new HashSet<>());
-                    }
-                }
-                return dest;
+        if (!hasDefaultGroup(ctx.definedGroups)) {
+            return findGroupSequences(ctx);
+        }
+        Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
+        if (classGroupSequence.length == 0) {
+            return findGroupSequences(ctx);
+        }
+        validateDefaultGroupSequence(beanIntrospection, classGroupSequence);
+        return expandDefaultGroupSequence(ctx, beanIntrospection, classGroupSequence);
+    }
+
+    private static void validateDefaultGroupSequence(BeanIntrospection<?> beanIntrospection,
+                                                     Class<Object>[] classGroupSequence) {
+        if (Arrays.stream(classGroupSequence).anyMatch(Default.class::equals)) {
+            throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+        }
+        if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
+            throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
+        }
+    }
+
+    private static List<ValidationGroup> expandDefaultGroupSequence(FindGroupContext ctx,
+                                                                    BeanIntrospection<?> beanIntrospection,
+                                                                    Class<Object>[] classGroupSequence) {
+        List<ValidationGroup> dest = new ArrayList<>();
+        for (Class<Object> group : classGroupSequence) {
+            if (group == beanIntrospection.getBeanType()) {
+                dest.add(new ValidationGroup(true, true, List.of(Default.class)));
+            } else {
+                findGroups(ctx, dest, List.of(group), new HashSet<>());
             }
         }
-        return findGroupSequences(ctx);
+        return dest;
     }
 
     public List<ValidationGroup> findGroupSequences() {

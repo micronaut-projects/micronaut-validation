@@ -20,6 +20,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
+import org.jspecify.annotations.Nullable;
 
 import java.util.StringJoiner;
 
@@ -89,8 +90,8 @@ record ReflectionViolationKey(
     }
 
     private static void appendContainerDetails(StringBuilder builder,
-                                               Class<?> containerClass,
-                                               Integer typeArgumentIndex) {
+                                               @Nullable Class<?> containerClass,
+                                               @Nullable Integer typeArgumentIndex) {
         builder.append(':')
             .append(containerClass == null ? null : containerClass.getName())
             .append(':')

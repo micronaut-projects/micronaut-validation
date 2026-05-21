@@ -60,6 +60,7 @@ import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.Array;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Field;
@@ -87,7 +88,16 @@ import java.util.stream.Collectors;
 @Internal
 public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
 
-    private static final Set<String> RESERVED_CONSTRAINT_ELEMENT_NAMES = Set.of("message", "groups", "payload");
+    private static final String ELEMENT_ANNOTATION = "annotation";
+    private static final String ELEMENT_FIELD = "field";
+    private static final String ELEMENT_GETTER = "getter";
+    private static final String ELEMENT_VALUE = "value";
+    private static final String ATTRIBUTE_IGNORE_ANNOTATIONS = "ignore-annotations";
+    private static final String ATTRIBUTE_MESSAGE = "message";
+    private static final String ATTRIBUTE_GROUPS = "groups";
+    private static final String ATTRIBUTE_PAYLOAD = "payload";
+    private static final String ATTRIBUTE_VALIDATION_APPLIES_TO = "validationAppliesTo";
+    private static final Set<String> RESERVED_CONSTRAINT_ELEMENT_NAMES = Set.of(ATTRIBUTE_MESSAGE, ATTRIBUTE_GROUPS, ATTRIBUTE_PAYLOAD);
     private static final Set<String> SUPPORTED_MAPPING_VERSIONS = Set.of("1.0", "1.1", "2.0", "3.0", "3.1");
     private static final Set<String> ROOT_ELEMENT_NAMES = Set.of("default-package", "bean", "constraint-definition");
 
@@ -224,7 +234,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (!(node instanceof Element definition) || !"constraint-definition".equals(localName(definition))) {
                 continue;
             }
-            String annotationName = resolveClassName(requireAttribute(definition, "annotation"), defaultPackage);
+            String annotationName = resolveClassName(requireAttribute(definition, ELEMENT_ANNOTATION), defaultPackage);
             Element validatedBy = child(definition, "validated-by");
             if (validatedBy == null) {
                 continue;
@@ -234,7 +244,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             NodeList validatorNodes = validatedBy.getChildNodes();
             for (int j = 0; j < validatorNodes.getLength(); j++) {
                 Node validatorNode = validatorNodes.item(j);
-                if (validatorNode instanceof Element value && "value".equals(localName(value))) {
+                if (validatorNode instanceof Element value && ELEMENT_VALUE.equals(localName(value))) {
                     validators.add(loadClass(resolveClassName(text(value), defaultPackage)));
                 }
             }
@@ -245,7 +255,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private void parseBean(Element bean, String defaultPackage) {
         Class<?> beanType = loadClass(resolveClassName(requireAttribute(bean, "class"), defaultPackage));
-        boolean beanAnnotationsIgnored = booleanAttribute(bean, "ignore-annotations", true);
+            boolean beanAnnotationsIgnored = booleanAttribute(bean, ATTRIBUTE_IGNORE_ANNOTATIONS, true);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
@@ -263,20 +273,20 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             String elementName = localName(element);
             switch (elementName) {
                 case "class" -> {
-                    classAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
+                    classAnnotationsIgnored = booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
                     parseGroupSequence(element, defaultPackage, classMetadata);
                     parseConstraints(element, defaultPackage, classMetadata);
                 }
-                case "field", "getter" -> {
+                case ELEMENT_FIELD, ELEMENT_GETTER -> {
                     String propertyName = requireAttribute(element, "name");
-                    java.lang.reflect.AnnotatedElement source = findPropertySource(beanType, elementName, propertyName);
+                    AnnotatedElement source = findPropertySource(beanType, elementName, propertyName);
                     if (source == null) {
                         throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
                     }
-                    if ("field".equals(elementName) && !configuredFields.add(propertyName)) {
+                    if (ELEMENT_FIELD.equals(elementName) && !configuredFields.add(propertyName)) {
                         throw new ValidationException("Field configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
                     }
-                    if ("getter".equals(elementName)) {
+                    if (ELEMENT_GETTER.equals(elementName)) {
                         if (!configuredGetters.add(propertyName)) {
                             throw new ValidationException("Getter configured more than once in validation XML: " + beanType.getName() + "." + propertyName);
                         }
@@ -294,7 +304,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                         propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
                     }
                     parseGroupConversions(element, defaultPackage, propertyMetadata);
-                    boolean propertyAnnotationsIgnored = booleanAttribute(element, "ignore-annotations", beanAnnotationsIgnored);
+                    boolean propertyAnnotationsIgnored = booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
                     Type propertyType = propertyGenericType(source);
                     properties.put(propertyName, new PropertyMapping(
                         propertyMetadata,
@@ -335,6 +345,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     }
                 }
                 default -> {
+                    // Root element validation rejects unsupported bean children before parsing.
                 }
             }
         }
@@ -343,14 +354,16 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
-    private static java.lang.reflect.AnnotatedElement findPropertySource(Class<?> beanType, String elementName, String propertyName) {
+    @Nullable
+    private static AnnotatedElement findPropertySource(Class<?> beanType, String elementName, String propertyName) {
         return switch (elementName) {
-            case "field" -> findField(beanType, propertyName);
-            case "getter" -> findGetter(beanType, propertyName);
+            case ELEMENT_FIELD -> findField(beanType, propertyName);
+            case ELEMENT_GETTER -> findGetter(beanType, propertyName);
             default -> null;
         };
     }
 
+    @Nullable
     private static Field findField(Class<?> beanType, String fieldName) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
@@ -363,6 +376,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return null;
     }
 
+    @Nullable
     private static Method findGetter(Class<?> beanType, String propertyName) {
         String suffix = Character.toUpperCase(propertyName.charAt(0)) + propertyName.substring(1);
         Method getter = findGetterMethod(beanType, "get" + suffix, false);
@@ -381,6 +395,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return methodNames;
     }
 
+    @Nullable
     private static Method findGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
@@ -417,6 +432,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return Object.class;
     }
 
+    @Nullable
     private static Constructor<?> findConstructor(Class<?> beanType, List<Class<?>> parameterTypes) {
         try {
             return beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new));
@@ -425,6 +441,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
+    @Nullable
     private static Method findMethod(Class<?> beanType, String methodName, List<Class<?>> parameterTypes) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
@@ -440,7 +457,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage, boolean beanAnnotationsIgnored) {
-        boolean executableAnnotationsIgnored = booleanAttribute(executable, "ignore-annotations", beanAnnotationsIgnored);
+        boolean executableAnnotationsIgnored = booleanAttribute(executable, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
         List<ParameterMapping> parameters = new ArrayList<>();
         ElementMapping crossParameter = ElementMapping.empty(executableAnnotationsIgnored);
         ElementMapping returnValue = ElementMapping.empty(executableAnnotationsIgnored);
@@ -458,7 +475,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parameters.add(new ParameterMapping(
                         parameterType,
                         parameterMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     ));
                 }
@@ -467,7 +484,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parseConstraints(element, defaultPackage, crossParameterMetadata);
                     crossParameter = new ElementMapping(
                         crossParameterMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     );
                 }
@@ -476,11 +493,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     parseElementMetadata(element, defaultPackage, returnValueMetadata);
                     returnValue = new ElementMapping(
                         returnValueMetadata,
-                        booleanAttribute(element, "ignore-annotations", executableAnnotationsIgnored),
+                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     );
                 }
                 default -> {
+                    // Executable child names are validated before parsing.
                 }
             }
         }
@@ -518,7 +536,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             if (!(node instanceof Element constraint) || !"constraint".equals(localName(constraint))) {
                 continue;
             }
-            String annotationName = resolveClassName(requireAttribute(constraint, "annotation"), defaultPackage);
+            String annotationName = resolveClassName(requireAttribute(constraint, ELEMENT_ANNOTATION), defaultPackage);
             Class<? extends Annotation> annotationType = (Class<? extends Annotation>) loadClass(annotationName);
             Map<CharSequence, Object> values = constraintValues(constraint, annotationType, defaultPackage);
             validateMandatoryAnnotationMembers(annotationType, values);
@@ -624,9 +642,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 continue;
             }
             switch (localName(element)) {
-                case "message" -> values.put("message", text(element));
-                case "groups" -> values.put("groups", classValues(element, defaultPackage));
-                case "payload" -> values.put("payload", classValues(element, defaultPackage));
+                case ATTRIBUTE_MESSAGE -> values.put(ATTRIBUTE_MESSAGE, text(element));
+                case ATTRIBUTE_GROUPS -> values.put(ATTRIBUTE_GROUPS, classValues(element, defaultPackage));
+                case ATTRIBUTE_PAYLOAD -> values.put(ATTRIBUTE_PAYLOAD, classValues(element, defaultPackage));
                 case "element" -> {
                     String name = requireAttribute(element, "name");
                     if (RESERVED_CONSTRAINT_ELEMENT_NAMES.contains(name)) {
@@ -696,7 +714,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 return Enum.valueOf((Class<? extends Enum>) targetType, value);
             }
             if (targetType.isAnnotation()) {
-                Element annotationElement = child(element, "annotation");
+                Element annotationElement = child(element, ELEMENT_ANNOTATION);
                 if (annotationElement == null) {
                     throw new ValidationException("Missing nested annotation value for " + targetType.getName());
                 }
@@ -712,7 +730,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private Object arrayValue(Class<?> componentType, Element element, String defaultPackage) {
-        List<Element> valueElements = children(element, componentType.isAnnotation() ? "annotation" : "value");
+        List<Element> valueElements = children(element, componentType.isAnnotation() ? ELEMENT_ANNOTATION : ELEMENT_VALUE);
         if (componentType.isAnnotation()) {
             AnnotationValue<?>[] values = valueElements.stream()
                 .map(value -> annotationValue((Class<? extends Annotation>) componentType, value, defaultPackage))
@@ -743,7 +761,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private Class<?>[] classValues(Element parent, String defaultPackage) {
         List<Class<?>> values = new ArrayList<>();
-        for (Element value : children(parent, "value")) {
+        for (Element value : children(parent, ELEMENT_VALUE)) {
             values.add(loadClass(resolveClassName(text(value), defaultPackage)));
         }
         return values.toArray(Class<?>[]::new);
@@ -779,6 +797,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return value;
     }
 
+    @Nullable
     private static Element child(Element parent, String name) {
         List<Element> children = children(parent, name);
         return children.isEmpty() ? null : children.get(0);
@@ -802,7 +821,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private static String singleValue(Element element) {
-        Element value = child(element, "value");
+        Element value = child(element, ELEMENT_VALUE);
         return value == null ? text(element) : text(value);
     }
 
@@ -974,7 +993,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
 
         @Override
-        public PropertyDescriptor getConstraintsForProperty(String propertyName) {
+        @Nullable
+        public PropertyDescriptor getConstraintsForProperty(@Nullable String propertyName) {
             if (propertyName == null) {
                 throw new IllegalArgumentException("Property name cannot be null");
             }
@@ -994,7 +1014,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
 
         @Override
-        public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+        @Nullable
+        public MethodDescriptor getConstraintsForMethod(@Nullable String methodName, Class<?>... parameterTypes) {
             return Optional.ofNullable(mapping.methods().get(new ExecutableKey(methodName, Arrays.asList(parameterTypes))))
                 .map(XmlMethodDescriptor::new)
                 .orElse(null);
@@ -1009,6 +1030,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
 
         @Override
+        @Nullable
         public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
             return Optional.ofNullable(mapping.constructors().get(new ExecutableKey(beanType.getSimpleName(), Arrays.asList(parameterTypes))))
                 .map(XmlConstructorDescriptor::new)
@@ -1408,24 +1430,25 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public String getMessageTemplate() {
-            return annotationValue.stringValue("message")
+            return annotationValue.stringValue(ATTRIBUTE_MESSAGE)
                 .orElseGet(() -> "{" + type.getName() + ".message}");
         }
 
         @Override
         public Set<Class<?>> getGroups() {
-            Class<?>[] groups = annotationValue.classValues("groups");
+            Class<?>[] groups = annotationValue.classValues(ATTRIBUTE_GROUPS);
             return groups.length == 0 ? Set.of(Default.class) : Set.of(groups);
         }
 
         @Override
         public Set<Class<? extends Payload>> getPayload() {
-            return Set.of((Class<? extends Payload>[]) annotationValue.classValues("payload"));
+            return Set.of((Class<? extends Payload>[]) annotationValue.classValues(ATTRIBUTE_PAYLOAD));
         }
 
         @Override
+        @Nullable
         public ConstraintTarget getValidationAppliesTo() {
-            return annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null);
+            return annotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(null);
         }
 
         @Override
@@ -1494,23 +1517,24 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public String getMessageTemplate() {
-            return (String) readMember(annotation, "message", "{" + type.getName() + ".message}");
+            return (String) readMember(annotation, ATTRIBUTE_MESSAGE, "{" + type.getName() + ".message}");
         }
 
         @Override
         public Set<Class<?>> getGroups() {
-            Class<?>[] groups = (Class<?>[]) readMember(annotation, "groups", new Class<?>[0]);
+            Class<?>[] groups = (Class<?>[]) readMember(annotation, ATTRIBUTE_GROUPS, new Class<?>[0]);
             return groups.length == 0 ? Set.of(Default.class) : Set.of(groups);
         }
 
         @Override
         public Set<Class<? extends Payload>> getPayload() {
-            return Set.of((Class<? extends Payload>[]) readMember(annotation, "payload", new Class<?>[0]));
+            return Set.of((Class<? extends Payload>[]) readMember(annotation, ATTRIBUTE_PAYLOAD, new Class<?>[0]));
         }
 
         @Override
+        @Nullable
         public ConstraintTarget getValidationAppliesTo() {
-            return (ConstraintTarget) readMember(annotation, "validationAppliesTo", null);
+            return (ConstraintTarget) readMember(annotation, ATTRIBUTE_VALIDATION_APPLIES_TO, null);
         }
 
         @Override

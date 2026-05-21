@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.order.Ordered;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.metadata.BeanDescriptor;
@@ -26,11 +25,17 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Optional provider of Jakarta Validation bean metadata.
+ * Service provider interface for optional Jakarta Validation bean metadata.
+ * <p>
+ * Implementations are ordered and may contribute descriptors, synthetic
+ * annotation metadata, annotation-ignore decisions, or replacement validator
+ * class lists. This SPI is primarily used by optional compliance modules such
+ * as XML and reflection support, but it is part of the public configuration
+ * contract because {@link io.micronaut.validation.validator.ValidatorConfiguration}
+ * exposes configured providers.
  *
  * @since 5.1
  */
-@Internal
 public interface ValidationMetadataProvider extends Ordered {
 
     /**

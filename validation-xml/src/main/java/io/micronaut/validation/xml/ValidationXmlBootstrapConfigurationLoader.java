@@ -67,6 +67,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
      * Creates a validation XML bootstrap configuration loader.
      */
     public ValidationXmlBootstrapConfigurationLoader() {
+        // Public no-arg constructor required by ServiceLoader.
     }
 
     @Override
@@ -134,6 +135,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                         executableTypes.addAll(executableTypes(element));
                     }
                     default -> {
+                        // validateRootElements rejects unknown elements before this switch.
                     }
                 }
             }
@@ -189,7 +191,12 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
             for (int j = 0; j < typeNodes.getLength(); j++) {
                 Node typeNode = typeNodes.item(j);
                 if (typeNode instanceof Element typeElement && "executable-type".equals(localName(typeElement))) {
-                    executableTypes.add(ExecutableType.valueOf(text(typeElement).replace('-', '_').toUpperCase(Locale.ROOT)));
+                    String executableType = text(typeElement);
+                    try {
+                        executableTypes.add(ExecutableType.valueOf(executableType.replace('-', '_').toUpperCase(Locale.ROOT)));
+                    } catch (IllegalArgumentException e) {
+                        throw new ValidationException("Invalid executable type in validation.xml: " + executableType, e);
+                    }
                 }
             }
         }

@@ -19,6 +19,7 @@ import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.ConvertGroup;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.AnnotatedParameterizedType;
@@ -208,6 +209,7 @@ final class ReflectionGroupConversions {
         }
     }
 
+    @Nullable
     private static Method findDeclaredMethod(Class<?> type, Method method) {
         try {
             return type.getDeclaredMethod(method.getName(), method.getParameterTypes());

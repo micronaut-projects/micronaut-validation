@@ -18,6 +18,7 @@ package io.micronaut.validation.reflection;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.Valid;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
@@ -249,6 +250,7 @@ final class ReflectionMethodDeclarations {
         }
     }
 
+    @Nullable
     private static Method findDeclaredMethod(Class<?> type, Method method) {
         try {
             return type.getDeclaredMethod(method.getName(), method.getParameterTypes());

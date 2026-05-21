@@ -18,9 +18,9 @@ package io.micronaut.validation.reflection;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
-import jakarta.validation.Payload;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
@@ -95,11 +95,6 @@ final class ReflectionConstraintDefinitions {
         Object defaultValue = payload.getDefaultValue();
         if (!(defaultValue instanceof Class<?>[] payloadDefaults) || payloadDefaults.length != 0) {
             throw new ConstraintDefinitionException("Constraint payload member must default to an empty array: " + annotationType.getName());
-        }
-        for (Class<?> payloadType : payloadDefaults) {
-            if (!Payload.class.isAssignableFrom(payloadType)) {
-                throw new ConstraintDefinitionException("Constraint payload defaults must implement Payload: " + annotationType.getName());
-            }
         }
     }
 
@@ -210,6 +205,7 @@ final class ReflectionConstraintDefinitions {
         return member;
     }
 
+    @Nullable
     private static Method optionalMember(Class<? extends Annotation> annotationType, String name) {
         try {
             return annotationType.getDeclaredMethod(name);
