@@ -1998,7 +1998,7 @@ public class ReflectionValidator extends DefaultValidator {
         if (validatePropertyConstraints) {
             validatePropertyConstraints(rootBean, leafBean, property, value, context, violations, supplementIntrospection, propertyPath);
         }
-        validateContainerElements(rootBean, rootBean.getClass(), leafBean, property, value, context, violations, false, null);
+        validateContainerElements(rootBean, rootBean.getClass(), leafBean, property, value, context, violations, shouldSupplementContainerElements(property, supplementIntrospection), null);
         if (validateCascaded
             && value != null
             && property.isCascaded()
@@ -2650,6 +2650,10 @@ public class ReflectionValidator extends DefaultValidator {
             || containerElement.constraints.stream()
                 .anyMatch(constraint -> requiresReflectionValidation(constraint, containerElement.type))
             || containerElement.nestedContainerElements.stream().anyMatch(ReflectionValidator::isSupplementalContainerElement);
+    }
+
+    private static boolean shouldSupplementContainerElements(ReflectionProperty property, boolean supplementIntrospection) {
+        return supplementIntrospection && property.elementType() == ElementType.FIELD;
     }
 
     private static boolean isCascaded(Parameter parameter) {
