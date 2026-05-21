@@ -5407,51 +5407,11 @@ public final class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private static final class ReflectionBeanNode implements Path.BeanNode {
+    private static final class ReflectionBeanNode implements ReflectionPlainBeanPathNode {
 
         @Override
         public ElementKind getKind() {
             return ElementKind.BEAN;
-        }
-
-        @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public String getName() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
-        }
-
-        @Override
-        @Nullable
-        public Class<?> getContainerClass() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Integer getTypeArgumentIndex() {
-            return null;
         }
     }
 
@@ -5776,7 +5736,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private static final class ReflectionReturnValueNode implements Path.ReturnValueNode {
+    private static final class ReflectionReturnValueNode implements Path.ReturnValueNode, ReflectionPlainPathNode {
 
         @Override
         public String getName() {
@@ -5789,34 +5749,12 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
-        }
-
-        @Override
         public String toString() {
             return "<return value>";
         }
     }
 
-    private static final class ReflectionCrossParameterNode implements Path.CrossParameterNode {
+    private static final class ReflectionCrossParameterNode implements Path.CrossParameterNode, ReflectionPlainPathNode {
 
         @Override
         public String getName() {
@@ -5829,34 +5767,12 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
-        }
-
-        @Override
         public String toString() {
             return "<cross-parameter>";
         }
     }
 
-    private record ReflectionConstructorNode(Constructor<?> constructor) implements Path.ConstructorNode {
+    private record ReflectionConstructorNode(Constructor<?> constructor) implements Path.ConstructorNode, ReflectionPlainPathNode {
 
         @Override
         public String getName() {
@@ -5866,28 +5782,6 @@ public final class ReflectionValidator extends DefaultValidator {
         @Override
         public ElementKind getKind() {
             return ElementKind.CONSTRUCTOR;
-        }
-
-        @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
         }
 
         @Override
@@ -5901,7 +5795,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private record ReflectionMethodNode(Method method) implements Path.MethodNode {
+    private record ReflectionMethodNode(Method method) implements Path.MethodNode, ReflectionPlainPathNode {
 
         @Override
         public String getName() {
@@ -5911,28 +5805,6 @@ public final class ReflectionValidator extends DefaultValidator {
         @Override
         public ElementKind getKind() {
             return ElementKind.METHOD;
-        }
-
-        @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
         }
 
         @Override
@@ -5946,7 +5818,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
     }
 
-    private record ReflectionParameterNode(String name, int parameterIndex) implements Path.ParameterNode {
+    private record ReflectionParameterNode(String name, int parameterIndex) implements Path.ParameterNode, ReflectionPlainPathNode {
 
         @Override
         public ElementKind getKind() {
@@ -5954,30 +5826,8 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
         public String getName() {
             return name;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
         }
 
         @Override

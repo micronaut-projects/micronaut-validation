@@ -73,6 +73,11 @@ interface ReflectionContainerNode extends Path.Node {
     default Integer typeArgumentIndex() {
         return containerContext().typeArgumentIndex();
     }
+
+    @Override
+    default <T extends Path.Node> T as(Class<T> nodeType) {
+        return nodeType.cast(this);
+    }
 }
 
 /**
@@ -92,11 +97,6 @@ record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) 
     @Nullable
     public String getName() {
         return null;
-    }
-
-    @Override
-    public <T extends Path.Node> T as(Class<T> nodeType) {
-        return nodeType.cast(this);
     }
 
     @Override
@@ -267,11 +267,6 @@ record ReflectionContainerElementNode(ReflectionContainerContext containerContex
     @Nullable
     public String getName() {
         return containerContext.nodeName();
-    }
-
-    @Override
-    public <T extends Path.Node> T as(Class<T> nodeType) {
-        return nodeType.cast(this);
     }
 
     @Override
