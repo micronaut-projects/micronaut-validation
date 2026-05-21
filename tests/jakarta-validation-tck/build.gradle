@@ -116,6 +116,10 @@ def jakartaTck = tasks.register('jakartaTck', Test) {
     }
 }
 
+tasks.named("check") {
+    dependsOn(jakartaTck)
+}
+
 def writeFailingJakartaTckSuite = { File resultsDir, File suiteFile ->
     if (!resultsDir.directory) {
         throw new GradleException("No Jakarta TCK test results found at ${resultsDir}. Run discoverFailingJakartaTck first.")
