@@ -381,12 +381,6 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return List.of();
     }
 
-    private record ComposingAnnotation(
-        Annotation annotation,
-        int constraintIndex
-    ) {
-    }
-
     private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
         Map<String, Object> attributes = new LinkedHashMap<>();
         annotationValue.getValues().forEach((key, value) -> attributes.put(key.toString(), value));
@@ -422,5 +416,11 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             }
         }
         return defaultValues;
+    }
+
+    private record ComposingAnnotation(
+        Annotation annotation,
+        int constraintIndex
+    ) {
     }
 }

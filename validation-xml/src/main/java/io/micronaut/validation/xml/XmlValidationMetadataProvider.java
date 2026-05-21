@@ -1361,7 +1361,19 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         public A getAnnotation() {
-            return AnnotationMetadataSupport.buildAnnotation(type, annotationValue);
+            Class<A> annotationType = type;
+            ClassLoader classLoader = currentClassLoader();
+            if (type.getClassLoader() != classLoader) {
+                try {
+                    Class<?> currentType = Class.forName(type.getName(), false, classLoader);
+                    if (Annotation.class.isAssignableFrom(currentType)) {
+                        annotationType = (Class<A>) currentType;
+                    }
+                } catch (ClassNotFoundException e) {
+                    // Keep the type resolved from the XML metadata provider.
+                }
+            }
+            return AnnotationMetadataSupport.buildAnnotation(annotationType, annotationValue);
         }
 
         @Override

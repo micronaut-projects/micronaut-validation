@@ -17,7 +17,7 @@
         build/test-results/discoverFailingJakartaTck and should be refreshed with:
         ./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:discoverFailingJakartaTck
 
-        Current tracker shape: 1 classes, 1 methods,
+        Current tracker shape: 0 classes, 0 methods,
         and 0 class-level setup failures.
 
         Passing waves already removed from this tracker:
@@ -248,11 +248,6 @@
     -->
     <test name="Known Failing Jakarta TCK Tests">
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.DuplicateConfigurationTest">
-                <methods>
-                    <include name="testXmlConfiguredConstraintExposesCorrespondingAnnotationViaMetadata"/>
-                </methods>
-            </class>
         </classes>
     </test>
 </suite>

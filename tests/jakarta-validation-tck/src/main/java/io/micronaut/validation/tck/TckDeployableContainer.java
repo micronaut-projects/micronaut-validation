@@ -186,6 +186,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             registerDefaultValidatorBeans(applicationContext);
 
             testInstance = instantiateAndInjectFields(applicationContext, classLoader.loadClass(testJavaClass.getName()));
+            resetTckValidationProvider(classLoader);
 
             runningApplicationContext.set(applicationContext);
             APP.set(applicationContext);
@@ -566,12 +567,18 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 jndiValidatorFactory.close();
                 jndiValidatorFactory = null;
             }
+            ClassLoader classLoader = applicationClassLoader.get();
+            if (classLoader != null) {
+                resetTckValidationProvider(classLoader);
+            }
             ApplicationContext appContext = runningApplicationContext.get();
             if (appContext != null) {
                 Thread.currentThread().setContextClassLoader(runningApplicationContext.get().getClassLoader());
-                appContext.stop();
+                appContext.close();
             }
+            APP.remove();
             testInstance = null;
+            closeClassLoader(classLoader);
 
             DeploymentDir deploymentDir = this.deploymentDir.get();
             if (deploymentDir != null) {
@@ -579,6 +586,29 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             }
         } finally {
             Thread.currentThread().setContextClassLoader(old);
+        }
+    }
+
+    private static void resetTckValidationProvider(ClassLoader classLoader) {
+        try {
+            Class<?> testUtil = Class.forName("org.hibernate.beanvalidation.tck.util.TestUtil", false, classLoader);
+            Field provider = testUtil.getDeclaredField("validationProviderUnderTest");
+            provider.setAccessible(true);
+            provider.set(null, null);
+        } catch (ClassNotFoundException e) {
+            // Some deployments do not include the TCK TestUtil support class.
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot reset TCK validation provider cache", e);
+        }
+    }
+
+    private static void closeClassLoader(ClassLoader classLoader) {
+        if (classLoader instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception e) {
+                LOGGER.warn("Unable to close deployment classloader", e);
+            }
         }
     }
 
