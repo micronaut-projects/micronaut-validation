@@ -137,6 +137,29 @@ class XmlValidationMetadataProviderTest {
     }
 
     @Test
+    void rejectsConstraintMappingDoctype() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <!DOCTYPE constraint-mappings [
+                <!ENTITY xxe SYSTEM "file:///etc/passwd">
+            ]>
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <default-package>&xxe;</default-package>
+            </constraint-mappings>
+            """));
+    }
+
+    @Test
+    void rejectsConstraintMappingXInclude() {
+        assertThrows(ValidationException.class, () -> metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping"
+                xmlns:xi="http://www.w3.org/2001/XInclude"
+                version="3.1">
+                <xi:include href="file:///etc/passwd"/>
+            </constraint-mappings>
+            """));
+    }
+
+    @Test
     void parsesPropertyGroupConversions() {
         XmlValidationMetadataProvider provider = metadataProvider("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">

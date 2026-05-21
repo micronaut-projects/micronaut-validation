@@ -2,6 +2,8 @@
 
 Captured: 2026-05-15
 
+Last updated: 2026-05-21
+
 ## Summary
 
 Target Jakarta Validation 3.1 compliance through an opt-in Jakarta compliance stack, not by
@@ -116,3 +118,109 @@ behavior is provided by optional modules and a composed
 - If full compliance requires a breaking change that cannot be avoided with an
   additive design, defer that piece to a 6.0.x line instead of merging it into
   5.1.
+
+## Follow-Up Execution Plan
+
+Captured: 2026-05-21
+
+Run the remaining work as four focused commit waves: API/QA refinements,
+security hardening, TCK evidence, and user documentation. Keep
+`micronaut-validation` lightweight and reflection-free by default. Spec-heavy
+behavior stays in `validation-bootstrap`, `validation-reflection`,
+`validation-xml`, `validation-el`, or the aggregate `validation-jakarta`. New
+public API stays binary-compatible and uses `@since 5.1`; any unavoidable
+breaking change stops this track and becomes a 6.0.x decision.
+
+### Wave 1: API, QA, And Documentation Sweep
+
+- Minimize public API in implementation modules:
+  - make classes package-private unless external loading requires `public`;
+  - make classes `final` by default;
+  - use sealed types only where they clearly improve internal modeling without
+    widening API.
+- Mark all `validation-xml`, `validation-el`, and `validation-bootstrap` classes
+  as `@Internal` when they must remain public for ServiceLoader, reflective
+  optional loading, or cross-module access.
+- Review `validation-reflection` with the same surface-area rule: public only
+  when required, `@Internal` when public, final or sealed where suitable.
+- Sweep documentation over new code:
+  - add or improve class-level Javadoc explaining purpose, module role, and why
+    the type is internal;
+  - add method and constructor Javadoc for public or protected members;
+  - add concise comments only for non-obvious security, bootstrap, XML parsing,
+    metadata merge, or reflection fallback logic.
+- Remove avoidable duplication without broad rewrites:
+  - centralize secure XML parser setup in `validation-xml`;
+  - keep bootstrap/XML resource handling consistent;
+  - avoid growing `micronaut-validation`.
+
+### Wave 2: Security Hardening
+
+- Add traversal and denial-of-service focused tests:
+  - reject XML `DOCTYPE`, external entities, external DTD/schema access, and
+    XInclude for both `validation.xml` and constraint mapping XML;
+  - reject constraint mapping paths containing `..`, backslashes, URL schemes,
+    empty names, or filesystem-style traversal;
+  - continue accepting a single leading `/` as a classpath-root resource;
+  - harden TCK archive extraction and copying so archive entries normalize under
+    deployment temp directories.
+- Recheck core reflection usage and document accepted cases:
+  - `java.lang.reflect.Method` and `Constructor` API entrypoints are acceptable;
+  - annotation-instance member reads are acceptable;
+  - metadata discovery and reflective instantiation fallback must stay in
+    `validation-reflection`.
+
+### Wave 3: TCK Evidence
+
+- Align the evidence run with Jakarta Validation 3.1 TCK `3.1.1`, and record
+  distribution provenance plus checksum or signature metadata when available.
+- Add `.github/workflows/tck.yml` modeled on the ODI evidence workflow:
+  - `workflow_dispatch` first;
+  - JDK 25 only, matching this repo's current CI;
+  - run `:micronaut-tests:micronaut-jakarta-validation-tck:jakartaTck` with no
+    excludes;
+  - upload sanitized JUnit XML and an HTML/Markdown evidence bundle;
+  - publish immutable `tck-results/<workflow-run-id>/` and
+    `tck-results/latest/` pages to `gh-pages` only from `master`.
+- Add `.github/scripts/collect-jakarta-validation-tck-evidence.sh` to record:
+  - product/version/commit;
+  - Java runtime;
+  - TCK coordinates;
+  - distribution download provenance;
+  - sanitized test totals;
+  - links to retained artifacts.
+- Update `README.md` with the future stable TCK evidence URL after the workflow
+  and page structure exists.
+- Do not claim full upstream verification until the workflow has passed in the
+  upstream repo.
+
+### Wave 4: User Documentation
+
+- Add a new guide section under `src/main/docs/guide` and wire it into
+  `src/main/docs/guide/toc.yml`.
+- Document the module model:
+  - `micronaut-validation`: default lightweight compile-time/introspection
+    implementation;
+  - `micronaut-validation-bootstrap`: Jakarta `ValidationProvider` bootstrap;
+  - `micronaut-validation-reflection`: optional reflection fallback;
+  - `micronaut-validation-xml`: `META-INF/validation.xml` and constraint
+    mappings;
+  - `micronaut-validation-el`: Jakarta EL interpolation;
+  - `micronaut-validation-jakarta`: aggregate Jakarta-compliance dependency.
+- Update `quickStart.adoc` to replace stale "not fully compliant / use
+  Hibernate Validator" wording with the new opt-in path:
+  - use `micronaut-validation` for the lightweight default;
+  - add `micronaut-validation-jakarta` for the Jakarta-compliant stack.
+- Use Micronaut docs macros such as `dependency:` and avoid hand-written
+  dependency tables.
+
+### Verification And Commit Boundaries
+
+- Commit wave 1: API surface, `@Internal`, final/sealed, code Javadocs, and QA
+  structure refinements.
+- Commit wave 2: security hardening and tests.
+- Commit wave 3: TCK evidence workflow/script/README.
+- Commit wave 4: user documentation.
+- Final verification before handoff:
+  - `./gradlew --no-daemon check docs japiCmp`;
+  - `./gradlew --no-daemon :micronaut-tests:micronaut-jakarta-validation-tck:jakartaTck`.

@@ -369,12 +369,35 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static InputStream getConstraintMappingResource(ClassLoader classLoader, String mappingPath) {
-        String resourcePath = mappingPath.startsWith("/") ? mappingPath.substring(1) : mappingPath;
+        String resourcePath = normalizeClasspathResource(mappingPath);
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
         if (inputStream == null) {
             throw new ValidationException("Cannot read TCK constraint mapping resource: " + mappingPath);
         }
         return inputStream;
+    }
+
+    private static String normalizeClasspathResource(String mappingPath) {
+        String resourcePath = mappingPath == null ? "" : mappingPath.trim();
+        if (resourcePath.isEmpty()) {
+            throw new ValidationException("Invalid TCK constraint mapping resource path: path is empty");
+        }
+        if (resourcePath.startsWith("//")) {
+            throw new ValidationException("Invalid TCK constraint mapping resource path: " + mappingPath);
+        }
+        if (resourcePath.startsWith("/")) {
+            resourcePath = resourcePath.substring(1);
+        }
+        if (resourcePath.isEmpty() || resourcePath.endsWith("/") || resourcePath.contains("\\") || resourcePath.matches("^[A-Za-z][A-Za-z0-9+.-]*:.*")) {
+            throw new ValidationException("Invalid TCK constraint mapping resource path: " + mappingPath);
+        }
+        String[] segments = resourcePath.split("/", -1);
+        for (String segment : segments) {
+            if (segment.isEmpty() || ".".equals(segment) || "..".equals(segment)) {
+                throw new ValidationException("Invalid TCK constraint mapping resource path: " + mappingPath);
+            }
+        }
+        return resourcePath;
     }
 
     private static <T> Optional<T> resolveConfiguredBean(ApplicationContext applicationContext,

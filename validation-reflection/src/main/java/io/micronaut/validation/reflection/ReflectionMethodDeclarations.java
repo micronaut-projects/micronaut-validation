@@ -34,6 +34,11 @@ import java.util.Set;
 /**
  * Reflection-only Jakarta executable inheritance declaration checks.
  *
+ * <p>This helper mirrors declaration rules that are normally handled by
+ * compile-time metadata in the lightweight validator. Maintainers should keep it
+ * limited to the optional reflection module because it walks method hierarchies
+ * and reads annotation instances reflectively.</p>
+ *
  * @since 5.1
  */
 final class ReflectionMethodDeclarations {
@@ -41,6 +46,12 @@ final class ReflectionMethodDeclarations {
     private ReflectionMethodDeclarations() {
     }
 
+    /**
+     * Validates parameter constraint and cascade declarations for one reflected
+     * method against inherited declarations.
+     *
+     * @param method The method being included in reflected executable metadata
+     */
     static void validateParameterDeclarations(Method method) {
         List<Method> inheritedMethods = inheritedMethods(method);
         if (hasParameterConstraintsOrCascades(method) && !inheritedMethods.isEmpty()) {
@@ -51,6 +62,12 @@ final class ReflectionMethodDeclarations {
         }
     }
 
+    /**
+     * Validates return-value cascade declarations for one reflected method
+     * hierarchy.
+     *
+     * @param method The method being included in reflected executable metadata
+     */
     static void validateReturnValueDeclarations(Method method) {
         List<Method> inheritedMethods = inheritedMethods(method);
         long inheritedCascadedReturns = inheritedMethods.stream()
@@ -64,6 +81,13 @@ final class ReflectionMethodDeclarations {
         }
     }
 
+    /**
+     * Builds the method hierarchy inspected by reflective executable metadata.
+     *
+     * @param method The concrete method
+     * @return The concrete method followed by inherited declarations with the
+     * same signature
+     */
     static List<Method> hierarchy(Method method) {
         List<Method> methods = new ArrayList<>();
         methods.add(method);
@@ -71,10 +95,24 @@ final class ReflectionMethodDeclarations {
         return List.copyOf(methods);
     }
 
+    /**
+     * Checks whether any method declaration in the hierarchy cascades return
+     * value validation, including nested container element cascades.
+     *
+     * @param method The concrete method
+     * @return Whether the hierarchy contains a cascaded return value
+     */
     static boolean hasCascadedReturnValueInHierarchy(Method method) {
         return hierarchy(method).stream().anyMatch(ReflectionMethodDeclarations::hasCascadedReturnValue);
     }
 
+    /**
+     * Checks whether any method declaration in the hierarchy directly declares
+     * {@link Valid} on the return value.
+     *
+     * @param method The concrete method
+     * @return Whether the hierarchy has a direct return-value cascade marker
+     */
     static boolean hasDirectCascadedReturnValueInHierarchy(Method method) {
         return hierarchy(method).stream().anyMatch(hierarchyMethod -> hierarchyMethod.isAnnotationPresent(Valid.class));
     }

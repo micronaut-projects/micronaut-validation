@@ -54,6 +54,8 @@ public final class ReflectionConstraintValidatorFactory implements InternalConst
     private final Map<Class<?>, ConstraintValidatorEntry> validators = new ConcurrentHashMap<>();
 
     /**
+     * Creates a reflection fallback constraint validator factory.
+     *
      * @param beanContext The bean context
      */
     @Inject
@@ -61,6 +63,12 @@ public final class ReflectionConstraintValidatorFactory implements InternalConst
         this(new DefaultInternalConstraintValidatorFactory(beanContext));
     }
 
+    /**
+     * Creates a factory with an explicit delegate for package-local tests.
+     *
+     * @param delegate The generated metadata-aware factory to try before
+     * reflective instantiation
+     */
     ReflectionConstraintValidatorFactory(DefaultInternalConstraintValidatorFactory delegate) {
         this.delegate = delegate;
     }

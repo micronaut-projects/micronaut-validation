@@ -88,7 +88,7 @@ final class ArchiveCompiler {
         }
     }
 
-    private void compileWar() throws ArchiveCompilationException, IOException {
+    private void compileWar() throws ArchiveCompilationException, ArchiveCompilerException, IOException {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
@@ -106,7 +106,7 @@ final class ArchiveCompiler {
                     continue;
                 }
 
-                Path sourceFilePath = deploymentDir.source.resolve(sourceFile.substring(1)); // sourceFile begins with `/`
+                Path sourceFilePath = resolveUnderRoot(deploymentDir.source, sourceFile.substring(1)); // sourceFile begins with `/`
 
                 Files.createDirectories(sourceFilePath.getParent()); // make sure the directory exists
                 try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
@@ -126,7 +126,7 @@ final class ArchiveCompiler {
                 if (resourceFile.isEmpty()) {
                     continue;
                 }
-                Path resourceFilePath = deploymentDir.target.resolve(resourceFile.substring(1)); // resourceFile begins with `/`
+                Path resourceFilePath = resolveUnderRoot(deploymentDir.target, resourceFile.substring(1)); // resourceFile begins with `/`
 
                 Files.createDirectories(resourceFilePath.getParent());
                 try (InputStream in = entry.getValue().getAsset().openStream()) {
@@ -134,7 +134,7 @@ final class ArchiveCompiler {
                 }
             } else if (path.startsWith("/WEB-INF/lib") && path.endsWith(".jar")) {
                 String jarFile = path.replace("/WEB-INF/lib", "");
-                Path jarFilePath = deploymentDir.lib.resolve(jarFile.substring(1)); // jarFile begins with `/`
+                Path jarFilePath = resolveUnderRoot(deploymentDir.lib, jarFile.substring(1)); // jarFile begins with `/`
 
                 Files.createDirectories(jarFilePath.getParent()); // make sure the directory exists
                 try (InputStream in = entry.getValue().getAsset().openStream()) {
@@ -199,6 +199,18 @@ final class ArchiveCompiler {
             return;
         }
         classpath.addAll(Arrays.asList(pathList.split(File.pathSeparator)));
+    }
+
+    static Path resolveUnderRoot(Path root, String relativePath) throws ArchiveCompilerException {
+        if (relativePath.isBlank() || relativePath.contains("\\") || relativePath.indexOf(':') > -1) {
+            throw new ArchiveCompilerException("Unsafe archive entry path: " + relativePath);
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path resolved = normalizedRoot.resolve(relativePath).normalize();
+        if (!resolved.startsWith(normalizedRoot)) {
+            throw new ArchiveCompilerException("Archive entry escapes deployment directory: " + relativePath);
+        }
+        return resolved;
     }
 
     private Path applicationClass(Collection<File> testSources) throws IOException {

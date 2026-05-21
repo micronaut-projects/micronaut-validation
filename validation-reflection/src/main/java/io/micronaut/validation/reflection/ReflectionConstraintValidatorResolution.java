@@ -30,6 +30,11 @@ import java.util.List;
 /**
  * Reflection-only Jakarta constraint validator resolution.
  *
+ * <p>This class implements the specification's runtime validator selection
+ * rules for constraints discovered without Micronaut metadata. Keep it isolated
+ * to this module so the default validator does not need generic signature
+ * reflection.</p>
+ *
  * @since 5.1
  */
 final class ReflectionConstraintValidatorResolution {
@@ -37,6 +42,19 @@ final class ReflectionConstraintValidatorResolution {
     private ReflectionConstraintValidatorResolution() {
     }
 
+    /**
+     * Resolves the single most-specific validator class for a reflected
+     * constraint and validated type.
+     *
+     * @param constraintType The constraint annotation type, used for diagnostics
+     * @param validatorTypes Candidate validator classes declared by the
+     * constraint or XML metadata
+     * @param valueType The runtime value type being validated
+     * @param constraintTarget Whether generic or cross-parameter validation is
+     * being resolved
+     * @return The selected validator class, or {@code null} when no candidate
+     * applies
+     */
     @Nullable
     static Class<? extends jakarta.validation.ConstraintValidator<?, ?>> resolve(
         Class<?> constraintType,

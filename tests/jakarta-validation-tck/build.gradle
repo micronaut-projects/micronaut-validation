@@ -105,6 +105,15 @@ tasks.register('coreTck') {
     dependsOn(test)
 }
 
+def tckHarnessTest = tasks.register('tckHarnessTest', Test) {
+    group = 'verification'
+    description = "Runs focused unit tests for the local Jakarta Validation TCK harness."
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useTestNG()
+    include 'io/micronaut/validation/tck/**/*Test.class'
+}
+
 def jakartaTck = tasks.register('jakartaTck', Test) {
     group = 'verification'
     description = "Runs the Jakarta Validation TCK compliance profile with the micronaut-validation-jakarta aggregate."
@@ -121,6 +130,7 @@ def jakartaTck = tasks.register('jakartaTck', Test) {
 }
 
 tasks.named("check") {
+    dependsOn(tckHarnessTest)
     dependsOn(jakartaTck)
 }
 

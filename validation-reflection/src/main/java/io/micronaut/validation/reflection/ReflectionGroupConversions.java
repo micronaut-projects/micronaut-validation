@@ -37,6 +37,10 @@ import java.util.Set;
 /**
  * Reflection-only Jakarta group conversion declaration checks.
  *
+ * <p>Group conversion declarations can live on elements and nested container
+ * type-use positions. This helper keeps those reflective checks out of the
+ * compile-time validator path.</p>
+ *
  * @since 5.1
  */
 final class ReflectionGroupConversions {
@@ -44,6 +48,12 @@ final class ReflectionGroupConversions {
     private ReflectionGroupConversions() {
     }
 
+    /**
+     * Validates reflected field and JavaBean accessor group conversions on a
+     * bean hierarchy.
+     *
+     * @param beanType The bean type whose reflected properties are inspected
+     */
     static void validateBean(Class<?> beanType) {
         for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
             for (Field field : current.getDeclaredFields()) {
@@ -65,6 +75,11 @@ final class ReflectionGroupConversions {
         }
     }
 
+    /**
+     * Validates group conversions declared on reflected method parameters.
+     *
+     * @param method The executable method being included in metadata
+     */
     static void validateMethodParameterDeclarations(Method method) {
         Parameter[] parameters = method.getParameters();
         boolean methodDeclaresParameterConversion = false;
@@ -84,6 +99,11 @@ final class ReflectionGroupConversions {
         }
     }
 
+    /**
+     * Validates group conversions declared on a reflected method return value.
+     *
+     * @param method The executable method being included in metadata
+     */
     static void validateMethodReturnValueDeclarations(Method method) {
         validateElement(method, method.isAnnotationPresent(Valid.class));
         validateAnnotatedType(method.getAnnotatedReturnType());
@@ -93,6 +113,11 @@ final class ReflectionGroupConversions {
         }
     }
 
+    /**
+     * Validates group conversions declared on reflected constructor parameters.
+     *
+     * @param constructor The constructor being included in metadata
+     */
     static void validateConstructorParameterDeclarations(Constructor<?> constructor) {
         for (Parameter parameter : constructor.getParameters()) {
             validateElement(parameter, parameter.isAnnotationPresent(Valid.class));
@@ -100,6 +125,12 @@ final class ReflectionGroupConversions {
         }
     }
 
+    /**
+     * Validates group conversions declared on a reflected constructor return
+     * value.
+     *
+     * @param constructor The constructor being included in metadata
+     */
     static void validateConstructorReturnValueDeclaration(Constructor<?> constructor) {
         validateElement(constructor, constructor.isAnnotationPresent(Valid.class));
         validateAnnotatedType(constructor.getAnnotatedReturnType());

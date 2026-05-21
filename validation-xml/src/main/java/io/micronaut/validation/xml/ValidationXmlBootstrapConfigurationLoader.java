@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.xml;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.bootstrap.BootstrapConfigurationLoader;
 import io.micronaut.validation.bootstrap.DefaultBootstrapConfiguration;
 import jakarta.validation.BootstrapConfiguration;
@@ -26,8 +27,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -41,10 +40,12 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Loads {@code META-INF/validation.xml} using JDK XML APIs.
+ * Internal ServiceLoader entry that loads {@code META-INF/validation.xml} using
+ * secure JDK XML APIs when the optional XML module is present.
  *
  * @since 5.1
  */
+@Internal
 public final class ValidationXmlBootstrapConfigurationLoader implements BootstrapConfigurationLoader {
 
     private static final String VALIDATION_XML = "META-INF/validation.xml";
@@ -61,6 +62,12 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         "executable-validation",
         "property"
     );
+
+    /**
+     * Creates a validation XML bootstrap configuration loader.
+     */
+    public ValidationXmlBootstrapConfigurationLoader() {
+    }
 
     @Override
     public Optional<BootstrapConfiguration> load(ClassLoader classLoader) {
@@ -88,10 +95,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
      */
     public BootstrapConfiguration parse(InputStream inputStream) {
         try {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            Document document = factory.newDocumentBuilder().parse(inputStream);
+            Document document = SecureXmlDocumentBuilder.parse(inputStream);
             Element root = document.getDocumentElement();
             XmlValidationMetadataProvider.validateVersion(root, SUPPORTED_CONFIGURATION_VERSIONS, "validation.xml");
             XmlValidationMetadataProvider.validateRootElements(root, ROOT_ELEMENT_NAMES, "validation.xml");

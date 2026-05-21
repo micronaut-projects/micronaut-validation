@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.bootstrap;
 
+import io.micronaut.core.annotation.Internal;
 import jakarta.validation.Configuration;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.spi.BootstrapState;
@@ -22,11 +23,19 @@ import jakarta.validation.spi.ConfigurationState;
 import jakarta.validation.spi.ValidationProvider;
 
 /**
- * Jakarta Validation {@link ValidationProvider} for Micronaut Validation.
+ * Internal Jakarta Validation {@link ValidationProvider} entry point exposed
+ * through ServiceLoader by the optional bootstrap module.
  *
  * @since 5.1
  */
+@Internal
 public final class MicronautValidationProvider implements ValidationProvider<MicronautValidatorConfiguration> {
+
+    /**
+     * Creates a Micronaut validation provider.
+     */
+    public MicronautValidationProvider() {
+    }
 
     @Override
     public MicronautValidatorConfiguration createSpecializedConfiguration(BootstrapState state) {

@@ -229,4 +229,29 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
                 </validation-config>
                 """.getBytes(StandardCharsets.UTF_8))));
     }
+
+    @Test
+    void validationXmlDoctypeIsRejected() {
+        assertThrows(ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
+            .parse(new ByteArrayInputStream("""
+                <!DOCTYPE validation-config [
+                    <!ENTITY xxe SYSTEM "file:///etc/passwd">
+                ]>
+                <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                    <property name="unsafe">&xxe;</property>
+                </validation-config>
+                """.getBytes(StandardCharsets.UTF_8))));
+    }
+
+    @Test
+    void validationXmlXIncludeIsRejected() {
+        assertThrows(ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
+            .parse(new ByteArrayInputStream("""
+                <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration"
+                    xmlns:xi="http://www.w3.org/2001/XInclude"
+                    version="3.1">
+                    <xi:include href="file:///etc/passwd"/>
+                </validation-config>
+                """.getBytes(StandardCharsets.UTF_8))));
+    }
 }

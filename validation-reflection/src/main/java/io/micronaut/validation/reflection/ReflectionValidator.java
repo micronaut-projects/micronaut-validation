@@ -21,6 +21,7 @@ import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.reflect.ReflectionUtils;
@@ -118,15 +119,17 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
- * Opt-in reflection fallback validator used by the Jakarta Validation compliance stack.
+ * Internal opt-in reflection fallback validator used by the Jakarta Validation
+ * compliance stack.
  *
  * @since 5.1
  */
+@Internal
 @Singleton
 @Primary
 @Replaces(DefaultValidator.class)
 @Requires(property = ReflectionValidator.ENABLED, notEquals = StringUtils.FALSE, defaultValue = StringUtils.TRUE)
-public class ReflectionValidator extends DefaultValidator {
+public final class ReflectionValidator extends DefaultValidator {
 
     /**
      * Enables reflection fallback validation.
@@ -149,6 +152,8 @@ public class ReflectionValidator extends DefaultValidator {
     private final boolean warningsEnabled;
 
     /**
+     * Creates a reflection fallback validator with warnings enabled.
+     *
      * @param configuration The validator configuration
      */
     public ReflectionValidator(ValidatorConfiguration configuration) {
@@ -156,6 +161,8 @@ public class ReflectionValidator extends DefaultValidator {
     }
 
     /**
+     * Creates a reflection fallback validator.
+     *
      * @param configuration The validator configuration
      * @param warningsEnabled Whether reflection warnings are enabled
      */
@@ -4463,6 +4470,15 @@ public class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    /**
+     * Reflection-backed bean descriptor used by the optional metadata provider.
+     *
+     * <p>This descriptor is package-private so reflection metadata can be shared
+     * between {@link ReflectionValidator} and
+     * {@link ReflectionValidationMetadataProvider} without widening the public
+     * API. Maintainers should keep generated metadata as the primary source and
+     * use this descriptor only as the Jakarta compatibility fallback.</p>
+     */
     static final class ReflectionBeanMetadata implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
         private final Class<?> beanType;
@@ -4477,10 +4493,25 @@ public class ReflectionValidator extends DefaultValidator {
             this.properties = properties;
         }
 
+        /**
+         * Builds reflection metadata without external overlays.
+         *
+         * @param beanType The bean type to inspect
+         * @return Reflection metadata for the bean
+         */
         static ReflectionBeanMetadata of(Class<?> beanType) {
             return of(beanType, List.of());
         }
 
+        /**
+         * Builds reflection metadata with optional provider overlays such as XML
+         * mappings.
+         *
+         * @param beanType The bean type to inspect
+         * @param metadataProviders Metadata providers that can replace or
+         * supplement annotation metadata
+         * @return Reflection metadata for the bean
+         */
         static ReflectionBeanMetadata of(Class<?> beanType, List<ValidationMetadataProvider> metadataProviders) {
             Map<String, List<ReflectionProperty>> properties = new LinkedHashMap<>();
             for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {

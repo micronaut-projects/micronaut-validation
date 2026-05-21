@@ -15,15 +15,17 @@
  */
 package io.micronaut.validation.bootstrap;
 
+import io.micronaut.core.annotation.Internal;
 import jakarta.validation.BootstrapConfiguration;
 
 import java.util.Optional;
 
 /**
- * Optional bootstrap configuration loader.
+ * Internal optional bootstrap configuration loader used by add-on modules.
  *
  * @since 5.1
  */
+@Internal
 public interface BootstrapConfigurationLoader {
 
     /**

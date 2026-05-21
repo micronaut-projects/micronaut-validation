@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -54,6 +55,38 @@ class MicronautValidatorConfigurationTest {
 
         assertThrows(ValueExtractorDeclarationException.class, () ->
             configuration.addValueExtractor(new BoxValueExtractorTwo()));
+    }
+
+    @Test
+    void constraintMappingResourcePathsRejectTraversalAndExternalLocations() {
+        for (String path : new String[]{
+            "",
+            "/",
+            "//META-INF/constraints.xml",
+            "../constraints.xml",
+            "META-INF/../constraints.xml",
+            "META-INF\\constraints.xml",
+            "file:/tmp/constraints.xml",
+            "https://example.com/constraints.xml",
+            "META-INF//constraints.xml",
+            "META-INF/./constraints.xml",
+            "META-INF/constraints.xml/"
+        }) {
+            assertThrows(jakarta.validation.ValidationException.class, () ->
+                ValidationResourcePaths.normalizeClasspathResource(path, "constraint mapping"), path);
+        }
+    }
+
+    @Test
+    void constraintMappingResourcePathMayStartAtClasspathRoot() {
+        assertEquals(
+            "META-INF/constraints.xml",
+            ValidationResourcePaths.normalizeClasspathResource("/META-INF/constraints.xml", "constraint mapping")
+        );
+        assertEquals(
+            "META-INF/constraints.xml",
+            ValidationResourcePaths.normalizeClasspathResource("META-INF/constraints.xml", "constraint mapping")
+        );
     }
 
     private static boolean isExpectedBootstrapBean(String beanType) {

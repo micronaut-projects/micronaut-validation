@@ -37,10 +37,12 @@ import java.util.Optional;
 import java.util.ResourceBundle;
 
 /**
- * Jakarta EL-backed message interpolator.
+ * Internal Jakarta EL-backed message interpolator used only when the optional
+ * EL module is present.
  *
  * @since 5.1
  */
+@Internal
 @Singleton
 @Primary
 @Replaces(DefaultMessageInterpolator.class)
@@ -58,6 +60,8 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private final ExpressionFactory expressionFactory;
 
     /**
+     * Creates an EL-backed message interpolator.
+     *
      * @param messageSource The message source
      * @param interpolatorLocaleResolver The locale resolver
      */
@@ -217,6 +221,13 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     @Internal
     public record LocaleFormatter(Locale locale) {
 
+        /**
+         * Formats a message with the interpolation locale.
+         *
+         * @param format The format
+         * @param args The arguments
+         * @return The formatted message
+         */
         public String format(String format, Object... args) {
             try (Formatter formatter = new Formatter(locale)) {
                 return formatter.format(format, args).toString();

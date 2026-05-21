@@ -38,6 +38,11 @@ import java.util.List;
 /**
  * Reflection-backed constraint validator context.
  *
+ * <p>This is the Jakarta-facing context used only by validators instantiated by
+ * the optional reflection fallback. Maintainers should keep path-building
+ * behavior here aligned with the violation path types produced by
+ * {@link ReflectionValidator}.</p>
+ *
  * @since 5.1
  */
 final class ReflectionConstraintValidatorContext implements ConstraintValidatorContext {
@@ -51,6 +56,15 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
     private final List<CustomViolation> customViolations = new ArrayList<>();
     private boolean defaultViolationDisabled;
 
+    /**
+     * Creates a context for property or bean validation.
+     *
+     * @param clockProvider The active validation clock provider
+     * @param rootBean The root bean, if available
+     * @param defaultMessageTemplate The default message template for the current
+     * constraint
+     * @param basePath The path to the constrained element
+     */
     ReflectionConstraintValidatorContext(ClockProvider clockProvider,
                                          @Nullable Object rootBean,
                                          String defaultMessageTemplate,
@@ -58,6 +72,17 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         this(clockProvider, rootBean, defaultMessageTemplate, basePath, List.of());
     }
 
+    /**
+     * Creates a context for executable validation where parameter names may be
+     * needed for custom violation paths.
+     *
+     * @param clockProvider The active validation clock provider
+     * @param rootBean The root bean, if available
+     * @param defaultMessageTemplate The default message template for the current
+     * constraint
+     * @param basePath The path to the constrained executable element
+     * @param parameterNames Parameter names resolved for the executable
+     */
     ReflectionConstraintValidatorContext(ClockProvider clockProvider,
                                          @Nullable Object rootBean,
                                          String defaultMessageTemplate,
@@ -103,10 +128,16 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         return rootBean;
     }
 
+    /**
+     * @return Whether the validator disabled the default violation
+     */
     boolean defaultViolationDisabled() {
         return defaultViolationDisabled;
     }
 
+    /**
+     * @return Custom violations added through the Jakarta builder API
+     */
     List<CustomViolation> customViolations() {
         return customViolations;
     }
@@ -159,6 +190,13 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         ));
     }
 
+    /**
+     * Custom violation captured from the Jakarta builder API before
+     * {@link ReflectionValidator} turns it into a constraint violation.
+     *
+     * @param messageTemplate The message template supplied by the validator
+     * @param path The custom violation path
+     */
     record CustomViolation(
         String messageTemplate,
         Path path
