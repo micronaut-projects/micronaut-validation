@@ -176,12 +176,6 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return new PropertyMetadataResolution(descriptor, annotationsIgnored);
     }
 
-    private record PropertyMetadataResolution(
-        PropertyDescriptor descriptor,
-        boolean annotationsIgnored
-    ) {
-    }
-
     private static boolean isConstrained(PropertyDescriptor property) {
         return property.hasConstraints()
             || property.isCascaded()
@@ -252,6 +246,12 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
+            Optional<BeanDescriptor> descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType());
+            if (metadataProvider.isBeanAnnotationMetadataIgnored(beanIntrospection.getBeanType()) && descriptor.isPresent()) {
+                return descriptor.get().getConstraintDescriptors();
+            }
+        }
         return constraintDescriptors(beanAnnotationMetadata);
     }
 
@@ -422,5 +422,11 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         public Class<?> getTo() {
             return to;
         }
+    }
+
+    private record PropertyMetadataResolution(
+        PropertyDescriptor descriptor,
+        boolean annotationsIgnored
+    ) {
     }
 }
