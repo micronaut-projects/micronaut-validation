@@ -2065,22 +2065,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value( String nodeName, Object extractedValue) {
+                    public void value(String nodeName, Object extractedValue) {
                         validateExtractedValue(nodeName, false, null, null, extractedValue);
                     }
 
                     @Override
-                    public void iterableValue( String nodeName, Object extractedValue) {
+                    public void iterableValue(String nodeName, Object extractedValue) {
                         validateExtractedValue(nodeName, true, null, null, extractedValue);
                     }
 
                     @Override
-                    public void indexedValue( String nodeName, int index, Object extractedValue) {
+                    public void indexedValue(String nodeName, int index, Object extractedValue) {
                         validateExtractedValue(nodeName, true, null, index, extractedValue);
                     }
 
                     @Override
-                    public void keyedValue( String nodeName,  Object key, Object extractedValue) {
+                    public void keyedValue(String nodeName, Object key, Object extractedValue) {
                         validateExtractedValue(nodeName, true, key, null, extractedValue);
                     }
 
@@ -2159,22 +2159,22 @@ public final class ReflectionValidator extends DefaultValidator {
             extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
-                public void value( String nodeName, Object extractedValue) {
+                public void value(String nodeName, Object extractedValue) {
                     validateExtractedValue(nodeName, false, null, null, extractedValue);
                 }
 
                 @Override
-                public void iterableValue( String nodeName, Object extractedValue) {
+                public void iterableValue(String nodeName, Object extractedValue) {
                     validateExtractedValue(nodeName, true, null, null, extractedValue);
                 }
 
                 @Override
-                public void indexedValue( String nodeName, int index, Object extractedValue) {
+                public void indexedValue(String nodeName, int index, Object extractedValue) {
                     validateExtractedValue(nodeName, true, null, index, extractedValue);
                 }
 
                 @Override
-                public void keyedValue( String nodeName,  Object key, Object extractedValue) {
+                public void keyedValue(String nodeName, Object key, Object extractedValue) {
                     validateExtractedValue(nodeName, true, key, null, extractedValue);
                 }
 
@@ -2464,22 +2464,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value( String nodeName, Object value) {
+                    public void value(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue( String nodeName, Object value) {
+                    public void iterableValue(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue( String nodeName, int index, Object value) {
+                    public void indexedValue(String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue( String nodeName,  Object key, Object value) {
+                    public void keyedValue(String nodeName, Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2581,22 +2581,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value( String nodeName, Object value) {
+                    public void value(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue( String nodeName, Object value) {
+                    public void iterableValue(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue( String nodeName, int index, Object value) {
+                    public void indexedValue(String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue( String nodeName,  Object key, Object value) {
+                    public void keyedValue(String nodeName, Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2703,22 +2703,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value( String nodeName, Object value) {
+                    public void value(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue( String nodeName, Object value) {
+                    public void iterableValue(String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue( String nodeName, int index, Object value) {
+                    public void indexedValue(String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue( String nodeName,  Object key, Object value) {
+                    public void keyedValue(String nodeName, Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2914,22 +2914,22 @@ public final class ReflectionValidator extends DefaultValidator {
             extractValues(valueExtractorDefinition, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
-                public void value( String nodeName, Object value) {
+                public void value(String nodeName, Object value) {
                     validateContainerValue(nodeName, null, null, false, value);
                 }
 
                 @Override
-                public void iterableValue( String nodeName, Object value) {
+                public void iterableValue(String nodeName, Object value) {
                     validateContainerValue(nodeName, null, null, true, value);
                 }
 
                 @Override
-                public void indexedValue( String nodeName, int index, Object value) {
+                public void indexedValue(String nodeName, int index, Object value) {
                     validateContainerValue(nodeName, null, index, true, value);
                 }
 
                 @Override
-                public void keyedValue( String nodeName,  Object key, Object value) {
+                public void keyedValue(String nodeName, Object key, Object value) {
                     validateContainerValue(nodeName, key, null, true, value);
                 }
 

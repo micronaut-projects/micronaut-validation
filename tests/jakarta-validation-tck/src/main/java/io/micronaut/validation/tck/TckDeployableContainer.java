@@ -90,6 +90,10 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TckDeployableContainer.class);
     private static final String INITIAL_CONTEXT_FACTORY = "java.naming.factory.initial";
+    private static final String PRIORITY_INVOCATION_TRACKER =
+        "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker";
+    private static final String PRIORITY_CUSTOM_CONSTRAINT_VALIDATOR =
+        "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator";
 
     static ClassLoader old;
 
@@ -504,7 +508,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static void registerSharedPriorityTracker(ApplicationContext applicationContext, Class<?> type, Object dependency) {
-        if (type == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker.class
+        if (PRIORITY_INVOCATION_TRACKER.equals(type.getName())
             && applicationContext.findBean(
                 (Class) type,
                 Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class)
@@ -675,7 +679,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         @Override
         public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
             T validator = applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
-            if (key == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator.class) {
+            if (isPriorityCustomConstraintValidator(key)) {
                 return priorityValidator(validator);
             }
             return validator;
@@ -691,7 +695,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             Optional<T> bean = applicationContext.findBean(validatorType);
             if (bean.isPresent()) {
                 T validator = bean.get();
-                if (validatorType == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator.class) {
+                if (isPriorityCustomConstraintValidator(validatorType)) {
                     return priorityValidator(validator);
                 }
                 return validator;
@@ -703,6 +707,10 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 }
             }
             return getInstance(validatorType);
+        }
+
+        private static boolean isPriorityCustomConstraintValidator(Class<?> validatorType) {
+            return PRIORITY_CUSTOM_CONSTRAINT_VALIDATOR.equals(validatorType.getName());
         }
 
         @Override

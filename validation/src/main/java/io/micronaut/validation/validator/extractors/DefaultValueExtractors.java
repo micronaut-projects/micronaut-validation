@@ -70,7 +70,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
      */
     public DefaultValueExtractors(DefaultValueExtractors source) {
         copyValueExtractors(source.internalValueExtractors, internalValueExtractors);
-        copyValueExtractors(source.localValueExtractors, localValueExtractors);
+        copyInheritedValueExtractors(source.localValueExtractors, internalValueExtractors);
     }
 
     /**
@@ -132,12 +132,12 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
             ignore -> new ArrayList<>()
         );
         boolean duplicate = valueExtractorDefinitions.stream()
-            .anyMatch(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()));
+            .anyMatch(def -> matchesExtractorSlot(def, valueExtractorDefinition));
         if (duplicate && !replace) {
             throw new ValueExtractorDeclarationException("Value extractor with this type and type argument is already defined!");
         }
         if (duplicate) {
-            valueExtractorDefinitions.removeIf(def -> def.containerType().equals(valueExtractorDefinition.containerType()) && Objects.equals(def.typeArgumentIndex(), valueExtractorDefinition.typeArgumentIndex()));
+            valueExtractorDefinitions.removeIf(def -> matchesExtractorSlot(def, valueExtractorDefinition));
         }
         valueExtractorDefinitions.add(valueExtractorDefinition);
         matchingValueExtractors.clear();
@@ -148,6 +148,23 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         for (Map.Entry<Class<?>, List<ValueExtractorDefinition<?>>> entry : source.entrySet()) {
             target.put(entry.getKey(), new ArrayList<>(entry.getValue()));
         }
+    }
+
+    private static void copyInheritedValueExtractors(Map<Class<?>, List<ValueExtractorDefinition<?>>> source,
+                                                     Map<Class<?>, List<ValueExtractorDefinition<?>>> target) {
+        for (Map.Entry<Class<?>, List<ValueExtractorDefinition<?>>> entry : source.entrySet()) {
+            List<ValueExtractorDefinition<?>> targetDefinitions = target.computeIfAbsent(entry.getKey(), ignored -> new ArrayList<>());
+            for (ValueExtractorDefinition<?> definition : entry.getValue()) {
+                targetDefinitions.removeIf(existing -> matchesExtractorSlot(existing, definition));
+                targetDefinitions.add(definition);
+            }
+        }
+    }
+
+    private static boolean matchesExtractorSlot(ValueExtractorDefinition<?> left,
+                                                ValueExtractorDefinition<?> right) {
+        return left.containerType().equals(right.containerType())
+            && Objects.equals(left.typeArgumentIndex(), right.typeArgumentIndex());
     }
 
     @SuppressWarnings("unchecked")
