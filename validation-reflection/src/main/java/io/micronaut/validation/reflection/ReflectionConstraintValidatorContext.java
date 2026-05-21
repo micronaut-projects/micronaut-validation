@@ -180,11 +180,11 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
                                                        @Nullable Integer typeArgumentIndex) {
         if (node instanceof ReflectionBeanNode last) {
             return new ReflectionBeanNode(
-                inIterable == null ? last.inIterable() : inIterable,
-                key == null ? last.key() : key,
-                index == null ? last.index() : index,
-                containerClass == null ? last.containerClass() : containerClass,
-                typeArgumentIndex == null ? last.typeArgumentIndex() : typeArgumentIndex
+                valueOrDefault(inIterable, last.inIterable()),
+                valueOrDefault(key, last.key()),
+                valueOrDefault(index, last.index()),
+                valueOrDefault(containerClass, last.containerClass()),
+                valueOrDefault(typeArgumentIndex, last.typeArgumentIndex())
             );
         }
         if (!(node instanceof ReflectionNode last)) {
@@ -193,12 +193,20 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         return new ReflectionNode(
             last.kind(),
             last.name(),
-            inIterable == null ? last.inIterable() : inIterable,
-            key == null ? last.key() : key,
-            index == null ? last.index() : index,
-            containerClass == null ? last.containerClass() : containerClass,
-            typeArgumentIndex == null ? last.typeArgumentIndex() : typeArgumentIndex
+            valueOrDefault(inIterable, last.inIterable()),
+            valueOrDefault(key, last.key()),
+            valueOrDefault(index, last.index()),
+            valueOrDefault(containerClass, last.containerClass()),
+            valueOrDefault(typeArgumentIndex, last.typeArgumentIndex())
         );
+    }
+
+    private static boolean valueOrDefault(@Nullable Boolean value, boolean defaultValue) {
+        return value == null ? defaultValue : value;
+    }
+
+    private static <T> @Nullable T valueOrDefault(@Nullable T value, @Nullable T defaultValue) {
+        return value == null ? defaultValue : value;
     }
 
     /**

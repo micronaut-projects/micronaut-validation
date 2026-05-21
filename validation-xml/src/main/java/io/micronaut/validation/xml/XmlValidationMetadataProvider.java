@@ -38,6 +38,7 @@ import jakarta.validation.metadata.ConstructorDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
 import jakarta.validation.metadata.CrossParameterDescriptor;
 import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.ExecutableDescriptor;
 import jakarta.validation.metadata.GroupConversionDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.MethodType;
@@ -1048,7 +1049,63 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             .collect(Collectors.toUnmodifiableSet());
     }
 
-    private final class XmlBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
+    private interface XmlConstraintFinder extends ElementDescriptor, ElementDescriptor.ConstraintFinder {
+
+        @Override
+        default ElementDescriptor.ConstraintFinder findConstraints() {
+            return this;
+        }
+
+        @Override
+        default ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
+            return this;
+        }
+
+        @Override
+        default ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
+            return this;
+        }
+
+        @Override
+        default ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
+            return this;
+        }
+    }
+
+    private interface SimpleConstraintDescriptor<A extends Annotation> extends ConstraintDescriptor<A> {
+
+        @Override
+        default Set<ConstraintDescriptor<?>> getComposingConstraints() {
+            return Collections.emptySet();
+        }
+
+        @Override
+        default boolean isReportAsSingleViolation() {
+            return false;
+        }
+
+        @Override
+        default ValidateUnwrappedValue getValueUnwrapping() {
+            Set<Class<? extends Payload>> payload = getPayload();
+            if (payload.contains(Unwrapping.Unwrap.class)) {
+                return ValidateUnwrappedValue.UNWRAP;
+            }
+            if (payload.contains(Unwrapping.Skip.class)) {
+                return ValidateUnwrappedValue.SKIP;
+            }
+            return ValidateUnwrappedValue.DEFAULT;
+        }
+
+        @Override
+        default <U> U unwrap(Class<U> type) {
+            if (type.isInstance(this)) {
+                return type.cast(this);
+            }
+            throw new ValidationException("Cannot unwrap " + getClass().getName() + " as " + type.getName());
+        }
+    }
+
+    private final class XmlBeanDescriptor implements BeanDescriptor, XmlConstraintFinder {
 
         private final Class<?> beanType;
         private final BeanMapping mapping;
@@ -1130,30 +1187,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return constraintDescriptors(mapping.classMetadata());
         }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
-        }
     }
 
     private record XmlPropertyDescriptor(String propertyName, PropertyMapping property)
-        implements PropertyDescriptor, ElementDescriptor.ConstraintFinder {
+        implements PropertyDescriptor, XmlConstraintFinder {
 
         @Override
         public String getPropertyName() {
@@ -1191,32 +1228,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             return constraintDescriptors(property.metadata(), property.source(), property.annotationsIgnored(), ConstraintTarget.IMPLICIT);
         }
 
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
-        }
-
         private boolean isConstrained() {
             return hasConstraints() || isCascaded() || !getGroupConversions().isEmpty() || !getConstrainedContainerElementTypes().isEmpty();
         }
     }
 
-    private abstract static class XmlExecutableDescriptor implements ElementDescriptor.ConstraintFinder {
+    private abstract static class XmlExecutableDescriptor implements ExecutableDescriptor, XmlConstraintFinder {
 
         private final ExecutableMapping executable;
 
@@ -1276,23 +1293,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             return Collections.emptySet();
         }
 
+        @Override
         public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
+            return XmlConstraintFinder.super.findConstraints();
         }
     }
 
@@ -1311,7 +1314,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record XmlParameterDescriptor(int index, ParameterMapping parameter, Parameter source)
-        implements ParameterDescriptor, ElementDescriptor.ConstraintFinder {
+        implements ParameterDescriptor, XmlConstraintFinder {
 
         @Override
         public int getIndex() {
@@ -1353,30 +1356,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return constraintDescriptors(parameter.metadata(), source, parameter.annotationsIgnored(), ConstraintTarget.RETURN_VALUE);
         }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
-        }
     }
 
     private record XmlReturnValueDescriptor(ElementMapping returnValue, Executable source)
-        implements ReturnValueDescriptor, ElementDescriptor.ConstraintFinder {
+        implements ReturnValueDescriptor, XmlConstraintFinder {
 
         @Override
         public boolean isCascaded() {
@@ -1411,30 +1394,10 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return constraintDescriptors(returnValue.metadata(), source, returnValue.annotationsIgnored(), ConstraintTarget.RETURN_VALUE);
         }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
-        }
     }
 
     private record XmlCrossParameterDescriptor(ElementMapping crossParameter, Executable source)
-        implements CrossParameterDescriptor, ElementDescriptor.ConstraintFinder {
+        implements CrossParameterDescriptor, XmlConstraintFinder {
 
         @Override
         public Class<?> getElementClass() {
@@ -1450,29 +1413,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return constraintDescriptors(crossParameter.metadata(), source, crossParameter.annotationsIgnored(), ConstraintTarget.PARAMETERS);
         }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
-        }
     }
 
-    private static final class XmlConstraintDescriptor<A extends Annotation> implements ConstraintDescriptor<A> {
+    private static final class XmlConstraintDescriptor<A extends Annotation> implements SimpleConstraintDescriptor<A> {
 
         private final Class<A> type;
         private final AnnotationValue<A> annotationValue;
@@ -1538,39 +1481,9 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
             return Map.copyOf(attributes);
         }
-
-        @Override
-        public Set<ConstraintDescriptor<?>> getComposingConstraints() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public boolean isReportAsSingleViolation() {
-            return false;
-        }
-
-        @Override
-        public ValidateUnwrappedValue getValueUnwrapping() {
-            Set<Class<? extends Payload>> payload = getPayload();
-            if (payload.contains(Unwrapping.Unwrap.class)) {
-                return ValidateUnwrappedValue.UNWRAP;
-            }
-            if (payload.contains(Unwrapping.Skip.class)) {
-                return ValidateUnwrappedValue.SKIP;
-            }
-            return ValidateUnwrappedValue.DEFAULT;
-        }
-
-        @Override
-        public <U> U unwrap(Class<U> type) {
-            if (type.isInstance(this)) {
-                return type.cast(this);
-            }
-            throw new ValidationException("Cannot unwrap " + getClass().getName() + " as " + type.getName());
-        }
     }
 
-    private static final class AnnotationConstraintDescriptor<A extends Annotation> implements ConstraintDescriptor<A> {
+    private static final class AnnotationConstraintDescriptor<A extends Annotation> implements SimpleConstraintDescriptor<A> {
 
         private final A annotation;
         private final Class<A> type;
@@ -1623,36 +1536,6 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             return Map.copyOf(attributes);
         }
 
-        @Override
-        public Set<ConstraintDescriptor<?>> getComposingConstraints() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public boolean isReportAsSingleViolation() {
-            return false;
-        }
-
-        @Override
-        public ValidateUnwrappedValue getValueUnwrapping() {
-            Set<Class<? extends Payload>> payload = getPayload();
-            if (payload.contains(Unwrapping.Unwrap.class)) {
-                return ValidateUnwrappedValue.UNWRAP;
-            }
-            if (payload.contains(Unwrapping.Skip.class)) {
-                return ValidateUnwrappedValue.SKIP;
-            }
-            return ValidateUnwrappedValue.DEFAULT;
-        }
-
-        @Override
-        public <U> U unwrap(Class<U> type) {
-            if (type.isInstance(this)) {
-                return type.cast(this);
-            }
-            throw new ValidationException("Cannot unwrap " + getClass().getName() + " as " + type.getName());
-        }
-
         private static Object readMember(Annotation annotation, String member, Object defaultValue) {
             try {
                 return annotation.annotationType().getDeclaredMethod(member).invoke(annotation);
@@ -1678,7 +1561,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record XmlContainerElementTypeDescriptor(ContainerElementMapping mapping)
-        implements ContainerElementTypeDescriptor, ElementDescriptor.ConstraintFinder {
+        implements ContainerElementTypeDescriptor, XmlConstraintFinder {
 
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
@@ -1718,26 +1601,6 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return constraintDescriptors(mapping.metadata());
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder findConstraints() {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder lookingAt(Scope scope) {
-            return this;
-        }
-
-        @Override
-        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
-            return this;
         }
     }
 
