@@ -481,7 +481,7 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         }
     }
 
-    private record ReflectionParameterNode(@Nullable String name, int parameterIndex) implements Path.ParameterNode {
+    private record ReflectionParameterNode(@Nullable String name, int parameterIndex) implements Path.ParameterNode, ReflectionPlainPathNode {
 
         @Override
         public ElementKind getKind() {
@@ -492,28 +492,6 @@ final class ReflectionConstraintValidatorContext implements ConstraintValidatorC
         @Nullable
         public String getName() {
             return name;
-        }
-
-        @Override
-        public boolean isInIterable() {
-            return false;
-        }
-
-        @Override
-        @Nullable
-        public Integer getIndex() {
-            return null;
-        }
-
-        @Override
-        @Nullable
-        public Object getKey() {
-            return null;
-        }
-
-        @Override
-        public <T extends Path.Node> T as(Class<T> nodeType) {
-            return nodeType.cast(this);
         }
 
         @Override
