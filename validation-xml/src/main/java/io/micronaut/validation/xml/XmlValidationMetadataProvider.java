@@ -928,6 +928,15 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return classLoader == null ? XmlValidationMetadataProvider.class.getClassLoader() : classLoader;
     }
 
+    private static Set<ContainerElementTypeDescriptor> containerElementDescriptors(List<ContainerElementMapping> mappings) {
+        if (mappings.isEmpty()) {
+            return Collections.emptySet();
+        }
+        return mappings.stream()
+            .map(XmlContainerElementTypeDescriptor::new)
+            .collect(Collectors.toUnmodifiableSet());
+    }
+
     private final class XmlBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
         private final Class<?> beanType;
@@ -1614,15 +1623,6 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         public ElementDescriptor.ConstraintFinder declaredOn(ElementType... types) {
             return this;
         }
-    }
-
-    private static Set<ContainerElementTypeDescriptor> containerElementDescriptors(List<ContainerElementMapping> mappings) {
-        if (mappings.isEmpty()) {
-            return Collections.emptySet();
-        }
-        return mappings.stream()
-            .map(XmlContainerElementTypeDescriptor::new)
-            .collect(Collectors.toUnmodifiableSet());
     }
 
     private record BeanMapping(AnnotationMetadata classMetadata,
