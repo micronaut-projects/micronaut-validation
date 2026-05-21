@@ -30,7 +30,6 @@ import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.valueextraction.ExtractedValue;
 import jakarta.validation.valueextraction.ValueExtractor;
-import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
 import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
@@ -84,15 +83,25 @@ class DefaultValidatorFactoryTest {
     }
 
     @Test
-    void contextValueExtractorsDetectDuplicatesFromFactoryConfiguration() {
+    void contextValueExtractorsOverrideFactoryConfiguration() {
         DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
-        configuration.addValueExtractor(new BoxExtractor());
+        BoxExtractor factoryExtractor = new BoxExtractor("factory");
+        BoxExtractor contextExtractor = new BoxExtractor("context");
+        configuration.addValueExtractor(factoryExtractor);
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
 
-        assertThrows(
-            ValueExtractorDeclarationException.class,
-            () -> factory.usingContext().addValueExtractor(new BoxExtractor())
-        );
+        jakarta.validation.Validator validator = factory.usingContext()
+            .addValueExtractor(contextExtractor)
+            .getValidator();
+
+        Set<ConstraintViolation<BoxBean>> violations = validator.validate(new BoxBean(new Box<>(null)));
+
+        assertEquals(1, violations.size());
+        assertEquals(0, factoryExtractor.extractions());
+        assertEquals(1, contextExtractor.extractions());
+
+        assertEquals(1, factory.getValidator().validate(new BoxBean(new Box<>(null))).size());
+        assertEquals(1, factoryExtractor.extractions());
     }
 
     @Test
@@ -125,11 +134,36 @@ class DefaultValidatorFactoryTest {
     private record Box<T>(T value) {
     }
 
+    @Introspected(accessKind = Introspected.AccessKind.FIELD)
+    static final class BoxBean {
+        Box<@NotNull String> box;
+
+        BoxBean(Box<String> box) {
+            this.box = box;
+        }
+    }
+
     private static final class BoxExtractor implements ValueExtractor<Box<@ExtractedValue ?>> {
+
+        private final String nodeName;
+        private int extractions;
+
+        BoxExtractor() {
+            this("value");
+        }
+
+        BoxExtractor(String nodeName) {
+            this.nodeName = nodeName;
+        }
 
         @Override
         public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
-            receiver.value("value", originalValue.value());
+            extractions++;
+            receiver.value(nodeName, originalValue.value());
+        }
+
+        int extractions() {
+            return extractions;
         }
     }
 
