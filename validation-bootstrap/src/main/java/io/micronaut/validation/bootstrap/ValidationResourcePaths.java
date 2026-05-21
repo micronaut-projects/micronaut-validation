@@ -16,6 +16,7 @@
 package io.micronaut.validation.bootstrap;
 
 import jakarta.validation.ValidationException;
+import org.jspecify.annotations.Nullable;
 
 import java.util.regex.Pattern;
 
@@ -29,7 +30,7 @@ final class ValidationResourcePaths {
     private ValidationResourcePaths() {
     }
 
-    static String normalizeClasspathResource(String path, String role) {
+    static String normalizeClasspathResource(@Nullable String path, String role) {
         String value = path == null ? "" : path.trim();
         if (value.isEmpty()) {
             throw new ValidationException("Invalid " + role + " resource path: path is empty");

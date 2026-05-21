@@ -17,6 +17,8 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
+import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -129,7 +131,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
         newValidatorConfiguration.setMetadataProviders(configuration.getMetadataProviders());
         newValidatorConfiguration.setConstraintValidatorRegistry(configuration.getConstraintValidatorRegistry());
-        newValidatorConfiguration.setValueExtractorRegistry(configuration.getValueExtractorRegistry());
+        newValidatorConfiguration.setValueExtractorRegistry(copyValueExtractorRegistry(configuration.getValueExtractorRegistry()));
         newValidatorConfiguration.setClockProvider(configuration.getClockProvider());
         newValidatorConfiguration.setTraversableResolver(configuration.getTraversableResolver());
         newValidatorConfiguration.setMessageInterpolator(configuration.getMessageInterpolator());
@@ -141,10 +143,16 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         return newValidatorConfiguration;
     }
 
+    private static ValueExtractorRegistry copyValueExtractorRegistry(ValueExtractorRegistry valueExtractorRegistry) {
+        if (valueExtractorRegistry instanceof DefaultValueExtractors defaultValueExtractors) {
+            return new DefaultValueExtractors(defaultValueExtractors);
+        }
+        return valueExtractorRegistry;
+    }
+
     private final class DefaultFactoryValidatorContext implements ValidatorContext {
 
         private final DefaultValidatorConfiguration validatorConfiguration;
-        private final DefaultValidatorConfiguration valueExtractorDuplicateCheck = new DefaultValidatorConfiguration();
 
         private DefaultFactoryValidatorContext(DefaultValidatorConfiguration validatorConfiguration) {
             this.validatorConfiguration = validatorConfiguration;
@@ -182,8 +190,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
         @Override
         public ValidatorContext addValueExtractor(jakarta.validation.valueextraction.ValueExtractor<?> extractor) {
-            valueExtractorDuplicateCheck.addValueExtractor(extractor);
-            validatorConfiguration.replaceValueExtractor(extractor);
+            validatorConfiguration.addValueExtractor(extractor);
             return this;
         }
 

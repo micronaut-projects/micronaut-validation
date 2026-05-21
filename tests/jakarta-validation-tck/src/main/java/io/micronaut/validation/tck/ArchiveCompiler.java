@@ -67,6 +67,7 @@ import java.util.stream.Stream;
 @Internal
 final class ArchiveCompiler {
     static final String EXTRA_CLASSPATH_PROPERTY = "micronaut.validation.tck.archive.classpath";
+    private static final String WEB_INF_CLASSES = "/WEB-INF/classes";
 
     private final DeploymentDir deploymentDir;
     private final Archive<?> deploymentArchive;
@@ -92,8 +93,8 @@ final class ArchiveCompiler {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
-            if (path.startsWith("/WEB-INF/classes") && path.endsWith(".class")) {
-                String sourceFile = path.replace("/WEB-INF/classes", "")
+            if (path.startsWith(WEB_INF_CLASSES) && path.endsWith(".class")) {
+                String sourceFile = path.replace(WEB_INF_CLASSES, "")
                     .replace(".class", ".java");
 
                 if (sourceFile.contains("$") && !sourceFile.endsWith("$Dollar.java")) {
@@ -118,11 +119,11 @@ final class ArchiveCompiler {
                 }
 
                 sourceFiles.add(sourceFilePath.toFile());
-            } else if (path.startsWith("/WEB-INF/classes")) {
+            } else if (path.startsWith(WEB_INF_CLASSES)) {
                 if (entry.getValue().getAsset() == null) {
                     continue;
                 }
-                String resourceFile = path.replace("/WEB-INF/classes", "");
+                String resourceFile = path.replace(WEB_INF_CLASSES, "");
                 if (resourceFile.isEmpty()) {
                     continue;
                 }

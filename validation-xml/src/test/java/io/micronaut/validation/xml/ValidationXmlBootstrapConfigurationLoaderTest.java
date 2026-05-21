@@ -212,6 +212,22 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
     }
 
     @Test
+    void invalidExecutableTypeIsRejectedWithValidationException() {
+        ValidationException exception = assertThrows(ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
+            .parse(new ByteArrayInputStream("""
+                <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                    <executable-validation>
+                        <default-validated-executable-types>
+                            <executable-type>UNKNOWN</executable-type>
+                        </default-validated-executable-types>
+                    </executable-validation>
+                </validation-config>
+                """.getBytes(StandardCharsets.UTF_8))));
+
+        assertTrue(exception.getMessage().contains("Invalid executable type in validation.xml: UNKNOWN"));
+    }
+
+    @Test
     void unknownValidationXmlVersionIsRejected() {
         assertThrows(jakarta.validation.ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
             .parse(new ByteArrayInputStream("""

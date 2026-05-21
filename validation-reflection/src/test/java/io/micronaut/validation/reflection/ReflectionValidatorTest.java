@@ -750,24 +750,28 @@ class ReflectionValidatorTest {
     private static class BaseService {
         @CrossParameterConstraint
         void submit(@NotNull String name) {
+            // Method body is irrelevant; the test validates executable metadata.
         }
     }
 
     private static final class ChildService extends BaseService {
         @Override
         void submit(String name) {
+            // Method body is irrelevant; the test validates inherited executable metadata.
         }
     }
 
     private static final class CrossParameterConstructorBean {
         @CrossParameterConstraint
         CrossParameterConstructorBean(String name) {
+            // Constructor body is irrelevant; the test validates executable metadata.
         }
     }
 
     private static final class CustomPathExecutableBean {
         @CrossParameterCustomPathConstraint
         void submit(Map<String, String> addresses) {
+            // Method body is irrelevant; the test validates custom violation paths.
         }
     }
 
@@ -783,23 +787,27 @@ class ReflectionValidatorTest {
     private static final class ConstructorReturnBean {
         @InvalidConstructorReturnConstraint
         ConstructorReturnBean() {
+            // Constructor body is irrelevant; the test validates constructor return constraints.
         }
     }
 
     private static final class InvalidExecutableBean {
         public void submit(@InvalidIntegerConstraint String value) {
+            // Method body is irrelevant; the test validates invalid validator definitions.
         }
     }
 
     private static final class InvalidCrossParameterBean {
         @InvalidCrossParameterConstraint
         public void submit(String value) {
+            // Method body is irrelevant; the test validates invalid cross-parameter validators.
         }
     }
 
     private static final class SequenceExecutableBean {
         @CrossParameterConstraint(groups = ExecutableAdvanced.class)
         void submit(@NotNull(groups = ExecutableBasic.class) String name, @NotNull(groups = ExecutableAdvanced.class) String code) {
+            // Method body is irrelevant; the test validates group sequencing.
         }
     }
 
@@ -820,6 +828,7 @@ class ReflectionValidatorTest {
             @NotNull(groups = ExecutableBasic.class) String name,
             @Valid RedefinedAssociatedBean associated,
             @NotNull String code) {
+            // Method body is irrelevant; the test validates redefined default groups.
         }
     }
 

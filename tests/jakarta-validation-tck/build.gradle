@@ -1,5 +1,6 @@
 plugins {
     id "java-library"
+    id "jacoco"
     id "io.micronaut.build.internal.validation-base"
 }
 
@@ -396,4 +397,25 @@ tasks.register('singleTest') {
     group = 'verification'
     description = 'Compatibility alias for singleCoreTck.'
     dependsOn(singleCoreTck)
+}
+
+tasks.named('jacocoTestReport') {
+    mustRunAfter(
+        tasks.named('test'),
+        methodsTest1,
+        methodsTest2,
+        tckHarnessTest,
+        jakartaTck,
+        discoverFailingJakartaTck,
+        failingJakartaTck,
+        singleCoreTck,
+        singleJakartaTck
+    )
+    executionData(fileTree(layout.buildDirectory.dir('jacoco')) {
+        include '*.exec'
+    })
+    reports {
+        xml.required = true
+        html.required = true
+    }
 }

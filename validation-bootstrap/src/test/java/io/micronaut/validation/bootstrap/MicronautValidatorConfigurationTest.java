@@ -104,6 +104,7 @@ class MicronautValidatorConfigurationTest {
 
         @Override
         public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
+            // The duplicate extractor tests only need the extractor declaration.
         }
     }
 
@@ -111,6 +112,7 @@ class MicronautValidatorConfigurationTest {
 
         @Override
         public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
+            // The duplicate extractor tests only need the extractor declaration.
         }
     }
 }

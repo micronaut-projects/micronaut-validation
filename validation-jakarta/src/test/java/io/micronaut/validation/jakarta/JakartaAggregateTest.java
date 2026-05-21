@@ -21,9 +21,17 @@ import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import jakarta.validation.metadata.ConstraintDescriptor;
+import javafx.beans.property.ListProperty;
+import javafx.beans.property.MapProperty;
 import javafx.beans.property.ReadOnlyDoubleWrapper;
+import javafx.beans.property.SetProperty;
+import javafx.beans.property.SimpleListProperty;
+import javafx.beans.property.SimpleMapProperty;
+import javafx.beans.property.SimpleSetProperty;
+import javafx.collections.FXCollections;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -57,10 +65,13 @@ class JakartaAggregateTest {
             Set<ConstraintViolation<JavaFxBean>> violations = validatorFactory.getValidator()
                 .validate(new JavaFxBean());
 
-            assertEquals(1, violations.size());
-            ConstraintViolation<JavaFxBean> violation = violations.iterator().next();
-            assertEquals("rating", violation.getPropertyPath().toString());
-            assertEquals(4.5, violation.getInvalidValue());
+            assertEquals(6, violations.size());
+            assertTrue(violations.stream().anyMatch(violation ->
+                violation.getPropertyPath().toString().equals("rating") && Double.valueOf(4.5).equals(violation.getInvalidValue())));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().equals("tags")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().contains("names")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().contains("aliases")));
+            assertTrue(violations.stream().anyMatch(violation -> violation.getPropertyPath().toString().contains("scores")));
         }
     }
 
@@ -106,6 +117,19 @@ class JakartaAggregateTest {
     static final class JavaFxBean {
         @Max(3)
         private final ReadOnlyDoubleWrapper rating = new ReadOnlyDoubleWrapper(4.5);
+
+        @Size(min = 2)
+        private final ListProperty<String> tags = new SimpleListProperty<>(FXCollections.observableArrayList("one"));
+
+        private final ListProperty<@NotBlank String> names = new SimpleListProperty<>(FXCollections.observableArrayList(""));
+
+        private final SetProperty<@NotBlank String> aliases = new SimpleSetProperty<>(FXCollections.observableSet(""));
+
+        private final MapProperty<@NotBlank String, @NotBlank String> scores = new SimpleMapProperty<>(FXCollections.observableHashMap());
+
+        JavaFxBean() {
+            scores.put("", "");
+        }
     }
 
     static final class XmlLengthBean {

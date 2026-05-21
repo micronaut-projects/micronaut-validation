@@ -46,6 +46,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -160,11 +161,9 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         PropertyDescriptor descriptor = null;
         boolean annotationsIgnored = false;
         for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            if (descriptor == null) {
-                descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType())
-                    .map(beanDescriptor -> beanDescriptor.getConstraintsForProperty(propertyName))
-                    .orElse(null);
-            }
+            descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType())
+                .map(beanDescriptor -> beanDescriptor.getConstraintsForProperty(propertyName))
+                .orElse(null);
             if (metadataProvider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName)) {
                 annotationsIgnored = true;
                 break;
@@ -188,7 +187,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return metadataProviders.stream()
             .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
             .map(descriptor -> descriptor.getConstraintsForMethod(methodName, parameterTypes))
-            .filter(descriptor -> descriptor != null)
+            .filter(Objects::nonNull)
             .findFirst()
             .orElse(null);
     }
@@ -206,7 +205,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return metadataProviders.stream()
             .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
             .map(descriptor -> descriptor.getConstraintsForConstructor(parameterTypes))
-            .filter(descriptor -> descriptor != null)
+            .filter(Objects::nonNull)
             .findFirst()
             .orElse(null);
     }

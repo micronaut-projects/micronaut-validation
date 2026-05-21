@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * Internal validation metadata provider SPI.
+ * Validation metadata provider SPI used by optional Jakarta compliance modules.
  *
  * @since 5.1
  */

@@ -58,6 +58,7 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
      * Creates a reflection metadata provider.
      */
     public ReflectionValidationMetadataProvider() {
+        // Public no-arg constructor required for bean construction.
     }
 
     @Override
@@ -199,6 +200,7 @@ public final class ReflectionValidationMetadataProvider implements ValidationMet
         return values;
     }
 
+    @Nullable
     private static String propertyName(Method method) {
         String name = method.getName();
         if (name.startsWith("get") && name.length() > 3) {

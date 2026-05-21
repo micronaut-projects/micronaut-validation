@@ -101,6 +101,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
@@ -1036,8 +1037,7 @@ public class DefaultValidator implements
         if (parameterNameProvider instanceof DefaultParameterNameProvider) {
             return null;
         }
-        Method targetMethod = method.getTargetMethod();
-        return targetMethod == null ? null : parameterNameProvider.getParameterNames(targetMethod);
+        return parameterNameProvider.getParameterNames(method.getTargetMethod());
     }
 
     final String parameterName(MethodReference<?, ?> method, int index) {
@@ -1087,7 +1087,7 @@ public class DefaultValidator implements
 
     private AnnotationMetadata additionalAnnotationMetadata(AnnotationMetadata original,
                                                            Function<ValidationMetadataProvider, AnnotationMetadata> metadataResolver,
-                                                           Function<ValidationMetadataProvider, Boolean> ignoreResolver) {
+                                                           Predicate<ValidationMetadataProvider> ignoreResolver) {
         List<AnnotationMetadata> metadata = new ArrayList<>();
         boolean ignoreOriginal = false;
         for (ValidationMetadataProvider provider : metadataProviders) {
@@ -1095,7 +1095,7 @@ public class DefaultValidator implements
             if (!additionalMetadata.isEmpty()) {
                 metadata.add(additionalMetadata);
             }
-            if (ignoreResolver.apply(provider)) {
+            if (ignoreResolver.test(provider)) {
                 ignoreOriginal = true;
                 break;
             }
@@ -1767,8 +1767,8 @@ public class DefaultValidator implements
     }
 
     private <R> DefaultConstraintViolation<R> createConstraintViolation(DefaultConstraintValidatorContext<R> context,
-                                                                        Object leftBean,
-                                                                        Object elementValue,
+                                                                        @Nullable Object leftBean,
+                                                                        @Nullable Object elementValue,
                                                                         ConstraintDescriptor<Annotation> constraint) {
         final String messageTemplate = buildMessageTemplate(context, constraint);
         final String message;

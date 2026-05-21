@@ -143,12 +143,17 @@ public final class ReflectionValidator extends DefaultValidator {
 
     private static final Logger LOG = LoggerFactory.getLogger(ReflectionValidator.class);
     private static final ConcurrentMap<String, Boolean> WARNED_REFLECTION_ACCESS = new ConcurrentHashMap<>();
+    private static final String ARGUMENT_OBJECT = "object";
+    private static final String ARGUMENT_GROUPS = "groups";
+    private static final String MEMBER_GROUPS = "groups";
+    private static final String MEMBER_VALIDATION_APPLIES_TO = "validationAppliesTo";
+    private static final String MEMBER_VALUE = "value";
 
     private final ValidatorConfiguration configuration;
-    private final MessageInterpolator messageInterpolator;
-    private final ClockProvider clockProvider;
-    private final TraversableResolver traversableResolver;
-    private final ValueExtractorRegistry valueExtractorRegistry;
+    private final MessageInterpolator reflectionMessageInterpolator;
+    private final ClockProvider reflectionClockProvider;
+    private final TraversableResolver reflectionTraversableResolver;
+    private final ValueExtractorRegistry reflectionValueExtractorRegistry;
     private final boolean warningsEnabled;
 
     /**
@@ -171,16 +176,16 @@ public final class ReflectionValidator extends DefaultValidator {
                                @Property(name = WARNINGS_ENABLED, defaultValue = StringUtils.TRUE) boolean warningsEnabled) {
         super(configuration);
         this.configuration = configuration;
-        this.messageInterpolator = configuration.getMessageInterpolator();
-        this.clockProvider = configuration.getClockProvider();
-        this.traversableResolver = configuration.getTraversableResolver();
-        this.valueExtractorRegistry = configuration.getValueExtractorRegistry();
+        this.reflectionMessageInterpolator = configuration.getMessageInterpolator();
+        this.reflectionClockProvider = configuration.getClockProvider();
+        this.reflectionTraversableResolver = configuration.getTraversableResolver();
+        this.reflectionValueExtractorRegistry = configuration.getValueExtractorRegistry();
         this.warningsEnabled = warningsEnabled;
     }
 
     @Override
     public <T> Set<ConstraintViolation<T>> validate(T object, Class<?>... groups) {
-        requireNonNull("object", object);
+        requireNonNull(ARGUMENT_OBJECT, object);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
@@ -215,8 +220,8 @@ public final class ReflectionValidator extends DefaultValidator {
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validate(T object, BeanValidationContext validationContext) {
-        requireNonNull("object", object);
+    public <T> Set<ConstraintViolation<T>> validate(T object, @Nullable BeanValidationContext validationContext) {
+        requireNonNull(ARGUMENT_OBJECT, object);
         BeanValidationContext context = validationContext == null ? BeanValidationContext.DEFAULT : validationContext;
         if (ReflectionGroupSequences.hasInheritedDefaultGroupSequence(object.getClass(), context, configuration.getMetadataProviders())) {
             return validateReflectivelyWithInheritedDefaultGroupSequence(object, false);
@@ -251,8 +256,8 @@ public final class ReflectionValidator extends DefaultValidator {
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateProperty(T object, String propertyName, BeanValidationContext context) {
-        requireNonNull("object", object);
+    public <T> Set<ConstraintViolation<T>> validateProperty(T object, String propertyName, @Nullable BeanValidationContext context) {
+        requireNonNull(ARGUMENT_OBJECT, object);
         requireNonEmpty("propertyName", propertyName);
         BeanIntrospection<T> introspection = getBeanIntrospection(object);
         if (introspection != null) {
@@ -272,7 +277,7 @@ public final class ReflectionValidator extends DefaultValidator {
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, @Nullable Object value, BeanValidationContext context) {
+    public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, @Nullable Object value, @Nullable BeanValidationContext context) {
         requireNonNull("beanType", beanType);
         requireNonEmpty("propertyName", propertyName);
         BeanIntrospection<T> introspection = getBeanIntrospection(beanType);
@@ -333,10 +338,10 @@ public final class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateParameters(T object, Method method, Object[] parameterValues, Class<?>... groups) {
-        requireNonNull("object", object);
+        requireNonNull(ARGUMENT_OBJECT, object);
         requireNonNull("method", method);
         requireNonNull("parameterValues", parameterValues);
-        requireNonNull("groups", groups);
+        requireNonNull(ARGUMENT_GROUPS, groups);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
@@ -370,9 +375,9 @@ public final class ReflectionValidator extends DefaultValidator {
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateReturnValue(T object, Method method, @Nullable Object returnValue, Class<?>... groups) {
-        requireNonNull("object", object);
+        requireNonNull(ARGUMENT_OBJECT, object);
         requireNonNull("method", method);
-        requireNonNull("groups", groups);
+        requireNonNull(ARGUMENT_GROUPS, groups);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         Set<ConstraintViolation<T>> reflectedViolations = validateExecutableGroupPasses(
             object.getClass(),
@@ -421,7 +426,7 @@ public final class ReflectionValidator extends DefaultValidator {
     public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Constructor<? extends T> constructor, Object[] parameterValues, Class<?>... groups) {
         requireNonNull("constructor", constructor);
         requireNonNull("parameterValues", parameterValues);
-        requireNonNull("groups", groups);
+        requireNonNull(ARGUMENT_GROUPS, groups);
         Set<ConstraintViolation<T>> generatedViolations = Collections.emptySet();
         BeanIntrospection<? extends T> introspection = getBeanIntrospection(constructor.getDeclaringClass());
         if (introspection != null && introspection.getConstructorArguments().length == constructor.getParameterCount()) {
@@ -443,7 +448,7 @@ public final class ReflectionValidator extends DefaultValidator {
                                                                           Class<?>... groups) {
         requireNonNull("constructor", constructor);
         requireNonNull("createdObject", createdObject);
-        requireNonNull("groups", groups);
+        requireNonNull(ARGUMENT_GROUPS, groups);
         BeanValidationContext context = BeanValidationContext.fromGroups(groups);
         return validateExecutableGroupPasses(
             constructor.getDeclaringClass(),
@@ -1280,7 +1285,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
-            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
             Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE, true);
             if (valid == null) {
                 throw unexpectedType(constraint, method.getReturnType());
@@ -1378,7 +1383,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             jakarta.validation.Path path = new ReflectionConstructorReturnValueExecutablePath(constructor);
-            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, null, constraint.getMessageTemplate(), path);
             Boolean valid = validateConstraint(constraint, createdObject, constructor.getDeclaringClass(), validatorContext, ConstraintTarget.IMPLICIT, true);
             if (valid == null) {
                 throw unexpectedType(constraint, constructor.getDeclaringClass());
@@ -1457,7 +1462,7 @@ public final class ReflectionValidator extends DefaultValidator {
                     continue;
                 }
                 jakarta.validation.Path path = new ReflectionConstructorExecutablePath(constructor, parameterName(parameterNames, parameters[i], i), i);
-                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, null, constraint.getMessageTemplate(), path);
+                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, null, constraint.getMessageTemplate(), path);
                 Boolean valid = validateConstraint(constraint, value, constructor.getParameterTypes()[i], validatorContext);
                 if (valid == null) {
                     throw unexpectedType(constraint, constructor.getParameterTypes()[i]);
@@ -1532,7 +1537,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
-                clockProvider,
+                reflectionClockProvider,
                 null,
                 constraint.getMessageTemplate(),
                 path
@@ -1624,7 +1629,7 @@ public final class ReflectionValidator extends DefaultValidator {
                     continue;
                 }
                 jakarta.validation.Path path = new ReflectionExecutablePath(method, parameterName(parameterNames, parameters[i], i), i);
-                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, object, constraint.getMessageTemplate(), path);
+                ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
                 Boolean valid = validateConstraint(constraint, value, method.getParameterTypes()[i], validatorContext, ConstraintTarget.IMPLICIT, true);
                 if (valid == null) {
                     throw unexpectedType(constraint, method.getParameterTypes()[i]);
@@ -1891,7 +1896,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 continue;
             }
             ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(
-                clockProvider,
+                reflectionClockProvider,
                 object,
                 constraint.getMessageTemplate(),
                 path,
@@ -1954,7 +1959,7 @@ public final class ReflectionValidator extends DefaultValidator {
                                 @Nullable Class<?> rootBeanClass,
                                 @Nullable Path pathToTraversableObject) {
         try {
-            return traversableResolver.isReachable(
+            return reflectionTraversableResolver.isReachable(
                 traversableObject,
                 new ReflectionNode(property.name),
                 rootBeanClass == null ? property.declaringClass() : rootBeanClass,
@@ -1962,7 +1967,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 property.elementType()
             );
         } catch (Exception e) {
-            throw new ValidationException("Cannot call 'isReachable' on traversableResolver: " + traversableResolver, e);
+            throw new ValidationException("Cannot call 'isReachable' on reflectionTraversableResolver: " + reflectionTraversableResolver, e);
         }
     }
 
@@ -1971,7 +1976,7 @@ public final class ReflectionValidator extends DefaultValidator {
                                  @Nullable Class<?> rootBeanClass,
                                  @Nullable Path pathToTraversableObject) {
         try {
-            return traversableResolver.isCascadable(
+            return reflectionTraversableResolver.isCascadable(
                 traversableObject,
                 new ReflectionNode(property.name),
                 rootBeanClass == null ? property.declaringClass() : rootBeanClass,
@@ -1979,7 +1984,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 property.elementType()
             );
         } catch (Exception e) {
-            throw new ValidationException("Cannot call 'isCascadable' on traversableResolver: " + traversableResolver, e);
+            throw new ValidationException("Cannot call 'isCascadable' on reflectionTraversableResolver: " + reflectionTraversableResolver, e);
         }
     }
 
@@ -2060,22 +2065,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value(String nodeName, Object extractedValue) {
+                    public void value( String nodeName, Object extractedValue) {
                         validateExtractedValue(nodeName, false, null, null, extractedValue);
                     }
 
                     @Override
-                    public void iterableValue(String nodeName, Object extractedValue) {
+                    public void iterableValue( String nodeName, Object extractedValue) {
                         validateExtractedValue(nodeName, true, null, null, extractedValue);
                     }
 
                     @Override
-                    public void indexedValue(String nodeName, int index, Object extractedValue) {
+                    public void indexedValue( String nodeName, int index, Object extractedValue) {
                         validateExtractedValue(nodeName, true, null, index, extractedValue);
                     }
 
                     @Override
-                    public void keyedValue(String nodeName, Object key, Object extractedValue) {
+                    public void keyedValue( String nodeName,  Object key, Object extractedValue) {
                         validateExtractedValue(nodeName, true, key, null, extractedValue);
                     }
 
@@ -2154,22 +2159,22 @@ public final class ReflectionValidator extends DefaultValidator {
             extractValues(unwrappingExtractor, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
-                public void value(String nodeName, Object extractedValue) {
+                public void value( String nodeName, Object extractedValue) {
                     validateExtractedValue(nodeName, false, null, null, extractedValue);
                 }
 
                 @Override
-                public void iterableValue(String nodeName, Object extractedValue) {
+                public void iterableValue( String nodeName, Object extractedValue) {
                     validateExtractedValue(nodeName, true, null, null, extractedValue);
                 }
 
                 @Override
-                public void indexedValue(String nodeName, int index, Object extractedValue) {
+                public void indexedValue( String nodeName, int index, Object extractedValue) {
                     validateExtractedValue(nodeName, true, null, index, extractedValue);
                 }
 
                 @Override
-                public void keyedValue(String nodeName, Object key, Object extractedValue) {
+                public void keyedValue( String nodeName,  Object key, Object extractedValue) {
                     validateExtractedValue(nodeName, true, key, null, extractedValue);
                 }
 
@@ -2210,13 +2215,14 @@ public final class ReflectionValidator extends DefaultValidator {
         }
     }
 
+    @Nullable
     private ValueExtractorDefinition<Object> unwrappingExtractor(Class<?> propertyType,
                                                                  ReflectionConstraintDescriptor<?> constraint) {
         ValidateUnwrappedValue valueUnwrapping = constraint.getValueUnwrapping();
         if (valueUnwrapping == ValidateUnwrappedValue.SKIP) {
             return null;
         }
-        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) propertyType);
+        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) propertyType);
         if (valueUnwrapping == ValidateUnwrappedValue.UNWRAP) {
             if (valueExtractorDefinitions.isEmpty()) {
                 throw new ConstraintDeclarationException("Cannot unwrap the constraint because no value extractor is present for " + propertyType.getName());
@@ -2274,7 +2280,7 @@ public final class ReflectionValidator extends DefaultValidator {
                                               Set<ConstraintViolation<T>> violations,
                                               jakarta.validation.Path propertyPath,
                                               boolean resolveMostSpecific) {
-        ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, rootBean, constraint.getMessageTemplate(), propertyPath);
+        ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, rootBean, constraint.getMessageTemplate(), propertyPath);
         Boolean valid = validateConstraint(constraint, value, valueType, validatorContext, ConstraintTarget.IMPLICIT, resolveMostSpecific);
         if (valid == null) {
             if (validateComposingConstraints(rootBean, rootBeanClass, leafBean, propertyPath, value, valueType, constraint, context, violations)) {
@@ -2379,7 +2385,7 @@ public final class ReflectionValidator extends DefaultValidator {
             if (!appliesTo(composingConstraint, constraintTarget)) {
                 continue;
             }
-            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(clockProvider, rootBean, composingConstraint.getMessageTemplate(), propertyPath);
+            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, rootBean, composingConstraint.getMessageTemplate(), propertyPath);
             Boolean valid = validateConstraint(composingConstraint, value, valueType, validatorContext, constraintTarget, true);
             if (valid == null) {
                 validateExecutableComposingConstraints(rootBean, rootBeanClass, leafBean, value, valueType, composingConstraint, context, violations, propertyPath, constraintTarget, method);
@@ -2448,7 +2454,7 @@ public final class ReflectionValidator extends DefaultValidator {
             if (containerElement.cascaded && containerElement.constraints.isEmpty()) {
                 extractorLookupType = (Class<Object>) containerValue.getClass();
             }
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(extractorLookupType);
+            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors(extractorLookupType);
             boolean foundExtractor = false;
             for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
                 if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
@@ -2458,22 +2464,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value(String nodeName, Object value) {
+                    public void value( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue(String nodeName, Object value) {
+                    public void iterableValue( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
+                    public void indexedValue( String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
+                    public void keyedValue( String nodeName,  Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2565,7 +2571,7 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         for (ReflectionContainerElement containerElement : containerElements) {
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
+            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
             boolean foundExtractor = false;
             for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
                 if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
@@ -2575,22 +2581,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value(String nodeName, Object value) {
+                    public void value( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue(String nodeName, Object value) {
+                    public void iterableValue( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
+                    public void indexedValue( String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
+                    public void keyedValue( String nodeName,  Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2689,7 +2695,7 @@ public final class ReflectionValidator extends DefaultValidator {
             return;
         }
         for (ReflectionContainerElement containerElement : containerElements) {
-            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
+            List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) containerType);
             for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
                 if (!Objects.equals(valueExtractorDefinition.typeArgumentIndex(), containerElement.typeArgumentIndex)) {
                     continue;
@@ -2697,22 +2703,22 @@ public final class ReflectionValidator extends DefaultValidator {
                 extractValues(valueExtractorDefinition, containerValue, new ValueExtractor.ValueReceiver() {
 
                     @Override
-                    public void value(String nodeName, Object value) {
+                    public void value( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, false, value);
                     }
 
                     @Override
-                    public void iterableValue(String nodeName, Object value) {
+                    public void iterableValue( String nodeName, Object value) {
                         validateContainerValue(nodeName, null, null, true, value);
                     }
 
                     @Override
-                    public void indexedValue(String nodeName, int index, Object value) {
+                    public void indexedValue( String nodeName, int index, Object value) {
                         validateContainerValue(nodeName, null, index, true, value);
                     }
 
                     @Override
-                    public void keyedValue(String nodeName, Object key, Object value) {
+                    public void keyedValue( String nodeName,  Object key, Object value) {
                         validateContainerValue(nodeName, key, null, true, value);
                     }
 
@@ -2898,7 +2904,7 @@ public final class ReflectionValidator extends DefaultValidator {
             }
             return;
         }
-        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors((Class<Object>) declaredType);
+        List<ValueExtractorDefinition<Object>> valueExtractorDefinitions = reflectionValueExtractorRegistry.findValueExtractors((Class<Object>) declaredType);
         boolean container = false;
         for (ValueExtractorDefinition<Object> valueExtractorDefinition : valueExtractorDefinitions) {
             if (!shouldCascadeContainerValue(declaredType, valueExtractorDefinition)) {
@@ -2908,22 +2914,22 @@ public final class ReflectionValidator extends DefaultValidator {
             extractValues(valueExtractorDefinition, value, new ValueExtractor.ValueReceiver() {
 
                 @Override
-                public void value(String nodeName, Object value) {
+                public void value( String nodeName, Object value) {
                     validateContainerValue(nodeName, null, null, false, value);
                 }
 
                 @Override
-                public void iterableValue(String nodeName, Object value) {
+                public void iterableValue( String nodeName, Object value) {
                     validateContainerValue(nodeName, null, null, true, value);
                 }
 
                 @Override
-                public void indexedValue(String nodeName, int index, Object value) {
+                public void indexedValue( String nodeName, int index, Object value) {
                     validateContainerValue(nodeName, null, index, true, value);
                 }
 
                 @Override
-                public void keyedValue(String nodeName, Object key, Object value) {
+                public void keyedValue( String nodeName,  Object key, Object value) {
                     validateContainerValue(nodeName, key, null, true, value);
                 }
 
@@ -3196,13 +3202,13 @@ public final class ReflectionValidator extends DefaultValidator {
         } catch (NumberFormatException e) {
             return false;
         }
-        long limit = (Long) constraint.getAttributes().get("value");
+        long limit = (Long) constraint.getAttributes().get(MEMBER_VALUE);
         int comparison = number.compareTo(BigDecimal.valueOf(limit));
         return constraintType == Min.class ? comparison >= 0 : comparison <= 0;
     }
 
     private String interpolate(String template, ReflectionConstraintDescriptor<?> descriptor, @Nullable Object value) {
-        return messageInterpolator.interpolate(template, new InterpolationContext(descriptor, value));
+        return reflectionMessageInterpolator.interpolate(template, new InterpolationContext(descriptor, value));
     }
 
     private static boolean isGroupIncluded(ReflectionConstraintDescriptor<?> descriptor, BeanValidationContext context) {
@@ -3324,7 +3330,7 @@ public final class ReflectionValidator extends DefaultValidator {
     }
 
     private static String requireNonEmpty(String name, @Nullable String value) {
-        if (StringUtils.isEmpty(value)) {
+        if (value == null || value.isEmpty()) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be empty");
         }
         return value;
@@ -3492,7 +3498,7 @@ public final class ReflectionValidator extends DefaultValidator {
                                                                                @Nullable Class<?> implicitGroup,
                                                                                List<ValidationMetadataProvider> metadataProviders) {
         try {
-            Method valueMethod = container.annotationType().getDeclaredMethod("value");
+            Method valueMethod = container.annotationType().getDeclaredMethod(MEMBER_VALUE);
             if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
                 return List.of();
             }
@@ -4254,7 +4260,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public @Nullable PropertyDescriptor getConstraintsForProperty(String propertyName) {
+        public @Nullable PropertyDescriptor getConstraintsForProperty(@Nullable String propertyName) {
             if (propertyName == null) {
                 throw new IllegalArgumentException("Property name cannot be null");
             }
@@ -4319,7 +4325,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public @Nullable MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+        public @Nullable MethodDescriptor getConstraintsForMethod(@Nullable String methodName, Class<?>... parameterTypes) {
             MethodDescriptor generatedMethod = generated.getConstraintsForMethod(methodName, parameterTypes);
             if (generatedMethod != null) {
                 return generatedMethod;
@@ -4565,7 +4571,7 @@ public final class ReflectionValidator extends DefaultValidator {
             properties.computeIfAbsent(property.name, ignored -> new ArrayList<>()).add(property);
         }
 
-        private static void collectInterfaceProperties(Class<?> type,
+        private static void collectInterfaceProperties(@Nullable Class<?> type,
                                                        Map<String, List<ReflectionProperty>> properties,
                                                        Set<Class<?>> visited) {
             if (type == null || type == Object.class) {
@@ -4610,7 +4616,7 @@ public final class ReflectionValidator extends DefaultValidator {
             }
         }
 
-        private static void collectTypeConstraints(Class<?> type,
+        private static void collectTypeConstraints(@Nullable Class<?> type,
                                                    List<ReflectionConstraintDescriptor<?>> constraints,
                                                    Set<Class<?>> visited) {
             if (type == null || type == Object.class || !visited.add(type)) {
@@ -4644,7 +4650,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public @Nullable PropertyDescriptor getConstraintsForProperty(String propertyName) {
+        public @Nullable PropertyDescriptor getConstraintsForProperty(@Nullable String propertyName) {
             if (propertyName == null) {
                 throw new IllegalArgumentException("Property name cannot be null");
             }
@@ -4661,7 +4667,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
-        public @Nullable MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+        public @Nullable MethodDescriptor getConstraintsForMethod(@Nullable String methodName, Class<?>... parameterTypes) {
             if (methodName == null) {
                 throw new IllegalArgumentException("Method name cannot be null");
             }
@@ -5008,7 +5014,7 @@ public final class ReflectionValidator extends DefaultValidator {
             this.validators = validatorClasses(type, metadataProviders);
             this.annotationValue = new AnnotationValue<>(type.getName(), members, annotationMembers(annotation, true));
             this.composingConstraints = composingConstraints(annotation, groups, payload);
-            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), "validationAppliesTo");
+            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), MEMBER_VALIDATION_APPLIES_TO);
         }
 
         @SuppressWarnings({"unchecked", "rawtypes"})
@@ -5026,7 +5032,7 @@ public final class ReflectionValidator extends DefaultValidator {
             this.validators = List.of((Class[]) type.getAnnotation(Constraint.class).validatedBy());
             this.annotationValue = new AnnotationValue<>(type.getName(), members, annotationMembers(annotation, true));
             this.composingConstraints = composingConstraints(this.annotation, groups, payload);
-            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), "validationAppliesTo");
+            this.hasValidationAppliesTo = hasMember(annotation.annotationType(), MEMBER_VALIDATION_APPLIES_TO);
         }
 
         @Override
@@ -5054,7 +5060,7 @@ public final class ReflectionValidator extends DefaultValidator {
             if (!hasValidationAppliesTo) {
                 return null;
             }
-            return (ConstraintTarget) readMember(annotation, "validationAppliesTo", ConstraintTarget.IMPLICIT);
+            return (ConstraintTarget) readMember(annotation, MEMBER_VALIDATION_APPLIES_TO, ConstraintTarget.IMPLICIT);
         }
 
         boolean hasValidationAppliesTo() {
@@ -5140,7 +5146,7 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         private static Set<Class<?>> groups(Annotation annotation, @Nullable Class<?> implicitGroup) {
-            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0])));
+            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, MEMBER_GROUPS, new Class<?>[0])));
             Class<?> resolvedImplicitGroup = implicitGroup(annotation, implicitGroup);
             if (resolvedImplicitGroup != null) {
                 groups.add(jakarta.validation.groups.Default.class);
@@ -5155,7 +5161,7 @@ public final class ReflectionValidator extends DefaultValidator {
             if (implicitGroup == null) {
                 return null;
             }
-            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, "groups", new Class<?>[0])));
+            Set<Class<?>> groups = new LinkedHashSet<>(List.of((Class<?>[]) readMember(annotation, MEMBER_GROUPS, new Class<?>[0])));
             return groups.isEmpty() || groups.contains(jakarta.validation.groups.Default.class) ? implicitGroup : null;
         }
 
@@ -5187,7 +5193,7 @@ public final class ReflectionValidator extends DefaultValidator {
                 Map<CharSequence, Object> members = annotationMembers(composingAnnotation.annotation, false);
                 applyOverrides(parentAnnotation, composingAnnotation, composingAnnotations, members);
                 propagateValidationAppliesTo(parentAnnotation, composingAnnotation, members);
-                members.put("groups", groups.toArray(Class<?>[]::new));
+                members.put(MEMBER_GROUPS, groups.toArray(Class<?>[]::new));
                 members.put("payload", payload.toArray(Class<?>[]::new));
                 constraints.add(new ReflectionConstraintDescriptor(composingAnnotation.annotation, groups, payload, members));
             }
@@ -5256,7 +5262,7 @@ public final class ReflectionValidator extends DefaultValidator {
 
         private static List<Annotation> containedConstraintAnnotations(Annotation container) {
             try {
-                Method valueMethod = container.annotationType().getDeclaredMethod("value");
+                Method valueMethod = container.annotationType().getDeclaredMethod(MEMBER_VALUE);
                 if (!valueMethod.getReturnType().isArray() || !Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
                     return List.of();
                 }
@@ -5299,9 +5305,9 @@ public final class ReflectionValidator extends DefaultValidator {
         private static void propagateValidationAppliesTo(Annotation parentAnnotation,
                                                          ComposingAnnotation composingAnnotation,
                                                          Map<CharSequence, Object> members) {
-            ConstraintTarget validationAppliesTo = (ConstraintTarget) readMember(parentAnnotation, "validationAppliesTo", ConstraintTarget.IMPLICIT);
-            if (validationAppliesTo != ConstraintTarget.IMPLICIT && hasMember(composingAnnotation.type(), "validationAppliesTo")) {
-                members.put("validationAppliesTo", validationAppliesTo);
+            ConstraintTarget validationAppliesTo = (ConstraintTarget) readMember(parentAnnotation, MEMBER_VALIDATION_APPLIES_TO, ConstraintTarget.IMPLICIT);
+            if (validationAppliesTo != ConstraintTarget.IMPLICIT && hasMember(composingAnnotation.type(), MEMBER_VALIDATION_APPLIES_TO)) {
+                members.put(MEMBER_VALIDATION_APPLIES_TO, validationAppliesTo);
             }
         }
 
@@ -5543,16 +5549,19 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
 
         @Override
+        @Nullable
         public String getName() {
             return null;
         }
@@ -5563,11 +5572,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Class<?> getContainerClass() {
             return null;
         }
 
         @Override
+        @Nullable
         public Integer getTypeArgumentIndex() {
             return null;
         }
@@ -5912,11 +5923,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
@@ -5950,11 +5963,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
@@ -5988,11 +6003,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
@@ -6031,11 +6048,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }
@@ -6069,11 +6088,13 @@ public final class ReflectionValidator extends DefaultValidator {
         }
 
         @Override
+        @Nullable
         public Integer getIndex() {
             return null;
         }
 
         @Override
+        @Nullable
         public Object getKey() {
             return null;
         }

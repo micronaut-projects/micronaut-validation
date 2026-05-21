@@ -89,6 +89,7 @@ import java.util.stream.Stream;
 public final class TckDeployableContainer implements DeployableContainer<TckContainerConfiguration> {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TckDeployableContainer.class);
+    private static final String INITIAL_CONTEXT_FACTORY = "java.naming.factory.initial";
 
     static ClassLoader old;
 
@@ -154,6 +155,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     @Override
+    @SuppressWarnings("java:S2696")
     public ProtocolMetaData deploy(Archive<?> archive) {
         if (archive instanceof LibraryContainer<?> libraryContainer) {
             libraryContainer.addAsLibrary(buildSupportLibrary());
@@ -201,8 +203,8 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private void bindJndiValidator(ApplicationContext applicationContext, ClassLoader classLoader) {
-        oldInitialContextFactory = System.getProperty("java.naming.factory.initial");
-        System.setProperty("java.naming.factory.initial", TckInitialContextFactory.class.getName());
+        oldInitialContextFactory = System.getProperty(INITIAL_CONTEXT_FACTORY);
+        System.setProperty(INITIAL_CONTEXT_FACTORY, TckInitialContextFactory.class.getName());
         try {
             jndiValidatorFactory = buildValidatorFactory(applicationContext, classLoader);
         } catch (ValidationException | UnsupportedOperationException e) {
@@ -461,18 +463,18 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static boolean isInjectField(Field field) {
         return java.util.Arrays.stream(field.getDeclaredAnnotations())
-            .map(annotation -> annotation.annotationType().getName())
-            .anyMatch(annotationName ->
-                annotationName.equals("jakarta.inject.Inject")
-                    || annotationName.equals("jakarta.ejb.EJB")
-                    || annotationName.equals("jakarta.annotation.Resource")
+            .map(Annotation::annotationType)
+            .anyMatch(annotationType ->
+                annotationType == jakarta.inject.Inject.class
+                    || annotationType == jakarta.ejb.EJB.class
+                    || annotationType == jakarta.annotation.Resource.class
             )
             || field.getType() == jakarta.validation.Validator.class
             || field.getType() == ValidatorFactory.class;
     }
 
     private static boolean isCdiInstanceField(Field field) {
-        return field.getType().getName().equals("jakarta.enterprise.inject.Instance");
+        return field.getType() == jakarta.enterprise.inject.Instance.class;
     }
 
     private static Object injectTckField(ApplicationContext applicationContext,
@@ -502,7 +504,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static void registerSharedPriorityTracker(ApplicationContext applicationContext, Class<?> type, Object dependency) {
-        if (type.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker")
+        if (type == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker.class
             && applicationContext.findBean(
                 (Class) type,
                 Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class)
@@ -582,9 +584,9 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         try {
             TckInitialContextFactory.clear();
             if (oldInitialContextFactory == null) {
-                System.clearProperty("java.naming.factory.initial");
+                System.clearProperty(INITIAL_CONTEXT_FACTORY);
             } else {
-                System.setProperty("java.naming.factory.initial", oldInitialContextFactory);
+                System.setProperty(INITIAL_CONTEXT_FACTORY, oldInitialContextFactory);
             }
             if (jndiValidatorFactory != null) {
                 jndiValidatorFactory.close();
@@ -673,7 +675,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         @Override
         public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
             T validator = applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
-            if (key.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator")) {
+            if (key == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator.class) {
                 return priorityValidator(validator);
             }
             return validator;
@@ -689,7 +691,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             Optional<T> bean = applicationContext.findBean(validatorType);
             if (bean.isPresent()) {
                 T validator = bean.get();
-                if (validatorType.getName().equals("org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator")) {
+                if (validatorType == org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator.class) {
                     return priorityValidator(validator);
                 }
                 return validator;
@@ -925,7 +927,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             Constructor<?>[] constructors = type.getDeclaredConstructors();
             for (Constructor<?> constructor : constructors) {
                 if (java.util.Arrays.stream(constructor.getDeclaredAnnotations())
-                    .anyMatch(annotation -> annotation.annotationType().getName().equals("jakarta.inject.Inject"))) {
+                    .anyMatch(annotation -> annotation.annotationType() == jakarta.inject.Inject.class)) {
                     return constructor;
                 }
             }

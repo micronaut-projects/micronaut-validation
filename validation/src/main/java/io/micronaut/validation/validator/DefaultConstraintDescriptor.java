@@ -55,6 +55,11 @@ import java.util.Set;
 @Internal
 class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T> {
 
+    private static final String ATTRIBUTE_MESSAGE = "message";
+    private static final String ATTRIBUTE_GROUPS = "groups";
+    private static final String ATTRIBUTE_PAYLOAD = "payload";
+    private static final String ATTRIBUTE_VALIDATION_APPLIES_TO = "validationAppliesTo";
+
     @NonNull
     private final Class<T> type;
     @Nullable
@@ -77,12 +82,12 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                                 @NonNull AnnotationValue<T> annotationValue,
                                 @NonNull AnnotationMetadata annotationMetadata) {
         this(constraintType,
-            annotationValue.stringValue("message").orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get("message"),
-            Set.of(annotationValue.classValues("groups")),
-            (Set) Set.of(annotationValue.classValues("payload")),
+            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
+            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
+            Set.of(annotationValue.classValues(ATTRIBUTE_GROUPS)),
+            (Set) Set.of(annotationValue.classValues(ATTRIBUTE_PAYLOAD)),
             (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)),
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
+            annotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -92,13 +97,13 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                                 @NonNull AnnotationMetadata annotationMetadata,
                                 @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy) {
         this(constraintType,
-            annotationValue.stringValue("message").orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get("message"),
-            Set.of(annotationValue.classValues("groups")),
-            (Set) Set.of(annotationValue.classValues("payload")),
+            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
+            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
+            Set.of(annotationValue.classValues(ATTRIBUTE_GROUPS)),
+            (Set) Set.of(annotationValue.classValues(ATTRIBUTE_PAYLOAD)),
             validatedBy,
             true,
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
+            annotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -109,13 +114,13 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                                 @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
                                 boolean constraintValidatorClassesDefined) {
         this(constraintType,
-            annotationValue.stringValue("message").orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get("message"),
-            Set.of(annotationValue.classValues("groups")),
-            (Set) Set.of(annotationValue.classValues("payload")),
+            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
+            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
+            Set.of(annotationValue.classValues(ATTRIBUTE_GROUPS)),
+            (Set) Set.of(annotationValue.classValues(ATTRIBUTE_PAYLOAD)),
             validatedBy,
             constraintValidatorClassesDefined,
-            annotationValue.enumValue("validationAppliesTo", ConstraintTarget.class).orElse(null),
+            annotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(null),
             annotationValue,
             annotationMetadata);
     }
@@ -132,6 +137,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this(type, message, defaultMessage, groups, payload, validatedBy, !validatedBy.isEmpty(), validationAppliesTo, annotationValue, annotationMetadata);
     }
 
+    @SuppressWarnings("java:S107")
     DefaultConstraintDescriptor(@NonNull Class<T> type,
                                 @Nullable String message,
                                 @Nullable String defaultMessage,
@@ -292,8 +298,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         Class<? extends Annotation> annotationType = annotation.annotationType();
         Map<CharSequence, Object> values = annotationValues(annotation);
         applyOverrides(annotationType, composingAnnotation.constraintIndex(), parentType, parentAnnotationValue, values);
-        values.put("groups", parentAnnotationValue.classValues("groups"));
-        values.put("payload", parentAnnotationValue.classValues("payload"));
+        values.put(ATTRIBUTE_GROUPS, parentAnnotationValue.classValues(ATTRIBUTE_GROUPS));
+        values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = new AnnotationValue<>(
             annotationType.getName(),
             values,
@@ -359,6 +365,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return composingAnnotations;
     }
 
+    @SuppressWarnings("java:S3011")
     private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
         try {
             Method valueMethod = annotation.annotationType().getDeclaredMethod("value");
@@ -391,6 +398,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return attributes;
     }
 
+    @SuppressWarnings("java:S3011")
     private static Map<CharSequence, Object> annotationValues(Annotation annotation) {
         Map<CharSequence, Object> values = new LinkedHashMap<>();
         for (Method method : annotation.annotationType().getDeclaredMethods()) {

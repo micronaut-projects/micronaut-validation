@@ -27,6 +27,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.collections.ObservableList;
 import javafx.collections.ObservableMap;
 import javafx.collections.ObservableSet;
+import org.jspecify.annotations.Nullable;
 
 /**
  * JavaFX value extractors for the opt-in Jakarta compliance aggregate.
@@ -49,7 +50,7 @@ final class JavaFxValueExtractors {
     static final class ObservableValueExtractor implements ValueExtractor<ObservableValue<@ExtractedValue ?>> {
 
         @Override
-        public void extractValues(ObservableValue<?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable ObservableValue<?> originalValue, ValueReceiver receiver) {
             receiver.value(null, originalValue == null ? null : originalValue.getValue());
         }
     }
@@ -60,7 +61,7 @@ final class JavaFxValueExtractors {
     static final class ListPropertyUnwrapExtractor implements ValueExtractor<@ExtractedValue(type = ObservableList.class) ListProperty<?>> {
 
         @Override
-        public void extractValues(ListProperty<?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable ListProperty<?> originalValue, ValueReceiver receiver) {
             receiver.value(null, originalValue == null ? null : originalValue.getValue());
         }
     }
@@ -70,7 +71,7 @@ final class JavaFxValueExtractors {
     static final class ListPropertyElementExtractor implements ValueExtractor<ListProperty<@ExtractedValue ?>> {
 
         @Override
-        public void extractValues(ListProperty<?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable ListProperty<?> originalValue, ValueReceiver receiver) {
             if (originalValue == null) {
                 return;
             }
@@ -87,7 +88,7 @@ final class JavaFxValueExtractors {
     static final class SetPropertyUnwrapExtractor implements ValueExtractor<@ExtractedValue(type = ObservableSet.class) SetProperty<?>> {
 
         @Override
-        public void extractValues(SetProperty<?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable SetProperty<?> originalValue, ValueReceiver receiver) {
             receiver.value(null, originalValue == null ? null : originalValue.getValue());
         }
     }
@@ -97,7 +98,7 @@ final class JavaFxValueExtractors {
     static final class SetPropertyElementExtractor implements ValueExtractor<SetProperty<@ExtractedValue ?>> {
 
         @Override
-        public void extractValues(SetProperty<?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable SetProperty<?> originalValue, ValueReceiver receiver) {
             if (originalValue == null) {
                 return;
             }
@@ -113,7 +114,7 @@ final class JavaFxValueExtractors {
     static final class MapPropertyUnwrapExtractor implements ValueExtractor<@ExtractedValue(type = ObservableMap.class) MapProperty<?, ?>> {
 
         @Override
-        public void extractValues(MapProperty<?, ?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable MapProperty<?, ?> originalValue, ValueReceiver receiver) {
             receiver.value(null, originalValue == null ? null : originalValue.getValue());
         }
     }
@@ -123,7 +124,7 @@ final class JavaFxValueExtractors {
     static final class MapPropertyKeyExtractor implements ValueExtractor<MapProperty<@ExtractedValue ?, ?>> {
 
         @Override
-        public void extractValues(MapProperty<?, ?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable MapProperty<?, ?> originalValue, ValueReceiver receiver) {
             if (originalValue == null) {
                 return;
             }
@@ -138,7 +139,7 @@ final class JavaFxValueExtractors {
     static final class MapPropertyValueExtractor implements ValueExtractor<MapProperty<?, @ExtractedValue ?>> {
 
         @Override
-        public void extractValues(MapProperty<?, ?> originalValue, ValueReceiver receiver) {
+        public void extractValues(@Nullable MapProperty<?, ?> originalValue, ValueReceiver receiver) {
             if (originalValue == null) {
                 return;
             }

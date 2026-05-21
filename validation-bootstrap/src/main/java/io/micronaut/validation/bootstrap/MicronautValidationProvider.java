@@ -35,6 +35,7 @@ public final class MicronautValidationProvider implements ValidationProvider<Mic
      * Creates a Micronaut validation provider.
      */
     public MicronautValidationProvider() {
+        // Public no-arg constructor required by ServiceLoader.
     }
 
     @Override

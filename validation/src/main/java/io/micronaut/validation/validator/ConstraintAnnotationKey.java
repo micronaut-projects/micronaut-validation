@@ -85,6 +85,15 @@ final class ConstraintAnnotationKey {
             }
             return values;
         }
+        if (value.getClass().isArray() && value.getClass().getComponentType().isPrimitive()) {
+            return primitiveArrayToString(value);
+        }
+        return String.valueOf(value)
+            .replace("interface ", "")
+            .replace("class ", "");
+    }
+
+    private static String primitiveArrayToString(Object value) {
         if (value instanceof boolean[] array) {
             return Arrays.toString(array);
         }
@@ -106,11 +115,6 @@ final class ConstraintAnnotationKey {
         if (value instanceof long[] array) {
             return Arrays.toString(array);
         }
-        if (value instanceof short[] array) {
-            return Arrays.toString(array);
-        }
-        return String.valueOf(value)
-            .replace("interface ", "")
-            .replace("class ", "");
+        return Arrays.toString((short[]) value);
     }
 }
