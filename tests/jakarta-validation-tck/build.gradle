@@ -63,6 +63,8 @@ dependencies {
 
 def methodsTest1 = tasks.register('methodsTest1', Test) {
     scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
     useTestNG {
         systemProperties = [
                 'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
@@ -73,6 +75,8 @@ def methodsTest1 = tasks.register('methodsTest1', Test) {
 
 def methodsTest2 = tasks.register('methodsTest2', Test) {
     scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
     useTestNG {
         systemProperties = [
                 'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
