@@ -5,11 +5,10 @@
 
         <classes>
 
+            <!-- Lean core method-validation coverage. Full method-validation compliance is covered by jakartaTck. -->
             <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
                 <methods>
-                    <include name="methodParameterValidationIsAppliedGroupWise"/>
-                    <include name="methodReturnValueValidationIsAppliedGroupWise"/>
-                    <include name="methodReturnValueValidationTargetsReturnValueAndCascadedConstraints"/>
+                    <include name="methodReturnValueValidationPerformsGroupConversion"/>
                 </methods>
             </class>
 
