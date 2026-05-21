@@ -21,7 +21,6 @@ import jakarta.validation.ElementKind;
 import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
-import java.lang.annotation.Annotation;
 import java.util.StringJoiner;
 
 /**
@@ -33,14 +32,14 @@ import java.util.StringJoiner;
  */
 @Internal
 record ReflectionViolationKey(
-    Class<? extends Annotation> constraintType,
+    String constraintType,
     String path
 ) {
 
     static ReflectionViolationKey of(ConstraintViolation<?> violation) {
         ConstraintDescriptor<?> descriptor = violation.getConstraintDescriptor();
         return new ReflectionViolationKey(
-            descriptor.getAnnotation().annotationType(),
+            descriptor.getAnnotation().annotationType().getName(),
             pathKey(violation.getPropertyPath())
         );
     }
