@@ -408,6 +408,18 @@ def jakartaCoverageProjects = [
     project(':micronaut-validation-xml')
 ]
 
+def jakartaCoverageReport = layout.buildDirectory.file('reports/jacoco/test/jacocoTestReport.xml')
+
+jakartaCoverageProjects.each { coveredProject ->
+    coveredProject.plugins.withId('org.sonarqube') {
+        coveredProject.sonar {
+            properties {
+                property 'sonar.coverage.jacoco.xmlReportPaths', jakartaCoverageReport.get().asFile.absolutePath
+            }
+        }
+    }
+}
+
 tasks.named('jacocoTestReport') {
     mustRunAfter(
         tasks.named('test'),

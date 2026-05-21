@@ -44,34 +44,48 @@ record ReflectionContainerContext(@Nullable String nodeName,
                                   @Nullable Integer typeArgumentIndex) {
 }
 
+interface ReflectionContainerNode extends Path.Node {
+
+    ReflectionContainerContext containerContext();
+
+    @Override
+    default boolean isInIterable() {
+        return containerContext().iterable();
+    }
+
+    @Override
+    @Nullable
+    default Integer getIndex() {
+        return containerContext().index();
+    }
+
+    @Override
+    @Nullable
+    default Object getKey() {
+        return containerContext().key();
+    }
+
+    default Class<?> containerClass() {
+        return containerContext().containerClass();
+    }
+
+    @Nullable
+    default Integer typeArgumentIndex() {
+        return containerContext().typeArgumentIndex();
+    }
+}
+
 /**
  * Bean node reached through a cascaded container element.
  *
  * @param containerContext The container context
  * @since 5.1
  */
-record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) implements Path.BeanNode {
+record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) implements Path.BeanNode, ReflectionContainerNode {
 
     @Override
     public ElementKind getKind() {
         return ElementKind.BEAN;
-    }
-
-    @Override
-    public boolean isInIterable() {
-        return containerContext.iterable();
-    }
-
-    @Override
-    @Nullable
-    public Integer getIndex() {
-        return containerContext.index();
-    }
-
-    @Override
-    @Nullable
-    public Object getKey() {
-        return containerContext.key();
     }
 
     @Override
@@ -87,13 +101,13 @@ record ReflectionContainerBeanNode(ReflectionContainerContext containerContext) 
 
     @Override
     public Class<?> getContainerClass() {
-        return containerContext.containerClass();
+        return containerClass();
     }
 
     @Override
     @Nullable
     public Integer getTypeArgumentIndex() {
-        return containerContext.typeArgumentIndex();
+        return typeArgumentIndex();
     }
 
     @Override
@@ -242,28 +256,11 @@ record ReflectionContainerPropertyNode(String name,
  * value
  * @since 5.1
  */
-record ReflectionContainerElementNode(ReflectionContainerContext containerContext) implements Path.ContainerElementNode {
+record ReflectionContainerElementNode(ReflectionContainerContext containerContext) implements Path.ContainerElementNode, ReflectionContainerNode {
 
     @Override
     public ElementKind getKind() {
         return ElementKind.CONTAINER_ELEMENT;
-    }
-
-    @Override
-    public boolean isInIterable() {
-        return containerContext.iterable();
-    }
-
-    @Override
-    @Nullable
-    public Integer getIndex() {
-        return containerContext.index();
-    }
-
-    @Override
-    @Nullable
-    public Object getKey() {
-        return containerContext.key();
     }
 
     @Override
@@ -279,13 +276,13 @@ record ReflectionContainerElementNode(ReflectionContainerContext containerContex
 
     @Override
     public Class<?> getContainerClass() {
-        return containerContext.containerClass();
+        return containerClass();
     }
 
     @Override
     @Nullable
     public Integer getTypeArgumentIndex() {
-        return containerContext.typeArgumentIndex();
+        return typeArgumentIndex();
     }
 
     @Override

@@ -1213,35 +1213,7 @@ public final class ReflectionValidator extends DefaultValidator {
         Set<ConstraintViolation<T>> violations = new LinkedHashSet<>();
         ViolationTarget<T> target = new ViolationTarget<>(object, object.getClass(), object);
         for (ReflectionConstraintDescriptor constraint : constraints) {
-            if (!isGroupIncluded(constraint, context)) {
-                continue;
-            }
-            validateExecutableConstraintDeclaration(constraint, method);
-            if (!isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE)) {
-                continue;
-            }
-            jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
-            ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
-            Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE, true);
-            if (valid == null) {
-                throw unexpectedType(constraint, method.getReturnType());
-            }
-            validateCustomViolationState(valid, validatorContext);
-            addDefaultViolationIfEnabled(valid, validatorContext, violations, target, returnValue, returnValue, constraint, path);
-            validateExecutableComposingConstraints(
-                object,
-                object.getClass(),
-                object,
-                returnValue,
-                method.getReturnType(),
-                constraint,
-                context,
-                violations,
-                path,
-                ConstraintTarget.RETURN_VALUE,
-                method
-            );
-            addCustomViolations(violations, target, returnValue, returnValue, constraint, validatorContext);
+            validateReturnValueConstraint(object, method, returnValue, context, violations, target, constraint);
         }
         validateExecutableContainerElements(
             object,
@@ -1267,6 +1239,44 @@ public final class ReflectionValidator extends DefaultValidator {
             );
         }
         return withExecutableReturnValue(violations, returnValue);
+    }
+
+    private <T> void validateReturnValueConstraint(T object,
+                                                   Method method,
+                                                   @Nullable Object returnValue,
+                                                   BeanValidationContext context,
+                                                   Set<ConstraintViolation<T>> violations,
+                                                   ViolationTarget<T> target,
+                                                   ReflectionConstraintDescriptor constraint) {
+        if (!isGroupIncluded(constraint, context)) {
+            return;
+        }
+        validateExecutableConstraintDeclaration(constraint, method);
+        if (!isTargetedConstraint(constraint, ConstraintTarget.RETURN_VALUE)) {
+            return;
+        }
+        jakarta.validation.Path path = new ReflectionReturnValueExecutablePath(method);
+        ReflectionConstraintValidatorContext validatorContext = new ReflectionConstraintValidatorContext(reflectionClockProvider, object, constraint.getMessageTemplate(), path);
+        Boolean valid = validateConstraint(constraint, returnValue, method.getReturnType(), validatorContext, ConstraintTarget.RETURN_VALUE, true);
+        if (valid == null) {
+            throw unexpectedType(constraint, method.getReturnType());
+        }
+        validateCustomViolationState(valid, validatorContext);
+        addDefaultViolationIfEnabled(valid, validatorContext, violations, target, returnValue, returnValue, constraint, path);
+        validateExecutableComposingConstraints(
+            object,
+            object.getClass(),
+            object,
+            returnValue,
+            method.getReturnType(),
+            constraint,
+            context,
+            violations,
+            path,
+            ConstraintTarget.RETURN_VALUE,
+            method
+        );
+        addCustomViolations(violations, target, returnValue, returnValue, constraint, validatorContext);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -1996,36 +2006,47 @@ public final class ReflectionValidator extends DefaultValidator {
                 );
                 continue;
             }
-            extractValues(unwrappingExtractor, value, valueReceiver((nodeName, key, index, iterable, extractedValue) -> {
-                Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
-                    property.type,
-                    unwrappingExtractor.containerType(),
-                    unwrappingExtractor.typeArgumentIndex()
-                );
-                jakarta.validation.Path extractedPath = nodeName == null ? new ReflectionPath(property.name) : new ReflectionContainerElementPath(
-                    property.name,
-                    new ReflectionContainerContext(
-                        nodeName,
-                        iterable,
-                        key,
-                        index,
-                        property.type,
-                        typeArgumentIndex
-                    )
-                );
-                validateSingleConstraint(
-                    rootBean,
-                    rootBean == null ? null : rootBean.getClass(),
-                    leafBean,
-                    extractedValue,
-                    extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
-                    constraint,
-                    context,
-                    violations,
-                    extractedPath
-                );
-            }));
+            validateUnwrappedPropertyConstraint(rootBean, leafBean, property, value, context, violations, constraint, unwrappingExtractor);
         }
+    }
+
+    private <T> void validateUnwrappedPropertyConstraint(@Nullable T rootBean,
+                                                         @Nullable Object leafBean,
+                                                         ReflectionProperty property,
+                                                         Object value,
+                                                         BeanValidationContext context,
+                                                         Set<ConstraintViolation<T>> violations,
+                                                         ReflectionConstraintDescriptor<?> constraint,
+                                                         ValueExtractorDefinition<Object> unwrappingExtractor) {
+        extractValues(unwrappingExtractor, value, valueReceiver((nodeName, key, index, iterable, extractedValue) -> {
+            Integer typeArgumentIndex = resolveExtractedTypeArgumentIndex(
+                property.type,
+                unwrappingExtractor.containerType(),
+                unwrappingExtractor.typeArgumentIndex()
+            );
+            jakarta.validation.Path extractedPath = nodeName == null ? new ReflectionPath(property.name) : new ReflectionContainerElementPath(
+                property.name,
+                new ReflectionContainerContext(
+                    nodeName,
+                    iterable,
+                    key,
+                    index,
+                    property.type,
+                    typeArgumentIndex
+                )
+            );
+            validateSingleConstraint(
+                rootBean,
+                rootBean == null ? null : rootBean.getClass(),
+                leafBean,
+                extractedValue,
+                extractedValue == null ? unwrappingExtractor.valueType() : extractedValue.getClass(),
+                constraint,
+                context,
+                violations,
+                extractedPath
+            );
+        }));
     }
 
     @Nullable
@@ -5161,32 +5182,37 @@ public final class ReflectionValidator extends DefaultValidator {
             return (A) Proxy.newProxyInstance(
                 annotation.annotationType().getClassLoader(),
                 new Class<?>[] { annotation.annotationType() },
-                (proxy, method, args) -> {
-                    String methodName = method.getName();
-                    if (method.getParameterCount() == 0) {
-                        if ("annotationType".equals(methodName)) {
-                            return annotation.annotationType();
-                        }
-                        if ("toString".equals(methodName)) {
-                            return annotation.annotationType().getName() + values;
-                        }
-                        if ("hashCode".equals(methodName)) {
-                            return values.hashCode();
-                        }
-                        if (values.containsKey(methodName)) {
-                            return values.get(methodName);
-                        }
-                        Object defaultValue = method.getDefaultValue();
-                        if (defaultValue != null) {
-                            return defaultValue;
-                        }
-                    }
-                    if ("equals".equals(methodName) && method.getParameterCount() == 1) {
-                        return proxy == args[0];
-                    }
-                    return method.invoke(annotation, args);
-                }
+                (proxy, method, args) -> annotationMemberInvocation(annotation, values, proxy, method, args)
             );
+        }
+
+        private static Object annotationMemberInvocation(Annotation annotation,
+                                                         Map<String, Object> values,
+                                                         Object proxy,
+                                                         Method method,
+                                                         @Nullable Object[] args) throws ReflectiveOperationException {
+            if (method.getParameterCount() == 0) {
+                Object value = noArgAnnotationMember(annotation, values, method);
+                if (value != null) {
+                    return value;
+                }
+            }
+            if ("equals".equals(method.getName()) && method.getParameterCount() == 1) {
+                return args != null && proxy == args[0];
+            }
+            return method.invoke(annotation, args);
+        }
+
+        @Nullable
+        private static Object noArgAnnotationMember(Annotation annotation,
+                                                    Map<String, Object> values,
+                                                    Method method) {
+            return switch (method.getName()) {
+                case "annotationType" -> annotation.annotationType();
+                case "toString" -> annotation.annotationType().getName() + values;
+                case "hashCode" -> values.hashCode();
+                default -> values.getOrDefault(method.getName(), method.getDefaultValue());
+            };
         }
 
         private record ComposingAnnotation(
