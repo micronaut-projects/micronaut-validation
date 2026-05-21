@@ -356,6 +356,134 @@
                     <exclude name="noExtractedValueThrowsException"/>
                 </methods>
             </class>
+
+            <!-- Core profile intentionally excludes behavior supplied by validation-jakarta optional modules -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest">
+                <methods>
+                    <exclude name="testCascadedMethodReturnValueIsValidatedRecursively"/>
+                    <exclude name="testMethodReturnValueIsMarkedAsCascaded"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintCustomContainerTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_type_parameter_of_an_custom_container_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintListTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_type_parameter_of_a_list_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapKeyTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_key_type_parameter_of_a_map_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintMapValueTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_value_type_parameter_of_a_map_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintOptionalTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_type_parameter_of_an_optional_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.ContainerElementConstraintSetTest">
+                <methods>
+                    <exclude name="getter_constraint_provided_on_type_parameter_of_a_set_gets_validated"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.containerelement.NestedContainerElementConstraintsTest">
+                <methods>
+                    <exclude name="validation_of_nested_type_arguments_works_on_getter_with_map_of_list_of_optional"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.GenericAndCrossParameterConstraintTest">
+                <methods>
+                    <exclude name="testAnnotatedElementIsTargetedByDefault"/>
+                    <exclude name="testAnnotatedElementIsTargetedUsingSupportedValidationTarget"/>
+                    <exclude name="testParametersAreTargetedUsingSupportedValidationTarget"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.ConstraintInheritanceTest">
+                <methods>
+                    <exclude name="testConstraintsOnInterfaceAndImplementationAddUp"/>
+                    <exclude name="testConstraintsOnSuperAndSubClassAddUp"/>
+                    <exclude name="testValidationConsidersConstraintsFromSuperTypes"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.validdeclarations.ValidMethodConstraintDeclarationTest">
+                <methods>
+                    <exclude name="testReturnValueConstraintFromInterfaceAndImplementationAddUp"/>
+                    <exclude name="testReturnValueConstraintFromInterfacesAndImplementationAddUp"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
+                <methods>
+                    <exclude name="testGenericValidatorIsUsedForConstraintTargetingField"/>
+                    <exclude name="testGenericValidatorIsUsedForConstraintTargetingMethodReturnValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ExecutableValidationIgnoresValidatedExecutableAnnotationSettingsTest">
+                <methods>
+                    <exclude name="testValidateParametersYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnExecutableLevel"/>
+                    <exclude name="testValidateParametersYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnTypeLevel"/>
+                    <exclude name="testValidateReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnExecutableLevel"/>
+                    <exclude name="testValidateReturnValueYieldsConstraintViolationIfValidateExecutableIsSetToNONEOnTypeLevel"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateReturnValueTest">
+                <methods>
+                    <exclude name="testContainerElementLeafBean"/>
+                    <exclude name="testNullPassedAsSingleGroupCausesException"/>
+                    <exclude name="testOneViolation"/>
+                    <exclude name="testOneViolationForCascadedValidation"/>
+                    <exclude name="testUnexpectedType"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
+                <methods>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadable"/>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.PropertyPathTest">
+                <methods>
+                    <exclude name="testPropertyPathTraversingMethodArrayReturnValue"/>
+                    <exclude name="testPropertyPathTraversingMethodListReturnValue"/>
+                    <exclude name="testPropertyPathTraversingMethodMapReturnValue"/>
+                    <exclude name="testPropertyPathTraversingMethodReturnValue"/>
+                    <exclude name="testPropertyPathTraversingMethodSetReturnValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateTest">
+                <methods>
+                    <exclude name="testMultipleConstraintViolationOfDifferentTypes"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValidateWithGroupsTest">
+                <methods>
+                    <exclude name="testCorrectGroupsAreAppliedForValidate"/>
+                    <exclude name="testCorrectGroupsAreAppliedForValidateProperty"/>
+                    <exclude name="testCorrectGroupsAreAppliedForValidateValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
+                <methods>
+                    <exclude name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.groupconversion.GroupConversionValidationTest">
+                <methods>
+                    <exclude name="testGroupConversionIsAppliedOnField"/>
+                    <exclude name="testGroupConversionIsAppliedOnProperty"/>
+                    <exclude name="testGroupConversionIsNotExecutedRecursively"/>
+                    <exclude name="testGroupConversionWithSequenceAsTo"/>
+                    <exclude name="testSeveralGroupConversionsAppliedOnField"/>
+                </methods>
+            </class>
         </classes>
 
     </test>

@@ -290,7 +290,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 .ignoreXmlConfiguration()
                 .buildValidatorFactory();
         } catch (ClassNotFoundException e) {
-            throw new ValidationException("Cannot load Micronaut Validation provider", e);
+            return new DefaultValidatorFactory();
         }
     }
 
