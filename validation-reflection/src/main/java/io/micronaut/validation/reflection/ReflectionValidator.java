@@ -1153,12 +1153,8 @@ public class ReflectionValidator extends DefaultValidator {
             } else {
                 existingCounts.put(key, remaining - 1);
                 ConstraintViolation<T> existingViolation = existingViolations.getOrDefault(key, List.of()).remove(0);
-                if (existingViolation.getInvalidValue() == null && violation.getInvalidValue() != null
-                    || !Objects.equals(existingViolation.getMessage(), violation.getMessage())
-                    || !Objects.equals(existingViolation.getMessageTemplate(), violation.getMessageTemplate())) {
-                    merged.remove(existingViolation);
-                    merged.add(violation);
-                }
+                merged.remove(existingViolation);
+                merged.add(violation);
             }
         }
         return Collections.unmodifiableSet(merged);
