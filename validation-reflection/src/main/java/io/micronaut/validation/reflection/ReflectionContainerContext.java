@@ -25,6 +25,9 @@ import java.util.List;
 /**
  * Container element path context used by reflective validation.
  *
+ * <p>This compact carrier preserves the container metadata required by Jakarta
+ * {@link Path} nodes while the reflection fallback walks extracted values.</p>
+ *
  * @param nodeName The extracted node name
  * @param iterable Whether the extracted value is iterable
  * @param key The extracted key
@@ -155,6 +158,17 @@ record ReflectionContainerPropertyPath(String propertyName,
     }
 }
 
+/**
+ * Property node implementation for paths assembled by the reflection fallback.
+ *
+ * @param name The property name
+ * @param inIterable Whether the node was reached from an iterable container
+ * @param key The iterable key
+ * @param index The iterable index
+ * @param containerClass The container class for type-use constraints
+ * @param typeArgumentIndex The constrained type argument index
+ * @since 5.1
+ */
 record ReflectionContainerPropertyNode(String name,
                                        boolean inIterable,
                                        @Nullable Object key,
@@ -162,6 +176,11 @@ record ReflectionContainerPropertyNode(String name,
                                        @Nullable Class<?> containerClass,
                                        @Nullable Integer typeArgumentIndex) implements Path.PropertyNode {
 
+    /**
+     * Creates a plain property node with no container context.
+     *
+     * @param name The property name
+     */
     ReflectionContainerPropertyNode(String name) {
         this(name, false, null, null, null, null);
     }
@@ -212,6 +231,13 @@ record ReflectionContainerPropertyNode(String name,
     }
 }
 
+/**
+ * Container element node implementation for reflected type-use constraints.
+ *
+ * @param containerContext The context captured while extracting the container
+ * value
+ * @since 5.1
+ */
 record ReflectionContainerElementNode(ReflectionContainerContext containerContext) implements Path.ContainerElementNode {
 
     @Override

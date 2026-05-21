@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.bootstrap;
 
+import io.micronaut.core.annotation.Internal;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.executable.ExecutableType;
 import org.jspecify.annotations.Nullable;
@@ -23,7 +24,8 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Default immutable {@link BootstrapConfiguration}.
+ * Internal immutable {@link BootstrapConfiguration} representation shared by
+ * the bootstrap and XML modules.
  *
  * @param defaultProviderClassName The default provider class name
  * @param constraintValidatorFactoryClassName The constraint validator factory class name
@@ -38,6 +40,7 @@ import java.util.Set;
  * @param properties The bootstrap properties
  * @since 5.1
  */
+@Internal
 public record DefaultBootstrapConfiguration(
     @Nullable String defaultProviderClassName,
     @Nullable String constraintValidatorFactoryClassName,
@@ -67,6 +70,8 @@ public record DefaultBootstrapConfiguration(
     );
 
     /**
+     * Returns the shared empty bootstrap configuration.
+     *
      * @return Empty bootstrap configuration
      */
     public static BootstrapConfiguration empty() {

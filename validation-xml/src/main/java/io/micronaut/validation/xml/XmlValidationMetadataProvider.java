@@ -54,8 +54,6 @@ import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import javax.xml.XMLConstants;
-import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -81,7 +79,8 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Loads Jakarta Validation constraint mapping XML as validation metadata.
+ * Internal metadata provider that overlays Jakarta Validation constraint
+ * mapping XML on top of Micronaut's generated validation metadata.
  *
  * @since 5.1
  */
@@ -97,6 +96,8 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private final ClassLoader classLoader;
 
     /**
+     * Creates an XML validation metadata provider.
+     *
      * @param classLoader The class loader
      * @param mappingStreams The mapping streams
      */
@@ -196,10 +197,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private void parse(InputStream inputStream) {
         try (inputStream) {
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            factory.setNamespaceAware(true);
-            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
-            Document document = factory.newDocumentBuilder().parse(inputStream);
+            Document document = SecureXmlDocumentBuilder.parse(inputStream);
             Element root = document.getDocumentElement();
             validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
             validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
@@ -812,6 +810,17 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return element.hasAttribute(name) ? Boolean.parseBoolean(element.getAttribute(name)) : defaultValue;
     }
 
+    /**
+     * Validates the Jakarta Validation XML version attribute for either
+     * bootstrap configuration or mapping XML.
+     *
+     * <p>This remains package-private so the bootstrap XML loader can reuse the
+     * same version checks without introducing a public parser API.</p>
+     *
+     * @param root The root XML element
+     * @param supportedVersions The versions implemented by this module
+     * @param resourceDescription Description used in validation errors
+     */
     static void validateVersion(Element root, Set<String> supportedVersions, String resourceDescription) {
         String version = root.getAttribute("version");
         if (!version.isBlank() && !supportedVersions.contains(version)) {
@@ -819,6 +828,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
     }
 
+    /**
+     * Rejects root-level XML elements outside the subset this module
+     * intentionally implements.
+     *
+     * <p>Maintainers should update the allow-list and downstream parsing in the
+     * same change when adding XML elements, so unsupported specification
+     * features fail deterministically instead of being ignored.</p>
+     *
+     * @param root The root XML element
+     * @param allowedElementNames Local names accepted below the root
+     * @param resourceDescription Description used in validation errors
+     */
     static void validateRootElements(Element root, Set<String> allowedElementNames, String resourceDescription) {
         NodeList children = root.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {

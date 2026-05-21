@@ -17,6 +17,7 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.util.StringUtils;
@@ -43,13 +44,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Reflection metadata provider fallback.
+ * Internal reflection metadata provider fallback for the optional Jakarta
+ * compliance stack.
  *
  * @since 5.1
  */
+@Internal
 @Singleton
 @Requires(property = ReflectionValidator.ENABLED, notEquals = StringUtils.FALSE, defaultValue = StringUtils.TRUE)
 public final class ReflectionValidationMetadataProvider implements ValidationMetadataProvider {
+
+    /**
+     * Creates a reflection metadata provider.
+     */
+    public ReflectionValidationMetadataProvider() {
+    }
 
     @Override
     public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {

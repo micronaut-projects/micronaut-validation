@@ -3,6 +3,8 @@ introduction:
 releaseHistory: Release History
 quickStart:
   title: Quick Start
+jakartaValidation:
+  title: Jakarta Validation Compliance
 methodsValidation:
   title: Validating Bean Methods
 dataClassesValidation:
@@ -15,4 +17,3 @@ compileTimeValidation:
   title: Validating Annotations at Compile Time
 breaks: Breaking Changes
 repository: Repository
-

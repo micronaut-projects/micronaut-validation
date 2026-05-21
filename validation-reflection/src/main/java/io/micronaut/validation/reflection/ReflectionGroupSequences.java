@@ -32,6 +32,10 @@ import java.util.Set;
 /**
  * Reflection-only group sequence resolution.
  *
+ * <p>The default validator gets group metadata from generated annotation
+ * metadata. This helper exists for the optional reflection/XML path where
+ * maintainers must merge runtime annotations with metadata-provider overlays.</p>
+ *
  * @since 5.1
  */
 @Internal
@@ -40,10 +44,15 @@ final class ReflectionGroupSequences {
     private ReflectionGroupSequences() {
     }
 
-    static List<List<Class<?>>> validationGroupPasses(Class<?> beanType, BeanValidationContext context) {
-        return validationGroupPasses(beanType, context, List.of());
-    }
-
+    /**
+     * Expands the validation context groups into ordered validation passes for
+     * a reflected bean type.
+     *
+     * @param beanType The bean type being validated
+     * @param context The validation context containing the requested groups
+     * @param metadataProviders Optional metadata overlays such as XML mappings
+     * @return Ordered passes; each nested list can be validated together
+     */
     static List<List<Class<?>>> validationGroupPasses(Class<?> beanType,
                                                       BeanValidationContext context,
                                                       List<ValidationMetadataProvider> metadataProviders) {
@@ -80,10 +89,15 @@ final class ReflectionGroupSequences {
         return passes;
     }
 
-    static boolean hasInheritedDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
-        return hasInheritedDefaultGroupSequence(beanType, context, List.of());
-    }
-
+    /**
+     * Determines whether validation should consider an inherited default group
+     * sequence rather than the bean type's own default group.
+     *
+     * @param beanType The bean type being validated
+     * @param context The validation context containing the requested groups
+     * @param metadataProviders Optional metadata overlays such as XML mappings
+     * @return Whether a superclass contributes the active default group sequence
+     */
     static boolean hasInheritedDefaultGroupSequence(Class<?> beanType,
                                                    BeanValidationContext context,
                                                    List<ValidationMetadataProvider> metadataProviders) {
@@ -102,10 +116,15 @@ final class ReflectionGroupSequences {
         return false;
     }
 
-    static boolean hasDefaultGroupSequence(Class<?> beanType, BeanValidationContext context) {
-        return hasDefaultGroupSequence(beanType, context, List.of());
-    }
-
+    /**
+     * Determines whether the bean hierarchy declares any active default group
+     * sequence for the requested validation context.
+     *
+     * @param beanType The bean type being validated
+     * @param context The validation context containing the requested groups
+     * @param metadataProviders Optional metadata overlays such as XML mappings
+     * @return Whether default group validation is sequenced
+     */
     static boolean hasDefaultGroupSequence(Class<?> beanType,
                                            BeanValidationContext context,
                                            List<ValidationMetadataProvider> metadataProviders) {
@@ -121,10 +140,17 @@ final class ReflectionGroupSequences {
         return false;
     }
 
-    static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType) {
-        return inheritedDefaultGroupSequencePasses(beanType, List.of());
-    }
-
+    /**
+     * Returns validation passes for the first inherited default group sequence.
+     *
+     * <p>This is used when the reflected bean itself is not sequenced but a
+     * superclass contributes the effective default sequence.</p>
+     *
+     * @param beanType The bean type being validated
+     * @param metadataProviders Optional metadata overlays such as XML mappings
+     * @return Ordered validation passes from the inherited sequence, or an empty
+     * list when none exists
+     */
     static List<List<Class<?>>> inheritedDefaultGroupSequencePasses(Class<?> beanType,
                                                                     List<ValidationMetadataProvider> metadataProviders) {
         for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
@@ -134,10 +160,6 @@ final class ReflectionGroupSequences {
             }
         }
         return List.of();
-    }
-
-    private static List<List<Class<?>>> defaultGroupPasses(Class<?> beanType) {
-        return defaultGroupPasses(beanType, List.of());
     }
 
     private static List<List<Class<?>>> defaultGroupPasses(Class<?> beanType,

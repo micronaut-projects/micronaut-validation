@@ -89,7 +89,9 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                 builder.member("accessKind", new Introspected.AccessKind[]{Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD});
                 builder.member("visibility", Introspected.Visibility.ANY);
             });
-            element.annotate(Prototype.class);
+            if (!element.isRecord()) {
+                element.annotate(Prototype.class);
+            }
 
             element.getMethods().forEach(ce -> {
                 if (ce.isStatic() || !ce.isAccessible()) {

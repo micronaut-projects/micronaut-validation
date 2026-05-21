@@ -15,6 +15,12 @@ See the [Documentation](https://micronaut-projects.github.io/micronaut-validatio
 
 See the [Snapshot Documentation](https://micronaut-projects.github.io/micronaut-validation/snapshot/guide/) for the current development docs.
 
+## Jakarta Validation TCK Evidence
+
+The Jakarta Validation TCK workflow publishes immutable evidence under `tck-results/<workflow-run-id>/` and refreshes the latest evidence page at [Jakarta Validation TCK Evidence](https://micronaut-projects.github.io/micronaut-validation/tck-results/latest/).
+
+This link is a stable entry point for future upstream workflow results. It does not claim full upstream verification until the workflow has passed in the upstream repository.
+
 <!-- ## Examples
 
 Examples can be found in the [examples](https://github.com/micronaut-projects/micronaut-validation/tree/master/examples) directory. -->

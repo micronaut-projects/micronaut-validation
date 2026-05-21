@@ -26,6 +26,10 @@ import java.util.StringJoiner;
 /**
  * Violation identity used to merge generated and reflection validation results.
  *
+ * <p>The key intentionally captures only the stable identity fields needed to
+ * suppress duplicate violations when generated metadata and reflection fallback
+ * both report the same constraint.</p>
+ *
  * @param constraintType The constraint annotation type
  * @param path The violation path key
  * @since 5.1
@@ -36,6 +40,13 @@ record ReflectionViolationKey(
     String path
 ) {
 
+    /**
+     * Creates a merge key from a validation violation.
+     *
+     * @param violation The violation produced by generated or reflection
+     * validation
+     * @return A stable identity key for duplicate suppression
+     */
     static ReflectionViolationKey of(ConstraintViolation<?> violation) {
         ConstraintDescriptor<?> descriptor = violation.getConstraintDescriptor();
         return new ReflectionViolationKey(

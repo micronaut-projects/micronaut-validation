@@ -19,6 +19,7 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.env.PropertySource;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
@@ -56,10 +57,12 @@ import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
- * Jakarta Validation {@link Configuration} implementation.
+ * Internal Jakarta Validation {@link Configuration} implementation used by
+ * {@link MicronautValidationProvider} during ServiceLoader bootstrap.
  *
  * @since 5.1
  */
+@Internal
 public final class MicronautValidatorConfiguration implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
 
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
@@ -264,7 +267,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     }
 
     private InputStream getConstraintMappingResource(String mappingPath) {
-        String resourcePath = mappingPath.startsWith("/") ? mappingPath.substring(1) : mappingPath;
+        String resourcePath = ValidationResourcePaths.normalizeClasspathResource(mappingPath, "constraint mapping");
         InputStream inputStream = classLoader.getResourceAsStream(resourcePath);
         if (inputStream == null) {
             throw new ValidationException("Cannot read constraint mapping resource: " + mappingPath);

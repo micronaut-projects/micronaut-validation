@@ -32,6 +32,10 @@ import java.util.List;
 /**
  * Reflection-only Jakarta constraint definition checks.
  *
+ * <p>These checks validate annotation definitions discovered by reflection
+ * before the validator builds runtime descriptors. Keep new checks here only
+ * when they require reflective annotation member inspection.</p>
+ *
  * @since 5.1
  */
 final class ReflectionConstraintDefinitions {
@@ -39,6 +43,12 @@ final class ReflectionConstraintDefinitions {
     private ReflectionConstraintDefinitions() {
     }
 
+    /**
+     * Validates one constraint annotation type against Jakarta Validation
+     * constraint-definition rules.
+     *
+     * @param annotationType The annotation type being used as a constraint
+     */
     static void validate(Class<? extends Annotation> annotationType) {
         Constraint constraint = annotationType.getAnnotation(Constraint.class);
         if (constraint == null) {
