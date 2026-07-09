@@ -6,7 +6,7 @@ arquillian-container = "1.10.2.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
 
-micronaut = "5.1.1"
+micronaut = "5.1.5"
 micronaut-platform = "5.0.2"
 micronaut-reactor = "4.0.0"
 micronaut-rxjava3 = "4.0.0"
