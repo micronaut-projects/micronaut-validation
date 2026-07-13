@@ -59,8 +59,9 @@ class URLValidatorTest {
     }
 
     @Test
-    void permitsNullAndEmptyValues() {
-        assertTrue(validator.validate(new TestUrl(null, null, "")).isEmpty());
+    void permitsNullValuesButRejectsEmptyStrings() {
+        assertTrue(validator.validate(new TestUrl(null, null, null)).isEmpty());
+        assertFalse(validator.validate(new TestUrl("", null, null)).isEmpty());
     }
 
     @Test
