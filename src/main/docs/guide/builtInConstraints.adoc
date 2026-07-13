@@ -1,0 +1,24 @@
+Micronaut Validation provides additional constraints in the `io.micronaut.validation.annotation` package. Like other Bean Validation constraints, these constraints consider `null` values valid. Use `jakarta.validation.constraints.NotNull` when a value must be present.
+
+[cols="1,3",options="header"]
+|===
+|Constraint |Description
+
+|api:validation.annotation.InEnum[]
+|Requires a `String` value to match a constant name in the enum supplied through `value`. An instance of that enum is also valid. Set `caseSensitive` to `false` for a case-insensitive string comparison.
+
+|api:validation.annotation.NotInEnum[]
+|Rejects a `String` value that matches a constant name in the enum supplied through `value`. Set `caseSensitive` to `false` for a case-insensitive string comparison.
+
+|api:validation.annotation.InList[]
+|Requires a `String` or enum value to match one of the strings supplied through `value`. Set `caseSensitive` to `false` for a case-insensitive comparison.
+
+|api:validation.annotation.NotInList[]
+|Rejects a `String` or enum value that matches one of the strings supplied through `value`. Set `caseSensitive` to `false` for a case-insensitive comparison.
+
+|api:validation.annotation.UniqueElements[]
+|Requires all non-null elements in an array or `Iterable` to be unique.
+
+|api:validation.annotation.URL[]
+|Requires a character sequence to be a valid URL. Use `protocol`, `host`, and `port` to restrict the corresponding URL components. Use `regexp` and `flags` to apply an additional regular-expression restriction. The annotation may be repeated on the same element.
+|===
