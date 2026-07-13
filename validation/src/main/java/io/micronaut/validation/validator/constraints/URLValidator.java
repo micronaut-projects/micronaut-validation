@@ -37,7 +37,8 @@ public class URLValidator extends AbstractPatternValidator<URL> {
     private static final String MEMBER_HOST = "host";
     private static final String MEMBER_PORT = "port";
     private static final String EMPTY_STRING = "";
-    private static final int RANDOM_PORT = -1;
+    private static final int ANY_PORT = -1;
+    private static final int RANDOM_PORT = ANY_PORT;
 
     @Override
     public boolean isValid(@Nullable CharSequence value,
