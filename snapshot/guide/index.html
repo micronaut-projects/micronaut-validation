@@ -60,11 +60,13 @@
                                 
                                 <div class="toc-item" style="margin-left:0"><a href="#additionalConstraints"><strong>7</strong><span>Defining Additional Constraints</span></a></div>
                                 
-                                <div class="toc-item" style="margin-left:0"><a href="#compileTimeValidation"><strong>8</strong><span>Validating Annotations at Compile Time</span></a></div>
+                                <div class="toc-item" style="margin-left:0"><a href="#builtInConstraints"><strong>8</strong><span>Built-In Constraints</span></a></div>
                                 
-                                <div class="toc-item" style="margin-left:0"><a href="#breaks"><strong>9</strong><span>Breaking Changes</span></a></div>
+                                <div class="toc-item" style="margin-left:0"><a href="#compileTimeValidation"><strong>9</strong><span>Validating Annotations at Compile Time</span></a></div>
                                 
-                                <div class="toc-item" style="margin-left:0"><a href="#repository"><strong>10</strong><span>Repository</span></a></div>
+                                <div class="toc-item" style="margin-left:0"><a href="#breaks"><strong>10</strong><span>Breaking Changes</span></a></div>
+                                
+                                <div class="toc-item" style="margin-left:0"><a href="#repository"><strong>11</strong><span>Repository</span></a></div>
                                 
                             </div>
                         </div>
@@ -109,11 +111,13 @@
         
         <div class="toc-item" style="margin-left:0px" id="toc-item-additionalConstraints"><a href="#additionalConstraints"><strong>7</strong><span>Defining Additional Constraints</span></a></div>
         
-        <div class="toc-item" style="margin-left:0px" id="toc-item-compileTimeValidation"><a href="#compileTimeValidation"><strong>8</strong><span>Validating Annotations at Compile Time</span></a></div>
+        <div class="toc-item" style="margin-left:0px" id="toc-item-builtInConstraints"><a href="#builtInConstraints"><strong>8</strong><span>Built-In Constraints</span></a></div>
         
-        <div class="toc-item" style="margin-left:0px" id="toc-item-breaks"><a href="#breaks"><strong>9</strong><span>Breaking Changes</span></a></div>
+        <div class="toc-item" style="margin-left:0px" id="toc-item-compileTimeValidation"><a href="#compileTimeValidation"><strong>9</strong><span>Validating Annotations at Compile Time</span></a></div>
         
-        <div class="toc-item" style="margin-left:0px" id="toc-item-repository"><a href="#repository"><strong>10</strong><span>Repository</span></a></div>
+        <div class="toc-item" style="margin-left:0px" id="toc-item-breaks"><a href="#breaks"><strong>10</strong><span>Breaking Changes</span></a></div>
+        
+        <div class="toc-item" style="margin-left:0px" id="toc-item-repository"><a href="#repository"><strong>11</strong><span>Repository</span></a></div>
         
         </div>
     </div>
@@ -1369,7 +1373,58 @@ See the guide for <a href="https://guides.micronaut.io/latest/micronaut-custom-v
 </table>
 </div>
 
-<h1 id="compileTimeValidation"><a class="anchor" href="#compileTimeValidation"></a>8 Validating Annotations at Compile Time</h1>
+<h1 id="builtInConstraints"><a class="anchor" href="#builtInConstraints"></a>8 Built-In Constraints</h1>
+
+<div class='contribute-btn'>
+    <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.1.x/src/main/docs/guide/builtInConstraints.adoc"'>
+        <i class='fa fa-pencil-square-o'></i> Improve this doc
+    </button>
+</div>
+
+
+<div class="paragraph">
+<p>Micronaut Validation provides additional constraints in the <code>io.micronaut.validation.annotation</code> package. Like other Bean Validation constraints, these constraints consider <code>null</code> values valid. Use <code>jakarta.validation.constraints.NotNull</code> when a value must be present.</p>
+</div>
+<table class="tableblock frame-all grid-all stretch">
+<colgroup>
+<col style="width: 25%;">
+<col style="width: 75%;">
+</colgroup>
+<thead>
+<tr>
+<th class="tableblock halign-left valign-top">Constraint</th>
+<th class="tableblock halign-left valign-top">Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/InEnum.html">InEnum</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Requires a <code>String</code> value to match a constant name in the enum supplied through <code>value</code>. An instance of that enum is also valid. Set <code>caseSensitive</code> to <code>false</code> for a case-insensitive string comparison.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/NotInEnum.html">NotInEnum</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Rejects a <code>String</code> value that matches a constant name in the enum supplied through <code>value</code>. Set <code>caseSensitive</code> to <code>false</code> for a case-insensitive string comparison.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/InList.html">InList</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Requires a <code>String</code> or enum value to match one of the strings supplied through <code>value</code>. Set <code>caseSensitive</code> to <code>false</code> for a case-insensitive comparison.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/NotInList.html">NotInList</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Rejects a <code>String</code> or enum value that matches one of the strings supplied through <code>value</code>. Set <code>caseSensitive</code> to <code>false</code> for a case-insensitive comparison.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/UniqueElements.html">UniqueElements</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Requires all non-null elements in an array or <code>Iterable</code> to be unique.</p></td>
+</tr>
+<tr>
+<td class="tableblock halign-left valign-top"><p class="tableblock"><a href="../api/io/micronaut/validation/annotation/URL.html">URL</a></p></td>
+<td class="tableblock halign-left valign-top"><p class="tableblock">Requires a character sequence to be a valid URL. Use <code>protocol</code>, <code>host</code>, and <code>port</code> to restrict the corresponding URL components. Use <code>regexp</code> and <code>flags</code> to apply an additional regular-expression restriction. The annotation may be repeated on the same element.</p></td>
+</tr>
+</tbody>
+</table>
+
+<h1 id="compileTimeValidation"><a class="anchor" href="#compileTimeValidation"></a>9 Validating Annotations at Compile Time</h1>
 
 <div class='contribute-btn'>
     <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.1.x/src/main/docs/guide/compileTimeValidation.adoc"'>
@@ -1536,7 +1591,7 @@ class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern
 </ul>
 </div>
 
-<h1 id="breaks"><a class="anchor" href="#breaks"></a>9 Breaking Changes</h1>
+<h1 id="breaks"><a class="anchor" href="#breaks"></a>10 Breaking Changes</h1>
 
 <div class='contribute-btn'>
     <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.1.x/src/main/docs/guide/breaks.adoc"'>
@@ -1562,7 +1617,7 @@ class DurationPatternValidator implements ConstraintValidator&lt;DurationPattern
 </div>
 </div>
 
-<h1 id="repository"><a class="anchor" href="#repository"></a>10 Repository</h1>
+<h1 id="repository"><a class="anchor" href="#repository"></a>11 Repository</h1>
 
 <div class='contribute-btn'>
     <button type='button' class='btn btn-default' onclick='window.location.href="https://github.com/micronaut-projects/micronaut-validation/edit/5.1.x/src/main/docs/guide/repository.adoc"'>
