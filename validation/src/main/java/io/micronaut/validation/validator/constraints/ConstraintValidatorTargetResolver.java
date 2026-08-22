@@ -15,16 +15,17 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.context.AnnotationReflectionUtils;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
+import io.micronaut.core.type.Argument;
 import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Set;
 
 /**
@@ -102,57 +103,22 @@ public final class ConstraintValidatorTargetResolver {
             || validationTargets.contains(ValidationTarget.ANNOTATED_ELEMENT);
     }
 
+    /**
+     * The type a validator validates: the second type argument of {@link ConstraintValidator}, resolved through
+     * the hierarchy of the validator type by {@link AnnotationReflectionUtils#resolveGenericToArgument}, the
+     * same resolution the value extractors and the generic bean arguments use.
+     */
     @Nullable
     private static Class<?> findTargetType(Class<?> type) {
-        for (Type genericInterface : type.getGenericInterfaces()) {
-            Class<?> targetType = findTargetType(genericInterface);
-            if (targetType != null) {
-                return targetType;
-            }
-        }
-        Type genericSuperclass = type.getGenericSuperclass();
-        return genericSuperclass == null ? null : findTargetType(genericSuperclass);
-    }
-
-    @Nullable
-    private static Class<?> findTargetType(Type type) {
-        if (type instanceof ParameterizedType parameterizedType) {
-            Class<?> targetType = constraintValidatorTargetType(parameterizedType);
-            if (targetType != null) {
-                return targetType;
-            }
-            Type rawType = parameterizedType.getRawType();
-            if (rawType instanceof Class<?> rawClass) {
-                return findTargetType(rawClass);
-            }
+        Argument<ConstraintValidator> validator = AnnotationReflectionUtils.resolveGenericToArgument(type, ConstraintValidator.class);
+        if (validator == null) {
             return null;
         }
-        if (type instanceof Class<?> clazz && clazz != Object.class) {
-            return findTargetType(clazz);
+        Argument<?>[] typeParameters = validator.getTypeParameters();
+        if (typeParameters.length != 2) {
+            return null;
         }
-        return null;
-    }
-
-    @Nullable
-    private static Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
-        Type rawType = parameterizedType.getRawType();
-        if (rawType == ConstraintValidator.class || rawType == jakarta.validation.ConstraintValidator.class) {
-            Type[] typeArguments = parameterizedType.getActualTypeArguments();
-            if (typeArguments.length == 2) {
-                return typeArgumentType(typeArguments[1]);
-            }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Class<?> typeArgumentType(Type typeArgument) {
-        if (typeArgument instanceof Class<?> aClass) {
-            return aClass;
-        }
-        if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawClass) {
-            return rawClass;
-        }
-        return null;
+        Class<?> targetType = typeParameters[1].getType();
+        return targetType == Object.class ? null : targetType;
     }
 }

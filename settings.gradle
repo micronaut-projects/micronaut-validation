@@ -63,3 +63,25 @@ File expressionLanguageBuild = settings.hasProperty('micronautExpressionLanguage
 if (expressionLanguageBuild != null && new File(expressionLanguageBuild, 'settings.gradle').isFile()) {
     includeBuild(expressionLanguageBuild)
 }
+
+// The reflection bridge of micronaut-core — ReflectionAnnotationMetadataBuilder, the Argument factories of
+// AnnotationReflectionUtils, ReflectionExecutableMethod and ReflectionBeanIntrospection — is not released yet,
+// so the build of the sibling checkout is included when it carries it. Point -PmicronautCorePath=... at it to
+// use a different location.
+File findCoreBuild(File start) {
+    for (File dir = start; dir != null; dir = dir.parentFile) {
+        File candidate = new File(dir, 'micronaut-core')
+        if (new File(candidate, 'inject/src/main/java/io/micronaut/inject/reflection/ReflectionBeanIntrospection.java').isFile()) {
+            return candidate
+        }
+    }
+    return null
+}
+
+File coreBuild = settings.hasProperty('micronautCorePath')
+    ? new File(settings.micronautCorePath as String)
+    : findCoreBuild(rootDir.parentFile)
+
+if (coreBuild != null && new File(coreBuild, 'settings.gradle').isFile()) {
+    includeBuild(coreBuild)
+}

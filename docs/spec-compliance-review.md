@@ -225,6 +225,11 @@ thing.
 - Open: `io.micronaut.el:*` is unpublished (composite build only), identical expressions generate one class
   per declaring type, and a parameter nested in an expression is not substituted by the shared scan.
 
+## Progress
+
+Step 1 of the order below is implemented on the `claude/reflection-bridge` branches of micronaut-core and of
+this repository; [reflection-bridge.md](reflection-bridge.md) describes it and measures it.
+
 ## Recommended order
 
 1. **micronaut-core: the reflection bridge** (section 4). It unblocks both PRs and is the only piece that

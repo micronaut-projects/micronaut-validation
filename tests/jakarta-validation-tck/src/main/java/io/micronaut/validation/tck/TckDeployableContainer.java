@@ -22,6 +22,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
+import io.micronaut.inject.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
@@ -558,6 +559,12 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     }
 
     private static Validator createValidator(ValidatorConfiguration validatorConfiguration, ClassLoader classLoader) {
+        // The same switch as MicronautValidatorConfiguration.REFLECTION_MODE; the bootstrap module is not on the compile classpath of the harness
+        if ("introspection".equalsIgnoreCase(System.getProperty("micronaut.validator.reflection.mode", "validator"))
+            && validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration) {
+            defaultConfiguration.setBeanIntrospector(new ReflectionBeanIntrospector(defaultConfiguration.getBeanIntrospector()));
+            return new DefaultValidator(defaultConfiguration);
+        }
         try {
             Class<?> reflectionValidator = Class.forName("io.micronaut.validation.reflection.ReflectionValidator", true, classLoader);
             return (Validator) reflectionValidator.getConstructor(ValidatorConfiguration.class).newInstance(validatorConfiguration);

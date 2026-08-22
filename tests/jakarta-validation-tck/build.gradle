@@ -68,6 +68,7 @@ def methodsTest1 = tasks.register('methodsTest1', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
         ]
         suites file("tck-methods2.xml")
@@ -80,6 +81,7 @@ def methodsTest2 = tasks.register('methodsTest2', Test) {
     classpath = sourceSets.test.runtimeClasspath
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
         ]
         suites file("tck-methods.xml")
@@ -91,6 +93,7 @@ test {
     scanForTestClasses false
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
         ]
         suites file("tck-tests.xml")
@@ -124,6 +127,7 @@ def jakartaTck = tasks.register('jakartaTck', Test) {
     shouldRunAfter(test)
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
         ]
         suites file("tck-spec-tests.xml")
@@ -283,6 +287,7 @@ def discoverFailingJakartaTck = tasks.register('discoverFailingJakartaTck', Test
     finalizedBy(refreshFailingJakartaTckSuite)
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
         ]
         suites file("tck-spec-tests.xml")
@@ -305,6 +310,7 @@ def failingJakartaTck = tasks.register('failingJakartaTck', Test) {
     shouldRunAfter(jakartaTck)
     useTestNG {
         systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                 'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
         ]
         suites file("failingTests.xml")
@@ -358,6 +364,7 @@ def registerSingleTckTask = { String taskName, String descriptionText, FileColle
 
         useTestNG {
             systemProperties = [
+            'micronaut.validator.reflection.mode': System.getProperty('micronaut.validator.reflection.mode', 'validator'),
                     'validation.provider': validationProvider
             ]
             suites suiteFile.get().asFile

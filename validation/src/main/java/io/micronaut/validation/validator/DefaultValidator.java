@@ -484,12 +484,7 @@ public class DefaultValidator implements
         requireNonNull("method", method);
         requireNonNull("groups", groups);
 
-        return executionHandleLocator.findExecutableMethod(
-                method.getDeclaringClass(),
-                method.getName(),
-                method.getParameterTypes()
-            ).map(executableMethod -> validateParameters(object, executableMethod, parameterValues, groups))
-            .orElse(Collections.emptySet());
+        return validateParameters(object, ReflectiveExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
     }
 
     @NonNull
@@ -502,12 +497,7 @@ public class DefaultValidator implements
         requireNonNull("object", object);
         requireNonNull("groups", groups);
 
-        return executionHandleLocator.findExecutableMethod(
-                method.getDeclaringClass(),
-                method.getName(),
-                method.getParameterTypes()
-            ).map(executableMethod -> validateReturnValue(object, executableMethod, returnValue, groups))
-            .orElse(Collections.emptySet());
+        return validateReturnValue(object, ReflectiveExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
     }
 
     @Override
@@ -579,7 +569,7 @@ public class DefaultValidator implements
         final BeanIntrospection<? extends T> introspection = getBeanIntrospection(declaringClass);
         return validateConstructorParameters(
             declaringClass,
-            introspection.getConstructorArguments(),
+            ReflectiveExecutables.constructorArguments(introspection, constructor),
             parameterValues,
             BeanValidationContext.fromGroups(groups),
             getParameterNames(constructor)

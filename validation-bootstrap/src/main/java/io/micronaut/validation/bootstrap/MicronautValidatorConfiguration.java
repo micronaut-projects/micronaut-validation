@@ -22,6 +22,7 @@ import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidator;
+import io.micronaut.inject.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
@@ -64,6 +65,14 @@ import java.util.Set;
  */
 @Internal
 public final class MicronautValidatorConfiguration implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
+
+    /**
+     * The system property selecting how a type without a generated introspection is validated:
+     * {@code validator} runs the reflection fallback validator of {@code micronaut-validation-reflection},
+     * {@code introspection} gives the default validator a reflective {@link ReflectionBeanIntrospector}
+     * built on the reflection bridge of micronaut-core and runs no second validator.
+     */
+    public static final String REFLECTION_MODE = "micronaut.validator.reflection.mode";
 
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
     private static final Set<String> BOOTSTRAP_PACKAGES = Set.of(
@@ -496,6 +505,10 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         if (classLoader == null) {
             classLoader = MicronautValidatorConfiguration.class.getClassLoader();
         }
+        if (isReflectiveIntrospectionMode() && validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration) {
+            defaultConfiguration.setBeanIntrospector(new ReflectionBeanIntrospector(defaultConfiguration.getBeanIntrospector()));
+            return new DefaultValidator(defaultConfiguration);
+        }
         try {
             Class<?> reflectionValidator = Class.forName("io.micronaut.validation.reflection.ReflectionValidator", false, classLoader);
             return (Validator) reflectionValidator.getConstructor(ValidatorConfiguration.class).newInstance(validatorConfiguration);
@@ -504,6 +517,13 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot initialize Micronaut Validation reflection fallback", e);
         }
+    }
+
+    /**
+     * @return Whether {@link #REFLECTION_MODE} selects the reflective introspection
+     */
+    public static boolean isReflectiveIntrospectionMode() {
+        return "introspection".equalsIgnoreCase(System.getProperty(REFLECTION_MODE, "validator"));
     }
 
     static ApplicationContext createBootstrapContext(Map<String, Object> properties) {

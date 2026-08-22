@@ -20,6 +20,7 @@ import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.context.AnnotationReflectionUtils;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.ConversionServiceAware;
@@ -28,7 +29,7 @@ import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.inject.annotation.ReflectionAnnotationMetadataBuilder;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -56,23 +57,17 @@ import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -517,42 +512,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @NonNull
     private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
-        if (type instanceof AnnotatedParameterizedType annotatedParameterizedType) {
-            return Argument.of(
-                getClassFromType(type.getType()),
-                annotationMetadataOf(type),
-                Arrays.stream(annotatedParameterizedType.getAnnotatedActualTypeArguments()).map(DefaultValidatorConfiguration::argumentOf).toArray(Argument[]::new)
-            );
-        }
-        return Argument.of(getClassFromType(type.getType()), annotationMetadataOf(type));
+        return AnnotationReflectionUtils.argumentOf(type);
     }
 
     private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
-        Annotation[] annotations = annotatedElement.getAnnotations();
-        if (annotations.length == 0) {
-            return AnnotationMetadata.EMPTY_METADATA;
-        }
-        MutableAnnotationMetadata mutableAnnotationMetadata = new MutableAnnotationMetadata();
-        for (Annotation annotation : annotations) {
-            Map<CharSequence, Object> values = new LinkedHashMap<>();
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            Method[] methods = annotationType.getMethods();
-            for (Method method : methods) {
-                if (!method.getDeclaringClass().equals(annotationType)) {
-                    continue;
-                }
-                try {
-                    Object value = method.invoke(annotation);
-                    if (value != null) {
-                        values.put(method.getName(), value);
-                    }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            mutableAnnotationMetadata.addAnnotation(annotationType.getName(), values);
-        }
-        return mutableAnnotationMetadata;
+        return ReflectionAnnotationMetadataBuilder.build(annotatedElement);
     }
 
     @Override
