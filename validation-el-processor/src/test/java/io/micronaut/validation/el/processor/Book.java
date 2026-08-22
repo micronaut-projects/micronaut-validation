@@ -15,9 +15,12 @@
  */
 package io.micronaut.validation.el.processor;
 
+import io.micronaut.core.annotation.Creator;
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Size;
+
+import java.util.List;
 
 /**
  * A bean whose constraint messages carry Jakarta EL expressions, compiled by
@@ -32,9 +35,29 @@ public final class Book {
     @DecimalMin(value = "1.0", message = "${formatter.format('%.2f', validatedValue)} is below {value}")
     private final double price;
 
+    @Tiny(max = 5)
+    private final String code;
+
+    private final List<@Size(max = 2, message = "the tag ${validatedValue.trim()} is longer than {max}") String> tags;
+
     public Book(String title, double price) {
+        this(title, price, "ok", List.of());
+    }
+
+    @Creator
+    public Book(String title, double price, String code, List<String> tags) {
         this.title = title;
         this.price = price;
+        this.code = code;
+        this.tags = tags;
+    }
+
+    public String getCode() {
+        return code;
+    }
+
+    public List<String> getTags() {
+        return tags;
     }
 
     public String getTitle() {

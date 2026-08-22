@@ -22,6 +22,7 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.MessageInterpolator;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -56,6 +57,31 @@ class CompiledMessageInterpolationTest {
                 Set.of(
                     "0.50 is below 1.0",
                     "the title is 28 long, not between 1 and 8"
+                ),
+                messages
+            );
+        }
+    }
+
+    /**
+     * {@code @Tiny(max = 5)} overrides the {@code max} of its composing {@code @Size}: the descriptor applies
+     * the override at runtime and the message says 5. The expressions themselves were compiled from the
+     * annotation type of {@code @Tiny} and from the type argument of {@code tags}.
+     */
+    @Test
+    void theComposingAndContainerElementMessagesAreInterpolatedWithTheCompiledExpressions() {
+        try (ApplicationContext context = ApplicationContext.run()) {
+            Validator validator = context.getBean(Validator.class);
+
+            Set<ConstraintViolation<Book>> violations = validator.validate(new Book("title", 2.0, "toolong", List.of("abc")));
+
+            Set<String> messages = violations.stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.toCollection(TreeSet::new));
+            assertEquals(
+                Set.of(
+                    "TOOLONG is longer than 5",
+                    "the tag abc is longer than 2"
                 ),
                 messages
             );

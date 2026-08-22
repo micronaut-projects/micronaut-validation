@@ -41,13 +41,30 @@ prototype needs.
 A constraint message is a compile-time constant — the `message` member of the annotation, or its default. The
 processor therefore knows, before the application runs, which expressions the interpolator will evaluate:
 
-1. For every constraint on the type, its fields, its methods and their parameters, take the message template.
-2. Run the message parameter pass of the section 5.3.1.1 over it, resolving `{param}` against the members of
-   the constraint. This has to happen first, and has to happen the same way it happens at runtime: the
-   parameter pass consumes `${value}` into `$5` and leaves `${value * 2}` alone, so it decides what the
-   expression pass will see. `MessageTemplates` is shared between the two for that reason.
-3. Compile each expression that remains with `ELParser`, `ELCompiler` and `ValueExpressionWriter` of
-   micronaut-expression-language, and publish them through a generated `ELExpressionSource`.
+1. Collect the constraints the way `DefaultConstraintDescriptor` resolves them at runtime: on the type, its
+   fields, its methods, their return types and parameters, the parameters of its primary constructor, and
+   the type arguments of all of these (`List<@Size String>` declares its constraint on the type argument).
+   The attributes of a constraint are its declared values completed by the defaults of its annotation type.
+   A custom constraint is followed into its annotation type for the constraints composing it, recursively,
+   with the members annotated with `@OverridesAttribute` applied, `constraintIndex` included.
+2. Take the message template of each: the declared `message`, or the default of the member.
+3. Run the message parameter pass of the section 5.3.1.1 over it, resolving `{param}` against the attributes.
+   This has to happen first, and has to happen the same way it happens at runtime: the parameter pass
+   consumes `${value}` into `$5` and leaves `${value * 2}` alone, so it decides what the expression pass will
+   see. `MessageTemplates` is shared between the two for that reason.
+4. Compile each expression that remains with `ELParser`, `ELCompiler` and `ValueExpressionWriter` of
+   micronaut-expression-language, and publish them through a generated `ELExpressionSource`. The visited
+   type is the one originating element of every generated file, whichever member, type argument or
+   composing annotation the expression came from: the visitor is isolating, and Gradle's isolating filer
+   accepts exactly one.
+
+Two things about the Micronaut element model that the collection has to know. A repeatable constraint such
+as `@Size` is filed under its `Size.List` container, so `hasAnnotation` and `hasStereotype` are false for it
+even when it is written directly on the element, while `getAnnotationValuesByName` serves it and is empty
+for a non-repeatable constraint, which `getAnnotation` serves. And the stereotypes are flattened onto the
+element, so the `@Size` composing a custom constraint is listed next to the constraint with the raw values
+of the meta-annotation; it is recognised as composing because the annotation type of the other constraint
+declares it, and is read from there, where the overrides apply.
 
 At runtime `ElMessageInterpolator` calls `createValueExpression` with the same string, and
 `CompiledExpressionFactory` returns the generated expression from a `switch` rather than parsing it.
@@ -88,7 +105,11 @@ evaluates it at runtime exactly as it evaluates a template built at runtime.
   at all is an expression that was compiled. `CompiledConstraintMessageTest` asserts that the expressions of
   the constraint messages resolve and that an undeclared one throws.
 * `CompiledMessageInterpolationTest` runs the real `Validator` over a bean and checks the interpolated
-  messages, still with no interpreter present.
+  messages, still with no interpreter present — including the message of a constraint composing a custom
+  constraint, with the `@OverridesAttribute` of the custom constraint applied, and the message of a
+  container element constraint.
+* `CompiledConstraintMessageTest` asserts that the default message of a custom constraint, the messages of
+  its composing constraints and the messages of the container element constraints are compiled.
 * `IntrospectionDispatchTest` evaluates the compiled `${formatter.format('%.2f', validatedValue)}` against a
   context whose only resolver is `IntrospectionELResolver`, so the variable arity `format` is proven to go
   through the generated introspection and not through `jakarta.el.BeanELResolver`.
@@ -102,6 +123,13 @@ constraint sites sharing an expression string over different validated types wou
 loaded first. Doing this needs the generated class name to travel on the constraint's annotation metadata —
 `DefaultConstraintDescriptor` already holds the `AnnotationValue` and the `AnnotationMetadata` — so that the
 interpolator asks for the expression of *this* constraint rather than for a string.
+
+**A parameter nested in an expression.** The scan of `MessageTemplates` ends a parameter and an expression
+at the first unescaped `}`, as the interpolator of #631 does, so `${validatedValue.length() - {max}}` is
+neither substituted nor parsed, at runtime or at compilation time; the processor warns and leaves it to the
+interpreter, which rejects it too. If the interpolator grows a brace-balanced scan, the processor follows
+through the shared class, and the `@OverridesAttribute` handling — currently only observable in the
+interpolated message — starts to select expression strings as well.
 
 **Resource bundles.** Only the parameters that come from the members of the constraint are resolved at
 compilation time. A template whose expressions only appear after a `ValidationMessages_xx.properties` lookup

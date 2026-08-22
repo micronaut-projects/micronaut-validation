@@ -58,6 +58,24 @@ class CompiledConstraintMessageTest {
     }
 
     @Test
+    void theDefaultMessageOfACustomConstraintIsCompiled() {
+        // @Tiny declares no message at its use site, the default of its message member is the template
+        assertCompiled("${validatedValue.concat(' is not tiny')}");
+    }
+
+    @Test
+    void theMessagesOfTheComposingConstraintsAreCompiled() {
+        // the message of the @Size composing @Tiny, read from the annotation type of @Tiny
+        assertCompiled("${validatedValue.toUpperCase()}");
+    }
+
+    @Test
+    void theMessagesOfTheContainerElementConstraintsAreCompiled() {
+        // List<@Size(...) String> declares its constraint on the type argument
+        assertCompiled("${validatedValue.trim()}");
+    }
+
+    @Test
     void anExpressionNoConstraintDeclaresIsNotCompiled() {
         ExpressionFactory factory = ExpressionFactory.newInstance();
         CompiledELContext context = new CompiledELContext();
@@ -80,4 +98,12 @@ class CompiledConstraintMessageTest {
 
         assertEquals(12L, ((Number) value).longValue());
     }
+
+    private static void assertCompiled(String expression) {
+        ValueExpression compiled = ExpressionFactory.newInstance()
+            .createValueExpression(new CompiledELContext(), expression, Object.class);
+        assertTrue(compiled.getClass().getName().contains("$ValidationExpression"),
+            () -> "Expected " + expression + " to be compiled but got " + compiled.getClass().getName());
+    }
+
 }
