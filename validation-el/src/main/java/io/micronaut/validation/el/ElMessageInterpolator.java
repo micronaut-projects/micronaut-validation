@@ -16,6 +16,7 @@
 package io.micronaut.validation.el;
 
 import io.micronaut.context.MessageSource;
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
@@ -162,12 +163,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     /**
      * Locale-aware formatter exposed to Jakarta EL expressions as {@code formatter}.
      *
-     * <p>The type is introspected so that its properties are read through the generated introspection.
-     * {@code format} is deliberately left out of the introspection: it is a varargs method, and
-     * {@code IntrospectionELResolver} coerces the arguments to the declared parameter types without expanding
-     * a varargs parameter first, so an introspected {@code format} fails to resolve. Leaving it out sends the
-     * invocation to the reflective resolver of the specification, which does expand it. Annotate it with
-     * {@code @Executable} once micronaut-expression-language handles varargs.</p>
+     * <p>The type is introspected and {@code format} is executable, so that a compiled
+     * {@code ${formatter.format(...)}} is dispatched through the generated introspection rather than through
+     * {@code Method.invoke}. {@code IntrospectionELResolver} packs the trailing arguments into the variable
+     * arity parameter.</p>
      *
      * @param locale The locale
      * @since 5.1
@@ -183,6 +182,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
          * @param args The arguments
          * @return The formatted message
          */
+        @Executable
         public String format(String format, Object... args) {
             try (Formatter formatter = new Formatter(locale)) {
                 return formatter.format(format, args).toString();

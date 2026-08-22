@@ -89,6 +89,9 @@ evaluates it at runtime exactly as it evaluates a template built at runtime.
   the constraint messages resolve and that an undeclared one throws.
 * `CompiledMessageInterpolationTest` runs the real `Validator` over a bean and checks the interpolated
   messages, still with no interpreter present.
+* `IntrospectionDispatchTest` evaluates the compiled `${formatter.format('%.2f', validatedValue)}` against a
+  context whose only resolver is `IntrospectionELResolver`, so the variable arity `format` is proven to go
+  through the generated introspection and not through `jakarta.el.BeanELResolver`.
 
 ## What is not done
 
@@ -99,13 +102,6 @@ constraint sites sharing an expression string over different validated types wou
 loaded first. Doing this needs the generated class name to travel on the constraint's annotation metadata —
 `DefaultConstraintDescriptor` already holds the `AnnotationValue` and the `AnnotationMetadata` — so that the
 interpolator asks for the expression of *this* constraint rather than for a string.
-
-**Varargs through the introspection.** `ElMessageInterpolator.LocaleFormatter` is `@Introspected`, but
-`format` is deliberately not `@Executable`: `IntrospectionELResolver.invoke` coerces the arguments to the
-declared parameter types without expanding a varargs parameter first, so `${formatter.format('%.2f', x)}`
-fails with `Cannot convert 0.5 of type java.lang.Double to [Ljava.lang.Object;`. Leaving the method out of the
-introspection sends it to the reflective resolver, which does expand it. This is a gap in
-micronaut-expression-language, not in the interpolation; once it is closed, `formatter` de-reflects too.
 
 **Resource bundles.** Only the parameters that come from the members of the constraint are resolved at
 compilation time. A template whose expressions only appear after a `ValidationMessages_xx.properties` lookup
