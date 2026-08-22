@@ -6,13 +6,17 @@ dependencies {
     annotationProcessor mn.micronaut.inject.java
 
     api projects.micronautValidation
-    compileOnly libs.jakarta.el.api
+
+    // The Jakarta EL implementation compiled at compilation time. It brings the jakarta.el API, registers its
+    // ExpressionFactory as a service and provides the introspection-backed resolvers used by CompiledELContext.
+    api libs.micronaut.el
 
     testAnnotationProcessor mn.micronaut.inject.java
     testImplementation mn.micronaut.inject.java.test
-    testImplementation libs.jakarta.el.api
     testImplementation mnTest.micronaut.test.junit5
-    testRuntimeOnly libs.jakarta.el.impl
+    // The interpreter parses at runtime the expressions that were not compiled; the tests of this module create
+    // their templates at runtime, so they need it.
+    testRuntimeOnly libs.micronaut.el.interpreter
     testRuntimeOnly mnTest.junit.jupiter.engine
 }
 

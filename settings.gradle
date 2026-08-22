@@ -24,6 +24,7 @@ include 'validation-bootstrap'
 include 'validation-reflection'
 include 'validation-xml'
 include 'validation-el'
+include 'validation-el-processor'
 include 'validation-jakarta'
 include 'validation-bom'
 include 'validation-processor'
@@ -39,4 +40,26 @@ micronautBuild {
     importMicronautCatalog("micronaut-reactor")
     importMicronautCatalog("micronaut-rxjava3")
     importMicronautCatalog("micronaut-kotlin")
+}
+
+// The Jakarta Expression Language implementation compiled at compilation time is not published yet, so the
+// build of the sibling repository is included when it is checked out next to this one. Point
+// -PmicronautExpressionLanguagePath=... at it to use a different location, or leave it out to resolve
+// io.micronaut.el:* from a repository once it is released.
+File findExpressionLanguageBuild(File start) {
+    for (File dir = start; dir != null; dir = dir.parentFile) {
+        File candidate = new File(dir, 'micronaut-expression-language')
+        if (new File(candidate, 'settings.gradle').isFile()) {
+            return candidate
+        }
+    }
+    return null
+}
+
+File expressionLanguageBuild = settings.hasProperty('micronautExpressionLanguagePath')
+    ? new File(settings.micronautExpressionLanguagePath as String)
+    : findExpressionLanguageBuild(rootDir.parentFile)
+
+if (expressionLanguageBuild != null && new File(expressionLanguageBuild, 'settings.gradle').isFile()) {
+    includeBuild(expressionLanguageBuild)
 }

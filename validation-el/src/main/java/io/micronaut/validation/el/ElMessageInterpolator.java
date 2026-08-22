@@ -20,8 +20,12 @@ import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.el.CompiledELContext;
+import io.micronaut.el.CompiledExpressionFactory;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
+import jakarta.el.ELContext;
 import jakarta.el.ExpressionFactory;
 import jakarta.el.StandardELContext;
 import jakarta.inject.Singleton;
@@ -40,6 +44,12 @@ import java.util.ResourceBundle;
  * Internal Jakarta EL-backed message interpolator used only when the optional
  * EL module is present.
  *
+ * <p>The expressions are created through {@link ExpressionFactory#newInstance()}. When the factory is the
+ * {@link CompiledExpressionFactory} of {@code micronaut-expression-language}, an expression that the
+ * annotation processor of {@code micronaut-validation-el-processor} compiled is returned without being
+ * parsed, and the resolution goes through the bean introspections rather than through the reflective
+ * {@code jakarta.el.BeanELResolver}.</p>
+ *
  * @since 5.1
  */
 @Internal
@@ -48,12 +58,6 @@ import java.util.ResourceBundle;
 @Replaces(DefaultMessageInterpolator.class)
 @Requires(classes = ExpressionFactory.class)
 public final class ElMessageInterpolator implements MessageInterpolator {
-
-    private static final char ESCAPE = '\\';
-    private static final char LEFT_BRACE = '{';
-    private static final char RIGHT_BRACE = '}';
-    private static final char DOLLAR = '$';
-    private static final int MAX_RECURSION = 10;
 
     private final MessageSource messageSource;
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
@@ -86,70 +90,20 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext) {
         Locale locale = messageContext.getLocale();
-        String resolvedTemplate = template;
-        for (int i = 0; i < MAX_RECURSION; i++) {
-            String resolved = interpolateParameters(resolvedTemplate, messageContext);
-            if (resolved.equals(resolvedTemplate)) {
-                break;
-            }
-            resolvedTemplate = resolved;
-        }
-        return interpolateExpressions(resolvedTemplate, interpolationContext, locale);
+        String resolvedTemplate = MessageTemplates.resolveParameters(
+            template, name -> resolveParameter(name, messageContext, locale));
+        return MessageTemplates.interpolateExpressions(
+            resolvedTemplate, expression -> evaluateExpression(expression, interpolationContext, locale));
     }
 
-    private String interpolateParameters(String template, MessageSource.MessageContext messageContext) {
-        Locale locale = messageContext.getLocale();
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < template.length(); i++) {
-            char current = template.charAt(i);
-            if (current == ESCAPE && i + 1 < template.length()) {
-                result.append(template.charAt(++i));
-                continue;
-            }
-            if (current == LEFT_BRACE) {
-                int end = findExpressionEnd(template, i + 1);
-                if (end > -1) {
-                    String variableName = template.substring(i + 1, end);
-                    result.append(resolveParameter(variableName, messageContext, locale)
-                        .orElse(LEFT_BRACE + variableName + String.valueOf(RIGHT_BRACE)));
-                    i = end;
-                    continue;
-                }
-            }
-            result.append(current);
-        }
-        return result.toString();
-    }
-
-    private String interpolateExpressions(String template, Context interpolationContext, Locale locale) {
-        StringBuilder result = new StringBuilder();
-        for (int i = 0; i < template.length(); i++) {
-            char current = template.charAt(i);
-            if (current == ESCAPE && i + 1 < template.length()) {
-                result.append(template.charAt(++i));
-                continue;
-            }
-            if (current == DOLLAR && i + 1 < template.length() && template.charAt(i + 1) == LEFT_BRACE) {
-                int end = findExpressionEnd(template, i + 2);
-                if (end > -1) {
-                    result.append(evaluateExpression(template.substring(i + 2, end), interpolationContext, locale));
-                    i = end;
-                    continue;
-                }
-            }
-            result.append(current);
-        }
-        return result.toString();
-    }
-
-    private Optional<Object> resolveParameter(String variableName, MessageSource.MessageContext messageContext, Locale locale) {
+    private Optional<?> resolveParameter(String variableName, MessageSource.MessageContext messageContext, Locale locale) {
         Optional<String> userMessage = findUserMessage(variableName, locale);
         if (userMessage.isPresent()) {
-            return Optional.of(userMessage.get());
+            return userMessage;
         }
         Optional<String> providerMessage = messageSource.getMessage(variableName, messageContext);
         if (providerMessage.isPresent()) {
-            return Optional.of(providerMessage.get());
+            return providerMessage;
         }
         return Optional.ofNullable(messageContext.getVariables().get(variableName));
     }
@@ -166,59 +120,60 @@ public final class ElMessageInterpolator implements MessageInterpolator {
         return Optional.empty();
     }
 
+    /**
+     * Evaluates one expression of a template.
+     *
+     * @param expression The expression string, {@code ${...}} included, exactly as the annotation processor
+     *                   compiled it
+     */
     private String evaluateExpression(String expression, Context context, Locale locale) {
-        StandardELContext elContext = new StandardELContext(expressionFactory);
+        ELContext elContext = createElContext();
         for (Map.Entry<String, Object> entry : context.getConstraintDescriptor().getAttributes().entrySet()) {
-            elContext.getVariableMapper().setVariable(
-                entry.getKey(),
-                expressionFactory.createValueExpression(entry.getValue(), Object.class)
-            );
+            setVariable(elContext, entry.getKey(), entry.getValue());
         }
-        elContext.getVariableMapper().setVariable(
-            "validatedValue",
-            expressionFactory.createValueExpression(context.getValidatedValue(), Object.class)
-        );
-        elContext.getVariableMapper().setVariable(
-            "groups",
-            expressionFactory.createValueExpression(context.getConstraintDescriptor().getGroups().toArray(Class<?>[]::new), Object.class)
-        );
-        elContext.getVariableMapper().setVariable(
-            "payload",
-            expressionFactory.createValueExpression(context.getConstraintDescriptor().getPayload().toArray(Class<?>[]::new), Object.class)
-        );
-        elContext.getVariableMapper().setVariable(
-            "formatter",
-            expressionFactory.createValueExpression(new LocaleFormatter(locale), Object.class)
-        );
+        setVariable(elContext, "validatedValue", context.getValidatedValue());
+        setVariable(elContext, "groups", context.getConstraintDescriptor().getGroups().toArray(Class<?>[]::new));
+        setVariable(elContext, "payload", context.getConstraintDescriptor().getPayload().toArray(Class<?>[]::new));
+        setVariable(elContext, "formatter", new LocaleFormatter(locale));
         try {
-            Object value = expressionFactory.createValueExpression(elContext, "${" + expression + "}", Object.class).getValue(elContext);
+            Object value = expressionFactory.createValueExpression(elContext, expression, Object.class).getValue(elContext);
             return value == null ? "" : value.toString();
         } catch (RuntimeException e) {
-            return "${" + expression + "}";
+            return expression;
         }
     }
 
-    private static int findExpressionEnd(String template, int offset) {
-        for (int i = offset; i < template.length(); i++) {
-            char current = template.charAt(i);
-            if (current == ESCAPE && i + 1 < template.length()) {
-                i++;
-                continue;
-            }
-            if (current == RIGHT_BRACE) {
-                return i;
-            }
+    private void setVariable(ELContext elContext, String name, @Nullable Object value) {
+        elContext.getVariableMapper().setVariable(name, expressionFactory.createValueExpression(value, Object.class));
+    }
+
+    /**
+     * The compiled expressions resolve the properties through the bean introspections, which
+     * {@link CompiledELContext} installs and {@link StandardELContext} does not, so the context follows the
+     * factory rather than being fixed.
+     */
+    private ELContext createElContext() {
+        if (expressionFactory instanceof CompiledExpressionFactory) {
+            return new CompiledELContext();
         }
-        return -1;
+        return new StandardELContext(expressionFactory);
     }
 
     /**
      * Locale-aware formatter exposed to Jakarta EL expressions as {@code formatter}.
      *
+     * <p>The type is introspected so that its properties are read through the generated introspection.
+     * {@code format} is deliberately left out of the introspection: it is a varargs method, and
+     * {@code IntrospectionELResolver} coerces the arguments to the declared parameter types without expanding
+     * a varargs parameter first, so an introspected {@code format} fails to resolve. Leaving it out sends the
+     * invocation to the reflective resolver of the specification, which does expand it. Annotate it with
+     * {@code @Executable} once micronaut-expression-language handles varargs.</p>
+     *
      * @param locale The locale
      * @since 5.1
      */
     @Internal
+    @Introspected
     public record LocaleFormatter(Locale locale) {
 
         /**

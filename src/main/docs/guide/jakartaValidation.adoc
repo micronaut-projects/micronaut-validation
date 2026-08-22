@@ -29,7 +29,10 @@ Adds optional reflection fallback for specification behavior that cannot be sati
 Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources.
 
 `micronaut-validation-el`::
-Adds Jakarta EL message interpolation.
+Adds Jakarta EL message interpolation, backed by https://github.com/micronaut-projects/micronaut-expression-language[Micronaut Expression Language].
+
+`micronaut-validation-el-processor`::
+An annotation processor that compiles the Jakarta EL expressions of the constraint message templates at compilation time.
 
 `micronaut-validation-jakarta`::
 Aggregates bootstrap, reflection, XML, and EL support for the Jakarta compliance stack.
@@ -41,3 +44,51 @@ Prefer `micronaut-validation` when you want Micronaut's compile-time validation 
 Use `micronaut-validation-jakarta` when you need Jakarta Validation bootstrap behavior, XML configuration, constraint mapping XML, Jakarta EL interpolation, or reflection fallback for specification compatibility.
 
 You can also depend on individual optional modules when only one part of the compliance stack is required.
+
+== Jakarta EL Message Interpolation
+
+The section 5.3.1.1 of the specification lets a constraint message contain Jakarta EL expressions:
+
+[source,java]
+----
+@Size(min = 1, max = 8, message = "the title is ${validatedValue.length()} long, not between {min} and {max}")
+private String title;
+----
+
+`micronaut-validation-el` evaluates them with
+https://github.com/micronaut-projects/micronaut-expression-language[Micronaut Expression Language], an
+implementation of Jakarta Expression Language 6.0 whose expressions are generated at compilation time. Property
+access goes through the bean introspections rather than through the reflective `jakarta.el.BeanELResolver`.
+
+=== Compiling the Expressions
+
+A constraint message is a compile-time constant, so the expressions it contains are known before the
+application runs. Add the processor to compile them:
+
+dependency:micronaut-validation-el-processor[groupId="io.micronaut.validation",scope="annotationProcessor"]
+
+For every type declaring a constraint, the processor runs the message parameter pass of the specification over
+the template, compiles the expressions that remain, and registers them as an `ELExpressionSource`. The
+interpolator then receives a generated `jakarta.el.ValueExpression` instead of parsing the string on every
+violation. `${validatedValue.length()}` becomes:
+
+[source,java]
+----
+public final class Book$ValidationExpression0 extends CompiledValueExpression {
+
+    protected Object evaluate(ELContext context) {
+        return ELResolution.invoke(context,
+            ELResolution.resolveIdentifier(context, "validatedValue"), "length", new Object[]{});
+    }
+}
+----
+
+=== Expressions Built at Runtime
+
+An expression the processor did not compile — one coming from a message template built at runtime, or from a
+resource bundle chosen by the locale of the request — needs the interpreter:
+
+dependency:micronaut-expression-language-interpreter[groupId="io.micronaut.el",scope="runtimeOnly"]
+
+`micronaut-validation-jakarta` declares it, so the compliance stack has it by default. Without it, an
+uncompiled expression is left in the message as it was written.

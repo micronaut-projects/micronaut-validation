@@ -1,0 +1,28 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+dependencies {
+    compileOnly mn.micronaut.core.processor
+    // The compiler, the writers and the parser of micronaut-expression-language, reused to compile the
+    // expressions found in the constraint message templates.
+    implementation libs.micronaut.el.processor
+    implementation projects.micronautValidationEl
+
+    // The constraint messages of the test beans are compiled by this processor, and no interpreter is on the
+    // test classpath, so an expression that reached the runtime unparsed would fail rather than fall back.
+    testAnnotationProcessor project(":micronaut-validation-el-processor")
+    testAnnotationProcessor projects.micronautValidationProcessor
+    testAnnotationProcessor mn.micronaut.inject.java
+
+    testImplementation projects.micronautValidationEl
+    testImplementation mn.micronaut.inject.java.test
+    testImplementation mnTest.micronaut.test.junit5
+    testRuntimeOnly mnTest.junit.jupiter.engine
+}
+
+micronautBuild {
+    binaryCompatibility {
+        enabledAfter("5.1.0")
+    }
+}
