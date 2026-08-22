@@ -34,7 +34,7 @@ import java.lang.annotation.Target;
  */
 @Documented
 @Constraint(validatedBy = {})
-@Size(min = 1, max = 3, message = "${validatedValue.toUpperCase()} is longer than {max}")
+@Size(min = 1, max = 3, message = "${validatedValue.strip()} is longer than {max}, unless overridden")
 @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
 @Retention(RetentionPolicy.RUNTIME)
 public @interface Tiny {
@@ -43,6 +43,13 @@ public @interface Tiny {
 
     @OverridesAttribute(constraint = Size.class, name = "max")
     int max() default 3;
+
+    /**
+     * Overrides the message of the composing {@code @Size}: the expression the processor compiles for it is
+     * the one of this member, which proves the override is applied at compilation time too.
+     */
+    @OverridesAttribute(constraint = Size.class, name = "message")
+    String sizeMessage() default "${validatedValue.toUpperCase()} is longer than {max}";
 
     Class<?>[] groups() default {};
 

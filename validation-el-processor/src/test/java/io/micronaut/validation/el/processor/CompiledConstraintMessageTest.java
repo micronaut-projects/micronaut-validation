@@ -64,9 +64,11 @@ class CompiledConstraintMessageTest {
     }
 
     @Test
-    void theMessagesOfTheComposingConstraintsAreCompiled() {
-        // the message of the @Size composing @Tiny, read from the annotation type of @Tiny
+    void theMessagesOfTheComposingConstraintsAreCompiledWithTheOverridesApplied() {
+        // @Tiny.sizeMessage() overrides the message of the @Size composing it: the compiled expression is the
+        // one of the overriding member, and the message written on the meta-annotation is never asked for
         assertCompiled("${validatedValue.toUpperCase()}");
+        assertNotCompiled("${validatedValue.strip()}");
     }
 
     @Test
@@ -97,6 +99,13 @@ class CompiledConstraintMessageTest {
             .getValue(context);
 
         assertEquals(12L, ((Number) value).longValue());
+    }
+
+    private static void assertNotCompiled(String expression) {
+        ExpressionFactory factory = ExpressionFactory.newInstance();
+        CompiledELContext context = new CompiledELContext();
+        assertThrows(ELException.class, () -> factory.createValueExpression(context, expression, Object.class),
+            () -> "Expected " + expression + " not to be compiled");
     }
 
     private static void assertCompiled(String expression) {
