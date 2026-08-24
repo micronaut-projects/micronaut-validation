@@ -22,7 +22,7 @@ behavior is provided by optional modules and a composed
 - Add optional modules:
   - `micronaut-validation-bootstrap`: `ValidationProvider`, `Configuration`,
     `BootstrapConfiguration`, spec `ValidatorFactory` bootstrap.
-  - `micronaut-validation-reflection`: reflection metadata and reflective
+  - (removed) `micronaut-validation-reflection`: reflection metadata and reflective
     validator/value-extractor instantiation fallback.
   - `micronaut-validation-xml`: `META-INF/validation.xml` and constraint
     mapping XML support, using only JDK XML APIs.
@@ -37,7 +37,7 @@ behavior is provided by optional modules and a composed
 - Introduce an internal metadata provider chain used by the validator:
   - generated Micronaut metadata first;
   - XML metadata next when `micronaut-validation-xml` is present;
-  - reflection fallback last when `micronaut-validation-reflection` is present.
+  - types without a generated introspection are described by the reflection bridge of micronaut-core (the former `micronaut-validation-reflection` fallback is removed, see `reflection-bridge.md`).
 - Reflection support is classpath-optional and also runtime-toggleable:
   - `micronaut.validator.spec.reflection.enabled=true` in the reflection and
     Jakarta aggregate modules;
@@ -78,20 +78,18 @@ behavior is provided by optional modules and a composed
   EL-only, and aggregate behavior.
 - Add startup tests proving the bootstrap context only loads the intended
   validation/Jakarta beans.
-- Use generated TestNG single-test tasks for focused TCK development:
-  - `singleCoreTck` for the lean core profile;
-  - `singleJakartaTck` for the opt-in Jakarta aggregate profile;
-  - pass `-PtckSingleClass=...` and optionally `-PtckSingleMethod=...` to run a
-    single TCK class or method.
+- Use the generated TestNG single-test task for focused TCK development:
+  `singleJakartaTck`, with `-PtckSingleClass=...` and optionally
+  `-PtckSingleMethod=...` to run a single TCK class or method.
 - Commit TCK progress in focused checkpoints: one passing TCK test when practical
   or a small wave of related TCK tests when the same implementation change fixes
   the group. Each checkpoint should include targeted module tests and the
   corresponding single TCK task evidence.
-- Track known Jakarta compliance-profile failures in
-  `tests/jakarta-validation-tck/failingTests.xml`, runnable with
-  `./gradlew :micronaut-tests:micronaut-jakarta-validation-tck:failingJakartaTck`.
-  Remove entries from that suite in the same focused commit that makes the test
-  or wave pass, mirroring the ODI TestNG workflow.
+- `jakartaTck` runs the whole TCK against the micronaut-validation-jakarta
+  aggregate with no exclusions and passes it, so it is the gate and any failure
+  is a regression. There is no second TCK profile and no known-failure tracker:
+  the lean module's own behaviour is covered by the unit tests of
+  `micronaut-validation`.
 - Final verification:
   - Jakarta compliance TCK with no unsupported-functionality excludes;
   - `./gradlew check`;
@@ -126,7 +124,7 @@ Captured: 2026-05-21
 Run the remaining work as four focused commit waves: API/QA refinements,
 security hardening, TCK evidence, and user documentation. Keep
 `micronaut-validation` lightweight and reflection-free by default. Spec-heavy
-behavior stays in `validation-bootstrap`, `validation-reflection`,
+behavior stays in `validation-bootstrap`,
 `validation-xml`, `validation-el`, or the aggregate `validation-jakarta`. New
 public API stays binary-compatible and uses `@since 5.1`; any unavoidable
 breaking change stops this track and becomes a 6.0.x decision.
