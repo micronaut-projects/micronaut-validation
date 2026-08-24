@@ -46,7 +46,7 @@ public @interface InList {
     /**
      * @return message code
      */
-    String message() default "Not in the list of supported values ({validatedValue})";
+    String message() default "Not in the list of supported values (${validatedValue})";
 
     /**
      * @return The groups to apply

@@ -21,6 +21,8 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.annotation.AnnotationMetadataSupport;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.core.type.Argument;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
@@ -174,6 +176,132 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                                                                Class<?>[] parameterTypes) {
         ExecutableMapping method = methodMapping(beanType, methodName, parameterTypes);
         return method != null && method.returnValue.annotationsIgnored();
+    }
+
+    @Override
+    public Argument<?> getPropertyArgument(Class<?> beanType, String propertyName, Argument<?> argument) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        PropertyMapping property = mapping == null ? null : mapping.properties.get(propertyName);
+        if (property == null) {
+            return argument;
+        }
+        return withContainerElements(argument, property.annotationsIgnored(), property.containerElements());
+    }
+
+    @Override
+    public Argument<?>[] getMethodParameterArguments(Class<?> beanType, String methodName, Argument<?>[] arguments) {
+        ExecutableMapping method = methodMapping(beanType, methodName, Argument.toClassArray(arguments));
+        return method == null ? arguments : configuredParameters(method, arguments);
+    }
+
+    @Override
+    public AnnotationMetadata getMethodAnnotationMetadata(Class<?> beanType, String methodName, Class<?>[] parameterTypes, AnnotationMetadata annotationMetadata) {
+        ExecutableMapping method = methodMapping(beanType, methodName, parameterTypes);
+        return method == null ? annotationMetadata : configuredExecutableMetadata(method, annotationMetadata);
+    }
+
+    @Override
+    public Argument<?> getMethodReturnArgument(Class<?> beanType, String methodName, Class<?>[] parameterTypes, Argument<?> argument) {
+        ExecutableMapping method = methodMapping(beanType, methodName, parameterTypes);
+        return method == null ? argument : configuredElement(argument, method.returnValue);
+    }
+
+    @Override
+    public Argument<?>[] getConstructorParameterArguments(Class<?> beanType, Argument<?>[] arguments) {
+        ExecutableMapping constructor = constructorMapping(beanType, Argument.toClassArray(arguments));
+        return constructor == null ? arguments : configuredParameters(constructor, arguments);
+    }
+
+    @Override
+    public AnnotationMetadata getConstructorAnnotationMetadata(Class<?> beanType, Class<?>[] parameterTypes, AnnotationMetadata annotationMetadata) {
+        ExecutableMapping constructor = constructorMapping(beanType, parameterTypes);
+        return constructor == null ? annotationMetadata : configuredExecutableMetadata(constructor, annotationMetadata);
+    }
+
+    @Override
+    public Argument<?> getConstructorReturnArgument(Class<?> beanType, Class<?>[] parameterTypes, Argument<?> argument) {
+        ExecutableMapping constructor = constructorMapping(beanType, parameterTypes);
+        return constructor == null ? argument : configuredElement(argument, constructor.returnValue);
+    }
+
+    private @Nullable ExecutableMapping constructorMapping(Class<?> beanType, Class<?>[] parameterTypes) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        return mapping == null ? null : mapping.constructors.get(new ExecutableKey(beanType.getSimpleName(), List.of(parameterTypes)));
+    }
+
+    private static Argument<?>[] configuredParameters(ExecutableMapping executable, Argument<?>[] arguments) {
+        Argument<?>[] configured = new Argument[arguments.length];
+        for (int i = 0; i < arguments.length; i++) {
+            ParameterMapping parameter = i < executable.parameters.size() ? executable.parameters.get(i) : null;
+            configured[i] = parameter == null
+                ? arguments[i]
+                : configured(arguments[i], parameter.metadata(), parameter.annotationsIgnored(), parameter.containerElements());
+        }
+        return configured;
+    }
+
+    /**
+     * The cross-parameter and return value constraints of an executable share its annotations.
+     */
+    private static AnnotationMetadata configuredExecutableMetadata(ExecutableMapping executable, AnnotationMetadata annotationMetadata) {
+        boolean ignored = executable.crossParameter.annotationsIgnored() && executable.returnValue.annotationsIgnored();
+        return ConfiguredMetadata.merge(List.of(
+            ignored ? AnnotationMetadata.EMPTY_METADATA : annotationMetadata,
+            executable.crossParameter.metadata(),
+            executable.returnValue.metadata()
+        ));
+    }
+
+    private static Argument<?> configuredElement(Argument<?> argument, ElementMapping element) {
+        return configured(argument, element.metadata(), element.annotationsIgnored(), element.containerElements());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Argument<?> configured(Argument<?> argument,
+                                          AnnotationMetadata metadata,
+                                          boolean annotationsIgnored,
+                                          List<ContainerElementMapping> containerElements) {
+        AnnotationMetadata merged = annotationsIgnored ? metadata : ConfiguredMetadata.merge(argument.getAnnotationMetadata(), metadata);
+        Argument<?> configured = Argument.of((Class) argument.getType(), argument.getName(), merged, argument.getTypeParameters());
+        return withContainerElements(configured, annotationsIgnored, containerElements);
+    }
+
+    /**
+     * The type arguments as configured: the container element constraints merge into the annotations of the
+     * type argument they are declared for, or replace them when the annotations are ignored, which then
+     * strips the annotations of the type arguments left unconfigured.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static Argument<?> withContainerElements(Argument<?> argument,
+                                                     boolean annotationsIgnored,
+                                                     List<ContainerElementMapping> containerElements) {
+        Argument<?>[] typeParameters = argument.getTypeParameters();
+        if (typeParameters.length == 0 || (containerElements.isEmpty() && !annotationsIgnored)) {
+            return argument;
+        }
+        Argument<?>[] configured = new Argument[typeParameters.length];
+        for (int i = 0; i < typeParameters.length; i++) {
+            Argument<?> typeParameter = typeParameters[i];
+            ContainerElementMapping mapping = null;
+            for (ContainerElementMapping candidate : containerElements) {
+                if (candidate.typeArgumentIndex() == i) {
+                    mapping = candidate;
+                    break;
+                }
+            }
+            if (mapping != null) {
+                configured[i] = configured(typeParameter, mapping.metadata(), annotationsIgnored, mapping.containerElements());
+            } else if (annotationsIgnored) {
+                configured[i] = withContainerElements(
+                    Argument.of((Class) typeParameter.getType(), typeParameter.getName(), AnnotationMetadata.EMPTY_METADATA, typeParameter.getTypeParameters()),
+                    true,
+                    List.of()
+                );
+            } else {
+                configured[i] = typeParameter;
+            }
+        }
+        return Argument.of((Class) argument.getType(), argument.getName(), argument.getAnnotationMetadata(), configured);
     }
 
     private @Nullable ExecutableMapping methodMapping(Class<?> beanType, String methodName, Class<?>[] parameterTypes) {
@@ -1128,6 +1256,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             }
             return Optional.ofNullable(mapping.properties().get(propertyName))
                 .map(mapping -> new XmlPropertyDescriptor(propertyName, mapping))
+                .filter(XmlPropertyDescriptor::isConstrained)
                 .map(PropertyDescriptor.class::cast)
                 .orElse(null);
         }

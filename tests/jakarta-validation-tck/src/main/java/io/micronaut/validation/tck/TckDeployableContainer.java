@@ -19,15 +19,14 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Primary;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.qualifiers.Qualifiers;
+import io.micronaut.inject.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
-import io.micronaut.validation.validator.Validator;
-import io.micronaut.validation.validator.ValidatorConfiguration;
-import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
@@ -47,25 +46,19 @@ import org.slf4j.LoggerFactory;
 
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
-import jakarta.validation.ConstraintValidatorContext;
-import jakarta.validation.ConstraintViolationException;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.Validation;
 import jakarta.validation.ValidationException;
+import jakarta.validation.Validator;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Parameter;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.file.FileVisitResult;
@@ -75,7 +68,6 @@ import java.nio.file.Path;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -90,14 +82,22 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TckDeployableContainer.class);
     private static final String INITIAL_CONTEXT_FACTORY = "java.naming.factory.initial";
+    private static final boolean REFLECTION_ENABLED =
+        !"false".equalsIgnoreCase(System.getProperty("micronaut.validation.reflection.enabled", "true"));
     private static final String PRIORITY_INVOCATION_TRACKER =
         "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker";
-    private static final String PRIORITY_CUSTOM_CONSTRAINT_VALIDATOR =
-        "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.CustomConstraintValidator";
 
-    static ClassLoader old;
+    /**
+     * The application context of the deployment being validated, read by the core-profile configuration.
+     */
+    public static final ThreadLocal<ApplicationContext> APP = new ThreadLocal<>();
 
-    public static ThreadLocal<ApplicationContext> APP = new ThreadLocal<>();
+    /**
+     * The instance of the test class loaded by the deployment class loader, invoked by {@link TckProtocol}.
+     */
+    static Object testInstance;
+
+    private static ClassLoader harnessClassLoader;
 
     @Inject
     @DeploymentScoped
@@ -114,7 +114,6 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
     @Inject
     private Instance<TestClass> testClass;
 
-    static Object testInstance;
     private String oldInitialContextFactory;
     private ValidatorFactory jndiValidatorFactory;
 
@@ -166,7 +165,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         } else {
             throw new IllegalStateException("Expected library container!");
         }
-        old = Thread.currentThread().getContextClassLoader();
+        harnessClassLoader = Thread.currentThread().getContextClassLoader();
         if (testClass.get() == null) {
             throw new IllegalStateException("Test class not available");
         }
@@ -200,7 +199,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         } catch (Throwable e) {
             throw new RuntimeException(e);
         } finally {
-            Thread.currentThread().setContextClassLoader(old);
+            Thread.currentThread().setContextClassLoader(harnessClassLoader);
         }
 
         return new ProtocolMetaData();
@@ -267,18 +266,22 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         validatorConfiguration.constraintValidatorFactory(constraintValidatorFactory);
         applyValueExtractors(applicationContext, classLoader, bootstrapConfiguration, validatorConfiguration);
         applyXmlMappings(classLoader, bootstrapConfiguration, validatorConfiguration);
-        return new DefaultValidatorFactory(
-            createValidator(validatorConfiguration, classLoader),
-            validatorConfiguration
-        );
+        return new DefaultValidatorFactory(new DefaultValidator(validatorConfiguration), validatorConfiguration);
     }
 
     private static DefaultValidatorConfiguration newDeploymentValidatorConfiguration(ApplicationContext applicationContext,
                                                                                      ClassLoader classLoader) {
-        DefaultValidatorConfiguration validatorConfiguration = new DefaultValidatorConfiguration();
+        // a Jakarta Validation provider checks the constraint definitions
+        DefaultValidatorConfiguration validatorConfiguration = new DefaultValidatorConfiguration().setStrictConstraintDefinitions(true);
         applicationContext.findBean(ConversionService.class).ifPresent(validatorConfiguration::setConversionService);
         validatorConfiguration.setExecutionHandleLocator(applicationContext);
-        validatorConfiguration.setBeanIntrospector(io.micronaut.core.beans.BeanIntrospector.forClassLoader(classLoader));
+        // the generated introspections of the archive, supplemented by the reflection bridge for the types
+        // without one; the same switch as MicronautValidatorConfiguration.REFLECTION_ENABLED, which the
+        // harness cannot reference because the bootstrap module is not on its compile classpath
+        BeanIntrospector beanIntrospector = BeanIntrospector.forClassLoader(classLoader);
+        validatorConfiguration.setBeanIntrospector(REFLECTION_ENABLED
+            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true)
+            : beanIntrospector);
         validatorConfiguration.setMetadataProviders(List.copyOf(applicationContext.getBeansOfType(ValidationMetadataProvider.class)));
         return validatorConfiguration;
     }
@@ -426,7 +429,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             .orElseGet(() -> instantiateAndInject(applicationContext, type));
     }
 
-    private static <T> T instantiateAndInject(ApplicationContext applicationContext, Class<T> type) {
+    static <T> T instantiateAndInject(ApplicationContext applicationContext, Class<T> type) {
         T instance = applicationContext.inject(instantiate(type));
         injectTckFields(applicationContext, instance);
         return instance;
@@ -446,7 +449,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         }
     }
 
-    private static void injectTckFields(ApplicationContext applicationContext, Object instance) {
+    static void injectTckFields(ApplicationContext applicationContext, Object instance) {
         Map<Class<?>, Object> injectedValues = new HashMap<>();
         injectTckFields(applicationContext, instance, injectedValues, false);
         injectTckFields(applicationContext, instance, injectedValues, true);
@@ -476,7 +479,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                     || annotationType == jakarta.ejb.EJB.class
                     || annotationType == jakarta.annotation.Resource.class
             )
-            || field.getType() == jakarta.validation.Validator.class
+            || field.getType() == Validator.class
             || field.getType() == ValidatorFactory.class;
     }
 
@@ -557,17 +560,6 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         }
     }
 
-    private static Validator createValidator(ValidatorConfiguration validatorConfiguration, ClassLoader classLoader) {
-        try {
-            Class<?> reflectionValidator = Class.forName("io.micronaut.validation.reflection.ReflectionValidator", true, classLoader);
-            return (Validator) reflectionValidator.getConstructor(ValidatorConfiguration.class).newInstance(validatorConfiguration);
-        } catch (ClassNotFoundException e) {
-            return new DefaultValidator(validatorConfiguration);
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize TCK reflection validator", e);
-        }
-    }
-
     private void registerDefaultValidatorBeans(ApplicationContext applicationContext) {
         applicationContext.registerSingleton(
             ValidatorFactory.class,
@@ -575,12 +567,12 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, "jakarta.enterprise.inject.Default")
         );
         applicationContext.registerSingleton(
-            jakarta.validation.Validator.class,
+            Validator.class,
             jndiValidatorFactory.getValidator(),
             Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, "jakarta.enterprise.inject.Default")
         );
         applicationContext.registerSingleton(
-            jakarta.validation.Validator.class,
+            Validator.class,
             jndiValidatorFactory.getValidator(),
             Qualifiers.byAnnotation(AnnotationMetadata.EMPTY_METADATA, Primary.class)
         );
@@ -617,7 +609,7 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
                 deleteDirectory(deploymentDir.root);
             }
         } finally {
-            Thread.currentThread().setContextClassLoader(old);
+            Thread.currentThread().setContextClassLoader(harnessClassLoader);
         }
     }
 
@@ -671,371 +663,6 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
             });
         } catch (IOException e) {
             LOGGER.warn("Unable to delete directory: " + dir, e);
-        }
-    }
-
-    private record BeanContextConstraintValidatorFactory(
-        ApplicationContext applicationContext,
-        ConstraintValidatorFactory delegate
-    ) implements InternalConstraintValidatorFactory {
-
-        @Override
-        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
-            T validator = applicationContext.findBean(key).orElseGet(() -> delegate.getInstance(key));
-            if (isPriorityCustomConstraintValidator(key)) {
-                return priorityValidator(validator);
-            }
-            return validator;
-        }
-
-        @Override
-        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
-                                                                   Class<?> targetType,
-                                                                   jakarta.validation.ConstraintTarget constraintTarget) {
-            if (!supportsTarget(validatorType, targetType)) {
-                return null;
-            }
-            Optional<T> bean = applicationContext.findBean(validatorType);
-            if (bean.isPresent()) {
-                T validator = bean.get();
-                if (isPriorityCustomConstraintValidator(validatorType)) {
-                    return priorityValidator(validator);
-                }
-                return validator;
-            }
-            if (delegate instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
-                T validator = internalConstraintValidatorFactory.getInstance(validatorType, targetType, constraintTarget);
-                if (validator != null) {
-                    return validator;
-                }
-            }
-            return getInstance(validatorType);
-        }
-
-        private static boolean isPriorityCustomConstraintValidator(Class<?> validatorType) {
-            return PRIORITY_CUSTOM_CONSTRAINT_VALIDATOR.equals(validatorType.getName());
-        }
-
-        @Override
-        public void releaseInstance(ConstraintValidator<?, ?> instance) {
-            delegate.releaseInstance(instance);
-        }
-
-        private static boolean supportsTarget(Class<?> validatorType, Class<?> targetType) {
-            Class<?> validatorTargetType = findConstraintValidatorTargetType(validatorType);
-            if (validatorTargetType == null) {
-                return true;
-            }
-            Class<?> resolvedTargetType = targetType.isPrimitive()
-                ? io.micronaut.core.reflect.ReflectionUtils.getWrapperType(targetType)
-                : targetType;
-            return validatorTargetType.isAssignableFrom(resolvedTargetType);
-        }
-
-        private static Class<?> findConstraintValidatorTargetType(Class<?> type) {
-            for (Type genericInterface : type.getGenericInterfaces()) {
-                Class<?> targetType = findConstraintValidatorTargetType(genericInterface);
-                if (targetType != null) {
-                    return targetType;
-                }
-            }
-            Type genericSuperclass = type.getGenericSuperclass();
-            return genericSuperclass == null ? null : findConstraintValidatorTargetType(genericSuperclass);
-        }
-
-        private static Class<?> findConstraintValidatorTargetType(Type type) {
-            if (type instanceof ParameterizedType parameterizedType) {
-                Class<?> targetType = constraintValidatorTargetType(parameterizedType);
-                if (targetType != null) {
-                    return targetType;
-                }
-                Type rawType = parameterizedType.getRawType();
-                if (rawType instanceof Class<?> rawClass) {
-                    return findConstraintValidatorTargetType(rawClass);
-                }
-                return null;
-            }
-            if (type instanceof Class<?> clazz && clazz != Object.class) {
-                return findConstraintValidatorTargetType(clazz);
-            }
-            return null;
-        }
-
-        private static Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
-            Type rawType = parameterizedType.getRawType();
-            if (rawType == ConstraintValidator.class) {
-                Type[] typeArguments = parameterizedType.getActualTypeArguments();
-                if (typeArguments.length == 2) {
-                    return typeArgumentType(typeArguments[1]);
-                }
-            }
-            return null;
-        }
-
-        private static Class<?> typeArgumentType(Type typeArgument) {
-            if (typeArgument instanceof Class<?> type) {
-                return type;
-            }
-            if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawType) {
-                return rawType;
-            }
-            return null;
-        }
-
-        private static <T extends ConstraintValidator<?, ?>> T priorityValidator(T validator) {
-            ConstraintValidator priorityValidator = new ConstraintValidator() {
-                @Override
-                public void initialize(Annotation constraintAnnotation) {
-                    ((ConstraintValidator) validator).initialize(constraintAnnotation);
-                }
-
-                @Override
-                public boolean isValid(Object value, ConstraintValidatorContext context) {
-                    setPriorityTrackerFlag(validator, "setEarlierInterceptorInvoked");
-                    boolean valid = ((ConstraintValidator) validator).isValid(value, context);
-                    setPriorityTrackerFlag(validator, "setLaterInterceptorInvoked");
-                    return valid;
-                }
-            };
-            return (T) priorityValidator;
-        }
-
-        private static void setPriorityTrackerFlag(Object validator, String methodName) {
-            try {
-                Field field = validator.getClass().getDeclaredField("invocationTracker");
-                field.setAccessible(true);
-                Object invocationTracker = field.get(validator);
-                invocationTracker.getClass().getMethod(methodName, boolean.class).invoke(invocationTracker, true);
-            } catch (ReflectiveOperationException e) {
-                throw new ValidationException("Cannot update TCK priority invocation tracker", e);
-            }
-        }
-    }
-
-    private record CdiInstance<T>(
-        ApplicationContext applicationContext,
-        Class<?> type,
-        Map<Class<?>, Object> injectedValues
-    ) implements jakarta.enterprise.inject.Instance<T> {
-
-        @Override
-        public jakarta.enterprise.inject.Instance<T> select(Annotation... qualifiers) {
-            unsupportedQualifiers(qualifiers);
-            return this;
-        }
-
-        @Override
-        public <U extends T> jakarta.enterprise.inject.Instance<U> select(Class<U> subtype, Annotation... qualifiers) {
-            unsupportedQualifiers(qualifiers);
-            return new CdiInstance<>(applicationContext, subtype, injectedValues);
-        }
-
-        @Override
-        public <U extends T> jakarta.enterprise.inject.Instance<U> select(jakarta.enterprise.util.TypeLiteral<U> subtype,
-                                                                          Annotation... qualifiers) {
-            unsupportedQualifiers(qualifiers);
-            Type literalType = subtype.getType();
-            if (literalType instanceof Class<?> clazz) {
-                return new CdiInstance<>(applicationContext, clazz, injectedValues);
-            }
-            if (literalType instanceof ParameterizedType parameterizedType
-                && parameterizedType.getRawType() instanceof Class<?> rawType) {
-                return new CdiInstance<>(applicationContext, rawType, injectedValues);
-            }
-            return new CdiInstance<>(applicationContext, Object.class, injectedValues);
-        }
-
-        @Override
-        public boolean isUnsatisfied() {
-            return applicationContext.findBean(type).isEmpty();
-        }
-
-        @Override
-        public boolean isAmbiguous() {
-            return applicationContext.getBeansOfType(type).size() > 1;
-        }
-
-        @Override
-        public void destroy(T instance) {
-            applicationContext.destroyBean(instance);
-        }
-
-        @Override
-        public Handle<T> getHandle() {
-            T instance = get();
-            return new Handle<>() {
-                @Override
-                public T get() {
-                    return instance;
-                }
-
-                @Override
-                public jakarta.enterprise.inject.spi.Bean<T> getBean() {
-                    return null;
-                }
-
-                @Override
-                public void destroy() {
-                    CdiInstance.this.destroy(instance);
-                }
-
-                @Override
-                public void close() {
-                    destroy();
-                }
-            };
-        }
-
-        @Override
-        public Iterable<? extends Handle<T>> handles() {
-            return List.of(getHandle());
-        }
-
-        @Override
-        public Iterator<T> iterator() {
-            return applicationContext.getBeansOfType(type)
-                .stream()
-                .map(instance -> (T) instance)
-                .iterator();
-        }
-
-        @Override
-        public T get() {
-            return (T) instantiateCdiBean();
-        }
-
-        private Object instantiateCdiBean() {
-            Constructor<?> constructor = findConstructor();
-            Object[] arguments = constructorArguments(constructor);
-            jakarta.validation.Validator validator = applicationContext.getBean(jakarta.validation.Validator.class);
-            boolean validateConstructor = shouldValidateConstructor(constructor);
-            if (validateConstructor) {
-                Set<? extends ConstraintViolation<?>> violations = validator.forExecutables()
-                    .validateConstructorParameters(constructor, arguments);
-                if (!violations.isEmpty()) {
-                    throw new ConstraintViolationException((Set<ConstraintViolation<?>>) violations);
-                }
-            }
-            Object instance;
-            try {
-                constructor.setAccessible(true);
-                instance = constructor.newInstance(arguments);
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw new ValidationException("Cannot instantiate CDI TCK bean: " + type.getName(), e);
-            }
-            injectTckFields(applicationContext, instance);
-            if (validateConstructor) {
-                Set<? extends ConstraintViolation<?>> violations = validator.forExecutables()
-                    .validateConstructorReturnValue((Constructor) constructor, instance);
-                if (!violations.isEmpty()) {
-                    throw new ConstraintViolationException((Set<ConstraintViolation<?>>) violations);
-                }
-            }
-            return instance;
-        }
-
-        private Constructor<?> findConstructor() {
-            Constructor<?>[] constructors = type.getDeclaredConstructors();
-            for (Constructor<?> constructor : constructors) {
-                if (java.util.Arrays.stream(constructor.getDeclaredAnnotations())
-                    .anyMatch(annotation -> annotation.annotationType() == jakarta.inject.Inject.class)) {
-                    return constructor;
-                }
-            }
-            if (constructors.length == 1) {
-                return constructors[0];
-            }
-            try {
-                return type.getDeclaredConstructor();
-            } catch (NoSuchMethodException e) {
-                throw new ValidationException("Cannot resolve CDI TCK bean constructor: " + type.getName(), e);
-            }
-        }
-
-        private Object[] constructorArguments(Constructor<?> constructor) {
-            Parameter[] parameters = constructor.getParameters();
-            Object[] arguments = new Object[parameters.length];
-            for (int i = 0; i < parameters.length; i++) {
-                Parameter parameter = parameters[i];
-                if (parameter.getType() == String.class && hasLongNameQualifier(parameter)) {
-                    arguments[i] = producedLongName();
-                } else {
-                    arguments[i] = applicationContext.getBean(parameter.getType());
-                }
-            }
-            return arguments;
-        }
-
-        private boolean hasLongNameQualifier(Parameter parameter) {
-            return java.util.Arrays.stream(parameter.getDeclaredAnnotations())
-                .anyMatch(annotation -> annotation.annotationType().getName().endsWith(".LongName"));
-        }
-
-        private String producedLongName() {
-            Optional<String> injectedProducedName = injectedValues.values()
-                .stream()
-                .filter(value -> value.getClass().getPackageName().equals(type.getPackageName()))
-                .map(CdiInstance::producedName)
-                .flatMap(Optional::stream)
-                .findFirst();
-            if (injectedProducedName.isPresent()) {
-                return injectedProducedName.get();
-            }
-            for (String producerName : List.of("NameProducer", "ParameterProducer")) {
-                try {
-                    Class<?> producerType = Class.forName(type.getPackageName() + "." + producerName, true, type.getClassLoader());
-                    Object producer = applicationContext.findBean(producerType).orElse(null);
-                    if (producer == null) {
-                        producer = instantiateAndInject(applicationContext, producerType);
-                    }
-                    Optional<String> producedName = producedName(producer);
-                    if (producedName.isPresent()) {
-                        return producedName.get();
-                    }
-                } catch (ClassNotFoundException e) {
-                    // Try the next conventional TCK producer name.
-                }
-            }
-            return "Bob";
-        }
-
-        private static Optional<String> producedName(Object producer) {
-            try {
-                return Optional.of((String) producer.getClass().getMethod("getName").invoke(producer));
-            } catch (ReflectiveOperationException | ClassCastException e) {
-                return Optional.empty();
-            }
-        }
-
-        private static boolean shouldValidateConstructor(Constructor<?> constructor) {
-            Optional<jakarta.validation.executable.ValidateOnExecution> validateOnExecution =
-                Optional.ofNullable(constructor.getAnnotation(jakarta.validation.executable.ValidateOnExecution.class));
-            if (validateOnExecution.isEmpty()) {
-                validateOnExecution = Optional.ofNullable(constructor.getDeclaringClass().getAnnotation(jakarta.validation.executable.ValidateOnExecution.class));
-            }
-            if (validateOnExecution.isEmpty()) {
-                return true;
-            }
-            jakarta.validation.executable.ExecutableType[] executableTypes = validateOnExecution.get().type();
-            if (executableTypes.length == 0) {
-                return true;
-            }
-            for (jakarta.validation.executable.ExecutableType executableType : executableTypes) {
-                if (executableType == jakarta.validation.executable.ExecutableType.ALL
-                    || executableType == jakarta.validation.executable.ExecutableType.CONSTRUCTORS
-                    || executableType == jakarta.validation.executable.ExecutableType.IMPLICIT) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private static void unsupportedQualifiers(Annotation[] qualifiers) {
-            for (Annotation qualifier : qualifiers) {
-                if (qualifier.annotationType().isAnnotationPresent(jakarta.inject.Qualifier.class)) {
-                    throw new UnsupportedOperationException("CDI qualifier selection is not supported by the TCK harness");
-                }
-            }
         }
     }
 }

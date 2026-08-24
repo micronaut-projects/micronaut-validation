@@ -56,7 +56,10 @@ final class ConstraintAnnotationKey {
 
     static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames,
                                         Class<? extends Annotation> constraintType) {
-        String constraintName = constraintType.getName();
+        return isDeclaredConstraint(declaredAnnotationNames, constraintType.getName());
+    }
+
+    static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames, String constraintName) {
         return declaredAnnotationNames.contains(constraintName)
             || declaredAnnotationNames.contains(constraintName + "$List");
     }

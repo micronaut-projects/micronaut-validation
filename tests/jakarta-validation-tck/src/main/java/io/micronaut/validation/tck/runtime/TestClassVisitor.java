@@ -85,6 +85,10 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                 element.annotate(Vetoed.class);
                 return;
             }
+            if (element.isAssignable("jakarta.validation.ParameterNameProvider")) {
+                element.annotate(Vetoed.class);
+                return;
+            }
             element.annotate(Introspected.class, builder -> {
                 builder.member("accessKind", new Introspected.AccessKind[]{Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD});
                 builder.member("visibility", Introspected.Visibility.ANY);

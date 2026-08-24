@@ -1,0 +1,70 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK" verbose="1">
+    <!--
+        The Jakarta Validation TCK over an archive compiled without the Micronaut annotation processor
+        (micronaut.validation.tck.processor.enabled=false), so every type the validator reads is described by
+        the reflection bridge of micronaut-core.
+
+        Everything excluded here needs a Micronaut bean definition rather than validation metadata: the CDI
+        tests invoke a method and expect the container to have intercepted it, which in Micronaut is a
+        compile-time proxy, and inject a dependency into a constraint validator, which needs the validator to
+        be a bean. Both are produced by the annotation processor. The jakartaTck task, which compiles the
+        archive with it, passes all of them.
+        14 methods across 6 classes. The exclusions are measured, not assumed: point the task at
+        tck-spec-tests.xml, run it, and the failures are exactly this list.
+    -->
+    <test name="Jakarta-Bean-Validation-TCK">
+
+        <packages>
+            <package name="org.hibernate.beanvalidation.tck.tests.*">
+                <!--
+                    The deployment of this one is what fails, before any test method runs: the container
+                    instantiates the beans the CDI test declares, and without the annotation processor they
+                    are not beans. A method exclusion cannot prevent a deployment, so the package goes.
+                -->
+                <exclude name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable"/>
+            </package>
+        </packages>
+
+        <classes>
+
+            <!-- executable interception and injection need the bean definitions of the annotation processor -->
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.global.ExecutableValidationBasedOnGlobalConfigurationTest">
+                <methods>
+                    <exclude name="testValidationOfConstrainedMethodOnTypeAnnotatedWithValidateOnExecutionContainingExecutableType"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.ValidationInterceptorPriorityTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.types.ExecutableTypesTest">
+                <methods>
+                    <exclude name="testValidationOfConstrainedGetterReturnValueWithExecutableTypeGETTER_METHODS"/>
+                    <exclude name="testValidationOfConstrainedGetterWithExecutableTypeALL"/>
+                    <exclude name="testValidationOfConstrainedGetterWithExecutableTypeIMPLICIT"/>
+                    <exclude name="testValidationOfConstrainedMethodParametersWithExecutableTypeNON_GETTER_METHODS"/>
+                    <exclude name="testValidationOfConstrainedMethodReturnValueWithExecutableTypeNON_GETTER_METHODS"/>
+                    <exclude name="testValidationOfConstrainedMethodWithExecutableTypeALL"/>
+                    <exclude name="testValidationOfConstrainedMethodWithExecutableTypeIMPLICIT"/>
+                    <exclude name="testValidationOfConstrainedMethodWithExecutableTypeNONEAndOther"/>
+                    <exclude name="testValidationOfConstrainedMethodWithExecutableTypesALLAndNONE"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.factory.ConstraintValidatorInjectionTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.ee.cdi.ConstraintValidatorInjectionTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+        </classes>
+
+    </test>
+</suite>

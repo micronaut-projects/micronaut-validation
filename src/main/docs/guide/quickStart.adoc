@@ -22,4 +22,4 @@ If you need the Jakarta Validation compliance stack, add the aggregate module:
 
 dependency:micronaut-validation-jakarta[groupId="io.micronaut.validation"]
 
-The aggregate includes the optional bootstrap, reflection, XML, and Jakarta EL modules. See the <<jakartaValidation,Jakarta Validation Compliance>> section for details.
+The aggregate includes the optional bootstrap and XML modules and a Jakarta EL implementation. See the <<jakartaValidation,Jakarta Validation Compliance>> section for details.

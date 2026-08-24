@@ -19,11 +19,10 @@ def javaFxClassifier = {
 
 dependencies {
     api projects.micronautValidationBootstrap
-    api projects.micronautValidationReflection
     api projects.micronautValidationXml
-    api projects.micronautValidationEl
     compileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
-    runtimeOnly libs.jakarta.el.impl
+    runtimeOnly libs.micronaut.expression.language
+    runtimeOnly libs.micronaut.expression.language.interpreter
 
     testImplementation mnTest.micronaut.test.junit5
     testCompileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
@@ -33,6 +32,6 @@ dependencies {
 
 micronautBuild {
     binaryCompatibility {
-        enabledAfter("5.1.0")
+        enabledAfter("5.2.0")
     }
 }

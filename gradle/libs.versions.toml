@@ -1,7 +1,7 @@
 [versions]
 managed-validation = "3.1.1"
-jakarta-el-api = "5.0.1"
-jakarta-el-impl = "5.0.0-M1"
+jakarta-el-api = "6.0.1"
+micronaut-expression-language = "1.0.0"
 javafx = "21.0.6"
 
 spotbugs = "4.10.3"
@@ -42,13 +42,14 @@ arquillian-container = { module = "org.jboss.arquillian.container:arquillian-con
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
 jakarta-cdi-api = { module = "jakarta.enterprise:jakarta.enterprise.cdi-api", version.ref = "jakarta-cdi-api" }
 jakarta-ejb-api = { module = "jakarta.ejb:jakarta.ejb-api", version.ref = "jakarta-ejb-api" }
-jakarta-el-impl = { module = "org.glassfish:jakarta.el", version.ref = "jakarta-el-impl" }
 javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 
 # managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
 jakarta-el-api = { module = "jakarta.el:jakarta.el-api", version.ref = "jakarta-el-api" }
+micronaut-expression-language = { module = "io.micronaut.el:micronaut-jakarta-el", version.ref = "micronaut-expression-language" }
+micronaut-expression-language-interpreter = { module = "io.micronaut.el:micronaut-jakarta-el-interpreter", version.ref = "micronaut-expression-language" }
 jakarta-validation-tck-tests = { module = 'jakarta.validation:validation-tck-tests', version.ref = "jakarta-validation-tck" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
