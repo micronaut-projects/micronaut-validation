@@ -143,10 +143,17 @@
                     <exclude name=".*"/>
                 </methods>
             </class>
-            <!-- TODO -->
+            <!-- TODO: groups/payload/validationAppliesTo propagation to composing constraints and @ReportAsSingleViolation -->
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.constraintcomposition.ConstraintCompositionTest">
                 <methods>
-                    <exclude name=".*"/>
+                    <exclude name="testComposedConstraints"/>
+                    <exclude name="testComposedConstraintsAreRecursive"/>
+                    <exclude name="testConstraintTargetPropagationInComposedConstraints"/>
+                    <exclude name="testGroupsDefinedOnMainAnnotationAreInherited"/>
+                    <exclude name="testMixedConstraintTargetsInComposedAndComposingConstraintsCauseException"/>
+                    <exclude name="testMixedConstraintTargetsInComposingConstraintsCauseException"/>
+                    <exclude name="testOnlySingleConstraintViolation"/>
+                    <exclude name="testPayloadPropagationInComposedConstraints"/>
                 </methods>
             </class>
             <!-- TODO -->

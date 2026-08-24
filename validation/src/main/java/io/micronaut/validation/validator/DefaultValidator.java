@@ -61,6 +61,8 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
+import jakarta.validation.ConstraintDefinitionException;
+import jakarta.validation.OverridesAttribute;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -85,11 +87,14 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -133,6 +138,8 @@ public class DefaultValidator implements
     // than we should. We still set it comfortably high to avoid unnecessary evictions.
     private final ConcurrentMap<AnnotationMetadata, List<DefaultConstraintDescriptor<Annotation>>> constraintCache =
         new CopyOnWriteMap<>(65536);
+
+    private final Set<Class<? extends Annotation>> validatedConstraintTypes = ConcurrentHashMap.newKeySet();
 
     /**
      * Default constructor.
@@ -1468,6 +1475,10 @@ public class DefaultValidator implements
                 validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
             }
             if (validator == null || validator == ConstraintValidator.VALID) {
+                if (hasComposingConstraints(constraintType)) {
+                    // A composed constraint without its own validator is validated through its composing constraints
+                    continue;
+                }
                 throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
             }
             try {
@@ -1518,6 +1529,110 @@ public class DefaultValidator implements
         return context.containsGroup(constraint.getGroups());
     }
 
+    private static boolean hasComposingConstraints(Class<? extends Annotation> constraintType) {
+        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (annotationType.isAnnotationPresent(Constraint.class)) {
+                return true;
+            }
+            if (repeatableConstraintComponentType(annotationType) != null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @Nullable
+    private static Class<?> repeatableConstraintComponentType(Class<? extends Annotation> annotationType) {
+        try {
+            Class<?> componentType = annotationType.getDeclaredMethod("value").getReturnType().getComponentType();
+            if (componentType != null && componentType.isAnnotationPresent(Constraint.class)) {
+                return componentType;
+            }
+        } catch (NoSuchMethodException ignored) {
+            // Not a repeatable container
+        }
+        return null;
+    }
+
+    /**
+     * Validates the {@code OverridesAttribute} declarations of a composed constraint per the
+     * Jakarta Validation constraint composition rules.
+     */
+    private void validateConstraintDefinition(Class<? extends Annotation> constraintType) {
+        if (!validatedConstraintTypes.add(constraintType)) {
+            return;
+        }
+        // Collect the composing constraints, counting occurrences per constraint type and
+        // rejecting a mix of a direct annotation and its repeatable container
+        Map<Class<?>, Integer> occurrences = new LinkedHashMap<>();
+        Set<Class<?>> direct = new HashSet<>();
+        Set<Class<?>> viaContainer = new HashSet<>();
+        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
+            Class<? extends Annotation> annotationType = annotation.annotationType();
+            if (annotationType.isAnnotationPresent(Constraint.class)) {
+                occurrences.merge(annotationType, 1, Integer::sum);
+                direct.add(annotationType);
+            } else {
+                Class<?> componentType = repeatableConstraintComponentType(annotationType);
+                if (componentType != null) {
+                    try {
+                        Annotation[] values = (Annotation[]) annotationType.getDeclaredMethod("value").invoke(annotation);
+                        occurrences.merge(componentType, values.length, Integer::sum);
+                    } catch (ReflectiveOperationException e) {
+                        throw new ConstraintDeclarationException("Cannot read composing constraint container " + annotationType.getName(), e);
+                    }
+                    viaContainer.add(componentType);
+                }
+            }
+        }
+        for (Class<?> mixed : direct) {
+            if (viaContainer.contains(mixed)) {
+                throw new ConstraintDeclarationException("Constraint " + constraintType.getName()
+                    + " mixes a direct @" + mixed.getName() + " annotation and its repeatable container");
+            }
+        }
+        for (Method member : constraintType.getDeclaredMethods()) {
+            OverridesAttribute single = member.getAnnotation(OverridesAttribute.class);
+            if (single != null) {
+                validateOverride(constraintType, member, single, occurrences);
+            }
+            OverridesAttribute.List list = member.getAnnotation(OverridesAttribute.List.class);
+            if (list != null) {
+                for (OverridesAttribute override : list.value()) {
+                    validateOverride(constraintType, member, override, occurrences);
+                }
+            }
+        }
+    }
+
+    private static void validateOverride(Class<? extends Annotation> constraintType,
+                                         Method member,
+                                         OverridesAttribute override,
+                                         Map<Class<?>, Integer> occurrences) {
+        Class<? extends Annotation> target = override.constraint();
+        Integer count = occurrences.get(target);
+        if (count == null) {
+            throw new ConstraintDefinitionException("Constraint " + constraintType.getName() + " member '" + member.getName()
+                + "' overrides an attribute of " + target.getName() + " which is not a composing constraint");
+        }
+        if (override.constraintIndex() >= count) {
+            throw new ConstraintDefinitionException("Invalid constraintIndex " + override.constraintIndex() + " for constraint "
+                + target.getName() + " composing " + constraintType.getName());
+        }
+        String name = override.name().isEmpty() ? member.getName() : override.name();
+        Method overriddenMember;
+        try {
+            overriddenMember = target.getDeclaredMethod(name);
+        } catch (NoSuchMethodException e) {
+            throw new ConstraintDefinitionException("Overridden attribute '" + name + "' does not exist on constraint " + target.getName());
+        }
+        if (!overriddenMember.getReturnType().equals(member.getReturnType())) {
+            throw new ConstraintDefinitionException("The overriding member '" + member.getName() + "' of constraint "
+                + constraintType.getName() + " must match the type of the overridden attribute '" + name + "' of " + target.getName());
+        }
+    }
+
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints(DefaultConstraintValidatorContext<R> context,
                                                                              AnnotationMetadata annotationMetadata,
                                                                              boolean cache) {
@@ -1537,6 +1652,7 @@ public class DefaultValidator implements
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
         for (Class<? extends Annotation> constraintType : annotationMetadata.getAnnotationTypesByStereotype(Constraint.class)) {
+            validateConstraintDefinition(constraintType);
             List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = annotationMetadata.getAnnotationValuesByType(constraintType);
             if (annotationValuesByType.isEmpty()) {
                 annotationValuesByType = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);

@@ -148,6 +148,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public boolean containsGroup(Collection<Class<?>> constraintGroups) {
+        if (constraintGroups.isEmpty()) {
+            // Composing constraints of a composed constraint carry no explicit groups and apply to the default group
+            return currentGroups.contains(Default.class);
+        }
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }

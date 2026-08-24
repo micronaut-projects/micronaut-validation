@@ -1,0 +1,2 @@
+io.micronaut.validation.transformer.OverridesAttributeAnnotationTransformer
+io.micronaut.validation.transformer.OverridesAttributeListAnnotationTransformer

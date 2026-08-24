@@ -62,6 +62,8 @@ test {
 
 tasks.register('singleTest', Test) {
     scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
     useTestNG {
         suiteXmlBuilder().suite(name: 'Sample Suite') {
             test(name : 'Sample Test') {
