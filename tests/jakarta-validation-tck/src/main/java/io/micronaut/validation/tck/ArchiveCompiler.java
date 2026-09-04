@@ -66,6 +66,13 @@ import java.util.stream.Stream;
  */
 @Internal
 final class ArchiveCompiler {
+
+    /**
+     * Whether the deployment is compiled with the Micronaut annotation processor. Without it the archive has
+     * no generated bean introspections and everything the validator reads comes from the reflection bridge.
+     */
+    private static final boolean PROCESSOR_ENABLED =
+        !"false".equalsIgnoreCase(System.getProperty("micronaut.validation.tck.processor.enabled", "true"));
     static final String EXTRA_CLASSPATH_PROPERTY = "micronaut.validation.tck.archive.classpath";
     private static final String WEB_INF_CLASSES = "/WEB-INF/classes";
 
@@ -77,7 +84,7 @@ final class ArchiveCompiler {
         this.deploymentArchive = deploymentArchive;
     }
 
-    void compile() throws ArchiveCompilationException, ArchiveCompilerException {
+    void compile() throws ArchiveCompilerException {
         try {
             if (deploymentArchive instanceof WebArchive) {
                 compileWar();
@@ -89,7 +96,7 @@ final class ArchiveCompiler {
         }
     }
 
-    private void compileWar() throws ArchiveCompilationException, ArchiveCompilerException, IOException {
+    private void compileWar() throws ArchiveCompilerException, IOException {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
@@ -145,7 +152,7 @@ final class ArchiveCompiler {
         }
     }
 
-    private void doCompile(Collection<File> testSources, File outputDir) throws ArchiveCompilationException, IOException {
+    private void doCompile(Collection<File> testSources, File outputDir) throws ArchiveCompilerException, IOException {
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         try (StandardJavaFileManager mgr = compiler.getStandardFileManager(diagnostics, null, null)) {
@@ -165,7 +172,7 @@ final class ArchiveCompiler {
                     ).toList()
                 )
             );
-            task.setProcessors(getAnnotationProcessors());
+            task.setProcessors(PROCESSOR_ENABLED ? getAnnotationProcessors() : List.of());
             Boolean success = task.call();
             if (!Boolean.TRUE.equals(success)) {
                 outputDiagnostics(diagnostics);
@@ -175,6 +182,10 @@ final class ArchiveCompiler {
 
     private List<String> compilerOptions(String targetDir) throws IOException {
         List<String> options = new ArrayList<>(Arrays.asList("-d", targetDir, "-verbose", "-parameters"));
+        if (!PROCESSOR_ENABLED) {
+            // no bean introspections are generated: the validator describes the archive reflectively
+            options.add("-proc:none");
+        }
         options.add("-classpath");
         options.add(compilerClasspath());
         return options;
@@ -282,8 +293,8 @@ final class ArchiveCompiler {
         return applicationSource;
     }
 
-    private void outputDiagnostics(DiagnosticCollector<JavaFileObject> diagnostics) throws ArchiveCompilationException {
-        throw new ArchiveCompilationException("Compilation failed:\n" + diagnostics.getDiagnostics()
+    private void outputDiagnostics(DiagnosticCollector<JavaFileObject> diagnostics) throws ArchiveCompilerException {
+        throw new ArchiveCompilerException("Compilation failed:\n" + diagnostics.getDiagnostics()
             .stream()
             .map(it -> {
                 System.out.println(it);

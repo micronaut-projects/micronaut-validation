@@ -455,7 +455,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
     /**
      * Default constructor node.
      */
-    private static final class DefaultConstructorNode extends DefaultMethodNode implements ConstructorNode {
+    static final class DefaultConstructorNode extends DefaultMethodNode implements ConstructorNode {
         public DefaultConstructorNode(MethodReference<Object, Object> methodReference) {
             super(methodReference);
         }

@@ -138,6 +138,19 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     boolean isPrependPropertyPath();
 
     /**
+     * Whether constraint definitions are checked against the Jakarta Validation rules: a constraint declares
+     * the {@code message}, {@code groups} and {@code payload} members with the types and defaults the
+     * specification sets, and {@code validationAppliesTo} only when it is both generic and cross-parameter.
+     * <p>
+     * Default: false, a constraint may omit the members it does not need
+     *
+     * @return Whether constraint definitions are checked
+     */
+    default boolean isStrictConstraintDefinitions() {
+        return false;
+    }
+
+    /**
      * The bean introspector.
      * @return The introspector
      */

@@ -17,15 +17,17 @@ package io.micronaut.validation.bootstrap;
 
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
-import io.micronaut.context.BeanContext;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.validator.DefaultValidator;
+import io.micronaut.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
-import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
@@ -65,6 +67,13 @@ import java.util.Set;
 @Internal
 public final class MicronautValidatorConfiguration implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
 
+    /**
+     * The system property that turns the reflective description of the types without a generated bean
+     * introspection off. It is on by default; a deployment that wants generated metadata only — a native
+     * image, typically — sets it to {@code false} and validates what the annotation processor produced.
+     */
+    public static final String REFLECTION_ENABLED = "micronaut.validation.reflection.enabled";
+
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
     private static final Set<String> BOOTSTRAP_PACKAGES = Set.of(
         "io.micronaut.validation",
@@ -74,7 +83,8 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         "io.micronaut.core.io.service"
     );
 
-    private final DefaultValidatorConfiguration defaults = new DefaultValidatorConfiguration();
+    // a Jakarta Validation provider checks the constraint definitions
+    private final DefaultValidatorConfiguration defaults = new DefaultValidatorConfiguration().setStrictConstraintDefinitions(true);
     private final List<byte[]> mappingStreams = new ArrayList<>();
     private final Set<ValueExtractor<?>> valueExtractors = new LinkedHashSet<>();
     private final Map<String, String> properties = new LinkedHashMap<>();
@@ -349,15 +359,13 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     private static ValidatorFactory buildValidatorFactoryInternal(ConfigurationState configurationState) {
         Map<String, Object> configurationProperties = new LinkedHashMap<>(configurationState.getProperties());
-        if (isPresent("io.micronaut.validation.reflection.ReflectionConstraintValidatorFactory")) {
-            configurationProperties.putIfAbsent("micronaut.validator.spec.reflection.enabled", "true");
-        }
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
-        reflectionConstraintValidatorFactory(applicationContext.getClassLoader(), applicationContext)
-            .or(() -> applicationContext.findBean(InternalConstraintValidatorFactory.class).map(ConstraintValidatorFactory.class::cast))
-            .ifPresent(validatorConfiguration::constraintValidatorFactory);
-        validatorConfiguration.setBeanIntrospector(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
+        // the generated introspections of the application, supplemented by the reflection bridge of micronaut-core for
+        // the types without one: the validator reads them, the factory instantiates the constraint validators through them
+        BeanIntrospector beanIntrospector = supplemented(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
+        validatorConfiguration.setBeanIntrospector(beanIntrospector);
+        validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(beanIntrospector, applicationContext));
         xmlMappingMetadataProvider(applicationContext.getClassLoader(), configurationState.getMappingStreams())
             .ifPresent(provider -> {
                 List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
@@ -492,18 +500,34 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     }
 
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = MicronautValidatorConfiguration.class.getClassLoader();
+        if (validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration
+            && !(defaultConfiguration.getBeanIntrospector() instanceof ReflectionBeanIntrospector)) {
+            defaultConfiguration.setBeanIntrospector(supplemented(defaultConfiguration.getBeanIntrospector()));
         }
-        try {
-            Class<?> reflectionValidator = Class.forName("io.micronaut.validation.reflection.ReflectionValidator", false, classLoader);
-            return (Validator) reflectionValidator.getConstructor(ValidatorConfiguration.class).newInstance(validatorConfiguration);
-        } catch (ClassNotFoundException e) {
-            return new DefaultValidator(validatorConfiguration);
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize Micronaut Validation reflection fallback", e);
-        }
+        return new DefaultValidator(validatorConfiguration);
+    }
+
+    /**
+     * The generated introspections, supplemented by the reflection bridge of micronaut-core for the types
+     * without one, unless {@link #REFLECTION_ENABLED} says otherwise.
+     *
+     * @param beanIntrospector The introspector of the generated introspections
+     * @return The introspector the validator reads
+     */
+    public static BeanIntrospector supplemented(BeanIntrospector beanIntrospector) {
+        return isReflectionEnabled()
+            // Jakarta Validation reads a field directly, and a type described reflectively carries no
+            // @Introspected to declare that, so the access kinds are asked for here
+            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true,
+                Set.of(Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD))
+            : beanIntrospector;
+    }
+
+    /**
+     * @return Whether the types without a generated introspection are described reflectively
+     */
+    public static boolean isReflectionEnabled() {
+        return !StringUtils.FALSE.equalsIgnoreCase(System.getProperty(REFLECTION_ENABLED, StringUtils.TRUE));
     }
 
     static ApplicationContext createBootstrapContext(Map<String, Object> properties) {
@@ -579,28 +603,6 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             return Optional.empty();
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot initialize Jakarta EL message interpolator", e);
-        }
-    }
-
-    private static Optional<ConstraintValidatorFactory> reflectionConstraintValidatorFactory(ClassLoader classLoader, ApplicationContext applicationContext) {
-        try {
-            Class<?> factoryType = Class.forName("io.micronaut.validation.reflection.ReflectionConstraintValidatorFactory", true, classLoader);
-            Class<? extends ConstraintValidatorFactory> constraintValidatorFactoryType = factoryType.asSubclass(ConstraintValidatorFactory.class);
-            Optional<ConstraintValidatorFactory> factory = applicationContext.findBean(constraintValidatorFactoryType)
-                .map(ConstraintValidatorFactory.class::cast);
-            return factory.isPresent() ? factory : instantiateReflectionConstraintValidatorFactory(constraintValidatorFactoryType, applicationContext);
-        } catch (ClassNotFoundException e) {
-            return Optional.empty();
-        }
-    }
-
-    private static Optional<ConstraintValidatorFactory> instantiateReflectionConstraintValidatorFactory(
-        Class<? extends ConstraintValidatorFactory> factoryType,
-        ApplicationContext applicationContext) {
-        try {
-            return Optional.of(factoryType.getConstructor(BeanContext.class).newInstance(applicationContext));
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize Jakarta reflection constraint validator factory", e);
         }
     }
 

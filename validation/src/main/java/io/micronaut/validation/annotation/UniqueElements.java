@@ -36,7 +36,7 @@ public @interface UniqueElements {
     /**
      * @return message code
      */
-    String message() default "contains duplicates ({validatedValue})";
+    String message() default "contains duplicates (${validatedValue})";
 
     /**
      * @return The groups to apply

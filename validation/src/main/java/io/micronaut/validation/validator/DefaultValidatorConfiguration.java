@@ -28,7 +28,8 @@ import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.reflection.ReflectionAnnotations;
+import io.micronaut.reflection.ReflectionArguments;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -37,14 +38,17 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
-import jakarta.validation.ConstraintTarget;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.Path;
@@ -53,26 +57,18 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -130,6 +126,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
+    private boolean strictConstraintDefinitions = false;
 
     /**
      * Sets the conversion service.
@@ -212,6 +209,24 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     public DefaultValidatorConfiguration setPrependPropertyPath(boolean prependPropertyPath) {
         this.prependPropertyPath = prependPropertyPath;
+        return this;
+    }
+
+    @Override
+    public boolean isStrictConstraintDefinitions() {
+        return strictConstraintDefinitions;
+    }
+
+    /**
+     * Whether constraint definitions are checked against the Jakarta Validation rules.
+     * <p>
+     * Default: false
+     *
+     * @param strictConstraintDefinitions Whether constraint definitions are checked
+     * @return this configuration
+     */
+    public DefaultValidatorConfiguration setStrictConstraintDefinitions(boolean strictConstraintDefinitions) {
+        this.strictConstraintDefinitions = strictConstraintDefinitions;
         return this;
     }
 
@@ -517,42 +532,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @NonNull
     private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
-        if (type instanceof AnnotatedParameterizedType annotatedParameterizedType) {
-            return Argument.of(
-                getClassFromType(type.getType()),
-                annotationMetadataOf(type),
-                Arrays.stream(annotatedParameterizedType.getAnnotatedActualTypeArguments()).map(DefaultValidatorConfiguration::argumentOf).toArray(Argument[]::new)
-            );
-        }
-        return Argument.of(getClassFromType(type.getType()), annotationMetadataOf(type));
+        return ReflectionArguments.of(type);
     }
 
     private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
-        Annotation[] annotations = annotatedElement.getAnnotations();
-        if (annotations.length == 0) {
-            return AnnotationMetadata.EMPTY_METADATA;
-        }
-        MutableAnnotationMetadata mutableAnnotationMetadata = new MutableAnnotationMetadata();
-        for (Annotation annotation : annotations) {
-            Map<CharSequence, Object> values = new LinkedHashMap<>();
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            Method[] methods = annotationType.getMethods();
-            for (Method method : methods) {
-                if (!method.getDeclaringClass().equals(annotationType)) {
-                    continue;
-                }
-                try {
-                    Object value = method.invoke(annotation);
-                    if (value != null) {
-                        values.put(method.getName(), value);
-                    }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            mutableAnnotationMetadata.addAnnotation(annotationType.getName(), values);
-        }
-        return mutableAnnotationMetadata;
+        return ReflectionAnnotations.metadataOf(annotatedElement);
     }
 
     @Override

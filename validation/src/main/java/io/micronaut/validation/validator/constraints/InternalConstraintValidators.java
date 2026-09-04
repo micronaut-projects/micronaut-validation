@@ -117,6 +117,28 @@ final class InternalConstraintValidators {
             return value.longValue() <= max;
         };
 
+    final ConstraintValidator<Max, CharSequence> maxCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            final Long max = annotationMetadata.getValue(Long.class).orElseThrow(() ->
+                new ValidationException("@Max annotation specified without value")
+            );
+            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(max)) <= 0;
+        };
+
+    final ConstraintValidator<Min, CharSequence> minCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            final Long min = annotationMetadata.getValue(Long.class).orElseThrow(() ->
+                new ValidationException("@Min annotation specified without value")
+            );
+            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(min)) >= 0;
+        };
+
     final ConstraintValidator<Min, Number> minNumberValidator =
         (value, annotationMetadata, context) -> {
             if (value == null) {

@@ -18,13 +18,20 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
-import jakarta.validation.ConstraintTarget;
-import jakarta.validation.constraintvalidation.SupportedValidationTarget;
-import jakarta.validation.constraintvalidation.ValidationTarget;
+import io.micronaut.core.type.Argument;
+import io.micronaut.reflection.ReflectionArguments;
 import org.jspecify.annotations.Nullable;
 
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
+import jakarta.validation.ConstraintDeclarationException;
+import jakarta.validation.ConstraintDefinitionException;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.UnexpectedTypeException;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -102,57 +109,156 @@ public final class ConstraintValidatorTargetResolver {
             || validationTargets.contains(ValidationTarget.ANNOTATED_ELEMENT);
     }
 
-    @Nullable
-    private static Class<?> findTargetType(Class<?> type) {
-        for (Type genericInterface : type.getGenericInterfaces()) {
-            Class<?> targetType = findTargetType(genericInterface);
-            if (targetType != null) {
-                return targetType;
+    /**
+     * The type a validator validates: the second type argument of {@link ConstraintValidator}, resolved through
+     * the hierarchy of the validator type by {@link ReflectionArguments#resolveGenericToArgument}, the
+     * same resolution the value extractors and the generic bean arguments use.
+     */
+    /**
+     * Checks that the {@code validationAppliesTo} of a constraint is one the element it is declared on
+     * allows, as the sections 3.1.1.4 and 4.5.2.1 of the specification require: a target may only be
+     * declared on an executable, {@code PARAMETERS} needs parameters, {@code RETURN_VALUE} needs a return
+     * value, a constraint whose validators validate both the parameters and the return value of an
+     * executable with both must declare which, and a constraint targeting the parameters needs a validator
+     * that validates them.
+     *
+     * @param constraintType     The constraint type
+     * @param validatorTypes     The validator types
+     * @param validationAppliesTo The declared target, {@code null} when the member is absent
+     * @param onExecutable       Whether the constraint is declared on an executable
+     * @param hasParameters      Whether the executable has parameters
+     * @param hasReturnValue     Whether the executable has a return value
+     * @throws ConstraintDeclarationException When the target is not allowed where the constraint is declared
+     * @throws ConstraintDefinitionException  When the constraint targets the parameters with no validator for them
+     */
+    public static void checkTargetDeclaration(Class<?> constraintType,
+                                              List<? extends Class<?>> validatorTypes,
+                                              @Nullable ConstraintTarget validationAppliesTo,
+                                              boolean onExecutable,
+                                              boolean hasParameters,
+                                              boolean hasReturnValue) {
+        ConstraintTarget declared = validationAppliesTo == null ? ConstraintTarget.IMPLICIT : validationAppliesTo;
+        if (!onExecutable) {
+            if (declared != ConstraintTarget.IMPLICIT) {
+                throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
+                    + " declares validationAppliesTo = " + declared + " on an element that is not an executable");
             }
+            return;
         }
-        Type genericSuperclass = type.getGenericSuperclass();
-        return genericSuperclass == null ? null : findTargetType(genericSuperclass);
+        boolean parameters = false;
+        boolean annotatedElement = false;
+        for (Class<?> validatorType : validatorTypes) {
+            Set<ValidationTarget> targets = validationTargets(validatorType);
+            parameters |= targets.contains(ValidationTarget.PARAMETERS);
+            annotatedElement |= targets.isEmpty() || targets.contains(ValidationTarget.ANNOTATED_ELEMENT);
+        }
+        if (declared == ConstraintTarget.PARAMETERS) {
+            if (!hasParameters) {
+                throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
+                    + " declares validationAppliesTo = PARAMETERS on an executable without parameters");
+            }
+            if (!parameters && !validatorTypes.isEmpty()) {
+                throw new ConstraintDefinitionException("The constraint " + constraintType.getName()
+                    + " targets the parameters but none of its validators supports ValidationTarget.PARAMETERS");
+            }
+        } else if (declared == ConstraintTarget.RETURN_VALUE) {
+            if (!hasReturnValue) {
+                throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
+                    + " declares validationAppliesTo = RETURN_VALUE on an executable without a return value");
+            }
+        } else if (parameters && annotatedElement && hasParameters && hasReturnValue) {
+            throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
+                + " validates both the parameters and the return value and must declare validationAppliesTo on "
+                + "an executable with parameters and a return value");
+        }
     }
 
+    /**
+     * Whether at least one of the validators supports the given target: the cross-parameter phase of an
+     * executable only runs the validators supporting {@link ValidationTarget#PARAMETERS}, the other phases
+     * the ones supporting {@link ValidationTarget#ANNOTATED_ELEMENT}.
+     *
+     * @param validatorTypes   The validator types
+     * @param constraintTarget The target
+     * @return Whether a validator supports the target
+     */
+    public static boolean supportsTarget(List<? extends Class<?>> validatorTypes, ConstraintTarget constraintTarget) {
+        for (Class<?> validatorType : validatorTypes) {
+            if (allowsConstraintTarget(validationTargets(validatorType), constraintTarget)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Selects the validator of a constraint for a value type, as the section 4.6.4 of the specification
+     * resolves it: among the validators supporting the target and accepting the type, the one whose
+     * validated type is the most specific; two equally specific ones are an error.
+     *
+     * @param constraintType   The constraint type
+     * @param validatorTypes   The validator types declared by the constraint
+     * @param valueType        The type of the validated value
+     * @param constraintTarget The target
+     * @return The validator, or {@code null} when none accepts the type
+     * @throws UnexpectedTypeException When several validators are equally specific
+     */
     @Nullable
-    private static Class<?> findTargetType(Type type) {
-        if (type instanceof ParameterizedType parameterizedType) {
-            Class<?> targetType = constraintValidatorTargetType(parameterizedType);
-            if (targetType != null) {
-                return targetType;
+    public static Class<?> resolve(Class<?> constraintType,
+                                   List<? extends Class<?>> validatorTypes,
+                                   Class<?> valueType,
+                                   ConstraintTarget constraintTarget) {
+        Class<?> resolvedValueType = resolveTargetType(valueType);
+        List<Class<?>> candidates = new ArrayList<>(validatorTypes.size());
+        List<Class<?>> candidateTargets = new ArrayList<>(validatorTypes.size());
+        for (Class<?> validatorType : validatorTypes) {
+            if (candidates.contains(validatorType)) {
+                continue;
             }
-            Type rawType = parameterizedType.getRawType();
-            if (rawType instanceof Class<?> rawClass) {
-                return findTargetType(rawClass);
+            Class<?> targetType = resolveTargetType(getTargetType(validatorType));
+            if (allowsConstraintTarget(validationTargets(validatorType), constraintTarget) && targetType.isAssignableFrom(resolvedValueType)) {
+                candidates.add(validatorType);
+                candidateTargets.add(targetType);
             }
+        }
+        if (candidates.isEmpty()) {
             return null;
         }
-        if (type instanceof Class<?> clazz && clazz != Object.class) {
-            return findTargetType(clazz);
-        }
-        return null;
-    }
-
-    @Nullable
-    private static Class<?> constraintValidatorTargetType(ParameterizedType parameterizedType) {
-        Type rawType = parameterizedType.getRawType();
-        if (rawType == ConstraintValidator.class || rawType == jakarta.validation.ConstraintValidator.class) {
-            Type[] typeArguments = parameterizedType.getActualTypeArguments();
-            if (typeArguments.length == 2) {
-                return typeArgumentType(typeArguments[1]);
+        Class<?> selected = null;
+        for (int i = 0; i < candidates.size(); i++) {
+            Class<?> target = candidateTargets.get(i);
+            boolean lessSpecificThanAnother = false;
+            for (int j = 0; j < candidates.size(); j++) {
+                Class<?> other = candidateTargets.get(j);
+                if (i != j && target != other && target.isAssignableFrom(other)) {
+                    lessSpecificThanAnother = true;
+                    break;
+                }
             }
+            if (lessSpecificThanAnother) {
+                continue;
+            }
+            if (selected != null) {
+                // two validators as specific as each other, for the same type or for unrelated ones
+                throw new UnexpectedTypeException("Cannot resolve a unique constraint validator for constraint: "
+                    + constraintType.getName() + " and type: " + valueType.getName());
+            }
+            selected = candidates.get(i);
         }
-        return null;
+        return selected;
     }
 
     @Nullable
-    private static Class<?> typeArgumentType(Type typeArgument) {
-        if (typeArgument instanceof Class<?> aClass) {
-            return aClass;
+    private static Class<?> findTargetType(Class<?> type) {
+        Argument<ConstraintValidator> validator = ReflectionArguments.resolveGenericToArgument(type, ConstraintValidator.class);
+        if (validator == null) {
+            return null;
         }
-        if (typeArgument instanceof ParameterizedType parameterizedType && parameterizedType.getRawType() instanceof Class<?> rawClass) {
-            return rawClass;
+        Argument<?>[] typeParameters = validator.getTypeParameters();
+        if (typeParameters.length != 2) {
+            return null;
         }
-        return null;
+        Class<?> targetType = typeParameters[1].getType();
+        return targetType == Object.class ? null : targetType;
     }
 }

@@ -62,362 +62,128 @@ dependencies {
     add("jakartaTckRuntimeClasspath", projects.micronautValidationJakarta)
 }
 
-def methodsTest1 = tasks.register('methodsTest1', Test) {
-    scanForTestClasses false
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-methods2.xml")
-    }
-}
-
-def methodsTest2 = tasks.register('methodsTest2', Test) {
-    scanForTestClasses false
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-methods.xml")
-    }
-}
-
 test {
-    description = "Runs the Jakarta Validation TCK core profile against micronaut-validation."
-    scanForTestClasses false
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-tests.xml")
-    }
-    // Methods tests are extracted to prevent flaky tests caused by class loading issues
-    dependsOn(methodsTest2)
-    dependsOn(methodsTest1)
-}
-
-tasks.register('coreTck') {
-    group = 'verification'
-    description = "Runs the Jakarta Validation TCK core profile."
-    dependsOn(test)
-}
-
-def tckHarnessTest = tasks.register('tckHarnessTest', Test) {
-    group = 'verification'
-    description = "Runs focused unit tests for the local Jakarta Validation TCK harness."
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
+    description = "Runs the unit tests of the local Jakarta Validation TCK harness."
     useTestNG()
     include 'io/micronaut/validation/tck/**/*Test.class'
 }
 
-def jakartaTck = tasks.register('jakartaTck', Test) {
-    group = 'verification'
-    description = "Runs the Jakarta Validation TCK compliance profile with the micronaut-validation-jakarta aggregate."
-    scanForTestClasses false
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
-    shouldRunAfter(test)
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
-        ]
-        suites file("tck-spec-tests.xml")
-    }
-}
-
-tasks.named("check") {
-    dependsOn(tckHarnessTest)
-    dependsOn(jakartaTck)
-}
-
-def writeFailingJakartaTckSuite = { File resultsDir, File suiteFile ->
-    if (!resultsDir.directory) {
-        throw new GradleException("No Jakarta TCK test results found at ${resultsDir}. Run discoverFailingJakartaTck first.")
-    }
-
-    def resultFiles = fileTree(resultsDir) {
-        include 'TEST-*.xml'
-    }.files
-    if (resultFiles.empty) {
-        throw new GradleException("No Jakarta TCK XML test result files found at ${resultsDir}.")
-    }
-
-    def documentBuilderFactory = javax.xml.parsers.DocumentBuilderFactory.newInstance()
-    documentBuilderFactory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false)
-    documentBuilderFactory.setFeature("http://xml.org/sax/features/external-general-entities", false)
-    documentBuilderFactory.setFeature("http://xml.org/sax/features/external-parameter-entities", false)
-    documentBuilderFactory.setXIncludeAware(false)
-    documentBuilderFactory.setExpandEntityReferences(false)
-
-    def classLevelFailures = new TreeSet<String>()
-    def methodFailures = new TreeMap<String, TreeSet<String>>()
-    def configurationFailure = { String methodName ->
-        methodName == null || methodName.empty || methodName.startsWith('arquillian') || methodName == 'initializationError'
-    }
-    resultFiles.each { resultFile ->
-        def document = documentBuilderFactory.newDocumentBuilder().parse(resultFile)
-        def testcases = document.getElementsByTagName('testcase')
-        for (int i = 0; i < testcases.length; i++) {
-            def testcase = testcases.item(i)
-            if (testcase.getElementsByTagName('failure').length == 0 && testcase.getElementsByTagName('error').length == 0) {
-                continue
-            }
-            def className = testcase.getAttribute('classname')
-            def methodName = testcase.getAttribute('name')
-            if (configurationFailure(methodName)) {
-                classLevelFailures.add(className)
-                methodFailures.remove(className)
-            } else if (!classLevelFailures.contains(className)) {
-                def methods = methodFailures[className]
-                if (methods == null) {
-                    methods = new TreeSet<String>()
-                    methodFailures[className] = methods
-                }
-                methods.add(methodName)
-            }
-        }
-    }
-
-    def passingWaves = []
-    if (suiteFile.file) {
-        def inPassingWaves = false
-        suiteFile.eachLine { line ->
-            def trimmed = line.trim()
-            if (trimmed == 'Passing waves already removed from this tracker:') {
-                inPassingWaves = true
-            } else if (inPassingWaves && trimmed.startsWith('- ')) {
-                passingWaves.add(trimmed.substring(2))
-            } else if (inPassingWaves && trimmed == '-->') {
-                inPassingWaves = false
-            }
-        }
-    }
-
-    def escapeXml = { String value ->
-        value.replace('&', '&amp;')
-            .replace('<', '&lt;')
-            .replace('>', '&gt;')
-            .replace('"', '&quot;')
-            .replace("'", '&apos;')
-    }
-    def allClasses = new TreeSet<String>()
-    allClasses.addAll(methodFailures.keySet())
-    allClasses.addAll(classLevelFailures)
-    def methodCount = methodFailures.values().sum(0) { it.size() }
-
-    suiteFile.parentFile.mkdirs()
-    def builder = new StringBuilder()
-    builder << '<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >\n\n'
-    builder << '<suite name="Jakarta-Bean-Validation-TCK Known Failures" verbose="1" configfailurepolicy="continue">\n'
-    builder << '    <!--\n'
-    builder << '        Jakarta compliance TCK progress tracker.\n\n'
-    builder << '        Keep this suite focused on tests that are known to fail in the Jakarta\n'
-    builder << '        compliance profile.\n'
-    builder << '        When a class or method passes, remove it from this file in the same focused\n'
-    builder << '        commit as the implementation change.\n\n'
-    builder << '        Entries are discovered from a full TCK run. If an entry passes in this\n'
-    builder << '        smaller suite because of ordering or isolation differences, keep it here\n'
-    builder << '        until a refreshed full discovery run stops reporting it.\n\n'
-    builder << '        Failing entries below were generated from\n'
-    builder << "        ${project.relativePath(resultsDir)} and should be refreshed with:\n"
-    builder << "        ./gradlew ${path}:discoverFailingJakartaTck\n\n"
-    builder << "        Current tracker shape: ${allClasses.size()} classes, ${methodCount} methods,\n"
-    builder << "        and ${classLevelFailures.size()} class-level setup failures.\n"
-    if (!passingWaves.empty) {
-        builder << '\n'
-        builder << '        Passing waves already removed from this tracker:\n'
-        passingWaves.each { passingWave ->
-            builder << "        - ${passingWave}\n"
-        }
-    }
-    builder << '    -->\n'
-    builder << '    <test name="Known Failing Jakarta TCK Tests">\n'
-    builder << '        <classes>\n'
-    allClasses.each { className ->
-        if (classLevelFailures.contains(className)) {
-            builder << "            <class name=\"${escapeXml(className)}\"/>\n"
-        } else {
-            builder << "            <class name=\"${escapeXml(className)}\">\n"
-            builder << '                <methods>\n'
-            methodFailures[className].each { methodName ->
-                builder << "                    <include name=\"${escapeXml(methodName)}\"/>\n"
-            }
-            builder << '                </methods>\n'
-            builder << '            </class>\n'
-        }
-    }
-    builder << '        </classes>\n'
-    builder << '    </test>\n'
-    builder << '</suite>\n'
-    suiteFile.text = builder.toString()
-    logger.lifecycle("Wrote ${suiteFile} with ${allClasses.size()} classes, ${methodCount} methods, and ${classLevelFailures.size()} class-level setup failures.")
-}
-
-def refreshFailingJakartaTckSuite = tasks.register('refreshFailingJakartaTckSuite') {
-    group = 'verification'
-    description = "Regenerates failingTests.xml from the latest discoverFailingJakartaTck XML results."
-
-    def resultsDir = layout.buildDirectory.dir("test-results/discoverFailingJakartaTck")
-    inputs.dir(resultsDir)
-    outputs.file(file("failingTests.xml"))
-
-    doLast {
-        writeFailingJakartaTckSuite(resultsDir.get().asFile, file("failingTests.xml"))
-    }
-}
-
-def discoverFailingJakartaTck = tasks.register('discoverFailingJakartaTck', Test) {
-    group = 'verification'
-    description = "Runs the full Jakarta Validation TCK compliance profile and refreshes failingTests.xml from the failures."
-    scanForTestClasses false
-    ignoreFailures true
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
-    shouldRunAfter(jakartaTck)
-    outputs.upToDateWhen { false }
-    finalizedBy(refreshFailingJakartaTckSuite)
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
-        ]
-        suites file("tck-spec-tests.xml")
-    }
-}
-
-tasks.register('specTck') {
-    group = 'verification'
-    description = "Compatibility alias for jakartaTck."
-    dependsOn(jakartaTck)
-}
-
-def failingJakartaTck = tasks.register('failingJakartaTck', Test) {
-    group = 'verification'
-    description = "Runs the tracked known failing Jakarta Validation TCK tests against the compliance profile."
-    scanForTestClasses false
-    failOnNoDiscoveredTests = false
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
-    shouldRunAfter(jakartaTck)
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
-        ]
-        suites file("failingTests.xml")
-    }
-}
-
-tasks.register('failingSpecTck') {
-    group = 'verification'
-    description = "Compatibility alias for failingJakartaTck."
-    dependsOn(failingJakartaTck)
-}
-
-def registerSingleTckTask = { String taskName, String descriptionText, FileCollection runtimeClasspath, String validationProvider ->
+// The TCK is run three ways: over the metadata the Micronaut annotation processor generates, over the
+// reflective description of an archive compiled without it, and over both together.
+def registerTckTask = { String taskName, String descriptionText, String suiteName, Map<String, String> properties ->
     tasks.register(taskName, Test) {
         group = 'verification'
         description = descriptionText
         scanForTestClasses false
         testClassesDirs = sourceSets.test.output.classesDirs
-        classpath = runtimeClasspath
-
-        def suiteFile = layout.buildDirectory.file("generated-testng/${taskName}.xml")
-        def testClass = providers.gradleProperty("tckSingleClass")
-            .orElse("org.hibernate.beanvalidation.tck.tests.bootstrap.CustomMessageInterpolatorTest")
-        def testMethod = providers.gradleProperty("tckSingleMethod")
-
-        inputs.property("tckSingleClass", testClass)
-        inputs.property("tckSingleMethod", testMethod.orElse(""))
-        outputs.file(suiteFile)
-
-        doFirst {
-            def file = suiteFile.get().asFile
-            file.parentFile.mkdirs()
-            def methodFilter = testMethod.present ? """
-                    <methods>
-                        <include name="${testMethod.get()}"/>
-                    </methods>
-            """.stripIndent() : ""
-            file.text = """
-                <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
-                <suite name="Jakarta-Bean-Validation-TCK Single" verbose="1">
-                    <test name="Jakarta-Bean-Validation-TCK Single">
-                        <classes>
-                            <class name="${testClass.get()}">
-                ${methodFilter}
-                            </class>
-                        </classes>
-                    </test>
-                </suite>
-            """.stripIndent()
-        }
-
+        classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
         useTestNG {
-            systemProperties = [
-                    'validation.provider': validationProvider
-            ]
-            suites suiteFile.get().asFile
+            suites file(suiteName)
         }
-    }
-}
-
-def singleCoreTck = registerSingleTckTask(
-    'singleCoreTck',
-    'Runs one Jakarta Validation TCK class or method against the core profile. Use -PtckSingleClass=... and optional -PtckSingleMethod=...',
-    sourceSets.test.runtimeClasspath,
-    'io.micronaut.validation.tck.runtime.TckValidationProvider'
-)
-
-def singleJakartaTck = registerSingleTckTask(
-    'singleJakartaTck',
-    'Runs one Jakarta Validation TCK class or method against the compliance profile. Use -PtckSingleClass=... and optional -PtckSingleMethod=...',
-    sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath,
-    'io.micronaut.validation.bootstrap.MicronautValidationProvider'
-)
-
-[jakartaTck, discoverFailingJakartaTck, failingJakartaTck, singleJakartaTck].each { taskProvider ->
-    taskProvider.configure {
+        // set after useTestNG: assigning systemProperties inside that block replaces the whole map
+        systemProperty 'validation.provider', 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+        properties.each { key, value -> systemProperty(key, value) }
         doFirst {
             systemProperty 'micronaut.validation.tck.archive.classpath', tckArchiveClasspath.asPath
         }
     }
 }
 
-tasks.register('singleSpecTck') {
-    group = 'verification'
-    description = 'Compatibility alias for singleJakartaTck.'
-    dependsOn(singleJakartaTck)
+def jakartaTck = registerTckTask(
+    'jakartaTck',
+    "Runs the whole Jakarta Validation TCK: generated bean introspections supplemented by the reflection bridge.",
+    'tck-spec-tests.xml',
+    [:]
+)
+
+def jakartaTckIntrospection = registerTckTask(
+    'jakartaTckIntrospection',
+    "Runs the Jakarta Validation TCK over generated bean introspections only, with the reflective description turned off.",
+    'tck-introspection-tests.xml',
+    ['micronaut.validation.reflection.enabled': 'false']
+)
+
+def jakartaTckReflection = registerTckTask(
+    'jakartaTckReflection',
+    "Runs the Jakarta Validation TCK over an archive compiled without the Micronaut annotation processor, described reflectively.",
+    'tck-reflection-tests.xml',
+    ['micronaut.validation.tck.processor.enabled': 'false']
+)
+
+tasks.named('jakartaTck').configure { shouldRunAfter(tasks.named('test')) }
+[jakartaTckIntrospection, jakartaTckReflection].each { it.configure { shouldRunAfter(jakartaTck) } }
+
+tasks.named("check") {
+    dependsOn(jakartaTck)
+    dependsOn(jakartaTckIntrospection)
+    dependsOn(jakartaTckReflection)
 }
 
-tasks.register('singleTest') {
+def singleJakartaTck = tasks.register('singleJakartaTck', Test) {
     group = 'verification'
-    description = 'Compatibility alias for singleCoreTck.'
-    dependsOn(singleCoreTck)
+    description = 'Runs one Jakarta Validation TCK class or method. Use -PtckSingleClass=... and optional -PtckSingleMethod=...'
+    scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
+
+    def suiteFile = layout.buildDirectory.file("generated-testng/singleJakartaTck.xml")
+    def testClass = providers.gradleProperty("tckSingleClass")
+        .orElse("org.hibernate.beanvalidation.tck.tests.bootstrap.CustomMessageInterpolatorTest")
+    def testMethod = providers.gradleProperty("tckSingleMethod")
+
+    inputs.property("tckSingleClass", testClass)
+    inputs.property("tckSingleMethod", testMethod.orElse(""))
+    outputs.file(suiteFile)
+
+    doFirst {
+        def file = suiteFile.get().asFile
+        file.parentFile.mkdirs()
+        def methodFilter = testMethod.present ? """
+                <methods>
+                    <include name="${testMethod.get()}"/>
+                </methods>
+        """.stripIndent() : ""
+        file.text = """
+            <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+            <suite name="Jakarta-Bean-Validation-TCK Single" verbose="1">
+                <test name="Jakarta-Bean-Validation-TCK Single">
+                    <classes>
+                        <class name="${testClass.get()}">
+            ${methodFilter}
+                        </class>
+                    </classes>
+                </test>
+            </suite>
+        """.stripIndent()
+    }
+
+    useTestNG {
+        suites suiteFile.get().asFile
+    }
+    systemProperty 'validation.provider', 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+    // -Dmicronaut.validation.reflection.enabled / -Dmicronaut.validation.tck.processor.enabled select the
+    // profile to debug, so one focused run can reproduce any of the three tasks
+    ['micronaut.validation.reflection.enabled', 'micronaut.validation.tck.processor.enabled'].each { key ->
+        def value = System.getProperty(key)
+        if (value != null) {
+            systemProperty(key, value)
+        }
+    }
 }
 
 def jakartaCoverageProjects = [
     project(':micronaut-validation'),
     project(':micronaut-validation-bootstrap'),
-    project(':micronaut-validation-el'),
     project(':micronaut-validation-jakarta'),
-    project(':micronaut-validation-reflection'),
     project(':micronaut-validation-xml')
 ]
 
 tasks.named('jacocoTestReport') {
     mustRunAfter(
         tasks.named('test'),
-        methodsTest1,
-        methodsTest2,
-        tckHarnessTest,
         jakartaTck,
-        discoverFailingJakartaTck,
-        failingJakartaTck,
-        singleCoreTck,
+        jakartaTckIntrospection,
+        jakartaTckReflection,
         singleJakartaTck
     )
     executionData(fileTree(layout.buildDirectory.dir('jacoco')) {
@@ -432,3 +198,4 @@ tasks.named('jacocoTestReport') {
         html.required = true
     }
 }
+

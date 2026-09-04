@@ -13,17 +13,18 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
 dependencyResolutionManagement {
     repositories {
+        mavenLocal()
         mavenCentral()
     }
 }
+
+includeBuild('/home/user/micronaut-core')
 
 rootProject.name = 'validation-parent'
 
 include 'validation'
 include 'validation-bootstrap'
-include 'validation-reflection'
 include 'validation-xml'
-include 'validation-el'
 include 'validation-jakarta'
 include 'validation-bom'
 include 'validation-processor'

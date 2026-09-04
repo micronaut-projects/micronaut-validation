@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.order.Ordered;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.metadata.BeanDescriptor;
@@ -80,6 +81,95 @@ public interface ValidationMetadataProvider extends Ordered {
      */
     default boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
         return false;
+    }
+
+    /**
+     * The argument of a property with the configured container element constraints: the type arguments of the
+     * argument carry the annotations declared on them, the configuration merges into them, or replaces them
+     * when the annotations are ignored. The annotations of the property itself are served by
+     * {@link #getPropertyAnnotationMetadata(Class, String)}.
+     *
+     * @param beanType     The bean type
+     * @param propertyName The property name
+     * @param argument     The argument as declared
+     * @return The argument as configured, the given one when nothing is configured
+     */
+    default Argument<?> getPropertyArgument(Class<?> beanType, String propertyName, Argument<?> argument) {
+        return argument;
+    }
+
+    /**
+     * The parameters of a method with the configured constraints, cascades, group conversions and container
+     * element constraints merged into the declared ones, or replacing them when the annotations are ignored.
+     *
+     * @param beanType   The bean type
+     * @param methodName The method name
+     * @param arguments  The parameters as declared
+     * @return The parameters as configured, the given ones when nothing is configured
+     */
+    default Argument<?>[] getMethodParameterArguments(Class<?> beanType, String methodName, Argument<?>[] arguments) {
+        return arguments;
+    }
+
+    /**
+     * The annotations of a method — its cross-parameter and return value constraints — with the configured ones.
+     *
+     * @param beanType           The bean type
+     * @param methodName         The method name
+     * @param parameterTypes     The parameter types
+     * @param annotationMetadata The annotations as declared
+     * @return The annotations as configured, the given ones when nothing is configured
+     */
+    default AnnotationMetadata getMethodAnnotationMetadata(Class<?> beanType, String methodName, Class<?>[] parameterTypes, AnnotationMetadata annotationMetadata) {
+        return annotationMetadata;
+    }
+
+    /**
+     * The return value of a method with the configured constraints and container element constraints.
+     *
+     * @param beanType       The bean type
+     * @param methodName     The method name
+     * @param parameterTypes The parameter types
+     * @param argument       The return value as declared
+     * @return The return value as configured, the given one when nothing is configured
+     */
+    default Argument<?> getMethodReturnArgument(Class<?> beanType, String methodName, Class<?>[] parameterTypes, Argument<?> argument) {
+        return argument;
+    }
+
+    /**
+     * The parameters of a constructor with the configured constraints.
+     *
+     * @param beanType  The bean type
+     * @param arguments The parameters as declared
+     * @return The parameters as configured, the given ones when nothing is configured
+     */
+    default Argument<?>[] getConstructorParameterArguments(Class<?> beanType, Argument<?>[] arguments) {
+        return arguments;
+    }
+
+    /**
+     * The annotations of a constructor — its cross-parameter and return value constraints — with the configured ones.
+     *
+     * @param beanType           The bean type
+     * @param parameterTypes     The parameter types
+     * @param annotationMetadata The annotations as declared
+     * @return The annotations as configured, the given ones when nothing is configured
+     */
+    default AnnotationMetadata getConstructorAnnotationMetadata(Class<?> beanType, Class<?>[] parameterTypes, AnnotationMetadata annotationMetadata) {
+        return annotationMetadata;
+    }
+
+    /**
+     * The return value of a constructor with the configured constraints and container element constraints.
+     *
+     * @param beanType       The bean type
+     * @param parameterTypes The parameter types
+     * @param argument       The return value as declared
+     * @return The return value as configured, the given one when nothing is configured
+     */
+    default Argument<?> getConstructorReturnArgument(Class<?> beanType, Class<?>[] parameterTypes, Argument<?> argument) {
+        return argument;
     }
 
     /**
