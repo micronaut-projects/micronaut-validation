@@ -1,0 +1,90 @@
+<?xml version="1.0"?>
+
+<!DOCTYPE import-control PUBLIC
+  "-//Checkstyle//DTD ImportControl Configuration 1.4//EN"
+  "https://checkstyle.org/dtds/import_control_1_4.dtd">
+
+<!--
+  Where reflection may be read from.
+
+  A constraint, a bean and an executable are described through the metadata the annotation processors generate,
+  and through micronaut-reflection where the processors never saw the type. What is left is the reflection the
+  specification API imposes: Jakarta Validation names an executable by its java.lang.reflect.Method and its
+  parameters by a Parameter, resolves a value extractor over a Type, and hands back an Annotation, so the files
+  that meet the API at its edge read those types and no others should.
+
+  Each file below is named on purpose. Adding one is a decision to make deliberately, not one to make by writing
+  an import; the file to change first is usually not this one.
+
+  This file and the filter naming it are listed in .rsync-filter, so a template update removes neither.
+-->
+<import-control pkg="io.micronaut.validation" strategyOnMismatch="allowed">
+
+    <!-- denied everywhere, and allowed back below for the files that meet the specification API -->
+    <disallow pkg="java.lang.reflect"/>
+
+    <!-- the interceptor is handed the method the framework is invoking -->
+    <file name="ValidatingInterceptor">
+        <allow pkg="java.lang.reflect"/>
+    </file>
+
+    <subpackage name="validator">
+        <!-- the executable an API names by its Method or Constructor, resolved to the best metadata there is -->
+        <file name="ReflectiveExecutables">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="ExecutableMethodValidator">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="IntrospectedExecutableMethod">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="DefaultValidator">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="ValidationPath">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <!-- the parameter names an API asks for by Executable -->
+        <file name="DefaultParameterNameProvider">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <!-- the java.lang.reflect.Type a value extractor is resolved over -->
+        <file name="DefaultValidatorConfiguration">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="ContainerTypeArguments">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <!-- a constraint the processors never saw, described from its annotation type where there is no
+             retained tree to read -->
+        <file name="DefaultConstraintDescriptor">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+
+        <subpackage name="constraints">
+            <file name="ConstraintDefinitions">
+                <allow pkg="java.lang.reflect"/>
+            </file>
+            <!-- the runtime counterpart of the processor extensions, which reads the annotation type -->
+            <file name="ConstraintAnnotationCustomizer">
+                <allow pkg="java.lang.reflect"/>
+            </file>
+            <!-- instantiating a validator the container does not build -->
+            <file name="DefaultInternalConstraintValidatorFactory">
+                <allow pkg="java.lang.reflect"/>
+            </file>
+            <!-- java.lang.reflect.Array, to read an array of any component type -->
+            <file name="UniqueElementsValidator">
+                <allow pkg="java.lang.reflect"/>
+            </file>
+        </subpackage>
+    </subpackage>
+
+    <subpackage name="xml">
+        <file name="XmlValidationMetadataProvider">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+    </subpackage>
+
+</import-control>
