@@ -18,7 +18,7 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
-import io.micronaut.inject.reflection.ReflectionArguments;
+import io.micronaut.reflection.ReflectionArguments;
 
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
@@ -75,7 +75,7 @@ final class ContainerTypeArguments {
                 && parameterizedType.getType() instanceof ParameterizedType type
                 && type.getRawType() == containerType) {
                 AnnotatedType bound = parameterizedType.getAnnotatedActualTypeArguments()[typeArgumentIndex];
-                return bound.getType() instanceof TypeVariable<?> ? null : ReflectionArguments.argumentOf(bound);
+                return bound.getType() instanceof TypeVariable<?> ? null : ReflectionArguments.of(bound);
             }
             Class<?> rawSupertype = supertype.getType() instanceof ParameterizedType type && type.getRawType() instanceof Class<?> raw ? raw
                 : supertype.getType() instanceof Class<?> supertypeClass ? supertypeClass : null;

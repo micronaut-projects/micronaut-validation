@@ -15,13 +15,19 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.context.annotation.AliasFor;
 import io.micronaut.core.annotation.AnnotationClassValue;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.inject.annotation.ReflectionAnnotationCustomizer;
+import io.micronaut.reflection.ReflectionAnnotationCustomizer;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
+import jakarta.validation.OverridesAttribute;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -35,6 +41,40 @@ import java.util.Map;
  */
 @Internal
 public final class ConstraintAnnotationCustomizer implements ReflectionAnnotationCustomizer {
+
+    /**
+     * The constraint contract is retainable: a composed constraint keeps the constraints it composes in its own
+     * retained tree, so that reading them back needs no reflection on the annotation type. The remapper marks
+     * it at compilation time; this is the same statement for the metadata built reflectively.
+     */
+    @Override
+    public boolean isRetainable(Class<? extends Annotation> annotationType) {
+        return annotationType == Constraint.class;
+    }
+
+    /**
+     * The overrides {@code @OverridesAttribute} declares on a member, as the {@link AliasFor} the
+     * {@code OverridesAttributeTransformer} produces for it at compilation time: the member of the composed
+     * constraint overrides a member of the constraint it composes, for the occurrence {@code constraintIndex}
+     * selects, and it applies even when the overriding member is left at its default.
+     */
+    @Override
+    public List<AnnotationValue<AliasFor>> aliasesOf(Method member) {
+        OverridesAttribute[] overrides = member.getAnnotationsByType(OverridesAttribute.class);
+        if (overrides.length == 0) {
+            return List.of();
+        }
+        List<AnnotationValue<AliasFor>> aliases = new ArrayList<>(overrides.length);
+        for (OverridesAttribute override : overrides) {
+            aliases.add(AnnotationValue.builder(AliasFor.class)
+                .member("annotationName", override.constraint().getName())
+                .member("member", override.name().isEmpty() ? member.getName() : override.name())
+                .member("index", override.constraintIndex())
+                .member("applyDefault", true)
+                .build());
+        }
+        return aliases;
+    }
 
     @Override
     public boolean supports(Class<? extends Annotation> annotationType) {

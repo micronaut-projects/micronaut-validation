@@ -60,7 +60,7 @@ import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.inject.reflection.ReflectiveIntrospection;
+import io.micronaut.reflection.ReflectiveIntrospection;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintDeclarationException;

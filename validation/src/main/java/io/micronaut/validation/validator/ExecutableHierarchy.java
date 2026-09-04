@@ -25,7 +25,7 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.inject.reflection.ReflectiveIntrospection;
+import io.micronaut.reflection.ReflectiveIntrospection;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import jakarta.validation.ConstraintDeclarationException;

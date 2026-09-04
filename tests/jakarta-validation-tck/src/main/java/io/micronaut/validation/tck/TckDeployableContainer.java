@@ -22,7 +22,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.qualifiers.Qualifiers;
-import io.micronaut.inject.reflection.ReflectionBeanIntrospector;
+import io.micronaut.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
@@ -280,7 +280,8 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         // harness cannot reference because the bootstrap module is not on its compile classpath
         BeanIntrospector beanIntrospector = BeanIntrospector.forClassLoader(classLoader);
         validatorConfiguration.setBeanIntrospector(REFLECTION_ENABLED
-            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true)
+            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true,
+                java.util.Set.of(io.micronaut.core.annotation.Introspected.AccessKind.FIELD, io.micronaut.core.annotation.Introspected.AccessKind.METHOD))
             : beanIntrospector);
         validatorConfiguration.setMetadataProviders(List.copyOf(applicationContext.getBeansOfType(ValidationMetadataProvider.class)));
         return validatorConfiguration;

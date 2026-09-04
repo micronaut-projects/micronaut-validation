@@ -26,7 +26,7 @@ import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.inject.reflection.ReflectiveIntrospection;
+import io.micronaut.reflection.ReflectiveIntrospection;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintValidator;

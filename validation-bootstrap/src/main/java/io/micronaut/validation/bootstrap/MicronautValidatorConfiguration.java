@@ -19,10 +19,11 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.validator.DefaultValidator;
-import io.micronaut.inject.reflection.ReflectionBeanIntrospector;
+import io.micronaut.reflection.ReflectionBeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
@@ -515,7 +516,10 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
      */
     public static BeanIntrospector supplemented(BeanIntrospector beanIntrospector) {
         return isReflectionEnabled()
-            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true)
+            // Jakarta Validation reads a field directly, and a type described reflectively carries no
+            // @Introspected to declare that, so the access kinds are asked for here
+            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true,
+                Set.of(Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD))
             : beanIntrospector;
     }
 

@@ -1,7 +1,7 @@
 package io.micronaut.validation.validator.introspection
 
 import io.micronaut.core.beans.BeanIntrospector
-import io.micronaut.inject.reflection.ReflectionBeanIntrospector
+import io.micronaut.reflection.ReflectionBeanIntrospector
 import io.micronaut.validation.validator.DefaultValidator
 import io.micronaut.validation.validator.DefaultValidatorConfiguration
 import jakarta.validation.ConstraintDeclarationException
@@ -15,7 +15,7 @@ class IntrospectionModeSpec extends Specification {
 
     @Shared
     DefaultValidator validator = new DefaultValidator(new DefaultValidatorConfiguration().tap {
-        beanIntrospector = new ReflectionBeanIntrospector(BeanIntrospector.SHARED, type -> true, true)
+        beanIntrospector = new ReflectionBeanIntrospector(BeanIntrospector.SHARED, type -> true, true, Set.of(io.micronaut.core.annotation.Introspected.AccessKind.FIELD, io.micronaut.core.annotation.Introspected.AccessKind.METHOD))
     })
 
     void "the constraints on the type arguments of a getter are validated"() {

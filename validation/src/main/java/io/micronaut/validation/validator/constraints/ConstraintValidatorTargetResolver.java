@@ -19,7 +19,7 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
-import io.micronaut.inject.reflection.ReflectionArguments;
+import io.micronaut.reflection.ReflectionArguments;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ConstraintDeclarationException;

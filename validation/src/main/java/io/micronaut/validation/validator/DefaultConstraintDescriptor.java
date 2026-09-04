@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.annotation.AnnotationMetadataSupport;
@@ -23,6 +24,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.annotation.AnnotationClassValue;
+import io.micronaut.core.reflect.ClassUtils;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
@@ -61,6 +63,8 @@ import java.util.EnumSet;
  */
 @Internal
 class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T> {
+
+    private static final String CONSTRAINT_ANNOTATION = jakarta.validation.Constraint.class.getName();
 
     private static final String ATTRIBUTE_MESSAGE = "message";
     private static final String ATTRIBUTE_GROUPS = "groups";
@@ -286,6 +290,122 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     }
 
     private static Set<DefaultConstraintDescriptor<Annotation>> composingConstraints(
+        Class<? extends Annotation> constraintType,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        AnnotationMetadata annotationMetadata) {
+        List<AnnotationValue<?>> retained = parentAnnotationValue.getStereotypes();
+        if (true) {
+            try {
+                java.nio.file.Files.writeString(java.nio.file.Path.of("/tmp/mn-probe.txt"),
+                    parentAnnotationValue.getAnnotationName() + " retained="
+                        + (retained == null ? "null" : retained.stream().map(v -> v.getAnnotationName() + (v.getStereotypes() == null ? "(null)" : v.getStereotypes().stream().map(AnnotationValue::getAnnotationName).toList().toString())).toList())
+                        + "\n",
+                    java.nio.charset.StandardCharsets.UTF_8,
+                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
+            } catch (Exception ignored) {
+                // probe only
+            }
+        }
+        // the tree is what the processor built only when the constraint contract is in it: every constraint it
+        // compiled retains the contract that marks it, so anything else - no tree, or one another caller put
+        // together - is a constraint the processors never saw
+        if (retained != null && containsConstraintContract(retained)) {
+            return retainedComposingConstraints(retained, parentAnnotationValue, annotationMetadata);
+        }
+        return reflectedComposingConstraints(constraintType, parentAnnotationValue, annotationMetadata);
+    }
+
+    /**
+     * The constraints a constraint composes, read off the retained tree the processor builds.
+     *
+     * <p>{@code jakarta.validation.Constraint} is marked {@link io.micronaut.core.annotation.Retainable}, so a
+     * constraint the processor compiled keeps every constraint it composes as an occurrence of its own, with the
+     * member overrides {@code @OverridesAttribute} declares already applied - the processor maps them onto
+     * {@code @AliasFor}. Reading it describes a composed constraint without loading the annotation type back and
+     * reading its members reflectively, which is the path every constraint of a compiled application takes.</p>
+     */
+    private static Set<DefaultConstraintDescriptor<Annotation>> retainedComposingConstraints(
+        List<AnnotationValue<?>> retained,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        AnnotationMetadata annotationMetadata) {
+        Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
+        for (AnnotationValue<?> stereotype : retained) {
+            if (!isRetainedConstraint(stereotype)) {
+                continue;
+            }
+            composingConstraints.add(retainedComposingConstraint(stereotype, parentAnnotationValue, annotationMetadata));
+        }
+        return Collections.unmodifiableSet(composingConstraints);
+    }
+
+    /**
+     * Whether the constraint contract is among a set of retained stereotypes.
+     */
+    private static boolean containsConstraintContract(List<AnnotationValue<?>> retained) {
+        for (AnnotationValue<?> stereotype : retained) {
+            if (CONSTRAINT_ANNOTATION.equals(stereotype.getAnnotationName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a retained occurrence is a constraint: the constraint contract is among its own stereotypes. The
+     * contract itself keeps no subtree, so it is not taken for one of the constraints it marks.
+     */
+    private static boolean isRetainedConstraint(AnnotationValue<?> annotation) {
+        List<AnnotationValue<?>> stereotypes = annotation.getStereotypes();
+        if (stereotypes == null) {
+            return false;
+        }
+        for (AnnotationValue<?> stereotype : stereotypes) {
+            if (CONSTRAINT_ANNOTATION.equals(stereotype.getAnnotationName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static DefaultConstraintDescriptor<Annotation> retainedComposingConstraint(
+        AnnotationValue<?> composing,
+        AnnotationValue<? extends Annotation> parentAnnotationValue,
+        AnnotationMetadata annotationMetadata) {
+        String name = composing.getAnnotationName();
+        Class<? extends Annotation> annotationType = (Class<? extends Annotation>) ClassUtils
+            .forName(name, DefaultConstraintDescriptor.class.getClassLoader())
+            .filter(Class::isAnnotation)
+            .orElseThrow(() -> new ConstraintDeclarationException("Cannot load the composing constraint " + name));
+        // the values the tree carries are the ones the composing annotation sets, the overrides of the composed
+        // one already applied; the reserved member holding the subtree is not one of them
+        Map<CharSequence, Object> values = new LinkedHashMap<>(composing.getValues());
+        values.remove(AnnotationUtil.STEREOTYPES_MEMBER);
+        Map<CharSequence, Object> defaultValues = composing.getDefaultValues() == null ? Map.of() : composing.getDefaultValues();
+        // the target of the composed constraint applies to the composing ones declaring one
+        ConstraintTarget validationAppliesTo = parentAnnotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT);
+        if (validationAppliesTo != ConstraintTarget.IMPLICIT
+            && (composing.contains(ATTRIBUTE_VALIDATION_APPLIES_TO) || defaultValues.containsKey(ATTRIBUTE_VALIDATION_APPLIES_TO))) {
+            values.put(ATTRIBUTE_VALIDATION_APPLIES_TO, validationAppliesTo);
+        }
+        values.put(ATTRIBUTE_GROUPS, parentAnnotationValue.classValues(ATTRIBUTE_GROUPS));
+        values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
+        AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
+            new AnnotationValue<>(name, values, defaultValues),
+            annotationType
+        );
+        List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+        return validators.isEmpty()
+            ? new DefaultConstraintDescriptor<>((Class<Annotation>) annotationType, annotationValue, annotationMetadata)
+            : new DefaultConstraintDescriptor<>((Class<Annotation>) annotationType, annotationValue, annotationMetadata, validators, true);
+    }
+
+    /**
+     * The constraints a constraint composes, read off the annotation type. A constraint the processors never saw
+     * carries no retained tree - the type of a library, and every type the Jakarta Validation TCK declares - and
+     * reading the class back is the only way to describe what it composes.
+     */
+    private static Set<DefaultConstraintDescriptor<Annotation>> reflectedComposingConstraints(
         Class<? extends Annotation> constraintType,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {

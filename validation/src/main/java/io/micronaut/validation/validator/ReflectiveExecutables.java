@@ -24,10 +24,10 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.inject.annotation.ReflectionAnnotationMetadataBuilder;
-import io.micronaut.inject.reflection.ReflectionArguments;
-import io.micronaut.inject.reflection.ReflectionExecutableMethod;
-import io.micronaut.inject.reflection.ReflectiveIntrospection;
+import io.micronaut.reflection.ReflectionAnnotations;
+import io.micronaut.reflection.ReflectionArguments;
+import io.micronaut.reflection.ReflectionExecutableMethod;
+import io.micronaut.reflection.ReflectiveIntrospection;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Constructor;
@@ -102,7 +102,7 @@ final class ReflectiveExecutables {
         }
         constructor.trySetAccessible();
         return new AbstractBeanConstructor<T>(constructor.getDeclaringClass(),
-            ReflectionAnnotationMetadataBuilder.build(constructor),
+            ReflectionAnnotations.metadataOf(constructor),
             ReflectionArguments.argumentsOf(constructor)) {
             @Override
             public T instantiate(@Nullable Object... parameterValues) {
