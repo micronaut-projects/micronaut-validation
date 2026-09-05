@@ -294,18 +294,6 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         List<AnnotationValue<?>> retained = parentAnnotationValue.getStereotypes();
-        if (true) {
-            try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of("/tmp/mn-probe.txt"),
-                    parentAnnotationValue.getAnnotationName() + " retained="
-                        + (retained == null ? "null" : retained.stream().map(v -> v.getAnnotationName() + (v.getStereotypes() == null ? "(null)" : v.getStereotypes().stream().map(AnnotationValue::getAnnotationName).toList().toString())).toList())
-                        + "\n",
-                    java.nio.charset.StandardCharsets.UTF_8,
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (Exception ignored) {
-                // probe only
-            }
-        }
         // the tree is what the processor built only when the constraint contract is in it: every constraint it
         // compiled retains the contract that marks it, so anything else - no tree, or one another caller put
         // together - is a constraint the processors never saw
