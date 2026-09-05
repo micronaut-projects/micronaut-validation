@@ -34,6 +34,7 @@ import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ArgumentValue;
@@ -1096,17 +1097,20 @@ public class DefaultValidator implements
         }
         String propertyName = property.getName();
         Class<?> beanType = object.getClass();
-        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && introspection instanceof ReflectiveIntrospection<T> reflective) {
-            // the members declaring constraints are validated one by one, each against the value it holds
-            List<ReflectiveIntrospection.PropertyMember> members = reflective.getPropertyMembers(propertyName).stream()
-                .filter(ReflectiveIntrospection.PropertyMember::isReadable)
+        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && introspection instanceof ReflectiveIntrospection) {
+            // the members declaring constraints are validated one by one, each against the value it holds. A
+            // generated introspection reports its members only where the type asked for them, and merges what
+            // they declare into the property, so walking them is what a reflective description needs and what a
+            // generated one must not have done for it twice
+            List<? extends BeanPropertyMember<T, ?>> members = property.getMembers().stream()
+                .filter(BeanPropertyMember::isReadable)
                 .filter(this::isValidatedMember)
                 .toList();
             if (!members.isEmpty()) {
                 // the value is cascaded once, by the first member marking it so
                 boolean cascadeLeft = canCascade;
-                for (ReflectiveIntrospection.PropertyMember member : members) {
-                    if (declaringTypes.test(member.declaringType())) {
+                for (BeanPropertyMember<T, ?> member : members) {
+                    if (declaringTypes.test(member.getDeclaringType())) {
                         visitPropertyMember(context, object, property, member, cascadeLeft);
                     }
                     if (isCascadedMember(member)) {
@@ -1151,16 +1155,16 @@ public class DefaultValidator implements
     private <R, T> void visitPropertyMember(DefaultConstraintValidatorContext<R> context,
                                             T object,
                                             BeanProperty<T, Object> property,
-                                            ReflectiveIntrospection.PropertyMember member,
+                                            BeanPropertyMember<T, ?> member,
                                             boolean canCascade) {
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(property.getName())) {
-            Class<?> implicitGroup = member.declaringType().isInterface() ? member.declaringType() : null;
-            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.elementType(), implicitGroup)) {
+            Class<?> implicitGroup = member.getDeclaringType().isInterface() ? member.getDeclaringType() : null;
+            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.getElementType(), implicitGroup)) {
                 if (isNotReachable(context, object) ||
                     !context.getValidationContext().isPropertyValidated(object, property)) {
                     return;
                 }
-                AnnotationMetadata memberMetadata = member.annotationMetadata();
+                AnnotationMetadata memberMetadata = member.getAnnotationMetadata();
                 try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(memberMetadata)) {
                     Object value;
                     try {
@@ -1168,26 +1172,26 @@ public class DefaultValidator implements
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }
-                    Argument<Object> argument = Argument.of((Class) member.argument().getType(), property.getName(), memberMetadata, member.argument().getTypeParameters());
+                    Argument<Object> argument = Argument.of((Class) member.asArgument().getType(), property.getName(), memberMetadata, member.asArgument().getTypeParameters());
                     visitElement(context, object, argument, memberMetadata, value, canCascade, true, false);
                 }
             }
         }
     }
 
-    private boolean isCascadedMember(ReflectiveIntrospection.PropertyMember member) {
-        return member.annotationMetadata().hasStereotype(Valid.class) || hasCascadedTypeArgument(member.argument());
+    private boolean isCascadedMember(BeanPropertyMember<?, ?> member) {
+        return member.getAnnotationMetadata().hasStereotype(Valid.class) || hasCascadedTypeArgument(member.asArgument());
     }
 
     /**
      * Whether a member of a property declares something to validate: constraints, a cascade, constrained
      * type arguments or group conversions.
      */
-    private boolean isValidatedMember(ReflectiveIntrospection.PropertyMember member) {
-        AnnotationMetadata annotationMetadata = member.annotationMetadata();
+    private boolean isValidatedMember(BeanPropertyMember<?, ?> member) {
+        AnnotationMetadata annotationMetadata = member.getAnnotationMetadata();
         return ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader())
             || annotationMetadata.hasStereotype(Valid.class)
-            || hasValidatedTypeArgument(member.argument())
+            || hasValidatedTypeArgument(member.asArgument())
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 

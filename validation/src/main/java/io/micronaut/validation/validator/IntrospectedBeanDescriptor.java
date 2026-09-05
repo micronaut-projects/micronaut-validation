@@ -24,6 +24,7 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.reflection.ReflectiveIntrospection;
@@ -488,8 +489,8 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                     return true;
                 }
             }
-            for (ReflectiveIntrospection.PropertyMember member : members()) {
-                if (member.annotationMetadata().hasStereotype(Valid.class)) {
+            for (BeanPropertyMember<?, ?> member : members()) {
+                if (member.getAnnotationMetadata().hasStereotype(Valid.class)) {
                     return true;
                 }
             }
@@ -502,8 +503,8 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             for (BeanProperty<?, ?> superProperty : superProperties()) {
                 conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(superProperty.getAnnotationMetadata().getDeclaredMetadata()));
             }
-            for (ReflectiveIntrospection.PropertyMember member : members()) {
-                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(member.annotationMetadata()));
+            for (BeanPropertyMember<?, ?> member : members()) {
+                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(member.getAnnotationMetadata()));
             }
             return conversions;
         }
@@ -515,7 +516,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
          */
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            List<ReflectiveIntrospection.PropertyMember> members = members();
+            List<? extends BeanPropertyMember<?, ?>> members = members();
             if (members.isEmpty()) {
                 List<BeanProperty<?, ?>> superProperties = superProperties();
                 if (superProperties.isEmpty()) {
@@ -537,8 +538,8 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             // the type arguments of the members merged per container type: a field and a getter can constrain
             // them differently, an interface getter can declare another container than the implementation
             Map<Class<?>, List<Argument<?>>> byContainer = new LinkedHashMap<>();
-            for (ReflectiveIntrospection.PropertyMember member : members) {
-                byContainer.computeIfAbsent(member.argument().getType(), ignored -> new ArrayList<>()).add(member.argument());
+            for (BeanPropertyMember<?, ?> member : members) {
+                byContainer.computeIfAbsent(member.asArgument().getType(), ignored -> new ArrayList<>()).add(member.asArgument());
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {
@@ -557,17 +558,17 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                     return true;
                 }
             }
-            for (ReflectiveIntrospection.PropertyMember member : members()) {
-                if (ConstraintContainers.hasConstraints(member.annotationMetadata(), currentClassLoader())) {
+            for (BeanPropertyMember<?, ?> member : members()) {
+                if (ConstraintContainers.hasConstraints(member.getAnnotationMetadata(), currentClassLoader())) {
                     return true;
                 }
             }
             return false;
         }
 
-        private List<ReflectiveIntrospection.PropertyMember> members() {
-            return beanIntrospection instanceof ReflectiveIntrospection<?> reflective
-                ? reflective.getPropertyMembers(beanProperty.getName())
+        private List<? extends BeanPropertyMember<?, ?>> members() {
+            return beanIntrospection instanceof ReflectiveIntrospection<?>
+                ? beanProperty.getMembers()
                 : List.of();
         }
 
@@ -633,7 +634,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            List<ReflectiveIntrospection.PropertyMember> members = members();
+            List<? extends BeanPropertyMember<?, ?>> members = members();
             Set<ConstraintDescriptor<?>> descriptors;
             if (members.isEmpty()) {
                 // the members are unknown: the metadata of the property, as validated, with what the super
@@ -647,17 +648,17 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                 descriptors = new LinkedHashSet<>(byKey.values());
             } else {
                 descriptors = new LinkedHashSet<>();
-                for (ReflectiveIntrospection.PropertyMember member : members) {
-                    if (scope == Scope.LOCAL_ELEMENT && member.declaringType() != beanIntrospection.getBeanType()) {
+                for (BeanPropertyMember<?, ?> member : members) {
+                    if (scope == Scope.LOCAL_ELEMENT && member.getDeclaringType() != beanIntrospection.getBeanType()) {
                         continue;
                     }
-                    if (!declaredOn.isEmpty() && !declaredOn.contains(member.elementType())) {
+                    if (!declaredOn.isEmpty() && !declaredOn.contains(member.getElementType())) {
                         continue;
                     }
-                    for (ConstraintDescriptor<?> descriptor : constraintDescriptors(member.annotationMetadata())) {
+                    for (ConstraintDescriptor<?> descriptor : constraintDescriptors(member.getAnnotationMetadata())) {
                         // a constraint an interface declares is in the group of the interface for the types implementing it
-                        boolean implicit = member.declaringType().isInterface() && member.declaringType() != beanIntrospection.getBeanType();
-                        descriptors.add(implicit ? new ImplicitGroupConstraintDescriptor<>(descriptor, member.declaringType()) : descriptor);
+                        boolean implicit = member.getDeclaringType().isInterface() && member.getDeclaringType() != beanIntrospection.getBeanType();
+                        descriptors.add(implicit ? new ImplicitGroupConstraintDescriptor<>(descriptor, member.getDeclaringType()) : descriptor);
                     }
                 }
             }
