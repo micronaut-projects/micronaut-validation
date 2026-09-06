@@ -26,6 +26,7 @@ import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.reflect.ClassUtils;
 import io.micronaut.core.reflect.ReflectionUtils;
+import io.micronaut.reflection.ReflectionAnnotations;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import jakarta.validation.ConstraintDeclarationException;
@@ -42,7 +43,6 @@ import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +50,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.EnumSet;
 
@@ -449,7 +448,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         List<ComposingAnnotation> composingAnnotations) {
         Annotation annotation = composingAnnotation.annotation();
         Class<? extends Annotation> annotationType = annotation.annotationType();
-        Map<CharSequence, Object> values = annotationValues(annotation);
+        Map<CharSequence, Object> values = ReflectionAnnotations.values(annotation);
         applyOverrides(annotationType, composingAnnotation.constraintIndex(), parentType, parentAnnotationValue, values, composingAnnotations);
         // the target of the composed constraint applies to the composing ones declaring one
         ConstraintTarget validationAppliesTo = parentAnnotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT);
@@ -459,7 +458,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         values.put(ATTRIBUTE_GROUPS, parentAnnotationValue.classValues(ATTRIBUTE_GROUPS));
         values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
-            new AnnotationValue<>(annotationType.getName(), values, defaultValues(annotationType)),
+            new AnnotationValue<>(annotationType.getName(), values, ReflectionAnnotations.defaultValues(annotationType)),
             annotationType
         );
         List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
@@ -599,27 +598,17 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return composingAnnotations;
     }
 
-    @SuppressWarnings("java:S3011")
+    /**
+     * The constraints a repeatable container composes: the annotations the container holds that are constraints.
+     */
     private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
-        try {
-            Method valueMethod = annotation.annotationType().getDeclaredMethod("value");
-            if (valueMethod.getReturnType().isArray() && Annotation.class.isAssignableFrom(valueMethod.getReturnType().getComponentType())) {
-                valueMethod.setAccessible(true);
-                Annotation[] annotations = (Annotation[]) valueMethod.invoke(annotation);
-                List<Annotation> constraints = new ArrayList<>(annotations.length);
-                for (Annotation repeatedAnnotation : annotations) {
-                    if (repeatedAnnotation.annotationType().isAnnotationPresent(jakarta.validation.Constraint.class)) {
-                        constraints.add(repeatedAnnotation);
-                    }
-                }
-                return constraints;
+        List<Annotation> constraints = new ArrayList<>();
+        for (Annotation repeatedAnnotation : ReflectionAnnotations.contained(annotation)) {
+            if (repeatedAnnotation.annotationType().isAnnotationPresent(jakarta.validation.Constraint.class)) {
+                constraints.add(repeatedAnnotation);
             }
-        } catch (NoSuchMethodException e) {
-            return List.of();
-        } catch (IllegalAccessException | InvocationTargetException e) {
-            throw new ConstraintDeclarationException("Cannot read composing constraint container " + annotation.annotationType().getName(), e);
         }
-        return List.of();
+        return constraints;
     }
 
     private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
@@ -630,34 +619,6 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             defaultValues.forEach((key, value) -> attributes.putIfAbsent(key.toString(), value));
         }
         return attributes;
-    }
-
-    @SuppressWarnings("java:S3011")
-    private static Map<CharSequence, Object> annotationValues(Annotation annotation) {
-        Map<CharSequence, Object> values = new LinkedHashMap<>();
-        for (Method method : annotation.annotationType().getDeclaredMethods()) {
-            try {
-                method.setAccessible(true);
-                Object value = method.invoke(annotation);
-                if (value != null && !Objects.deepEquals(value, method.getDefaultValue())) {
-                    values.put(method.getName(), value);
-                }
-            } catch (IllegalAccessException | InvocationTargetException e) {
-                throw new ConstraintDeclarationException("Cannot read composing constraint " + annotation.annotationType().getName(), e);
-            }
-        }
-        return values;
-    }
-
-    private static Map<CharSequence, Object> defaultValues(Class<? extends Annotation> annotationType) {
-        Map<CharSequence, Object> defaultValues = new LinkedHashMap<>();
-        for (Method method : annotationType.getDeclaredMethods()) {
-            Object defaultValue = method.getDefaultValue();
-            if (defaultValue != null) {
-                defaultValues.put(method.getName(), defaultValue);
-            }
-        }
-        return defaultValues;
     }
 
     private record ComposingAnnotation(
