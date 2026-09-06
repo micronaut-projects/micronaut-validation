@@ -26,6 +26,7 @@ import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.util.ArgumentUtils;
+import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.reflection.ReflectiveIntrospection;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
@@ -531,7 +532,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                 }
                 Set<ContainerElementTypeDescriptor> containerElements = new LinkedHashSet<>();
                 for (List<Argument<?>> arguments : byContainerType.values()) {
-                    containerElements.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
+                    containerElements.addAll(executables.containerElements(MethodHierarchy.mergeArgument(arguments)));
                 }
                 return containerElements;
             }
@@ -543,7 +544,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {
-                descriptors.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
+                descriptors.addAll(executables.containerElements(MethodHierarchy.mergeArgument(arguments)));
             }
             return descriptors;
         }

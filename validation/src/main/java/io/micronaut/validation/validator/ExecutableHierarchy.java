@@ -18,38 +18,29 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.beans.BeanIntrospection;
-import io.micronaut.core.beans.BeanIntrospector;
-import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
-import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.reflection.ReflectiveIntrospection;
+import io.micronaut.reflection.MethodHierarchy;
+import io.micronaut.reflection.MethodHierarchy.Declaration;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
- * The declarations of an executable across the type hierarchy: the constraints a method inherits from the methods
- * it overrides or implements, and the rules the specification sets for such hierarchies.
- *
- * <p>The hierarchy is read from the bean introspections of the super types, so it is as complete as the
- * introspections are: a {@link ReflectiveIntrospection} tells which annotations a type itself declares, a
- * generated introspection reports the merged metadata of the methods it lists.</p>
+ * The rules the specification sets for the declarations of an executable across a type hierarchy, checked
+ * over the {@link MethodHierarchy} micronaut-reflection resolves: parameter constraints, cascades and group
+ * conversions are declared once at the root of the hierarchy, a return value is cascaded once, and nothing of
+ * that is declared in parallel branches.
  *
  * @since 5.0.0
  */
@@ -60,130 +51,59 @@ final class ExecutableHierarchy {
     }
 
     /**
-     * Resolves the hierarchy of an executable.
+     * Parameter constraints, cascades and group conversions are declared once, at the root of the hierarchy.
      *
-     * @param introspector The introspector of the super types
-     * @param local        The executable as validated
-     * @param name         Its name
-     * @return The executable with what it inherits merged in
+     * <p>When the declaring type is not introspected reflectively, the validated metadata may already merge
+     * what the executable inherits: only what none of the inherited declarations carries counts as added.</p>
+     *
+     * @param hierarchy The hierarchy of the executable
      */
-    static Resolved resolve(BeanIntrospector introspector, Declaration local, String name) {
-        Class<?>[] parameterTypes = Argument.toClassArray(local.arguments());
-        Declaration declared = declaredBy(introspector, local.declaringType(), name, parameterTypes).filter(Declaration::exact).orElse(local);
-        List<Declaration> inherited = inherited(introspector, local.declaringType(), name, parameterTypes);
+    static void checkParameterDeclarations(MethodHierarchy hierarchy) {
+        Declaration declared = hierarchy.declared();
+        List<Declaration> inherited = hierarchy.inherited();
+        for (Argument<?> argument : declared.arguments()) {
+            checkGroupConversions(argument);
+        }
         if (inherited.isEmpty()) {
-            return new Resolved(local, declared, inherited, local.annotationMetadata(), local.arguments(), local.returnArgument());
+            return;
         }
-        // the farthest declaration first, the validated one last: it wins where the same annotation is repeated
-        List<Declaration> levels = new ArrayList<>(inherited);
-        java.util.Collections.reverse(levels);
-        levels.add(local);
-        Argument<?>[] arguments = new Argument[local.arguments().length];
-        for (int i = 0; i < arguments.length; i++) {
-            int index = i;
-            arguments[i] = mergeArgument(levels.stream().map(level -> level.arguments()[index]).toList());
+        if (declared.exact() ? hasParameterConstraintsOrCascades(declared) : addsParameterConstraints(hierarchy)) {
+            throw new ConstraintDeclarationException("Parameter constraints cannot be added in overriding or implementing methods: " + describe(declared));
         }
-        return new Resolved(local,
-            declared,
-            inherited,
-            merge(levels.stream().map(Declaration::annotationMetadata).toList()),
-            arguments,
-            mergeArgument(levels.stream().map(Declaration::returnArgument).toList()));
-    }
-
-    /**
-     * The declarations an executable overrides or implements: the ones of the super classes, then of all the
-     * interfaces, each interface visited once.
-     */
-    private static List<Declaration> inherited(BeanIntrospector introspector, Class<?> declaringType, String name, Class<?>[] parameterTypes) {
-        List<Declaration> declarations = new ArrayList<>();
-        Set<Class<?>> visitedInterfaces = new HashSet<>();
-        for (Class<?> current = declaringType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
-            declaredBy(introspector, current, name, parameterTypes).ifPresent(declarations::add);
-            collectInterfaceDeclarations(introspector, current, name, parameterTypes, visitedInterfaces, declarations);
+        if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasParameterConstraintsOrCascades)) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter constraints: " + describe(declared));
         }
-        collectInterfaceDeclarations(introspector, declaringType, name, parameterTypes, visitedInterfaces, declarations);
-        return declarations;
-    }
-
-    private static void collectInterfaceDeclarations(BeanIntrospector introspector,
-                                                     Class<?> type,
-                                                     String name,
-                                                     Class<?>[] parameterTypes,
-                                                     Set<Class<?>> visitedInterfaces,
-                                                     List<Declaration> declarations) {
-        for (Class<?> interfaceType : type.getInterfaces()) {
-            if (visitedInterfaces.add(interfaceType)) {
-                declaredBy(introspector, interfaceType, name, parameterTypes).ifPresent(declarations::add);
-                collectInterfaceDeclarations(introspector, interfaceType, name, parameterTypes, visitedInterfaces, declarations);
-            }
+        if (declared.exact() ? hasParameterGroupConversions(declared) : addsParameterGroupConversions(hierarchy)) {
+            throw new ConstraintDeclarationException("Group conversions on parameters cannot be added in overriding or implementing methods: " + describe(declared));
+        }
+        if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasParameterGroupConversions)) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter group conversions: " + describe(declared));
         }
     }
 
     /**
-     * The declaration of a method by a type itself, read from the introspection of the type.
-     */
-    private static Optional<Declaration> declaredBy(BeanIntrospector introspector, Class<?> type, String name, Class<?>[] parameterTypes) {
-        String typeName = type.getName();
-        if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
-            return Optional.empty();
-        }
-        Optional<BeanIntrospection<Object>> introspection = introspector.findIntrospection((Class<Object>) type);
-        if (introspection.isEmpty()) {
-            return Optional.empty();
-        }
-        if (introspection.get() instanceof ReflectiveIntrospection<Object> reflective) {
-            return reflective.findDeclaredMethod(name, parameterTypes).map(method -> Declaration.of(method, true));
-        }
-        return introspection.get().getBeanMethods().stream()
-            .filter(method -> method.getName().equals(name)
-                && method.getDeclaringType() == type
-                && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes))
-            .findFirst()
-            .map(method -> Declaration.of(method, false));
-    }
-
-    /**
-     * Merges the annotations of the levels of an argument, type arguments included, the last level winning.
+     * A return value is marked cascaded once in the hierarchy, and its group conversions are not declared in parallel.
      *
-     * @param levels The levels, the validated one last
-     * @return The merged argument
+     * @param hierarchy The hierarchy of the executable
      */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    static Argument<?> mergeArgument(List<Argument<?>> levels) {
-        Argument<?> local = levels.get(levels.size() - 1);
-        Argument<?>[] localTypeParameters = local.getTypeParameters();
-        Argument<?>[] typeParameters = new Argument[localTypeParameters.length];
-        for (int i = 0; i < typeParameters.length; i++) {
-            int index = i;
-            typeParameters[i] = mergeArgument(levels.stream()
-                .filter(level -> level.getTypeParameters().length == localTypeParameters.length)
-                .map(level -> level.getTypeParameters()[index])
-                .toList());
+    static void checkReturnValueDeclarations(MethodHierarchy hierarchy) {
+        Declaration declared = hierarchy.declared();
+        List<Declaration> inherited = hierarchy.inherited();
+        checkGroupConversions(declared.annotationMetadata(), isCascaded(declared.annotationMetadata()));
+        for (Argument<?> typeArgument : declared.returnArgument().getTypeParameters()) {
+            checkGroupConversions(typeArgument);
         }
-        return Argument.of((Class) local.getType(), local.getName(), merge(levels.stream().map(Argument::getAnnotationMetadata).toList()), typeParameters);
-    }
-
-    /**
-     * Merges the annotations of the levels of a hierarchy into one metadata, all of it declared.
-     */
-    static AnnotationMetadata merge(List<AnnotationMetadata> levels) {
-        return ConfiguredMetadata.merge(levels);
-    }
-
-    /**
-     * The annotations declared on the executable, without the ones of its class: the executable methods of
-     * beans carry both. A metadata that is not a hierarchy is returned as is, {@code getDeclaredMetadata()}
-     * would drop the repeated annotations.
-     */
-    static AnnotationMetadata declaredOf(AnnotationMetadata annotationMetadata) {
-        if (annotationMetadata instanceof AnnotationMetadataHierarchy hierarchy) {
-            AnnotationMetadata declared = hierarchy.getDeclaredMetadata();
-            return declared instanceof AnnotationMetadataHierarchy
-                ? new AnnotationMetadataHierarchy(hierarchy.getRootMetadata(), declared.getDeclaredMetadata())
-                : declared;
+        if (inherited.isEmpty()) {
+            return;
         }
-        return annotationMetadata;
+        long inheritedCascaded = inherited.stream().filter(ExecutableHierarchy::hasCascadedReturnValue).count();
+        if (declared.exact() && hasCascadedReturnValue(declared) && inheritedCascaded > 0
+            || inheritedCascaded > 1 && hasCascadedReturnConflict(inherited)) {
+            throw new ConstraintDeclarationException("Return value cannot be marked cascaded more than once in a method hierarchy: " + describe(declared));
+        }
+        if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasReturnValueGroupConversions)) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare return value group conversions: " + describe(declared));
+        }
     }
 
     /**
@@ -224,6 +144,32 @@ final class ExecutableHierarchy {
                 throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
             }
         }
+    }
+
+    private static boolean addsParameterConstraints(MethodHierarchy hierarchy) {
+        Argument<?>[] local = hierarchy.local().arguments();
+        for (int i = 0; i < local.length; i++) {
+            int index = i;
+            Set<String> added = new HashSet<>(constraintNames(local[i]));
+            hierarchy.inherited().forEach(declaration -> added.removeAll(constraintNames(declaration.arguments()[index])));
+            if (!added.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean addsParameterGroupConversions(MethodHierarchy hierarchy) {
+        Argument<?>[] local = hierarchy.local().arguments();
+        for (int i = 0; i < local.length; i++) {
+            int index = i;
+            Set<String> added = new HashSet<>(groupConversions(local[i]));
+            hierarchy.inherited().forEach(declaration -> added.removeAll(groupConversions(declaration.arguments()[index])));
+            if (!added.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -270,7 +216,7 @@ final class ExecutableHierarchy {
 
     private static boolean hasCascadedReturnConflict(List<Declaration> declarations) {
         List<Class<?>> cascadedTypes = declarations.stream()
-            .filter(Declaration::hasCascadedReturnValue)
+            .filter(ExecutableHierarchy::hasCascadedReturnValue)
             .map(Declaration::declaringType)
             .toList();
         for (int i = 0; i < cascadedTypes.size(); i++) {
@@ -281,6 +227,24 @@ final class ExecutableHierarchy {
             }
         }
         return false;
+    }
+
+    private static boolean hasParameterConstraintsOrCascades(Declaration declaration) {
+        return Arrays.stream(declaration.arguments()).anyMatch(ExecutableHierarchy::isConstrainedOrCascaded);
+    }
+
+    private static boolean hasCascadedReturnValue(Declaration declaration) {
+        return isCascaded(declaration.annotationMetadata())
+            || Arrays.stream(declaration.returnArgument().getTypeParameters()).anyMatch(ExecutableHierarchy::isCascaded);
+    }
+
+    private static boolean hasParameterGroupConversions(Declaration declaration) {
+        return Arrays.stream(declaration.arguments()).anyMatch(ExecutableHierarchy::hasGroupConversions);
+    }
+
+    private static boolean hasReturnValueGroupConversions(Declaration declaration) {
+        return hasGroupConversions(declaration.annotationMetadata())
+            || Arrays.stream(declaration.returnArgument().getTypeParameters()).anyMatch(ExecutableHierarchy::hasGroupConversions);
     }
 
     private static boolean isConstrainedOrCascaded(Argument<?> argument) {
@@ -312,6 +276,10 @@ final class ExecutableHierarchy {
         return !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 
+    private static String describe(Declaration declaration) {
+        return declaration.declaringType().getName();
+    }
+
     /**
      * The identity of an executable, stable across the executable method instances created for it.
      *
@@ -323,164 +291,6 @@ final class ExecutableHierarchy {
 
         static Key of(ExecutableMethod<?, ?> method) {
             return new Key(method.getDeclaringType(), method.getMethodName(), List.of(Argument.toClassArray(method.getArguments())));
-        }
-    }
-
-    /**
-     * One declaration of an executable in the hierarchy.
-     *
-     * @param declaringType      The type declaring it
-     * @param annotationMetadata The executable annotations
-     * @param arguments          The parameters
-     * @param returnArgument     The return value
-     * @param exact              Whether the annotations are the ones of this declaration only: a generated
-     *                           introspection merges the annotations of the overridden methods into them
-     */
-    record Declaration(Class<?> declaringType,
-                       AnnotationMetadata annotationMetadata,
-                       Argument<?>[] arguments,
-                       Argument<?> returnArgument,
-                       boolean exact) {
-
-        static Declaration of(ExecutableMethod<?, ?> method) {
-            return new Declaration(method.getDeclaringType(),
-                declaredOf(method.getAnnotationMetadata()),
-                method.getArguments(),
-                returnArgument(method.getReturnType()),
-                false);
-        }
-
-        static Declaration of(BeanMethod<?, ?> method, boolean exact) {
-            return new Declaration(method.getDeclaringType(),
-                declaredOf(method.getAnnotationMetadata()),
-                method.getArguments(),
-                returnArgument(method.getReturnType()),
-                exact);
-        }
-
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        private static Argument<?> returnArgument(ReturnType<?> returnType) {
-            return Argument.of((Class) returnType.getType(), declaredOf(returnType.asArgument().getAnnotationMetadata()), returnType.getTypeParameters());
-        }
-
-        boolean hasParameterConstraintsOrCascades() {
-            return Arrays.stream(arguments).anyMatch(ExecutableHierarchy::isConstrainedOrCascaded);
-        }
-
-        boolean hasCascadedReturnValue() {
-            return isCascaded(annotationMetadata) || Arrays.stream(returnArgument.getTypeParameters()).anyMatch(ExecutableHierarchy::isCascaded);
-        }
-
-        boolean hasParameterGroupConversions() {
-            return Arrays.stream(arguments).anyMatch(ExecutableHierarchy::hasGroupConversions);
-        }
-
-        boolean hasReturnValueGroupConversions() {
-            return hasGroupConversions(annotationMetadata) || Arrays.stream(returnArgument.getTypeParameters()).anyMatch(ExecutableHierarchy::hasGroupConversions);
-        }
-    }
-
-    /**
-     * An executable with the declarations it inherits merged in.
-     *
-     * @param local              The executable as validated
-     * @param declared           What its declaring type itself declares, the local one when unknown
-     * @param inherited          The declarations it overrides or implements
-     * @param annotationMetadata The merged executable annotations
-     * @param arguments          The merged parameters
-     * @param returnArgument     The merged return value
-     */
-    record Resolved(Declaration local,
-                    Declaration declared,
-                    List<Declaration> inherited,
-                    AnnotationMetadata annotationMetadata,
-                    Argument<?>[] arguments,
-                    Argument<?> returnArgument) {
-
-        /**
-         * Parameter constraints, cascades and group conversions are declared once, at the root of the hierarchy.
-         *
-         * <p>When the declaring type is not introspected reflectively, the validated metadata may already
-         * merge what the executable inherits: only what none of the inherited declarations carries counts
-         * as added.</p>
-         */
-        void checkParameterDeclarations() {
-            for (Argument<?> argument : declared.arguments()) {
-                checkGroupConversions(argument);
-            }
-            if (inherited.isEmpty()) {
-                return;
-            }
-            if (declared.exact() ? declared.hasParameterConstraintsOrCascades() : addsParameterConstraints()) {
-                throw new ConstraintDeclarationException("Parameter constraints cannot be added in overriding or implementing methods: " + describe(declared));
-            }
-            if (parallel() && inherited.stream().anyMatch(Declaration::hasParameterConstraintsOrCascades)) {
-                throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter constraints: " + describe(declared));
-            }
-            if (declared.exact() ? declared.hasParameterGroupConversions() : addsParameterGroupConversions()) {
-                throw new ConstraintDeclarationException("Group conversions on parameters cannot be added in overriding or implementing methods: " + describe(declared));
-            }
-            if (parallel() && inherited.stream().anyMatch(Declaration::hasParameterGroupConversions)) {
-                throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter group conversions: " + describe(declared));
-            }
-        }
-
-        /**
-         * A return value is marked cascaded once in the hierarchy, and its group conversions are not declared in parallel.
-         */
-        void checkReturnValueDeclarations() {
-            checkGroupConversions(declared.annotationMetadata(), isCascaded(declared.annotationMetadata()));
-            for (Argument<?> typeArgument : declared.returnArgument().getTypeParameters()) {
-                checkGroupConversions(typeArgument);
-            }
-            if (inherited.isEmpty()) {
-                return;
-            }
-            long inheritedCascaded = inherited.stream().filter(Declaration::hasCascadedReturnValue).count();
-            if (declared.exact() && declared.hasCascadedReturnValue() && inheritedCascaded > 0
-                || inheritedCascaded > 1 && hasCascadedReturnConflict(inherited)) {
-                throw new ConstraintDeclarationException("Return value cannot be marked cascaded more than once in a method hierarchy: " + describe(declared));
-            }
-            if (parallel() && inherited.stream().anyMatch(Declaration::hasReturnValueGroupConversions)) {
-                throw new ConstraintDeclarationException("Parallel method declarations cannot declare return value group conversions: " + describe(declared));
-            }
-        }
-
-        private boolean addsParameterConstraints() {
-            for (int i = 0; i < local.arguments().length; i++) {
-                int index = i;
-                Set<String> added = new HashSet<>(constraintNames(local.arguments()[i]));
-                inherited.forEach(declaration -> added.removeAll(constraintNames(declaration.arguments()[index])));
-                if (!added.isEmpty()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private boolean addsParameterGroupConversions() {
-            for (int i = 0; i < local.arguments().length; i++) {
-                int index = i;
-                Set<String> added = new HashSet<>(groupConversions(local.arguments()[i]));
-                inherited.forEach(declaration -> added.removeAll(groupConversions(declaration.arguments()[index])));
-                if (!added.isEmpty()) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /**
-         * Whether the executable is declared in parallel branches of the hierarchy. Each declaration is read
-         * from the introspection of the type declaring it, so a type that merely inherits the method does not
-         * count as a declaration of its own.
-         */
-        private boolean parallel() {
-            return inherited.size() > 1;
-        }
-
-        private static String describe(Declaration declaration) {
-            return declaration.declaringType().getName();
         }
     }
 }

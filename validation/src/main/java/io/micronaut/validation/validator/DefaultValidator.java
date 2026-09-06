@@ -52,6 +52,7 @@ import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
+import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
@@ -432,8 +433,8 @@ public class DefaultValidator implements
         requireNonNull("object", object);
         requireNonNull("method", method);
         requireNonNull("context", validationContext);
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
-        hierarchy.checkParameterDeclarations();
+        final MethodHierarchy hierarchy = declarations.resolveHierarchy(method);
+        ExecutableHierarchy.checkParameterDeclarations(hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
         final int argLen = arguments.length;
@@ -462,8 +463,8 @@ public class DefaultValidator implements
         requireNonNull("parameterValues", argumentValues);
         requireNonNull("groups", groups);
 
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
-        hierarchy.checkParameterDeclarations();
+        final MethodHierarchy hierarchy = declarations.resolveHierarchy(method);
+        ExecutableHierarchy.checkParameterDeclarations(hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
         final int argLen = arguments.length;
@@ -525,8 +526,8 @@ public class DefaultValidator implements
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, Object returnValue, BeanValidationContext validationContext) {
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        hierarchy.checkReturnValueDeclarations();
+        final MethodHierarchy hierarchy = declarations.resolveHierarchy(executableMethod);
+        ExecutableHierarchy.checkReturnValueDeclarations(hierarchy);
         final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
         final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, validationContext);
 

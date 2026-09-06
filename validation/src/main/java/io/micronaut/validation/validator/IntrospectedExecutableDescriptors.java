@@ -22,6 +22,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
+import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
@@ -588,7 +589,7 @@ final class IntrospectedExecutableDescriptors {
             this(method, declarations == null ? null : declarations.resolveHierarchy(method));
         }
 
-        private IntrospectedMethodDescriptor(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+        private IntrospectedMethodDescriptor(BeanMethod<?, ?> method, @Nullable MethodHierarchy hierarchy) {
             super(method.getName(),
                 hierarchy == null ? method.getAnnotationMetadata() : hierarchy.annotationMetadata(),
                 hierarchy == null ? method.getArguments() : hierarchy.arguments(),
@@ -601,7 +602,7 @@ final class IntrospectedExecutableDescriptors {
          * What the method declares itself, for the local scope: the exact declaration when the hierarchy knows
          * it, the whole metadata of a method the bean type declares, nothing for an inherited method.
          */
-        private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+        private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable MethodHierarchy hierarchy) {
             if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()) {
                 // inherited as is: the described type declares nothing on it
                 return AnnotationMetadata.EMPTY_METADATA;
