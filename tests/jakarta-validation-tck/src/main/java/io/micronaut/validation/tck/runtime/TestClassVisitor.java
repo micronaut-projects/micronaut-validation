@@ -92,6 +92,8 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
             element.annotate(Introspected.class, builder -> {
                 builder.member("accessKind", new Introspected.AccessKind[]{Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD});
                 builder.member("visibility", Introspected.Visibility.ANY);
+                // every declared constructor, the way the metadata API describes them
+                builder.member("constructors", true);
             });
             if (!element.isRecord()) {
                 element.annotate(Prototype.class);

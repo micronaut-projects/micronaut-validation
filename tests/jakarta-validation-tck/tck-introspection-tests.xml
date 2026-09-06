@@ -6,11 +6,13 @@
         with the reflective description of micronaut-core turned off
         (micronaut.validation.reflection.enabled=false).
 
-        Everything excluded here needs metadata the processor does not produce today: the constructors of a
-        type other than the one it builds beans with, the separation of a field from its getter, a method the
-        introspection does not list, and a type it never introspected at all. The jakartaTck task, which keeps
-        the reflective description on, passes all of them.
-        93 methods across 37 classes. The exclusions are measured, not assumed: point the task at
+        Everything excluded here needs metadata the processor does not produce today: the separation of a
+        field from its getter, a method the introspection does not list, the declarations of a super type the
+        introspection merges into its own, and a type it never introspected at all. The constructors of a type
+        other than the one it builds beans with are described since @Introspected(constructors = true), which
+        the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
+        passes all of them.
+        55 exclusions across 35 classes. The exclusions are measured, not assumed: point the task at
         tck-spec-tests.xml, run it, and the failures are exactly this list.
     -->
     <test name="Jakarta-Bean-Validation-TCK">
@@ -115,13 +117,8 @@
             <!-- a descriptor of a constructor, of an interface method or of a member the introspection does not separate -->
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">
                 <methods>
-                    <exclude name="testGetConstrainedConstructors"/>
                     <exclude name="testGetConstrainedMethodsTypeGETTER"/>
                     <exclude name="testGetConstrainedMethodsTypesGETTERAndNON_GETTER"/>
-                    <exclude name="testGetConstraintsForCascadedParameterConstructor"/>
-                    <exclude name="testGetConstraintsForCascadedReturnValueConstructor"/>
-                    <exclude name="testGetConstraintsForCrossParameterConstrainedConstructor"/>
-                    <exclude name="testGetConstraintsForReturnValueConstrainedConstructor"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest">
@@ -141,14 +138,8 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.CrossParameterDescriptorTest">
                 <methods>
-                    <exclude name="testFindConstraintsForConstructor"/>
-                    <exclude name="testFindConstraintsForConstructorWithoutCrossParameterConstraints"/>
                     <exclude name="testFindConstraintsForMethodDefinedOnSuperTypeLookingAt"/>
                     <exclude name="testFindConstraintsForMethodLookingAt"/>
-                    <exclude name="testGetConstraintsForConstructor"/>
-                    <exclude name="testGetConstraintsForConstructorWithoutCrossParameterConstraints"/>
-                    <exclude name="testHasConstraintsForConstructor"/>
-                    <exclude name="testHasConstraintsForConstructorWithoutCrossParameterConstraints"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ElementDescriptorTest">
@@ -164,38 +155,7 @@
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
                 <methods>
-                    <exclude name="testAreParametersConstrainedForCascadedConstructor"/>
-                    <exclude name="testAreParametersConstrainedForCrossParameterConstrainedConstructor"/>
-                    <exclude name="testAreParametersConstrainedForNotConstrainedConstructor"/>
-                    <exclude name="testAreParametersConstrainedForParameterlessConstructor"/>
-                    <exclude name="testFindConstraintsForConstructor"/>
-                    <exclude name="testGetConstraintsForConstructor"/>
-                    <exclude name="testGetCrossParameterDescriptorForConstructor"/>
-                    <exclude name="testGetCrossParameterDescriptorForConstructorWithoutCrossParameterConstraints"/>
-                    <exclude name="testGetElementClassForConstructor"/>
                     <exclude name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
-                    <exclude name="testGetParameterDescriptorsForParameterlessConstructor"/>
-                    <exclude name="testGetReturnValueDescriptorForConstructor"/>
-                    <exclude name="testGetUnconstrainedReturnValueDescriptorForConstructor"/>
-                    <exclude name="testHasConstraintsForConstructor"/>
-                    <exclude name="testIsReturnValueConstrainedForCascadedConstructor"/>
-                    <exclude name="testIsReturnValueConstrainedForConstrainedConstructor"/>
-                    <exclude name="testIsReturnValueConstrainedForNotConstrainedConstructor"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ParameterDescriptorTest">
-                <methods>
-                    <exclude name="testGetContainerElementMetaDataForConstructorParameter"/>
-                    <exclude name="testGetGroupConversionsForConstructorParameter"/>
-                    <exclude name="testIsCascadedForConstructor"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ReturnValueDescriptorTest">
-                <methods>
-                    <exclude name="testGetElementClassForConstructor"/>
-                    <exclude name="testGetGroupConversionsForConstructorReturnValue"/>
-                    <exclude name="testGetGroupConversionsReturnsEmptySetForMethodReturnValue"/>
-                    <exclude name="testIsCascadedForConstructorReturnValue"/>
                 </methods>
             </class>
 

@@ -294,15 +294,13 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     }
 
     /**
-     * The constructors the introspection knows: every one of a reflective introspection, the one a generated
-     * introspection describes.
+     * The constructors the introspection knows: every one of a reflective introspection, and of a generated
+     * introspection the ones it describes - all the declared constructors of a type introspected with
+     * {@code constructors = true}, else the one it instantiates through.
      */
     @SuppressWarnings("unchecked")
     private List<BeanConstructor<?>> constructors() {
-        if (beanIntrospection instanceof ReflectiveIntrospection<?> reflective) {
-            return (List<BeanConstructor<?>>) (List<?>) reflective.getConstructors();
-        }
-        return List.of(beanIntrospection.getConstructor());
+        return (List<BeanConstructor<?>>) (List<?>) beanIntrospection.getConstructors();
     }
 
     private static boolean isGetter(BeanMethod<?, ?> method) {
@@ -567,6 +565,15 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             return false;
         }
 
+        /**
+         * The members of the property, where the introspection tells apart what each declares: a reflective
+         * introspection reads the field of the type and the getter of every type of the hierarchy declaring
+         * one, so a member is attributed to the type declaring it. The members a generated introspection lists
+         * for a type introspected with {@code members = true} are the field and the getter of that type alone,
+         * with what the super types declare merged into the getter, so reading them here would lose the
+         * declaring types the specification attributes constraints to; the super types are read from their
+         * own introspections instead, see {@link #superProperties()}.
+         */
         private List<? extends BeanPropertyMember<?, ?>> members() {
             return beanIntrospection instanceof ReflectiveIntrospection<?>
                 ? beanProperty.getMembers()
