@@ -1,0 +1,37 @@
+Micronaut Validation separates the default lightweight validator from the optional Jakarta Validation compliance stack.
+
+The default dependency is appropriate for most Micronaut applications:
+
+dependency:micronaut-validation[groupId="io.micronaut.validation"]
+
+It validates using Micronaut introspection and compile-time metadata. It does not enable XML parsing, ServiceLoader bootstrap, or reflection fallback by default, and it interpolates messages with Jakarta EL only when a Jakarta EL implementation is on the classpath.
+
+== Jakarta Compliance Dependency
+
+Use the aggregate module when an application, test suite, or library needs the Jakarta Validation provider bootstrap or other specification-oriented behavior:
+
+dependency:micronaut-validation-jakarta[groupId="io.micronaut.validation"]
+
+The aggregate pulls in the optional modules that make up the Jakarta compliance stack.
+
+== Module Model
+
+`micronaut-validation`::
+The default lightweight validation implementation. It uses generated annotation metadata and bean introspections and remains free of XML, reflection fallback, and `jakarta.validation.spi.ValidationProvider` ServiceLoader registration. It carries the Jakarta EL message interpolator, which replaces the default one only when a Jakarta EL implementation is on the classpath; it has no dependency on one.
+
+`micronaut-validation-bootstrap`::
+Provides the Jakarta `ValidationProvider`, `Configuration`, and `ValidatorFactory` bootstrap integration used by `jakarta.validation.Validation`.
+
+`micronaut-validation-xml`::
+Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources.
+
+`micronaut-validation-jakarta`::
+Aggregates bootstrap and XML support for the Jakarta compliance stack, and brings the Jakarta EL implementation that the interpolator of `micronaut-validation` needs. Types without a generated introspection are described through the reflection bridge of Micronaut core.
+
+== Choosing Modules
+
+Prefer `micronaut-validation` when you want Micronaut's compile-time validation model and GraalVM-friendly defaults.
+
+Use `micronaut-validation-jakarta` when you need Jakarta Validation bootstrap behavior, XML configuration, constraint mapping XML, Jakarta EL interpolation, or reflection fallback for specification compatibility.
+
+You can also depend on individual optional modules when only one part of the compliance stack is required.

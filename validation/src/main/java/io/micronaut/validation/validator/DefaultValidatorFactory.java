@@ -17,6 +17,8 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
+import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -75,18 +77,12 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public ValidatorContext usingContext() {
-        if (configuration instanceof ValidatorContext validatorContext) {
-            return validatorContext;
-        } else {
-            DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
-            newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
-            return newValidatorConfiguration;
-        }
+        return new DefaultFactoryValidatorContext(newValidatorConfiguration());
     }
 
     @Override
     public MessageInterpolator getMessageInterpolator() {
-        throw new UnsupportedOperationException("Method getMessageInterpolator() not supported");
+        return configuration.getMessageInterpolator();
     }
 
     @Override
@@ -96,12 +92,12 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public ConstraintValidatorFactory getConstraintValidatorFactory() {
-        throw new UnsupportedOperationException("Method getConstraintValidatorFactory() not supported");
+        return configuration.getConstraintValidatorFactory();
     }
 
     @Override
     public ParameterNameProvider getParameterNameProvider() {
-        throw new UnsupportedOperationException("Method getParameterNameProvider() not supported");
+        return configuration.getParameterNameProvider();
     }
 
     @Override
@@ -117,5 +113,90 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     @Override
     public void close() {
         // no-op
+    }
+
+    /**
+     * Creates a validator for the given configuration.
+     *
+     * @param configuration The validator configuration
+     * @return The validator
+     * @since 5.1
+     */
+    protected jakarta.validation.Validator newValidator(ValidatorConfiguration configuration) {
+        return new DefaultValidator(configuration);
+    }
+
+    private DefaultValidatorConfiguration newValidatorConfiguration() {
+        DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
+        newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
+        newValidatorConfiguration.setMetadataProviders(configuration.getMetadataProviders());
+        newValidatorConfiguration.setConstraintValidatorRegistry(configuration.getConstraintValidatorRegistry());
+        newValidatorConfiguration.setValueExtractorRegistry(copyValueExtractorRegistry(configuration.getValueExtractorRegistry()));
+        newValidatorConfiguration.setClockProvider(configuration.getClockProvider());
+        newValidatorConfiguration.setTraversableResolver(configuration.getTraversableResolver());
+        newValidatorConfiguration.setMessageInterpolator(configuration.getMessageInterpolator());
+        newValidatorConfiguration.constraintValidatorFactory(configuration.getConstraintValidatorFactory());
+        newValidatorConfiguration.setParameterNameProvider(configuration.getParameterNameProvider());
+        newValidatorConfiguration.setExecutionHandleLocator(configuration.getExecutionHandleLocator());
+        newValidatorConfiguration.setConversionService(configuration.getConversionService());
+        newValidatorConfiguration.setPrependPropertyPath(configuration.isPrependPropertyPath());
+        return newValidatorConfiguration;
+    }
+
+    private static ValueExtractorRegistry copyValueExtractorRegistry(ValueExtractorRegistry valueExtractorRegistry) {
+        if (valueExtractorRegistry instanceof DefaultValueExtractors defaultValueExtractors) {
+            return new DefaultValueExtractors(defaultValueExtractors);
+        }
+        return valueExtractorRegistry;
+    }
+
+    private final class DefaultFactoryValidatorContext implements ValidatorContext {
+
+        private final DefaultValidatorConfiguration validatorConfiguration;
+
+        private DefaultFactoryValidatorContext(DefaultValidatorConfiguration validatorConfiguration) {
+            this.validatorConfiguration = validatorConfiguration;
+        }
+
+        @Override
+        public ValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
+            validatorConfiguration.messageInterpolator(messageInterpolator);
+            return this;
+        }
+
+        @Override
+        public ValidatorContext traversableResolver(TraversableResolver traversableResolver) {
+            validatorConfiguration.traversableResolver(traversableResolver);
+            return this;
+        }
+
+        @Override
+        public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
+            validatorConfiguration.constraintValidatorFactory(factory);
+            return this;
+        }
+
+        @Override
+        public ValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
+            validatorConfiguration.parameterNameProvider(parameterNameProvider);
+            return this;
+        }
+
+        @Override
+        public ValidatorContext clockProvider(ClockProvider clockProvider) {
+            validatorConfiguration.clockProvider(clockProvider);
+            return this;
+        }
+
+        @Override
+        public ValidatorContext addValueExtractor(jakarta.validation.valueextraction.ValueExtractor<?> extractor) {
+            validatorConfiguration.addValueExtractor(extractor);
+            return this;
+        }
+
+        @Override
+        public jakarta.validation.Validator getValidator() {
+            return newValidator(validatorConfiguration);
+        }
     }
 }

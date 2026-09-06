@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.visitor;
 
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
@@ -120,6 +121,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             } else {
                 element.annotate(RequiresValidation.class);
                 classElement.annotate(RequiresValidation.class);
+                // the specification describes every constrained method: a bean method of the introspection
+                // is what a MethodDescriptor is read from, and only an executable method becomes one
+                element.annotate(Executable.class);
             }
         }
     }

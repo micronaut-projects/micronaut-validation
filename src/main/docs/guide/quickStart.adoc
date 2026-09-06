@@ -8,25 +8,18 @@ You can validate types, fields and parameters by applying `jakarta.validation` a
 
 == Supported Features
 
-Note that Micronaut's implementation is not currently fully compliant with the https://beanvalidation.org/2.0/spec/[Bean Validator specification] as the specification heavily relies on reflection-based APIs.
-
-The following features are unsupported at this time:
-
-* Any interaction with the https://beanvalidation.org/2.0/spec/#constraintmetadata[constraint metadata API], since Micronaut uses compile-time generated metadata.
-* XML-based configuration
-* Instead of using `jakarta.validation.ConstraintValidator`, use api:validation.validator.constraints.ConstraintValidator[] (io.micronaut.validation.validator.constraints.ConstraintValidator) to define custom constraints, which supports validating annotations at compile time.
+`micronaut-validation` is the default lightweight implementation. It uses Micronaut introspection and compile-time metadata so applications do not pay for reflection fallback, XML parsing, Jakarta EL, or ServiceLoader bootstrap unless they opt into those features.
 
 Micronaut's implementation includes the following benefits:
 
 * Reflection and Runtime Proxy free validation, resulting in reduced memory consumption
-* Smaller JAR size since Hibernate Validator adds another 1.4MB
-* Faster startup since Hibernate Validator adds 200ms+ startup overhead
 * Configurability via Annotation Metadata
 * Support for Reactive Bean Validation
 * Support for validating the source AST at compile time
 * Automatic compatibility with GraalVM native without additional configuration
 
-If you require full Bean Validator 2.0 compliance, add the `micronaut-hibernate-validator` module to your build, which replaces Micronaut's implementation.
+If you need the Jakarta Validation compliance stack, add the aggregate module:
 
-dependency:micronaut-hibernate-validator[groupId="io.micronaut.beanvalidation"]
+dependency:micronaut-validation-jakarta[groupId="io.micronaut.validation"]
 
+The aggregate includes the optional bootstrap and XML modules and a Jakarta EL implementation. See the <<jakartaValidation,Jakarta Validation Compliance>> section for details.

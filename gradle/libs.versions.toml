@@ -1,12 +1,17 @@
 [versions]
 managed-validation = "3.1.1"
+jakarta-el-api = "6.0.1"
+micronaut-expression-language = "1.0.0"
+javafx = "21.0.6"
 
 spotbugs = "4.10.4"
 arquillian-container = "1.10.2.Final"
 javax-annotation-api = "1.3.2"
-jakarta-validation-tck = "3.0.1"
+jakarta-validation-tck = "3.1.1"
+jakarta-cdi-api = "4.0.1"
+jakarta-ejb-api = "4.0.1"
 
-micronaut = "5.1.11"
+micronaut = "5.2.0-SNAPSHOT"
 micronaut-platform = "5.1.1"
 micronaut-reactor = "4.1.0"
 micronaut-rxjava3 = "4.1.0"
@@ -35,11 +40,17 @@ groovy-json = { module = "org.apache.groovy:groovy-json" }
 spotbugs = { module = "com.github.spotbugs:spotbugs-annotations", version.ref = "spotbugs" }
 arquillian-container = { module = "org.jboss.arquillian.container:arquillian-container-test-spi", version.ref = "arquillian-container" }
 javax-annotation-api = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation-api" }
+jakarta-cdi-api = { module = "jakarta.enterprise:jakarta.enterprise.cdi-api", version.ref = "jakarta-cdi-api" }
+jakarta-ejb-api = { module = "jakarta.ejb:jakarta.ejb-api", version.ref = "jakarta-ejb-api" }
+javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 
 # managed dependencies
 
 managed-validation = { module = "jakarta.validation:jakarta.validation-api", version.ref = "managed-validation" }
-jakarta-validation-tck-tests = { module = 'jakarta.validation:beanvalidation-tck-tests', version.ref = "jakarta-validation-tck" }
+jakarta-el-api = { module = "jakarta.el:jakarta.el-api", version.ref = "jakarta-el-api" }
+micronaut-expression-language = { module = "io.micronaut.el:micronaut-jakarta-el", version.ref = "micronaut-expression-language" }
+micronaut-expression-language-interpreter = { module = "io.micronaut.el:micronaut-jakarta-el-interpreter", version.ref = "micronaut-expression-language" }
+jakarta-validation-tck-tests = { module = 'jakarta.validation:validation-tck-tests', version.ref = "jakarta-validation-tck" }
 jmh-core = { module = "org.openjdk.jmh:jmh-core", version.ref = "jmh" }
 jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess", version.ref = "jmh" }
 

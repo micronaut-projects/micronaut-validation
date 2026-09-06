@@ -1,0 +1,9 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK Spec" verbose="1">
+    <test name="Jakarta-Bean-Validation-TCK Spec">
+        <packages>
+            <package name="org.hibernate.beanvalidation.tck.tests.*"/>
+        </packages>
+    </test>
+</suite>

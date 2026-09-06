@@ -23,5 +23,6 @@ import org.jboss.arquillian.container.spi.client.container.ContainerConfiguratio
 final class TckContainerConfiguration implements ContainerConfiguration {
     @Override
     public void validate() throws ConfigurationException {
+        // The in-process TCK container has no external configuration.
     }
 }

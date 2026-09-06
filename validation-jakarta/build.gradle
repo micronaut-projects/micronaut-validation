@@ -1,0 +1,37 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+def javaFxClassifier = {
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def arch = System.getProperty("os.arch")
+    if (os.isMacOsX()) {
+        return arch == "aarch64" ? "mac-aarch64" : "mac"
+    }
+    if (os.isLinux()) {
+        return arch == "aarch64" ? "linux-aarch64" : "linux"
+    }
+    if (os.isWindows()) {
+        return "win"
+    }
+    throw new GradleException("Unsupported JavaFX platform for ${os} ${arch}")
+}
+
+dependencies {
+    api projects.micronautValidationBootstrap
+    api projects.micronautValidationXml
+    compileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
+    runtimeOnly libs.micronaut.expression.language
+    runtimeOnly libs.micronaut.expression.language.interpreter
+
+    testImplementation mnTest.micronaut.test.junit5
+    testCompileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
+    testRuntimeOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
+    testRuntimeOnly mnTest.junit.jupiter.engine
+}
+
+micronautBuild {
+    binaryCompatibility {
+        enabledAfter("5.2.0")
+    }
+}

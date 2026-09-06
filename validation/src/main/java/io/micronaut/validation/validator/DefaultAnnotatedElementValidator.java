@@ -18,10 +18,11 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import org.jspecify.annotations.NonNull;
 import io.micronaut.core.io.service.SoftServiceLoader;
-import io.micronaut.core.reflect.GenericTypeUtils;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
+import io.micronaut.reflection.ReflectionArguments;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
 
@@ -80,7 +81,8 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
             validatorMap = new LinkedHashMap<>();
             for (ConstraintValidator<?, ?> validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
                 try {
-                    final Class<?>[] typeArgs = GenericTypeUtils.resolveInterfaceTypeArguments(validator.getClass(), ConstraintValidator.class);
+                    final Argument<ConstraintValidator> validatorArgument = ReflectionArguments.resolveGenericToArgument(validator.getClass(), ConstraintValidator.class);
+                    final Class<?>[] typeArgs = validatorArgument == null ? null : Argument.toClassArray(validatorArgument.getTypeParameters());
                     if (ArrayUtils.isNotEmpty(typeArgs) && typeArgs.length == 2) {
                         validatorMap.put(new ValidatorKey(typeArgs[0], typeArgs[1]), validator);
                     }

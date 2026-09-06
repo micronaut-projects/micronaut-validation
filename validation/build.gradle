@@ -7,8 +7,10 @@ dependencies {
     annotationProcessor mn.micronaut.inject.java
 
     compileOnly mn.micronaut.http.server
+    compileOnly libs.jakarta.el.api
 
     api mn.micronaut.inject
+    api "io.micronaut:micronaut-reflection"
     api mn.micronaut.core.reactive
     api libs.managed.validation
 
@@ -39,6 +41,43 @@ dependencies {
     jmhAnnotationProcessor(projects.micronautValidationProcessor)
     jmhAnnotationProcessor(mn.micronaut.inject.java)
     jmh(libs.jmh.core)
+}
+
+// The Jakarta EL interpolator replaces the default one as soon as an EL implementation is on the class
+// path, which is what an application asking for it wants and what the tests of the module must not have.
+// Its test runs in a source set of its own, with the implementation and the user bundle it reads.
+sourceSets {
+    elTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    elTestImplementation.extendsFrom(implementation)
+    elTestRuntimeOnly.extendsFrom(runtimeOnly)
+}
+
+dependencies {
+    elTestImplementation libs.jakarta.el.api
+    elTestImplementation(mnTest.micronaut.test.junit5)
+    elTestRuntimeOnly libs.micronaut.expression.language
+    elTestRuntimeOnly libs.micronaut.expression.language.interpreter
+    elTestRuntimeOnly(mnTest.junit.jupiter.engine)
+    elTestRuntimeOnly(libs.junit.platform.launcher)
+}
+
+def elTest = tasks.register("elTest", Test) {
+    group = 'verification'
+    description = "Runs the tests of the Jakarta EL message interpolator, with an EL implementation present."
+    testClassesDirs = sourceSets.elTest.output.classesDirs
+    classpath = sourceSets.elTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter(tasks.named("test"))
+}
+
+tasks.named("check") {
+    dependsOn(elTest)
 }
 
 spotless {

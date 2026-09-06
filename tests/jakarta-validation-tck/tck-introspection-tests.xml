@@ -1,0 +1,240 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK" verbose="1">
+    <!--
+        The Jakarta Validation TCK over the bean introspections the Micronaut annotation processor generates,
+        with the reflective description of micronaut-core turned off
+        (micronaut.validation.reflection.enabled=false).
+
+        Everything excluded here needs metadata the processor does not produce today: the separation of a
+        field from its getter, a method the introspection does not list, the declarations of a super type the
+        introspection merges into its own, and a type it never introspected at all. The constructors of a type
+        other than the one it builds beans with are described since @Introspected(constructors = true), which
+        the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
+        passes all of them.
+        55 exclusions across 35 classes. The exclusions are measured, not assumed: point the task at
+        tck-spec-tests.xml, run it, and the failures are exactly this list.
+    -->
+    <test name="Jakarta-Bean-Validation-TCK">
+
+        <packages>
+            <package name="org.hibernate.beanvalidation.tck.tests.*"/>
+        </packages>
+
+        <classes>
+
+            <!-- declarations read from the super types, and constraints a field and a getter declare separately -->
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.ValidationRequirementTest">
+                <methods>
+                    <exclude name="testConstraintAppliedOnFieldAndProperty"/>
+                    <exclude name="testFieldAccess"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest">
+                <methods>
+                    <exclude name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest">
+                <methods>
+                    <exclude name="testConstraintTargetParametersOnConstructorWithoutParametersCausesException"/>
+                    <exclude name="testConstraintTargetParametersOnInterfaceCausesException"/>
+                    <exclude name="testConstraintTargetReturnValueOnInterfaceCausesException"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.GroupTest">
+                <methods>
+                    <exclude name="testImplicitGrouping"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.InvalidGroupDefinitionsTest">
+                <methods>
+                    <exclude name="testGroupConversionGivenOnReturnValueInImplementedInterfaceWithSuperClass"/>
+                    <exclude name="testGroupConversionGivenOnReturnValueInParallelInterfaces"/>
+                    <exclude name="testGroupConversionWithoutValidAnnotationOnConstructorReturnValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.containerelement.InvalidGroupDefinitionsOnContainerElementsTest">
+                <methods>
+                    <exclude name="testGroupConversionGivenOnReturnValueInImplementedInterfaceWithSuperClass"/>
+                    <exclude name="testGroupConversionGivenOnReturnValueInParallelInterfaces"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupsequenceisolation.GroupSequenceIsolationTest">
+                <methods>
+                    <exclude name="testCorrectDefaultSequenceInheritance3"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.ConstraintInheritanceTest">
+                <methods>
+                    <exclude name="testValidationConsidersConstraintsFromSuperTypes"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.invaliddeclarations.InvalidMethodConstraintDeclarationTest">
+                <methods>
+                    <exclude name="testReturnValueIsMarkedAsCascadedInBaseAndSubClassCausesException"/>
+                    <exclude name="testReturnValueIsMarkedAsCascadedInInterfaceAndImplementationCausesException"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.validdeclarations.ValidMethodConstraintDeclarationTest">
+                <methods>
+                    <exclude name="testReturnValueConstraintFromInterfacesAndImplementationAddUp"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
+                <methods>
+                    <exclude name="testTargetedTypeIsConstructor"/>
+                </methods>
+            </class>
+
+            <!-- constructor interception, and value extractors that are not introspected types -->
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.ExecutableValidationTest">
+                <methods>
+                    <exclude name="testReturnValueValidationOfConstrainedConstructor"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.types.ExecutableTypesTest">
+                <methods>
+                    <exclude name="testValidationOfConstrainedConstructorReturnValueWithExecutableTypeCONSTRUCTORS"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedServiceLoaderValueExtractorsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedValueExtractorsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedXmlAndServiceLoaderValueExtractorsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+
+            <!-- a descriptor of a constructor, of an interface method or of a member the introspection does not separate -->
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.BeanDescriptorTest">
+                <methods>
+                    <exclude name="testGetConstrainedMethodsTypeGETTER"/>
+                    <exclude name="testGetConstrainedMethodsTypesGETTERAndNON_GETTER"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConstraintDescriptorTest">
+                <methods>
+                    <exclude name="testGetGroupsWithImplicitGroup"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ContainerElementTypeDescriptorTest">
+                <methods>
+                    <exclude name="testGetContainerElementMetaDataForRoles"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ConvertGroupDefaultFromTest">
+                <methods>
+                    <exclude name="testConvertGroupDefaultFromForMethodReturnValue"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.CrossParameterDescriptorTest">
+                <methods>
+                    <exclude name="testFindConstraintsForMethodDefinedOnSuperTypeLookingAt"/>
+                    <exclude name="testFindConstraintsForMethodLookingAt"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ElementDescriptorTest">
+                <methods>
+                    <exclude name="testDeclaredOn"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableAnnotationSettingsTest">
+                <methods>
+                    <exclude name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnMethodLevel"/>
+                    <exclude name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnTypeLevel"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
+                <methods>
+                    <exclude name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
+                </methods>
+            </class>
+
+            <!-- constraints an interface or a super class declares on an executable -->
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
+                <methods>
+                    <exclude name="methodReturnValueValidationIncludesConstraintsFromImplementedInterface"/>
+                    <exclude name="methodReturnValueValidationIncludesConstraintsFromSuperClass"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorReturnValueTest">
+                <methods>
+                    <exclude name="testOneViolation"/>
+                    <exclude name="testUnexpectedType"/>
+                </methods>
+            </class>
+
+            <!-- the member kind of a property whose field and getter are one generated property -->
+            <class name="org.hibernate.beanvalidation.tck.tests.traversableresolver.TraversableResolverTest">
+                <methods>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadable"/>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadableForParameterValidation"/>
+                    <exclude name="testCorrectCallsToIsReachableAndIsCascadableForReturnValueValidation"/>
+                </methods>
+            </class>
+
+            <!-- the value of a constraint declared on the field rather than on the getter -->
+            <class name="org.hibernate.beanvalidation.tck.tests.validation.ValueAccessStrategyTest">
+                <methods>
+                    <exclude name="testValueFromFieldIsPassedToValidatorOfFieldLevelConstraint"/>
+                </methods>
+            </class>
+
+            <!-- value extractors and their hosts are not introspected types -->
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.builtin.JavaFXValueExtractorsTest">
+                <methods>
+                    <exclude name=".*"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
+                <methods>
+                    <exclude name="valuePassedToExtractorRetrievedFromHost"/>
+                </methods>
+            </class>
+
+            <!-- XML bound to a container element of a type the processor did not introspect -->
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForFieldXmlMappingTest">
+                <methods>
+                    <exclude name="canDeclareContainerElementCascadesForFieldWithXmlMapping"/>
+                    <exclude name="canDeclareContainerElementTypeConstraintsForFieldWithXmlMapping"/>
+                    <exclude name="canDeclareDeeplyNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
+                    <exclude name="canDeclareNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForGetterXmlMappingTest">
+                <methods>
+                    <exclude name="canDeclareContainerElementCascadesForGetterWithXmlMapping"/>
+                    <exclude name="canDeclareContainerElementTypeConstraintsForGetterWithXmlMapping"/>
+                    <exclude name="canDeclareDeeplyNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
+                    <exclude name="canDeclareNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForParameterXmlMappingTest">
+                <methods>
+                    <exclude name="canDeclareContainerElementCascadesForParameterWithXmlMapping"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForReturnValueXmlMappingTest">
+                <methods>
+                    <exclude name="canDeclareContainerElementCascadesForReturnValueWithXmlMapping"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
+                <methods>
+                    <exclude name="ignoreAnnotationsOnEncapsulatingFieldAppliesToContainerElementType"/>
+                </methods>
+            </class>
+
+        </classes>
+
+    </test>
+</suite>

@@ -1,6 +1,28 @@
 plugins {
     id "java-library"
+    id "jacoco"
     id "io.micronaut.build.internal.validation-base"
+}
+
+def javaFxClassifier = {
+    def os = org.gradle.internal.os.OperatingSystem.current()
+    def arch = System.getProperty("os.arch")
+    if (os.isMacOsX()) {
+        return arch == "aarch64" ? "mac-aarch64" : "mac"
+    }
+    if (os.isLinux()) {
+        return arch == "aarch64" ? "linux-aarch64" : "linux"
+    }
+    if (os.isWindows()) {
+        return "win"
+    }
+    throw new GradleException("Unsupported JavaFX platform for ${os} ${arch}")
+}
+
+def javaFxBaseDependency = dependencies.create(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
+def tckArchiveClasspath = configurations.create("tckArchiveClasspath") {
+    canBeConsumed = false
+    canBeResolved = true
 }
 
 dependencies {
@@ -13,6 +35,8 @@ dependencies {
     implementation projects.micronautValidationProcessor
 
     implementation libs.arquillian.container
+    implementation libs.jakarta.cdi.api
+    implementation libs.jakarta.ejb.api
     implementation libs.jakarta.validation.tck.tests
 
     runtimeOnly(mnLogging.logback.classic)
@@ -22,60 +46,156 @@ dependencies {
             classifier = "sources"
         }
     }
+    testCompileOnly javaFxBaseDependency
+    add("tckArchiveClasspath", javaFxBaseDependency)
 
     testImplementation libs.javax.annotation.api
 }
 
-def methodsTest1 = tasks.register('methodsTest1', Test) {
-    scanForTestClasses false
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-methods2.xml")
-    }
+def jakartaTckRuntimeClasspath = configurations.create("jakartaTckRuntimeClasspath") {
+    canBeConsumed = false
+    canBeResolved = true
+    extendsFrom(configurations.testRuntimeClasspath)
 }
 
-def methodsTest2 = tasks.register('methodsTest2', Test) {
-    scanForTestClasses false
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-methods.xml")
-    }
-// Flaky
-//    dependsOn(methodsTest1)
+dependencies {
+    add("jakartaTckRuntimeClasspath", projects.micronautValidationJakarta)
 }
 
 test {
-    scanForTestClasses false
-    useTestNG {
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
-        suites file("tck-tests.xml")
-    }
-    // Methods tests are extracted to prevent flaky tests caused by class loading issues
-    dependsOn(methodsTest2)
+    description = "Runs the unit tests of the local Jakarta Validation TCK harness."
+    useTestNG()
+    include 'io/micronaut/validation/tck/**/*Test.class'
 }
 
-tasks.register('singleTest', Test) {
-    scanForTestClasses false
-    useTestNG {
-        suiteXmlBuilder().suite(name: 'Sample Suite') {
-            test(name : 'Sample Test') {
-                classes('') {
-//                    'class'(name: 'org.hibernate.beanvalidation.tck.tests.validation.graphnavigation.GraphNavigationTest') {
-//                        methods() {
-//                            include(name: 'testFullGraphValidationBeforeNextGroupInSequence')
-//                        }
-//                    }
-                }
-            }
+// The TCK is run three ways: over the metadata the Micronaut annotation processor generates, over the
+// reflective description of an archive compiled without it, and over both together.
+def registerTckTask = { String taskName, String descriptionText, String suiteName, Map<String, String> properties ->
+    tasks.register(taskName, Test) {
+        group = 'verification'
+        description = descriptionText
+        scanForTestClasses false
+        testClassesDirs = sourceSets.test.output.classesDirs
+        classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
+        useTestNG {
+            suites file(suiteName)
         }
-        systemProperties = [
-                'validation.provider': 'io.micronaut.validation.tck.runtime.TckValidationProvider'
-        ]
+        // set after useTestNG: assigning systemProperties inside that block replaces the whole map
+        systemProperty 'validation.provider', 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+        properties.each { key, value -> systemProperty(key, value) }
+        doFirst {
+            systemProperty 'micronaut.validation.tck.archive.classpath', tckArchiveClasspath.asPath
+        }
     }
 }
+
+def jakartaTck = registerTckTask(
+    'jakartaTck',
+    "Runs the whole Jakarta Validation TCK: generated bean introspections supplemented by the reflection bridge.",
+    'tck-spec-tests.xml',
+    [:]
+)
+
+def jakartaTckIntrospection = registerTckTask(
+    'jakartaTckIntrospection',
+    "Runs the Jakarta Validation TCK over generated bean introspections only, with the reflective description turned off.",
+    'tck-introspection-tests.xml',
+    ['micronaut.validation.reflection.enabled': 'false']
+)
+
+def jakartaTckReflection = registerTckTask(
+    'jakartaTckReflection',
+    "Runs the Jakarta Validation TCK over an archive compiled without the Micronaut annotation processor, described reflectively.",
+    'tck-reflection-tests.xml',
+    ['micronaut.validation.tck.processor.enabled': 'false']
+)
+
+tasks.named('jakartaTck').configure { shouldRunAfter(tasks.named('test')) }
+[jakartaTckIntrospection, jakartaTckReflection].each { it.configure { shouldRunAfter(jakartaTck) } }
+
+tasks.named("check") {
+    dependsOn(jakartaTck)
+    dependsOn(jakartaTckIntrospection)
+    dependsOn(jakartaTckReflection)
+}
+
+def singleJakartaTck = tasks.register('singleJakartaTck', Test) {
+    group = 'verification'
+    description = 'Runs one Jakarta Validation TCK class or method. Use -PtckSingleClass=... and optional -PtckSingleMethod=...'
+    scanForTestClasses false
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
+
+    def suiteFile = layout.buildDirectory.file("generated-testng/singleJakartaTck.xml")
+    def testClass = providers.gradleProperty("tckSingleClass")
+        .orElse("org.hibernate.beanvalidation.tck.tests.bootstrap.CustomMessageInterpolatorTest")
+    def testMethod = providers.gradleProperty("tckSingleMethod")
+
+    inputs.property("tckSingleClass", testClass)
+    inputs.property("tckSingleMethod", testMethod.orElse(""))
+    outputs.file(suiteFile)
+
+    doFirst {
+        def file = suiteFile.get().asFile
+        file.parentFile.mkdirs()
+        def methodFilter = testMethod.present ? """
+                <methods>
+                    <include name="${testMethod.get()}"/>
+                </methods>
+        """.stripIndent() : ""
+        file.text = """
+            <!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+            <suite name="Jakarta-Bean-Validation-TCK Single" verbose="1">
+                <test name="Jakarta-Bean-Validation-TCK Single">
+                    <classes>
+                        <class name="${testClass.get()}">
+            ${methodFilter}
+                        </class>
+                    </classes>
+                </test>
+            </suite>
+        """.stripIndent()
+    }
+
+    useTestNG {
+        suites suiteFile.get().asFile
+    }
+    systemProperty 'validation.provider', 'io.micronaut.validation.bootstrap.MicronautValidationProvider'
+    // -Dmicronaut.validation.reflection.enabled / -Dmicronaut.validation.tck.processor.enabled select the
+    // profile to debug, so one focused run can reproduce any of the three tasks
+    ['micronaut.validation.reflection.enabled', 'micronaut.validation.tck.processor.enabled'].each { key ->
+        def value = System.getProperty(key)
+        if (value != null) {
+            systemProperty(key, value)
+        }
+    }
+}
+
+def jakartaCoverageProjects = [
+    project(':micronaut-validation'),
+    project(':micronaut-validation-bootstrap'),
+    project(':micronaut-validation-jakarta'),
+    project(':micronaut-validation-xml')
+]
+
+tasks.named('jacocoTestReport') {
+    mustRunAfter(
+        tasks.named('test'),
+        jakartaTck,
+        jakartaTckIntrospection,
+        jakartaTckReflection,
+        singleJakartaTck
+    )
+    executionData(fileTree(layout.buildDirectory.dir('jacoco')) {
+        include '*.exec'
+    })
+    dependsOn(jakartaCoverageProjects.collect { it.tasks.named('classes') })
+    additionalSourceDirs.from(jakartaCoverageProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    sourceDirectories.from(jakartaCoverageProjects.collect { it.sourceSets.main.allSource.srcDirs })
+    classDirectories.from(jakartaCoverageProjects.collect { it.sourceSets.main.output })
+    reports {
+        xml.required = true
+        html.required = true
+    }
+}
+
