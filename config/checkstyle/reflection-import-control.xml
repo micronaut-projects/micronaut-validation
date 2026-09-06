@@ -30,9 +30,6 @@
 
     <subpackage name="validator">
         <!-- the executable an API names by its Method or Constructor, resolved to the best metadata there is -->
-        <file name="ReflectiveExecutables">
-            <allow pkg="java.lang.reflect"/>
-        </file>
         <file name="ExecutableMethodValidator">
             <allow pkg="java.lang.reflect"/>
         </file>

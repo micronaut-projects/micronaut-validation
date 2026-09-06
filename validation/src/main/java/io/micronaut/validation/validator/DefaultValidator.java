@@ -61,6 +61,7 @@ import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.reflection.ReflectionExecutables;
 import io.micronaut.reflection.ReflectiveIntrospection;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
@@ -491,7 +492,7 @@ public class DefaultValidator implements
         requireNonNull("method", method);
         requireNonNull("groups", groups);
 
-        return validateParameters(object, ReflectiveExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
+        return validateParameters(object, ReflectionExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
     }
 
     @NonNull
@@ -504,7 +505,7 @@ public class DefaultValidator implements
         requireNonNull("object", object);
         requireNonNull("groups", groups);
 
-        return validateReturnValue(object, ReflectiveExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
+        return validateReturnValue(object, ReflectionExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
     }
 
     @Override
@@ -562,7 +563,7 @@ public class DefaultValidator implements
 
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectiveExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = ReflectionExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         return validateConstructorParameters(
             declaringClass,
             introspection,
@@ -650,7 +651,7 @@ public class DefaultValidator implements
         requireNonNull("groups", groups);
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectiveExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = ReflectionExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         // the constraints of a constructor apply to the object it creates: the root bean is null, like for its parameters
         final DefaultConstraintValidatorContext<T> context = introspection == null
             ? (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, declaringClass, BeanValidationContext.fromGroups(groups))

@@ -2,7 +2,6 @@ package io.micronaut.validation.composition
 
 import io.micronaut.validation.validator.DefaultValidator
 import io.micronaut.validation.validator.DefaultValidatorConfiguration
-import spock.lang.PendingFeature
 import spock.lang.Specification
 
 /**
@@ -23,13 +22,11 @@ class ReturnHierarchySpec extends Specification {
             .toSet()
     }
 
-    @PendingFeature(reason = "only the constraint the override declares is validated; the level above it is lost")
     void "the constraint an implemented interface declares is validated next to the implementation's"() {
         expect:
         violated(new ReturnHierarchy.FromInterface()) == ["NotBlank", "Size"] as Set
     }
 
-    @PendingFeature(reason = "only the constraint the override declares is validated; the level above it is lost")
     void "the constraint a super class declares is validated next to the subclass's"() {
         expect:
         violated(new ReturnHierarchy.FromSuperClass()) == ["NotBlank", "Size"] as Set
