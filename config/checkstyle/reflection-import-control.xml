@@ -33,9 +33,6 @@
         <file name="ExecutableMethodValidator">
             <allow pkg="java.lang.reflect"/>
         </file>
-        <file name="IntrospectedExecutableMethod">
-            <allow pkg="java.lang.reflect"/>
-        </file>
         <file name="DefaultValidator">
             <allow pkg="java.lang.reflect"/>
         </file>
