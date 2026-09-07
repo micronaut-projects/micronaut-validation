@@ -23,6 +23,7 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
+import io.micronaut.validation.validator.ReflectionSupport;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintTarget;
@@ -32,8 +33,6 @@ import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -118,17 +117,9 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
 
     @NonNull
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfDeclaredConstructor(Class<T> type) {
-        T constraintValidator;
-        try {
-            Constructor<T> constructor = type.getDeclaredConstructor(); // reflection: a validator the container does not build
-            constructor.setAccessible(true); // reflection: the same, of a non-public validator
-            constraintValidator = constructor.newInstance();
-        } catch (NoSuchMethodException e) {
+        T constraintValidator = ReflectionSupport.get().instantiate(type);
+        if (constraintValidator == null) {
             return null;
-        } catch (InvocationTargetException e) {
-            throw new ValidationException("Cannot instantiate the constraint validator: " + type.getName(), e.getTargetException());
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot instantiate the constraint validator: " + type.getName(), e);
         }
         return new ConstraintValidatorEntry(
             constraintValidator,

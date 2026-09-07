@@ -36,7 +36,10 @@ import org.jspecify.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.AnnotatedType;
+import jakarta.validation.ValidationException;
+
 import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -116,6 +119,24 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+    }
+
+    @Override
+    public <T> T instantiate(Class<T> type) {
+        Constructor<T> constructor;
+        try {
+            constructor = type.getDeclaredConstructor();
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+        try {
+            constructor.setAccessible(true);
+            return constructor.newInstance();
+        } catch (InvocationTargetException e) {
+            throw new ValidationException("Cannot instantiate the constraint validator: " + type.getName(), e.getTargetException());
+        } catch (ReflectiveOperationException e) {
+            throw new ValidationException("Cannot instantiate the constraint validator: " + type.getName(), e);
+        }
     }
 
     @Override

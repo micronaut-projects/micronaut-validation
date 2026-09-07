@@ -130,6 +130,11 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
+    public <T> T instantiate(Class<T> type) {
+        throw missing("a constructor of " + type.getName() + ", which is neither introspected nor a bean");
+    }
+
+    @Override
     public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
         throw missing("the members " + constraintType.getName() + " declares, which the constraint definition"
             + " rules are checked against");

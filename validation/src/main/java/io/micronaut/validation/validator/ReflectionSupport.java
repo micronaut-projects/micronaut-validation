@@ -192,6 +192,20 @@ public interface ReflectionSupport {
     void checkConstraintDefinition(Class<? extends Annotation> constraintType);
 
     /**
+     * Instantiates a type the container does not build, through the no-argument constructor it declares: the
+     * specification asks the default constraint validator factory to call that constructor for a validator it
+     * knows nothing else about, whatever its visibility.
+     *
+     * @param type The type
+     * @param <T>  The type
+     * @return The instance, {@code null} when the type declares no such constructor
+     * @throws jakarta.validation.ValidationException When the constructor fails, or nothing can call it
+     * @since 5.2
+     */
+    @Nullable
+    <T> T instantiate(Class<T> type);
+
+    /**
      * The argument of an annotated type, the annotations of the type and of its type arguments included where
      * they can be read.
      *

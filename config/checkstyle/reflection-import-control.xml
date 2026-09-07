@@ -71,10 +71,6 @@
             <file name="ConstraintAnnotationCustomizer">
                 <allow pkg="java.lang.reflect"/>
             </file>
-            <!-- instantiating a validator the container does not build -->
-            <file name="DefaultInternalConstraintValidatorFactory">
-                <allow pkg="java.lang.reflect"/>
-            </file>
             <!-- java.lang.reflect.Array, to read an array of any component type -->
             <file name="UniqueElementsValidator">
                 <allow pkg="java.lang.reflect"/>
