@@ -21,7 +21,6 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.validation.validator.constraints.ConstraintDefinitions;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.core.type.Argument;
@@ -194,7 +193,7 @@ final class ValidatorDeclarations {
     void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
         if (strictConstraintDefinitions && checkedConstraintDefinitions.add(constraintType)) {
             try {
-                ConstraintDefinitions.validate(constraintType);
+                ReflectionSupport.get().checkConstraintDefinition(constraintType);
             } catch (RuntimeException e) {
                 checkedConstraintDefinitions.remove(constraintType);
                 throw e;

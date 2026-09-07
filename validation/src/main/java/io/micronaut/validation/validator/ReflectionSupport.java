@@ -180,6 +180,18 @@ public interface ReflectionSupport {
     <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType);
 
     /**
+     * Checks a constraint annotation type against the constraint definition rules of the specification: the
+     * names and the types of the members it declares, and what its validators support. Only the annotation
+     * type itself answers those, so a validator configured to check them strictly needs this read.
+     *
+     * @param constraintType The constraint annotation type
+     * @throws jakarta.validation.ConstraintDefinitionException When the type breaks a rule
+     * @throws jakarta.validation.ValidationException When nothing can read the type
+     * @since 5.2
+     */
+    void checkConstraintDefinition(Class<? extends Annotation> constraintType);
+
+    /**
      * The argument of an annotated type, the annotations of the type and of its type arguments included where
      * they can be read.
      *

@@ -67,9 +67,6 @@
         </file>
 
         <subpackage name="constraints">
-            <file name="ConstraintDefinitions">
-                <allow pkg="java.lang.reflect"/>
-            </file>
             <!-- the runtime counterpart of the processor extensions, which reads the annotation type -->
             <file name="ConstraintAnnotationCustomizer">
                 <allow pkg="java.lang.reflect"/>

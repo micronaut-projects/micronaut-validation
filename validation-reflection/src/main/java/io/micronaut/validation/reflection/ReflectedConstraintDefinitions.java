@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.validator.constraints;
+package io.micronaut.validation.reflection;
 
+import io.micronaut.core.annotation.Internal;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
@@ -30,17 +31,16 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Reflection-only Jakarta constraint definition checks.
+ * The constraint definition rules that only the annotation type itself can answer: the members it declares,
+ * what its validators support, and what its {@code validationAppliesTo} may say. Reading an annotation type
+ * is what this module is for, so the checks live here and the validator asks for them through the seam.
  *
- * <p>These checks validate annotation definitions discovered by reflection
- * before the validator builds runtime descriptors. Keep new checks here only
- * when they require reflective annotation member inspection.</p>
- *
- * @since 5.1
+ * @since 5.2
  */
-public final class ConstraintDefinitions {
+@Internal
+final class ReflectedConstraintDefinitions {
 
-    private ConstraintDefinitions() {
+    private ReflectedConstraintDefinitions() {
     }
 
     /**
@@ -49,12 +49,12 @@ public final class ConstraintDefinitions {
      *
      * @param annotationType The annotation type being used as a constraint
      */
-    public static void validate(Class<? extends Annotation> annotationType) {
+    static void validate(Class<? extends Annotation> annotationType) {
         Constraint constraint = annotationType.getAnnotation(Constraint.class);
         if (constraint == null) {
             return;
         }
-        for (Method method : annotationType.getDeclaredMethods()) { // reflection: the members the constraint contract requires of an annotation type
+        for (Method method : annotationType.getDeclaredMethods()) {
             if (method.getParameterCount() == 0
                 && method.getName().startsWith("valid")
                 && !"validationAppliesTo".equals(method.getName())) {
@@ -154,11 +154,11 @@ public final class ConstraintDefinitions {
     }
 
     private static Class<?> validatedType(Class<?> validator) {
-        Class<?> directType = validatedType(validator.getGenericInterfaces()); // reflection: the ConstraintValidator<A, T> signature of a validator class
+        Class<?> directType = validatedType(validator.getGenericInterfaces());
         if (directType != Object.class) {
             return directType;
         }
-        Type genericSuperclass = validator.getGenericSuperclass(); // reflection: the same, inherited
+        Type genericSuperclass = validator.getGenericSuperclass();
         if (genericSuperclass instanceof ParameterizedType parameterizedType) {
             return validatedType(parameterizedType);
         }
@@ -177,7 +177,7 @@ public final class ConstraintDefinitions {
                     return validatedType;
                 }
             } else if (interfaceType instanceof Class<?> interfaceClass) {
-                Class<?> validatedType = validatedType(interfaceClass.getGenericInterfaces()); // reflection: the same, through an interface
+                Class<?> validatedType = validatedType(interfaceClass.getGenericInterfaces());
                 if (validatedType != Object.class) {
                     return validatedType;
                 }
@@ -208,7 +208,7 @@ public final class ConstraintDefinitions {
     @Nullable
     private static Method optionalMember(Class<? extends Annotation> annotationType, String name) {
         try {
-            return annotationType.getDeclaredMethod(name); // reflection: an optional member of a constraint type
+            return annotationType.getDeclaredMethod(name);
         } catch (NoSuchMethodException e) {
             return null;
         }

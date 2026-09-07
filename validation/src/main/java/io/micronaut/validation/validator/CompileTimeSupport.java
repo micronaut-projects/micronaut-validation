@@ -130,6 +130,12 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
+    public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
+        throw missing("the members " + constraintType.getName() + " declares, which the constraint definition"
+            + " rules are checked against");
+    }
+
+    @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         throw missing("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
     }

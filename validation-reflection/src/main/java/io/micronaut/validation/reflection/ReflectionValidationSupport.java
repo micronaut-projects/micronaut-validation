@@ -119,6 +119,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
+        ReflectedConstraintDefinitions.validate(constraintType);
+    }
+
+    @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         return ReflectionGenericArguments.resolveGenericToArgument(type, superType);
     }
