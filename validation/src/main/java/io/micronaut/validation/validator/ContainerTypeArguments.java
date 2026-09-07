@@ -64,8 +64,8 @@ final class ContainerTypeArguments {
     @Nullable
     private static Argument<?> annotatedBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         List<AnnotatedType> supertypes = new ArrayList<>();
-        supertypes.add(declaredType.getAnnotatedSuperclass());
-        supertypes.addAll(List.of(declaredType.getAnnotatedInterfaces()));
+        supertypes.add(declaredType.getAnnotatedSuperclass()); // reflection: the type-use constraints a container type declares on its super type
+        supertypes.addAll(List.of(declaredType.getAnnotatedInterfaces())); // reflection: the same, on its interfaces
         for (AnnotatedType supertype : supertypes) {
             if (supertype == null) {
                 continue;
@@ -94,11 +94,11 @@ final class ContainerTypeArguments {
         if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
             return extractorTypeArgumentIndex;
         }
-        Integer resolved = resolveExtractedTypeArgumentIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex);
+        Integer resolved = resolveExtractedTypeArgumentIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex); // reflection: which type argument a sub type binds
         if (resolved != null) {
             return resolved;
         }
-        for (Type genericInterface : declaredType.getGenericInterfaces()) {
+        for (Type genericInterface : declaredType.getGenericInterfaces()) { // reflection: the same, through its interfaces
             resolved = resolveExtractedTypeArgumentIndex(declaredType, genericInterface, extractorContainerType, extractorTypeArgumentIndex);
             if (resolved != null) {
                 return resolved;

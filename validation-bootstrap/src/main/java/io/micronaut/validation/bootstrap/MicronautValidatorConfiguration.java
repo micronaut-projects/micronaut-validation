@@ -577,7 +577,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         try {
             Class<?> providerClass = Class.forName("io.micronaut.validation.xml.XmlValidationMetadataProvider", true, classLoader);
             return Optional.of((ValidationMetadataProvider) providerClass
-                .getConstructor(ClassLoader.class, Set.class)
+                .getConstructor(ClassLoader.class, Set.class) // reflection: the XML module, present or not
                 .newInstance(classLoader, mappingStreams));
         } catch (ClassNotFoundException e) {
             return Optional.empty();
@@ -590,7 +590,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         try {
             Class<?> interpolatorType = Class.forName("io.micronaut.validation.el.ElMessageInterpolator", true, classLoader);
             return Optional.of((MessageInterpolator) interpolatorType
-                .getConstructor(io.micronaut.context.MessageSource.class, InterpolatorLocaleResolver.class)
+                .getConstructor(io.micronaut.context.MessageSource.class, InterpolatorLocaleResolver.class) // reflection: the Jakarta EL interpolator, present or not
                 .newInstance(new DefaultMessages(), null));
         } catch (ClassNotFoundException e) {
             return Optional.empty();
@@ -602,7 +602,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     private <T> T instantiate(String className, Class<T> type) {
         try {
             Class<?> loadedClass = Class.forName(className, true, classLoader);
-            return type.cast(loadedClass.getDeclaredConstructor().newInstance());
+            return type.cast(loadedClass.getDeclaredConstructor().newInstance()); // reflection: a class validation.xml names
         } catch (ReflectiveOperationException e) {
             throw new ValidationException("Cannot instantiate validation bootstrap class: " + className, e);
         }

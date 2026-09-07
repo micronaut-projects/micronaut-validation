@@ -54,7 +54,7 @@ public final class ConstraintDefinitions {
         if (constraint == null) {
             return;
         }
-        for (Method method : annotationType.getDeclaredMethods()) {
+        for (Method method : annotationType.getDeclaredMethods()) { // reflection: the members the constraint contract requires of an annotation type
             if (method.getParameterCount() == 0
                 && method.getName().startsWith("valid")
                 && !"validationAppliesTo".equals(method.getName())) {
@@ -154,11 +154,11 @@ public final class ConstraintDefinitions {
     }
 
     private static Class<?> validatedType(Class<?> validator) {
-        Class<?> directType = validatedType(validator.getGenericInterfaces());
+        Class<?> directType = validatedType(validator.getGenericInterfaces()); // reflection: the ConstraintValidator<A, T> signature of a validator class
         if (directType != Object.class) {
             return directType;
         }
-        Type genericSuperclass = validator.getGenericSuperclass();
+        Type genericSuperclass = validator.getGenericSuperclass(); // reflection: the same, inherited
         if (genericSuperclass instanceof ParameterizedType parameterizedType) {
             return validatedType(parameterizedType);
         }
@@ -177,7 +177,7 @@ public final class ConstraintDefinitions {
                     return validatedType;
                 }
             } else if (interfaceType instanceof Class<?> interfaceClass) {
-                Class<?> validatedType = validatedType(interfaceClass.getGenericInterfaces());
+                Class<?> validatedType = validatedType(interfaceClass.getGenericInterfaces()); // reflection: the same, through an interface
                 if (validatedType != Object.class) {
                     return validatedType;
                 }
@@ -208,7 +208,7 @@ public final class ConstraintDefinitions {
     @Nullable
     private static Method optionalMember(Class<? extends Annotation> annotationType, String name) {
         try {
-            return annotationType.getDeclaredMethod(name);
+            return annotationType.getDeclaredMethod(name); // reflection: an optional member of a constraint type
         } catch (NoSuchMethodException e) {
             return null;
         }

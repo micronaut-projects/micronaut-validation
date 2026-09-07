@@ -554,7 +554,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
             try {
-                return currentType.getDeclaredField(fieldName);
+                return currentType.getDeclaredField(fieldName); // reflection: the field an XML mapping names
             } catch (NoSuchFieldException e) {
                 currentType = currentType.getSuperclass();
             }
@@ -585,7 +585,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private static Method findGetterMethod(Class<?> beanType, String methodName, boolean booleanGetter) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
-            for (Method method : currentType.getDeclaredMethods()) {
+            for (Method method : currentType.getDeclaredMethods()) { // reflection: the getter an XML mapping names
                 if (method.getParameterCount() == 0 && method.getName().equals(methodName)) {
                     Class<?> returnType = method.getReturnType();
                     if (returnType != void.class && (!booleanGetter || returnType == boolean.class || returnType == Boolean.class)) {
@@ -598,7 +598,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return null;
     }
 
-    private static Class<?> propertyElementClass(java.lang.reflect.AnnotatedElement source) {
+    private static Class<?> propertyElementClass(AnnotatedElement source) {
         if (source instanceof Field field) {
             return field.getType();
         }
@@ -608,12 +608,12 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         return Object.class;
     }
 
-    private static Type propertyGenericType(java.lang.reflect.AnnotatedElement source) {
+    private static Type propertyGenericType(AnnotatedElement source) {
         if (source instanceof Field field) {
             return field.getGenericType();
         }
         if (source instanceof Method method) {
-            return method.getGenericReturnType();
+            return method.getGenericReturnType(); // reflection: the type of the getter an XML mapping names
         }
         return Object.class;
     }
@@ -621,7 +621,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     @Nullable
     private static Constructor<?> findConstructor(Class<?> beanType, List<Class<?>> parameterTypes) {
         try {
-            return beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new));
+            return beanType.getDeclaredConstructor(parameterTypes.toArray(Class<?>[]::new)); // reflection: the constructor an XML mapping names
         } catch (NoSuchMethodException e) {
             return null;
         }
@@ -631,7 +631,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     private static Method findMethod(Class<?> beanType, String methodName, List<Class<?>> parameterTypes) {
         Class<?> currentType = beanType;
         while (currentType != null && currentType != Object.class) {
-            for (Method method : currentType.getDeclaredMethods()) {
+            for (Method method : currentType.getDeclaredMethods()) { // reflection: the method an XML mapping names
                 if (method.getName().equals(methodName)
                     && Arrays.equals(method.getParameterTypes(), parameterTypes.toArray(Class<?>[]::new))) {
                     return method;
@@ -808,7 +808,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private void validateMandatoryAnnotationMembers(Class<? extends Annotation> annotationType, Map<CharSequence, Object> values) {
-        for (Method method : annotationType.getDeclaredMethods()) {
+        for (Method method : annotationType.getDeclaredMethods()) { // reflection: the members an XML constraint declaration must set
             if (method.getDefaultValue() == null
                 && !RESERVED_CONSTRAINT_ELEMENT_NAMES.contains(method.getName())
                 && !values.containsKey(method.getName())) {
@@ -850,7 +850,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                                          Element element,
                                          String defaultPackage) {
         try {
-            Method method = annotationType.getDeclaredMethod(name);
+            Method method = annotationType.getDeclaredMethod(name); // reflection: the type of a member an XML element sets
             return convertValue(method.getReturnType(), element, defaultPackage);
         } catch (NoSuchMethodException e) {
             throw new ValidationException("Unknown annotation member " + annotationType.getName() + "." + name, e);
@@ -1093,7 +1093,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private static Set<GroupConversionDescriptor> groupConversions(AnnotationMetadata annotationMetadata,
-                                                                   java.lang.reflect.AnnotatedElement annotatedElement,
+                                                                   AnnotatedElement annotatedElement,
                                                                    boolean annotationsIgnored) {
         Set<GroupConversionDescriptor> descriptors = new LinkedHashSet<>(groupConversions(annotationMetadata));
         if (!annotationsIgnored) {
@@ -1127,7 +1127,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private static Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata,
-                                                                     java.lang.reflect.AnnotatedElement annotatedElement,
+                                                                     AnnotatedElement annotatedElement,
                                                                      boolean annotationsIgnored,
                                                                      ConstraintTarget target) {
         Set<ConstraintDescriptor<?>> descriptors = new LinkedHashSet<>(constraintDescriptors(annotationMetadata));
@@ -1659,7 +1659,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         @Override
         public Map<String, Object> getAttributes() {
             Map<String, Object> attributes = new LinkedHashMap<>();
-            for (Method method : type.getDeclaredMethods()) {
+            for (Method method : type.getDeclaredMethods()) { // reflection: the attributes of a constraint declared in XML
                 attributes.put(method.getName(), readMember(annotation, method.getName(), method.getDefaultValue()));
             }
             return Map.copyOf(attributes);
@@ -1667,7 +1667,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         private static Object readMember(Annotation annotation, String member, Object defaultValue) {
             try {
-                return annotation.annotationType().getDeclaredMethod(member).invoke(annotation);
+                return annotation.annotationType().getDeclaredMethod(member).invoke(annotation); // reflection: the same, one member read
             } catch (NoSuchMethodException e) {
                 return defaultValue;
             } catch (ReflectiveOperationException e) {
@@ -1747,7 +1747,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
     private record PropertyMapping(AnnotationMetadata metadata,
                                    boolean annotationsIgnored,
-                                   java.lang.reflect.AnnotatedElement source,
+                                   AnnotatedElement source,
                                    Class<?> elementClass,
                                    List<ContainerElementMapping> containerElements) {
     }
@@ -1774,7 +1774,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         ExecutableMapping withContainerElements(Element executableElement,
                                                 String defaultPackage,
                                                 XmlValidationMetadataProvider provider) {
-            Type[] genericParameterTypes = source.getGenericParameterTypes();
+            Type[] genericParameterTypes = source.getGenericParameterTypes(); // reflection: the parameter types of an executable an XML mapping names
             List<ParameterMapping> resolvedParameters = new ArrayList<>(parameters.size());
             int parameterIndex = 0;
             NodeList children = executableElement.getChildNodes();
@@ -1793,7 +1793,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                         parameterIndex++;
                     }
                     case "return-value" -> {
-                        Type returnType = source instanceof Method method ? method.getGenericReturnType() : source.getDeclaringClass();
+                        Type returnType = source instanceof Method method ? method.getGenericReturnType() : source.getDeclaringClass(); // reflection: the return type of the same
                         resolvedReturnValue = returnValue.withContainerElements(
                             provider.parseContainerElements(element, defaultPackage, returnType)
                         );

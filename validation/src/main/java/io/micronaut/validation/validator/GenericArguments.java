@@ -136,8 +136,8 @@ public final class GenericArguments {
         if (!visited.add(type)) {
             return null;
         }
-        Type[] candidates = Arrays.copyOf(type.getGenericInterfaces(), type.getGenericInterfaces().length + 1);
-        candidates[candidates.length - 1] = type.getGenericSuperclass();
+        Type[] candidates = Arrays.copyOf(type.getGenericInterfaces(), type.getGenericInterfaces().length + 1); // reflection: the generic signature of a type the API hands over
+        candidates[candidates.length - 1] = type.getGenericSuperclass(); // reflection: the same, its super class
         for (Type candidate : candidates) {
             if (candidate == null) {
                 continue;

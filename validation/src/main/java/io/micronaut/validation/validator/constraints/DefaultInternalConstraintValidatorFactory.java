@@ -120,8 +120,8 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfDeclaredConstructor(Class<T> type) {
         T constraintValidator;
         try {
-            Constructor<T> constructor = type.getDeclaredConstructor();
-            constructor.setAccessible(true);
+            Constructor<T> constructor = type.getDeclaredConstructor(); // reflection: a validator the container does not build
+            constructor.setAccessible(true); // reflection: the same, of a non-public validator
             constraintValidator = constructor.newInstance();
         } catch (NoSuchMethodException e) {
             return null;

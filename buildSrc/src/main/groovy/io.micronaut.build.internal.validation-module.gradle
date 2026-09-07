@@ -6,3 +6,21 @@ plugins {
 dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
 }
+
+// Where reflection may be read from: config/checkstyle/reflection.xml, run apart from checkstyle.xml because
+// the "Update common files" job overwrites that one and its suppressions with the template's copy
+def checkstyleReflection = tasks.register('checkstyleReflection', Checkstyle) {
+    description = 'Checks where reflection is read from, against config/checkstyle/reflection.xml'
+    group = 'verification'
+    configFile = rootProject.file('config/checkstyle/reflection.xml')
+    configDirectory = rootProject.file('config/checkstyle')
+    source = sourceSets.main.allJava
+    classpath = files()
+    reports {
+        xml.required = false
+        html.required = true
+    }
+}
+tasks.named('check') {
+    dependsOn(checkstyleReflection)
+}

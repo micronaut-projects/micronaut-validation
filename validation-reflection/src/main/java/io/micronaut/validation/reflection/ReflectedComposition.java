@@ -30,6 +30,7 @@ import jakarta.validation.OverridesAttribute;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -208,7 +209,7 @@ final class ReflectedComposition {
         if (memberType.isArray()) {
             Class<?> valueType = value.getClass();
             if (valueType.isArray()) {
-                return isAssignableToMember(java.lang.reflect.Array.getLength(value) == 0 ? null : java.lang.reflect.Array.get(value, 0), memberType.getComponentType());
+                return isAssignableToMember(Array.getLength(value) == 0 ? null : Array.get(value, 0), memberType.getComponentType());
             }
             return isAssignableToMember(value, memberType.getComponentType());
         }

@@ -589,7 +589,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
                 determineValueExtractorDefinitions(valueExtractorDefinitions, implementedInterface);
             }
         }
-        for (AnnotatedType annotatedInterface : extractorImplementationType.getAnnotatedInterfaces()) {
+        for (AnnotatedType annotatedInterface : extractorImplementationType.getAnnotatedInterfaces()) { // reflection: the ValueExtractor<...> signature of an instance the API hands over
             if (ValueExtractor.class.equals(getClassFromType(annotatedInterface.getType()))) {
                 valueExtractorDefinitions.add(annotatedInterface);
             }

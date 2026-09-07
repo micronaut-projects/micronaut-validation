@@ -1,0 +1,65 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+
+<!--
+  Where reflection may be read from.
+
+  The validator describes a bean, a constraint and an executable through the metadata the annotation
+  processors generate. Reflection is read in two places only: the micronaut-validation-reflection module,
+  which exists for it, and the files that meet the Jakarta Validation API at its edge, where the API itself
+  hands over a java.lang.reflect member - a Method to validate, a Type to extract a value from, an
+  Annotation to describe. Three rules say so:
+
+  1. an import of java.lang.reflect is allowed only in the files reflection-import-control.xml names, and an
+     import of io.micronaut.reflection only in the io.micronaut.validation.reflection package;
+  2. a reflective type is named through an import, never in full, so that rule 1 sees it;
+  3. a reflective call on a Class or a member - getDeclaredMethods, getGenericInterfaces, setAccessible and
+     the like - carries the reason on its line, as "// reflection: <why>", outside the reflection module.
+
+  This configuration is run by the checkstyleReflection task of every module. It is deliberately not part
+  of checkstyle.xml: that file, like suppressions.xml, is copied from micronaut-project-template by the
+  "Update common files" job, which overwrites a target file unless a <file>.lock sits beside it, so a rule
+  added there is lost with the next template change. This file and reflection-import-control.xml are not
+  on the job's list.
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- the reflection module reads the classes: that is what it is for -->
+    <module name="SuppressionFilter">
+        <property name="file" value="${config_loc}/reflection-suppressions.xml"/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- rule 1: which files may import java.lang.reflect, and which package io.micronaut.reflection -->
+        <module name="ImportControl">
+            <property name="file" value="${config_loc}/reflection-import-control.xml"/>
+        </module>
+
+        <!-- rule 2: a reflective type is imported, so that rule 1 judges it -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="ReflectionByFullName"/>
+            <property name="format" value="^(?!\s*(?:import|package)\s).*\b(?:java\.lang\.reflect|io\.micronaut\.reflection)\.[A-Z]"/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message" value="Name a reflective type through an import, not in full, so the import control judges it"/>
+        </module>
+
+        <!-- rule 3: a reflective call says why, on its line -->
+        <module name="RegexpSinglelineJava">
+            <property name="id" value="ReflectiveCall"/>
+            <property name="format" value="\.(?:getDeclaredMethods?|getDeclaredFields?|getDeclaredConstructors?|getMethods|getFields|getDeclaredAnnotations|setAccessible|trySetAccessible|getAnnotatedSuperclass|getAnnotatedInterfaces|getAnnotatedReturnType|getAnnotatedParameterTypes|getGenericSuperclass|getGenericInterfaces|getGenericReturnType|getGenericParameterTypes|getConstructor(?=\s*\(\s*[^\s)]))\s*\("/>
+            <property name="ignoreComments" value="true"/>
+            <property name="message" value="A reflective call outside the reflection module carries its reason on the line: // reflection: &lt;why&gt;"/>
+        </module>
+        <module name="SuppressWithNearbyCommentFilter">
+            <property name="commentFormat" value="reflection: .+"/>
+            <property name="checkFormat" value="RegexpSinglelineJava"/>
+            <property name="idFormat" value="ReflectiveCall"/>
+            <property name="influenceFormat" value="0"/>
+        </module>
+    </module>
+</module>
