@@ -143,6 +143,17 @@ final class CompileTimeSupport implements ReflectionSupport {
         throw missing("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
     }
 
+    /**
+     * The annotation processor records the validators a constraint declares on every occurrence it compiles,
+     * so an occurrence carrying none is one of a constraint that declares none. A constraint compiled without
+     * the processor is the case this cannot tell apart, and the reflection module reads the type for it.
+     */
+    @Override
+    public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
+                                                                        Class<? extends Annotation> constraintType) {
+        return value;
+    }
+
     @Override
     public List<String> parameterNames(Executable executable) {
         throw missing("the parameter names of " + executable.getName() + " of "

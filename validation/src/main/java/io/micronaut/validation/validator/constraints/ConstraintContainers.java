@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
 
@@ -159,14 +160,7 @@ public final class ConstraintContainers {
         if (value.contains(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)) {
             return value;
         }
-        Constraint constraint = constraintType.getAnnotation(Constraint.class);
-        if (constraint == null || constraint.validatedBy().length == 0) {
-            return value;
-        }
-        AnnotationClassValue<?>[] validators = Arrays.stream(constraint.validatedBy())
-            .map(AnnotationClassValue::new)
-            .toArray(AnnotationClassValue[]::new);
-        return AnnotationValue.builder(value).member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validators).build();
+        return ReflectionSupport.get().withDeclaredValidators(value, constraintType);
     }
 
     /**

@@ -148,6 +148,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
+                                                                        Class<? extends Annotation> constraintType) {
+        return ReflectedConstraints.withDeclaredValidators(value, constraintType);
+    }
+
+    @Override
     public List<String> parameterNames(Executable executable) {
         Parameter[] parameters = executable.getParameters();
         List<String> names = new ArrayList<>(parameters.length);

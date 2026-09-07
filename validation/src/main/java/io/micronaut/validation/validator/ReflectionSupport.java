@@ -228,6 +228,19 @@ public interface ReflectionSupport {
      */
     List<String> parameterNames(Executable executable);
 
+    /**
+     * The occurrence of a constraint with the validators its annotation type declares, for an occurrence whose
+     * metadata does not carry them. The annotation processor records the validators of every constraint it
+     * compiles, so this is reached only for a constraint compiled without it.
+     *
+     * @param value          The occurrence
+     * @param constraintType The constraint annotation type
+     * @return The occurrence, with the declared validators where the type declares any
+     * @since 5.2
+     */
+    AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
+                                                                 Class<? extends Annotation> constraintType);
+
 
 
     /**
