@@ -13,44 +13,93 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.validator;
+package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
+import io.micronaut.validation.validator.GenericArguments;
 
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.lang.reflect.WildcardType;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
- * The structure of a generic signature the specification API hands over as a {@link Type}: the types and
- * their type arguments, read from the object the API supplies and from nothing else. What a type binds in a
- * super type, and the annotations a signature carries, mean reading the class, which is what
- * {@link ReflectionSupport} decides and the reflection module does.
+ * What a type binds the type arguments of a super type to, read from the class: the generated metadata
+ * describes what a type declares, not what an intermediate super type it does not restate binds.
  *
- * @author Denis Stepanov
  * @since 5.2
  */
 @Internal
-public final class GenericArguments {
+final class ReflectionGenericArguments {
 
-    private GenericArguments() {
+    private ReflectionGenericArguments() {
     }
 
     /**
-     * The argument of a type: the class it erases to, with the type arguments it binds, an unbound variable
-     * standing for its erasure.
+     * The argument of a super type as a type binds it: {@code ConstraintValidator<Size, CharSequence>} for a
+     * validator declaring {@code implements ConstraintValidator<Size, CharSequence>}, through every
+     * intermediate class and interface, the variables of each resolved to what its sub type binds them to.
      *
-     * @param type The type
-     * @return The argument
+     * @param type      The type
+     * @param superType The super class or interface to resolve
+     * @param <T>       The super type
+     * @return The argument, {@code null} when the type does not extend or implement the super type
      */
-    public static Argument<?> of(Type type) {
-        return of(type, Map.of());
+    @SuppressWarnings("unchecked")
+    @Nullable
+    static <T> Argument<T> resolveGenericToArgument(Class<?> type, Class<T> superType) {
+        if (!superType.isAssignableFrom(type)) {
+            return null;
+        }
+        if (type == superType) {
+            return (Argument<T>) GenericArguments.of(type);
+        }
+        return (Argument<T>) resolve(type, superType, Map.of(), new HashSet<>());
+    }
+
+    @Nullable
+    private static Argument<?> resolve(Class<?> type, Class<?> superType, Map<TypeVariable<?>, Argument<?>> bindings, Set<Class<?>> visited) {
+        if (!visited.add(type)) {
+            return null;
+        }
+        Type[] candidates = Arrays.copyOf(type.getGenericInterfaces(), type.getGenericInterfaces().length + 1);
+        candidates[candidates.length - 1] = type.getGenericSuperclass();
+        for (Type candidate : candidates) {
+            if (candidate == null) {
+                continue;
+            }
+            Class<?> raw = rawOf(candidate);
+            if (raw == null || !superType.isAssignableFrom(raw)) {
+                continue;
+            }
+            Argument<?> argument = of(candidate, bindings);
+            if (raw == superType) {
+                return argument;
+            }
+            Argument<?> resolved = resolve(raw, superType, bindingsOf(raw, argument), visited);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        return null;
+    }
+
+    private static Map<TypeVariable<?>, Argument<?>> bindingsOf(Class<?> type, Argument<?> argument) {
+        TypeVariable<?>[] variables = type.getTypeParameters();
+        Argument<?>[] typeParameters = argument.getTypeParameters();
+        Map<TypeVariable<?>, Argument<?>> bindings = new HashMap<>();
+        for (int i = 0; i < variables.length && i < typeParameters.length; i++) {
+            bindings.put(variables[i], typeParameters[i]);
+        }
+        return bindings;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

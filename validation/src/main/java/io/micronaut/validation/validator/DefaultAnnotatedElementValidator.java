@@ -80,7 +80,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
             validatorMap = new LinkedHashMap<>();
             for (ConstraintValidator<?, ?> validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
                 try {
-                    final Argument<ConstraintValidator> validatorArgument = GenericArguments.resolveGenericToArgument(validator.getClass(), ConstraintValidator.class);
+                    final Argument<ConstraintValidator> validatorArgument = ReflectionSupport.get().genericSuperArgument(validator.getClass(), ConstraintValidator.class);
                     final Class<?>[] typeArgs = validatorArgument == null ? null : Argument.toClassArray(validatorArgument.getTypeParameters());
                     if (ArrayUtils.isNotEmpty(typeArgs) && typeArgs.length == 2) {
                         validatorMap.put(new ValidatorKey(typeArgs[0], typeArgs[1]), validator);

@@ -1,0 +1,161 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.reflection;
+
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Nullable;
+import io.micronaut.core.type.Argument;
+import io.micronaut.reflection.ReflectionArguments;
+
+import java.lang.reflect.AnnotatedParameterizedType;
+import java.lang.reflect.AnnotatedType;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Maps the type argument a value extractor extracts onto the type arguments of the container as declared: a
+ * container type may bind or rename the type arguments of the generic type the extractor is written for, and
+ * what a type binds in a super type it does not restate is not in the generated metadata. Reading it is what
+ * this module is for, and the answers are cached here rather than in the validator, which reads no class.
+ *
+ * @since 5.2
+ */
+@Internal
+final class ReflectionContainerTypeArguments {
+
+    // the signature of a type does not change: what it binds is read once per type, container and index
+    private static final Map<Key, Optional<Argument<?>>> BOUND_TYPE_ARGUMENTS = new ConcurrentHashMap<>();
+    private static final Map<Key, Optional<Integer>> EXTRACTED_TYPE_ARGUMENT_INDEXES = new ConcurrentHashMap<>();
+
+    private ReflectionContainerTypeArguments() {
+    }
+
+    /**
+     * The type a type binds the type argument of a generic super type to, with the annotations declared on it
+     * and its own type arguments: read from the annotated super types first, which carry the annotations,
+     * else resolved through the hierarchy, which substitutes the type variables.
+     */
+    @Nullable
+    static Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        return BOUND_TYPE_ARGUMENTS.computeIfAbsent(new Key(declaredType, containerType, typeArgumentIndex),
+            key -> Optional.ofNullable(readBoundTypeArgument(key.declaredType(), key.containerType(), key.typeArgumentIndex()))).orElse(null);
+    }
+
+    @Nullable
+    private static Argument<?> readBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        Argument<?> annotated = annotatedBoundTypeArgument(declaredType, containerType, typeArgumentIndex);
+        if (annotated != null) {
+            return annotated;
+        }
+        Argument<?> resolved = ReflectionGenericArguments.resolveGenericToArgument(declaredType, containerType);
+        Argument<?>[] typeParameters = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
+        return typeArgumentIndex < typeParameters.length && typeParameters[typeArgumentIndex].getType() != Object.class
+            ? typeParameters[typeArgumentIndex]
+            : null;
+    }
+
+    @Nullable
+    private static Argument<?> annotatedBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        List<AnnotatedType> supertypes = new ArrayList<>();
+        supertypes.add(declaredType.getAnnotatedSuperclass());
+        supertypes.addAll(List.of(declaredType.getAnnotatedInterfaces()));
+        for (AnnotatedType supertype : supertypes) {
+            if (supertype == null) {
+                continue;
+            }
+            if (supertype instanceof AnnotatedParameterizedType parameterizedType
+                && parameterizedType.getType() instanceof ParameterizedType type
+                && type.getRawType() == containerType) {
+                AnnotatedType bound = parameterizedType.getAnnotatedActualTypeArguments()[typeArgumentIndex];
+                return bound.getType() instanceof TypeVariable<?> ? null : ReflectionArguments.of(bound);
+            }
+            Class<?> rawSupertype = supertype.getType() instanceof ParameterizedType type && type.getRawType() instanceof Class<?> raw ? raw
+                : supertype.getType() instanceof Class<?> supertypeClass ? supertypeClass : null;
+            if (rawSupertype != null && rawSupertype != Object.class && containerType.isAssignableFrom(rawSupertype)) {
+                Argument<?> resolved = annotatedBoundTypeArgument(rawSupertype, containerType, typeArgumentIndex);
+                if (resolved != null) {
+                    return resolved;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Which of a type's own type arguments carries the one an extractor extracts.
+     */
+    @Nullable
+    static Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
+        return EXTRACTED_TYPE_ARGUMENT_INDEXES.computeIfAbsent(new Key(declaredType, extractorContainerType, extractorTypeArgumentIndex),
+            key -> Optional.ofNullable(readExtractedTypeArgumentIndex(key.declaredType(), key.containerType(), key.typeArgumentIndex()))).orElse(null);
+    }
+
+    @Nullable
+    private static Integer readExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
+        Integer resolved = boundIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex);
+        if (resolved != null) {
+            return resolved;
+        }
+        for (Type genericInterface : declaredType.getGenericInterfaces()) {
+            resolved = boundIndex(declaredType, genericInterface, extractorContainerType, extractorTypeArgumentIndex);
+            if (resolved != null) {
+                return resolved;
+            }
+        }
+        return extractorTypeArgumentIndex;
+    }
+
+    @Nullable
+    private static Integer boundIndex(Class<?> declaredType,
+                                      Type genericType,
+                                      Class<?> extractorContainerType,
+                                      int extractorTypeArgumentIndex) {
+        if (!(genericType instanceof ParameterizedType parameterizedType) || parameterizedType.getRawType() != extractorContainerType) {
+            return null;
+        }
+        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
+        if (extractorTypeArgumentIndex >= actualTypeArguments.length) {
+            return null;
+        }
+        Type actualTypeArgument = actualTypeArguments[extractorTypeArgumentIndex];
+        if (actualTypeArgument instanceof TypeVariable<?> typeVariable) {
+            TypeVariable<?>[] declaredTypeParameters = declaredType.getTypeParameters();
+            for (int i = 0; i < declaredTypeParameters.length; i++) {
+                if (Objects.equals(declaredTypeParameters[i].getName(), typeVariable.getName())) {
+                    return i;
+                }
+            }
+        }
+        return extractorTypeArgumentIndex;
+    }
+
+    /**
+     * A type, the container type it is read as, and the index of the type argument asked for.
+     *
+     * @param declaredType      The type
+     * @param containerType     The container type
+     * @param typeArgumentIndex The index of the type argument
+     */
+    private record Key(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    }
+}

@@ -110,12 +110,39 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
+    public Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        throw missing("what " + declaredType.getName() + " binds the type argument " + typeArgumentIndex
+            + " of " + containerType.getName() + " to");
+    }
+
+    @Override
+    public Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        throw missing("which type argument of " + declaredType.getName() + " carries the one extracted from "
+            + containerType.getName());
+    }
+
+    @Override
+    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+        throw missing("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
+    }
+
+    @Override
     public Argument<?> argumentOf(AnnotatedType type) {
-        return GenericArguments.of(type);
+        throw missing("the annotations of the type " + type.getType().getTypeName());
     }
 
     @Override
     public AnnotationMetadata annotationMetadataOf(AnnotatedElement element) {
-        return GenericArguments.metadataOf(element);
+        throw missing("the annotations of " + element);
+    }
+
+    /**
+     * The generated metadata does not describe what was asked for, and reading it means reading the class,
+     * which is what the reflection module is for.
+     */
+    private static ValidationException missing(String what) {
+        return new ValidationException("No generated metadata describes " + what
+            + ": reading it means reading the class, and the micronaut-validation-reflection module,"
+            + " which would read it, is not present");
     }
 }

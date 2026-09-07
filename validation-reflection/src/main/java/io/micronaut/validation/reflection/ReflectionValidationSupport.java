@@ -109,6 +109,21 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        return ReflectionContainerTypeArguments.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
+    }
+
+    @Override
+    public Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+    }
+
+    @Override
+    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+        return ReflectionGenericArguments.resolveGenericToArgument(type, superType);
+    }
+
+    @Override
     public Argument<?> argumentOf(AnnotatedType type) {
         return ReflectionArguments.of(type);
     }

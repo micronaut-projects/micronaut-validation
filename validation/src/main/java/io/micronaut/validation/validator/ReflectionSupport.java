@@ -134,6 +134,52 @@ public interface ReflectionSupport {
     void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue);
 
     /**
+     * The type a type binds a generic super type's type argument to, with the annotations declared on it: the
+     * {@code String} of a {@code class Names implements Iterable<@NotBlank String>} read as an
+     * {@code Iterable}. The generated metadata describes what a type declares, not what it binds in a super
+     * type it does not restate, so this is read from the class itself.
+     *
+     * @param declaredType      The type as declared
+     * @param containerType     The generic super type it is read as
+     * @param typeArgumentIndex The index of the type argument of that super type
+     * @return The argument, {@code null} when the type binds no such argument
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.2
+     */
+    @Nullable
+    Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
+
+    /**
+     * Which of a type's own type arguments carries the one a value extractor extracts: a
+     * {@code class Pair<A, B> implements Map<B, A>} binds them the other way round, so the value a
+     * {@code Map} extractor extracts is the first argument of the pair, not the second.
+     *
+     * @param declaredType      The type as declared
+     * @param containerType     The container type the extractor is written for
+     * @param typeArgumentIndex The index of the type argument the extractor extracts
+     * @return The index among the type arguments of the declared type
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.2
+     */
+    @Nullable
+    Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
+
+    /**
+     * The argument of a super type as a type binds it: {@code ConstraintValidator<Size, CharSequence>} for a
+     * validator declaring {@code implements ConstraintValidator<Size, CharSequence>}. What a type binds in a
+     * super type it does not restate is not in the generated metadata, so this is read from the class itself.
+     *
+     * @param type      The type
+     * @param superType The super class or interface to resolve
+     * @param <T>       The super type
+     * @return The argument, {@code null} when the type does not extend or implement the super type
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.2
+     */
+    @Nullable
+    <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType);
+
+    /**
      * The argument of an annotated type, the annotations of the type and of its type arguments included where
      * they can be read.
      *
