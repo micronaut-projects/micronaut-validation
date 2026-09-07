@@ -99,7 +99,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null || element.hasStereotype(Vetoed.class)) {
+        if (classElement == null) {
             return;
         }
         if (!visited.add(element)) {
@@ -115,17 +115,27 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
         boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
-        if (parametersRequireValidation || returnTypeRequiresValidation || methodAnnotatedForValidation) {
-            if (isPrivate) {
-                throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
-            } else {
-                element.annotate(RequiresValidation.class);
-                classElement.annotate(RequiresValidation.class);
-                // the specification describes every constrained method: a bean method of the introspection
-                // is what a MethodDescriptor is read from, and only an executable method becomes one
-                element.annotate(Executable.class);
-            }
+        if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation) {
+            return;
         }
+        // a vetoed method is not validated when it is invoked: it asks for no validation advice. It is
+        // described all the same - the specification describes every constrained method, whether or not
+        // anything validates it - so being described and being validated are decided apart
+        boolean vetoed = element.hasStereotype(Vetoed.class);
+        if (isPrivate) {
+            if (vetoed) {
+                return;
+            }
+            throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
+        }
+        // the specification describes every constrained method: a bean method of the introspection
+        // is what a MethodDescriptor is read from, and only an executable method becomes one
+        element.annotate(Executable.class);
+        if (vetoed) {
+            return;
+        }
+        element.annotate(RequiresValidation.class);
+        classElement.annotate(RequiresValidation.class);
     }
 
     @Override

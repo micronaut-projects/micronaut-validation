@@ -12,7 +12,7 @@
         other than the one it builds beans with are described since @Introspected(constructors = true), which
         the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
         passes all of them.
-        33 exclusions across 23 classes. The exclusions are measured, not assumed: point the task at
+        31 exclusions across 22 classes. The exclusions are measured, not assumed: point the task at
         tck-spec-tests.xml, run it, and the failures are exactly this list.
     -->
     <test name="Jakarta-Bean-Validation-TCK">
@@ -118,12 +118,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ElementDescriptorTest">
                 <methods>
                     <exclude name="testDeclaredOn"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorIgnoresValidatedExecutableAnnotationSettingsTest">
-                <methods>
-                    <exclude name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnMethodLevel"/>
-                    <exclude name="testMethodDescriptorCanBeRetrievedAlsoIfValidateExecutableIsSetToNONEOnTypeLevel"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
