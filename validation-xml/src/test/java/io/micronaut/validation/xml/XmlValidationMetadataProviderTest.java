@@ -16,6 +16,9 @@
 package io.micronaut.validation.xml;
 
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.type.Argument;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -29,6 +32,7 @@ import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.junit.jupiter.api.Test;
 
@@ -457,6 +461,97 @@ class XmlValidationMetadataProviderTest {
         }
     }
 
+    @Test
+    void describesAMappedBeanTheArchiveHasNoIntrospectionFor() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="lines">
+                        <container-element-type type-argument-index="1">
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </container-element-type>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlDescribedBean.class.getName()));
+
+        BeanIntrospection<XmlDescribedBean> introspection = provider.getBeanIntrospection(XmlDescribedBean.class).orElseThrow();
+
+        assertEquals(XmlDescribedBean.class, introspection.getBeanType());
+        assertEquals(List.of("lines"), List.of(introspection.getPropertyNames()));
+        BeanProperty<XmlDescribedBean, Object> property = introspection.getProperty("lines").orElseThrow();
+        assertEquals(Map.class, property.getType());
+        Argument<?>[] typeParameters = property.asArgument().getTypeParameters();
+        assertEquals(String.class, typeParameters[0].getType());
+        assertEquals(BigDecimal.class, typeParameters[1].getType());
+    }
+
+    @Test
+    void readsTheValueOfAMemberAMappingNamesWhateverItsVisibility() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="lines">
+                        <container-element-type type-argument-index="0">
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </container-element-type>
+                    </field>
+                    <getter name="label">
+                        <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                    </getter>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlDescribedBean.class.getName()));
+
+        BeanIntrospection<XmlDescribedBean> introspection = provider.getBeanIntrospection(XmlDescribedBean.class).orElseThrow();
+        XmlDescribedBean bean = new XmlDescribedBean();
+
+        assertEquals(Map.of("a", BigDecimal.ONE), introspection.getProperty("lines").orElseThrow().get(bean));
+        assertEquals("label", introspection.getProperty("label").orElseThrow().get(bean));
+    }
+
+    @Test
+    void readsTheConstraintsAMappedMemberDeclaresOnItsTypeArguments() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="lines" ignore-annotations="false">
+                        <container-element-type type-argument-index="1">
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </container-element-type>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlDescribedBean.class.getName()));
+
+        Argument<?> lines = provider.getBeanIntrospection(XmlDescribedBean.class)
+            .orElseThrow()
+            .getProperty("lines")
+            .orElseThrow()
+            .asArgument();
+
+        assertTrue(lines.getTypeParameters()[0].getAnnotationMetadata().hasAnnotation(NotBlank.class));
+        assertTrue(lines.getTypeParameters()[0].getAnnotationMetadata().hasStereotype(Constraint.class));
+        assertFalse(lines.getTypeParameters()[1].getAnnotationMetadata().hasAnnotation(NotBlank.class));
+    }
+
+    @Test
+    void describesNothingForATypeNoMappingNames() {
+        XmlValidationMetadataProvider provider = metadataProvider("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s">
+                    <field name="lines">
+                        <container-element-type type-argument-index="1">
+                            <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                        </container-element-type>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(XmlDescribedBean.class.getName()));
+
+        assertTrue(provider.getBeanIntrospection(XmlContainerElementBean.class).isEmpty());
+    }
+
     private static XmlValidationMetadataProvider metadataProvider(String... xmls) {
         Set<InputStream> mappingStreams = new LinkedHashSet<>();
         for (String xml : xmls) {
@@ -514,6 +609,17 @@ final class XmlPropertyIgnoreBean {
     @NotNull
     String getIncluded() {
         return included;
+    }
+}
+
+final class XmlDescribedBean {
+
+    @SuppressWarnings("unused")
+    private final Map<@NotBlank String, BigDecimal> lines = Map.of("a", BigDecimal.ONE);
+
+    @SuppressWarnings("unused")
+    private String getLabel() {
+        return "label";
     }
 }
 

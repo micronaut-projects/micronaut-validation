@@ -18,6 +18,7 @@ package io.micronaut.validation.xml;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.inject.annotation.AnnotationMetadataSupport;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
@@ -125,6 +126,23 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
         BeanMapping mapping = beanMappings.get(beanType);
         return mapping == null ? Optional.empty() : Optional.of(new XmlBeanDescriptor(beanType, mapping));
+    }
+
+    /**
+     * The description of a mapped bean the archive holds no introspection for. The mapping names the fields
+     * and the getters it declares constraints on, and their generic signatures say what they hold: that is
+     * enough to read the bean, so a type the annotation processor never saw is validated for what the mapping
+     * declares. A type that does have an introspection is described by it, and this returns nothing.
+     */
+    @Override
+    public <T> Optional<BeanIntrospection<T>> getBeanIntrospection(Class<T> beanType) {
+        BeanMapping mapping = beanMappings.get(beanType);
+        if (mapping == null || mapping.properties.isEmpty()) {
+            return Optional.empty();
+        }
+        Map<String, AnnotatedElement> members = new LinkedHashMap<>();
+        mapping.properties.forEach((name, property) -> members.put(name, property.source()));
+        return Optional.of(new XmlBeanIntrospection<>(beanType, members));
     }
 
     @Override

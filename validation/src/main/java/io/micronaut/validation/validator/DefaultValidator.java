@@ -825,8 +825,8 @@ public class DefaultValidator implements
         if (object == null) {
             return null;
         }
-        return beanIntrospector.findIntrospection((Class<T>) object.getClass())
-            .orElseGet(() -> beanIntrospector.findIntrospection(definedClass).orElse(null));
+        return findIntrospection((Class<T>) object.getClass())
+            .orElseGet(() -> findIntrospection(definedClass).orElse(null));
     }
 
     /**
@@ -845,7 +845,7 @@ public class DefaultValidator implements
         if (object instanceof Class) {
             return getBeanIntrospection((Class<T>) object);
         }
-        return beanIntrospector.findIntrospection((Class<T>) object.getClass()).orElse(null);
+        return findIntrospection((Class<T>) object.getClass()).orElse(null);
     }
 
     /**
@@ -858,7 +858,22 @@ public class DefaultValidator implements
     @SuppressWarnings({"WeakerAccess"})
     @Nullable
     protected <T> BeanIntrospection<T> getBeanIntrospection(@NonNull Class<T> type) {
-        return beanIntrospector.findIntrospection(type).orElse(null);
+        return findIntrospection(type).orElse(null);
+    }
+
+    /**
+     * The introspection the archive holds for a type, and where it holds none the description a metadata
+     * provider builds from what it configures for it: an XML mapping naming the members of a type the
+     * annotation processor never saw describes the bean it configures.
+     */
+    private <T> Optional<BeanIntrospection<T>> findIntrospection(@NonNull Class<T> type) {
+        Optional<BeanIntrospection<T>> introspection = beanIntrospector.findIntrospection(type);
+        for (ValidationMetadataProvider provider : metadataProviders) {
+            if (introspection.isEmpty()) {
+                introspection = provider.getBeanIntrospection(type);
+            }
+        }
+        return introspection;
     }
 
     private <T> void validateParametersInternal(@NonNull DefaultConstraintValidatorContext<T> context,

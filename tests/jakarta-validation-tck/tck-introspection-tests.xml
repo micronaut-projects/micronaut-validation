@@ -12,7 +12,7 @@
         other than the one it builds beans with are described since @Introspected(constructors = true), which
         the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
         passes all of them.
-        44 exclusions across 28 classes. The exclusions are measured, not assumed: point the task at
+        33 exclusions across 23 classes. The exclusions are measured, not assumed: point the task at
         tck-spec-tests.xml, run it, and the failures are exactly this list.
     -->
     <test name="Jakarta-Bean-Validation-TCK">
@@ -157,39 +157,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.valueextraction.definition.ValueExtractorDefinitionTest">
                 <methods>
                     <exclude name="valuePassedToExtractorRetrievedFromHost"/>
-                </methods>
-            </class>
-
-            <!-- XML bound to a container element of a type the processor did not introspect -->
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForFieldXmlMappingTest">
-                <methods>
-                    <exclude name="canDeclareContainerElementCascadesForFieldWithXmlMapping"/>
-                    <exclude name="canDeclareContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                    <exclude name="canDeclareDeeplyNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                    <exclude name="canDeclareNestedContainerElementTypeConstraintsForFieldWithXmlMapping"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForGetterXmlMappingTest">
-                <methods>
-                    <exclude name="canDeclareContainerElementCascadesForGetterWithXmlMapping"/>
-                    <exclude name="canDeclareContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                    <exclude name="canDeclareDeeplyNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                    <exclude name="canDeclareNestedContainerElementTypeConstraintsForGetterWithXmlMapping"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForParameterXmlMappingTest">
-                <methods>
-                    <exclude name="canDeclareContainerElementCascadesForParameterWithXmlMapping"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeConstraintsForReturnValueXmlMappingTest">
-                <methods>
-                    <exclude name="canDeclareContainerElementCascadesForReturnValueWithXmlMapping"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.constraintdeclaration.containerelementlevel.ContainerElementTypeIgnoreAnnotationsMappingTest">
-                <methods>
-                    <exclude name="ignoreAnnotationsOnEncapsulatingFieldAppliesToContainerElementType"/>
                 </methods>
             </class>
 

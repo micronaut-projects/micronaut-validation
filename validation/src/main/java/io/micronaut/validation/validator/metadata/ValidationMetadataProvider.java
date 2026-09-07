@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.order.Ordered;
 import jakarta.validation.ConstraintValidator;
@@ -44,6 +45,25 @@ public interface ValidationMetadataProvider extends Ordered {
      * @return A bean descriptor if this provider has metadata for the type
      */
     Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType);
+
+    /**
+     * The description of a bean type the archive holds no introspection for, built from what this provider
+     * configures for it. A validator reads a bean through its introspection; a type the annotation processor
+     * never saw has none, and a configuration that names the members of such a type - an XML mapping naming a
+     * field or a getter - knows enough to say which properties there are and what they hold. The description
+     * carries the structure only: the annotations of the properties are the ones
+     * {@link #getPropertyAnnotationMetadata(Class, String)} and {@link #getPropertyArgument(Class, String, Argument)}
+     * serve, as they are for a type that does have an introspection.
+     *
+     * @param beanType The bean type
+     * @param <T>      The bean type
+     * @return The description, empty when this provider configures nothing for the type or the type is
+     *         described by an introspection of its own
+     * @since 5.2
+     */
+    default <T> Optional<BeanIntrospection<T>> getBeanIntrospection(Class<T> beanType) {
+        return Optional.empty();
+    }
 
     /**
      * @param beanType The bean type

@@ -98,6 +98,11 @@
         <file name="XmlValidationMetadataProvider">
             <allow pkg="java.lang.reflect"/>
         </file>
+        <!-- the field or the getter a mapping names, read for the value and for the generic signature it
+             declares, where the archive holds no introspection to read them from -->
+        <file name="XmlBeanIntrospection">
+            <allow pkg="java.lang.reflect"/>
+        </file>
     </subpackage>
 
 </import-control>
