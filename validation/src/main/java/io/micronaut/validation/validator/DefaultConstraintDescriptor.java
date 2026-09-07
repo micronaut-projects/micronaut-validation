@@ -287,7 +287,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         // compiled retains the contract that marks it, so anything else - no tree, or one another caller put
         // together - is a constraint the processors never saw
         if (retained != null && containsConstraintContract(retained)) {
-            return retainedComposingConstraints(retained, parentAnnotationValue, annotationMetadata);
+            return retainedComposingConstraints(constraintType, retained, parentAnnotationValue, annotationMetadata);
         }
         return reflectedComposingConstraints(constraintType, parentAnnotationValue, annotationMetadata);
     }
@@ -302,6 +302,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
      * reading its members reflectively, which is the path every constraint of a compiled application takes.</p>
      */
     private static Set<DefaultConstraintDescriptor<Annotation>> retainedComposingConstraints(
+        Class<? extends Annotation> constraintType,
         List<AnnotationValue<?>> retained,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
@@ -310,7 +311,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             if (!isRetainedConstraint(stereotype)) {
                 continue;
             }
-            composingConstraints.add(retainedComposingConstraint(stereotype, parentAnnotationValue, annotationMetadata));
+            composingConstraints.add(retainedComposingConstraint(constraintType, stereotype, parentAnnotationValue, annotationMetadata));
         }
         return Collections.unmodifiableSet(composingConstraints);
     }
@@ -346,12 +347,17 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static DefaultConstraintDescriptor<Annotation> retainedComposingConstraint(
+        Class<? extends Annotation> constraintType,
         AnnotationValue<?> composing,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         String name = composing.getAnnotationName();
+        // the composing constraint is a type the composed one refers to: it is loaded through the loader of
+        // the composed constraint, which is the one the application sees it through - a type the validator's
+        // own loader can also see, as in a test archive, is another class to the caller comparing them
         Class<? extends Annotation> annotationType = (Class<? extends Annotation>) ClassUtils
-            .forName(name, DefaultConstraintDescriptor.class.getClassLoader())
+            .forName(name, constraintType.getClassLoader())
+            .or(() -> ClassUtils.forName(name, DefaultConstraintDescriptor.class.getClassLoader()))
             .filter(Class::isAnnotation)
             .orElseThrow(() -> new ConstraintDeclarationException("Cannot load the composing constraint " + name));
         // the values the tree carries are the ones the composing annotation sets, the overrides of the composed
