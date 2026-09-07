@@ -19,7 +19,9 @@ import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.naming.NameUtils;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -33,6 +35,7 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -149,7 +152,62 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (visitElementValidationAndMarkForValidationIfNeeded(element, true)) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
+            declareFieldConstraintsOnContainerGetter(element);
         }
+    }
+
+    /**
+     * A getter that holds the value of a field in a container - {@code Optional<String> getAlpha()} for a
+     * {@code String alpha} - reads as a property of the container type, and a description of the bean has the
+     * one property where the type has both a field and a getter. What the field declares are the constraints
+     * the value it holds has to meet, so they are declared for the type argument that holds it as well: the
+     * property reads {@code Optional<@Pattern String>}, and the value extractor of the container hands the
+     * value to the constraint.
+     *
+     * @param field The field
+     */
+    private void declareFieldConstraintsOnContainerGetter(FieldElement field) {
+        ClassElement typeArgument = containerGetterTypeArgument(field);
+        if (typeArgument == null) {
+            return;
+        }
+        Stream.concat(
+                field.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
+                field.getAnnotationNamesByStereotype(ANN_VALID).stream()
+            )
+            .filter(name -> !typeArgument.hasAnnotation(name))
+            .flatMap(name -> field.getAnnotationValuesByName(name).stream())
+            .forEach(typeArgument::annotate);
+        visitElementValidationAndMarkForValidationIfNeeded(typeArgument, true);
+    }
+
+    /**
+     * The type argument a getter of the same name as a field holds the field's type in: the single type
+     * argument of a container that is not an iterable or a map, which holds one value rather than many.
+     *
+     * @param field The field
+     * @return The type argument, {@code null} when the type has no such getter
+     */
+    @Nullable
+    private ClassElement containerGetterTypeArgument(FieldElement field) {
+        String suffix = NameUtils.capitalize(field.getName());
+        MethodElement getter = classElement.findMethod("get" + suffix)
+            .or(() -> classElement.findMethod("is" + suffix))
+            .filter(method -> method.getParameters().length == 0)
+            .orElse(null);
+        if (getter == null) {
+            return null;
+        }
+        ClassElement returnType = getter.getReturnType().getGenericType();
+        if (returnType.isAssignable(Iterable.class) || returnType.isAssignable(Map.class)) {
+            return null;
+        }
+        Collection<ClassElement> typeArguments = returnType.getTypeArguments().values();
+        if (typeArguments.size() != 1) {
+            return null;
+        }
+        ClassElement typeArgument = typeArguments.iterator().next();
+        return typeArgument.getName().equals(field.getGenericType().getName()) ? typeArgument : null;
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
