@@ -31,6 +31,7 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.ValidationException;
 
 import java.lang.reflect.Constructor;
@@ -151,6 +152,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
                                                                         Class<? extends Annotation> constraintType) {
         return ReflectedConstraints.withDeclaredValidators(value, constraintType);
+    }
+
+    @Override
+    public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
+        return constraintType.isAnnotationPresent(ReportAsSingleViolation.class);
     }
 
     @Override

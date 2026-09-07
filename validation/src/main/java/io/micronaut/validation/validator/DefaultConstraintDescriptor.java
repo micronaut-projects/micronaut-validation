@@ -164,7 +164,26 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
         this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
-        this.reportAsSingleViolation = type.isAnnotationPresent(ReportAsSingleViolation.class);
+        // the marker is a stereotype of the constraint where the metadata retains it, and read from the type
+        // only for a constraint the annotation processor never compiled
+        this.reportAsSingleViolation = isReportedAsSingleViolation(annotationValue, type);
+    }
+
+    /**
+     * Whether the constraint reports its composition as one violation: the marker is a stereotype of the
+     * constraint itself, which the occurrence carries where the metadata retains it, and is read from the
+     * annotation type only where it does not.
+     */
+    private static boolean isReportedAsSingleViolation(AnnotationValue<?> annotationValue, Class<?> type) {
+        List<AnnotationValue<?>> stereotypes = annotationValue.getStereotypes();
+        if (stereotypes != null) {
+            for (AnnotationValue<?> stereotype : stereotypes) {
+                if (stereotype.getAnnotationName().equals(ReportAsSingleViolation.class.getName())) {
+                    return true;
+                }
+            }
+        }
+        return ReflectionSupport.get().reportsAsSingleViolation((Class<? extends Annotation>) type);
     }
 
     public AnnotationValue<T> getAnnotationValue() {

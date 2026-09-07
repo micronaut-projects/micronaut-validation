@@ -154,6 +154,17 @@ final class CompileTimeSupport implements ReflectionSupport {
         return value;
     }
 
+    /**
+     * The processor retains the marker on the occurrence of a constraint that carries it, so an occurrence
+     * without it is of a constraint that is not marked. The one case this cannot tell is a marker on a
+     * constraint composed inside another composed constraint, which the retained tree does not reach: the
+     * reflection module reads the type for it.
+     */
+    @Override
+    public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
+        return false;
+    }
+
     @Override
     public List<String> parameterNames(Executable executable) {
         throw missing("the parameter names of " + executable.getName() + " of "

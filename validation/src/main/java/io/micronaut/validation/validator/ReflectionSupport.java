@@ -241,6 +241,16 @@ public interface ReflectionSupport {
     AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
                                                                  Class<? extends Annotation> constraintType);
 
+    /**
+     * Whether a constraint annotation type is marked {@link jakarta.validation.ReportAsSingleViolation}, for
+     * an occurrence whose metadata does not record the marker.
+     *
+     * @param constraintType The constraint annotation type
+     * @return Whether the type is marked
+     * @since 5.2
+     */
+    boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType);
+
 
 
     /**
