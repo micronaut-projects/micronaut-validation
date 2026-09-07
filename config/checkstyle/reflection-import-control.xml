@@ -65,9 +65,6 @@
         <file name="DefaultValidatorConfiguration">
             <allow pkg="java.lang.reflect"/>
         </file>
-        <file name="ContainerTypeArguments">
-            <allow pkg="java.lang.reflect"/>
-        </file>
 
         <subpackage name="constraints">
             <file name="ConstraintDefinitions">

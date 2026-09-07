@@ -150,9 +150,9 @@ public interface ReflectionSupport {
     Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
 
     /**
-     * Which of a type's own type arguments carries the one a value extractor extracts: a
-     * {@code class Pair<A, B> implements Map<B, A>} binds them the other way round, so the value a
-     * {@code Map} extractor extracts is the first argument of the pair, not the second.
+     * Which of a type's own type arguments carries the one a value extractor extracts: a pair declaring
+     * {@code implements Map} with its own two arguments the other way round binds them in reverse, so the
+     * value a {@code Map} extractor extracts is the first argument of the pair rather than the second.
      *
      * @param declaredType      The type as declared
      * @param containerType     The container type the extractor is written for
