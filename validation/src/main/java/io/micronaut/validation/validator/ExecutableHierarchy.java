@@ -480,6 +480,37 @@ public final class ExecutableHierarchy {
                               boolean exact) {
 
         /**
+         * The constraints of a return value are declared on the method, so the return argument carries the
+         * annotations of the method next to the ones of the return type itself. A generated introspection and
+         * a bean definition build the return argument that way already; a reflective description carries the
+         * type-use annotations of the return type only, and would leave a method-level constraint declared
+         * nowhere on the return value of the merged hierarchy.
+         *
+         * @param declaringType      The type declaring it
+         * @param annotationMetadata The executable annotations, without the ones of its declaring type
+         * @param arguments          The parameters
+         * @param returnArgument     The return value
+         * @param exact              Whether the annotations are the ones of this declaration only
+         */
+        public Declaration {
+            returnArgument = withMethodAnnotations(returnArgument, annotationMetadata);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static Argument<?> withMethodAnnotations(Argument<?> returnArgument, AnnotationMetadata methodMetadata) {
+            AnnotationMetadata returnMetadata = returnArgument.getAnnotationMetadata();
+            if (methodMetadata.isEmpty() || returnMetadata.equals(methodMetadata)
+                || methodMetadata.getAnnotationNames().stream().allMatch(returnMetadata::hasAnnotation)) {
+                return returnArgument;
+            }
+            AnnotationMetadata metadata = mergeMetadata(List.of(methodMetadata, returnMetadata));
+            if (returnArgument instanceof GenericPlaceholder<?> placeholder) {
+                return Argument.ofTypeVariable((Class) returnArgument.getType(), returnArgument.getName(), placeholder.getVariableName(), metadata, returnArgument.getTypeParameters());
+            }
+            return Argument.of((Class) returnArgument.getType(), returnArgument.getName(), metadata, returnArgument.getTypeParameters());
+        }
+
+        /**
          * The declaration an executable method reports. Its metadata merges the annotations of the methods it
          * overrides, so the declaration is not exact.
          *

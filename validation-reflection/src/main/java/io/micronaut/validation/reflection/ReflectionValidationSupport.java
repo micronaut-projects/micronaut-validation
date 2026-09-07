@@ -70,12 +70,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public ExecutableHierarchy.Resolved resolveHierarchy(BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name) {
         MethodHierarchy hierarchy = MethodHierarchy.resolve(introspector, toCore(local), name);
-        return new ExecutableHierarchy.Resolved(local,
+        // the levels are merged here rather than taken merged from core: a declaration of the validator carries
+        // the method annotations on its return argument, which a reflective declaration of core does not
+        return ExecutableHierarchy.merge(local,
             fromCore(hierarchy.declared()),
-            hierarchy.inherited().stream().map(ReflectionValidationSupport::fromCore).toList(),
-            hierarchy.annotationMetadata(),
-            hierarchy.arguments(),
-            hierarchy.returnArgument());
+            hierarchy.inherited().stream().map(ReflectionValidationSupport::fromCore).toList());
     }
 
     private static MethodHierarchy.Declaration toCore(ExecutableHierarchy.Declaration declaration) {

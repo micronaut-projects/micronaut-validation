@@ -7,12 +7,12 @@
         (micronaut.validation.reflection.enabled=false).
 
         Everything excluded here needs metadata the processor does not produce today: the separation of a
-        field from its getter, a method the introspection does not list, the declarations of a super type the
-        introspection merges into its own, and a type it never introspected at all. The constructors of a type
+        field from its getter, a method the introspection does not list, the declarations of a super type on a
+        property the introspection merges into its own, and a type it never introspected at all. The constructors of a type
         other than the one it builds beans with are described since @Introspected(constructors = true), which
         the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
         passes all of them.
-        55 exclusions across 35 classes. The exclusions are measured, not assumed: point the task at
+        50 exclusions across 32 classes. The exclusions are measured, not assumed: point the task at
         tck-spec-tests.xml, run it, and the failures are exactly this list.
     -->
     <test name="Jakarta-Bean-Validation-TCK">
@@ -74,11 +74,6 @@
                 <methods>
                     <exclude name="testReturnValueIsMarkedAsCascadedInBaseAndSubClassCausesException"/>
                     <exclude name="testReturnValueIsMarkedAsCascadedInInterfaceAndImplementationCausesException"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.inheritance.method.validdeclarations.ValidMethodConstraintDeclarationTest">
-                <methods>
-                    <exclude name="testReturnValueConstraintFromInterfacesAndImplementationAddUp"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
@@ -156,20 +151,6 @@
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
                 <methods>
                     <exclude name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
-                </methods>
-            </class>
-
-            <!-- constraints an interface or a super class declares on an executable -->
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.MethodValidationTest">
-                <methods>
-                    <exclude name="methodReturnValueValidationIncludesConstraintsFromImplementedInterface"/>
-                    <exclude name="methodReturnValueValidationIncludesConstraintsFromSuperClass"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.methodvalidation.ValidateConstructorReturnValueTest">
-                <methods>
-                    <exclude name="testOneViolation"/>
-                    <exclude name="testUnexpectedType"/>
                 </methods>
             </class>
 
