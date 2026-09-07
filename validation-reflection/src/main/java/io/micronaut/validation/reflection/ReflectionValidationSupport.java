@@ -32,6 +32,8 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import jakarta.validation.ReportAsSingleViolation;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.ValidationException;
 
 import java.lang.reflect.Constructor;
@@ -41,6 +43,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * The {@link ReflectionSupport} over the reflection module of micronaut-core: what the generated metadata does
@@ -157,6 +160,17 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
         return constraintType.isAnnotationPresent(ReportAsSingleViolation.class);
+    }
+
+    @Override
+    public List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
+        return ReflectedConstraints.declaredValidators(constraintType);
+    }
+
+    @Override
+    public Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType) {
+        SupportedValidationTarget supported = validatorType.getAnnotation(SupportedValidationTarget.class);
+        return supported == null ? Set.of() : Set.of(supported.value());
     }
 
     @Override

@@ -23,6 +23,7 @@ import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * What a constraint annotation type declares about itself, for a constraint the annotation processor never
@@ -34,6 +35,17 @@ import java.util.Arrays;
 final class ReflectedConstraints {
 
     private ReflectedConstraints() {
+    }
+
+    /**
+     * The validator classes the annotation type declares.
+     *
+     * @param constraintType The constraint annotation type
+     * @return The classes, empty where the type declares none
+     */
+    static List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
+        Constraint constraint = constraintType.getAnnotation(Constraint.class);
+        return constraint == null ? List.of() : List.of(constraint.validatedBy());
     }
 
     /**

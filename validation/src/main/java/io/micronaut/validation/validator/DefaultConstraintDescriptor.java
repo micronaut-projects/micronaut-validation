@@ -357,9 +357,9 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         if (composing.isEmpty()) {
             return;
         }
-        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(constraintType));
+        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(parentAnnotationValue, constraintType));
         for (RetainedComposing constraint : composing) {
-            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(constraint.type()));
+            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(constraint.value(), constraint.type()));
             if (common.isEmpty()) {
                 throw new ConstraintDefinitionException("Composing constraints must share a validation target with the composed constraint: " + constraintType.getName());
             }

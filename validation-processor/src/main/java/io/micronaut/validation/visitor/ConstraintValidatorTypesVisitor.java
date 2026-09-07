@@ -16,6 +16,7 @@
 package io.micronaut.validation.visitor;
 
 import io.micronaut.core.annotation.AnnotationClassValue;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
@@ -72,6 +73,9 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
         element.annotate(ConstraintValidatorTypes.class, builder -> builder
             .member("constraint", new AnnotationClassValue<>(constraint.getName()))
             .member("target", new AnnotationClassValue<>(target.getName())));
+        // the validator is described by its introspection: what it validates, and the validation target it
+        // declares. Without one the validator can only be read from the class
+        element.annotate(Introspected.class);
     }
 
     /**

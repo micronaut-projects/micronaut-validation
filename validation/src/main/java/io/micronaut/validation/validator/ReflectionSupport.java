@@ -24,6 +24,7 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.io.service.SoftServiceLoader;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -31,6 +32,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Set;
 
 /**
  * What the validator reads through reflection when the {@code micronaut-validation-reflection} module is
@@ -250,6 +252,27 @@ public interface ReflectionSupport {
      * @since 5.2
      */
     boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType);
+
+    /**
+     * The validator classes a constraint annotation type declares, for a constraint whose occurrences carry
+     * none: the annotation processor records them on every occurrence it compiles.
+     *
+     * @param constraintType The constraint annotation type
+     * @return The validator classes, empty where the type declares none
+     * @since 5.2
+     */
+    List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType);
+
+    /**
+     * The validation targets a validator class declares through
+     * {@link jakarta.validation.constraintvalidation.SupportedValidationTarget}, for a validator the archive
+     * holds no introspection of.
+     *
+     * @param validatorType The validator class
+     * @return The targets, empty where the class declares none
+     * @since 5.2
+     */
+    Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType);
 
 
 

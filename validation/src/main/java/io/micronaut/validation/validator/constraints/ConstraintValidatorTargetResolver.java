@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.annotation.Internal;
@@ -23,9 +24,9 @@ import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import org.jspecify.annotations.Nullable;
 
-import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
@@ -126,12 +127,27 @@ public final class ConstraintValidatorTargetResolver {
      * @return The targets
      */
     public static Set<ValidationTarget> constraintTargets(Class<? extends Annotation> annotationType) {
-        Constraint constraint = annotationType.getAnnotation(Constraint.class);
-        if (constraint == null || constraint.validatedBy().length == 0) {
+        return constraintTargets(ReflectionSupport.get().declaredValidators(annotationType));
+    }
+
+    /**
+     * The validation targets a constraint supports, for an occurrence that records the validators it declares.
+     *
+     * @param annotationValue The occurrence
+     * @param annotationType  The constraint annotation type
+     * @return The targets
+     */
+    public static Set<ValidationTarget> constraintTargets(AnnotationValue<?> annotationValue,
+                                                          Class<? extends Annotation> annotationType) {
+        return constraintTargets(declaredValidators(annotationValue, annotationType));
+    }
+
+    private static Set<ValidationTarget> constraintTargets(List<Class<?>> declaredValidators) {
+        if (declaredValidators.isEmpty()) {
             return EnumSet.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
         }
         Set<ValidationTarget> targets = EnumSet.noneOf(ValidationTarget.class);
-        for (Class<?> validator : constraint.validatedBy()) {
+        for (Class<?> validator : declaredValidators) {
             Set<ValidationTarget> supported = validationTargets(validator);
             if (supported.isEmpty()) {
                 // a validator declaring no target validates the annotated element
@@ -143,9 +159,21 @@ public final class ConstraintValidatorTargetResolver {
         return targets;
     }
 
+    /**
+     * The validators a constraint declares: the ones its occurrence carries, which the annotation processor
+     * records, and where it carries none the ones its annotation type declares.
+     */
+    private static List<Class<?>> declaredValidators(AnnotationValue<?> annotationValue,
+                                                     Class<? extends Annotation> annotationType) {
+        Class<?>[] recorded = annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY);
+        return recorded.length > 0 ? List.of(recorded) : ReflectionSupport.get().declaredValidators(annotationType);
+    }
+
     public static Set<ValidationTarget> validationTargets(Class<?> validatorType) {
-        SupportedValidationTarget supportedValidationTarget = validatorType.getAnnotation(SupportedValidationTarget.class);
-        return supportedValidationTarget == null ? Set.of() : Set.of(supportedValidationTarget.value());
+        // the introspection of a validator records what it declares; a validator without one is read
+        return BeanIntrospector.SHARED.findIntrospection(validatorType)
+            .map(introspection -> validationTargets(introspection.getAnnotationMetadata()))
+            .orElseGet(() -> ReflectionSupport.get().supportedValidationTargets(validatorType));
     }
 
     /**

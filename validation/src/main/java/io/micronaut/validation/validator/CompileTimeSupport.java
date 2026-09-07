@@ -25,6 +25,7 @@ import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.ValidationException;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -33,6 +34,7 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.Optional;
 
 /**
@@ -163,6 +165,24 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
         return false;
+    }
+
+    /**
+     * The processor records the validators a constraint declares on every occurrence it compiles, so a
+     * constraint the metadata says nothing about declares none.
+     */
+    @Override
+    public List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
+        return List.of();
+    }
+
+    /**
+     * The targets are read from the introspection of a validator; a validator without one is described by
+     * nothing here.
+     */
+    @Override
+    public Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType) {
+        return Set.of();
     }
 
     @Override
