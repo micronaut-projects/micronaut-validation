@@ -12,7 +12,7 @@
         other than the one it builds beans with are described since @Introspected(constructors = true), which
         the harness sets on every archive type. The jakartaTck task, which keeps the reflective description on,
         passes all of them.
-        50 exclusions across 32 classes. The exclusions are measured, not assumed: point the task at
+        44 exclusions across 28 classes. The exclusions are measured, not assumed: point the task at
         tck-spec-tests.xml, run it, and the failures are exactly this list.
     -->
     <test name="Jakarta-Bean-Validation-TCK">
@@ -30,14 +30,8 @@
                     <exclude name="testFieldAccess"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.application.method.MethodValidationRequirementTest">
-                <methods>
-                    <exclude name="testReturnValueConstraintsAreDeclaredByAnnotatingConstructors"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.crossparameter.InvalidDeclarationOfGenericAndCrossParameterConstraintTest">
                 <methods>
-                    <exclude name="testConstraintTargetParametersOnConstructorWithoutParametersCausesException"/>
                     <exclude name="testConstraintTargetParametersOnInterfaceCausesException"/>
                     <exclude name="testConstraintTargetReturnValueOnInterfaceCausesException"/>
                 </methods>
@@ -51,7 +45,6 @@
                 <methods>
                     <exclude name="testGroupConversionGivenOnReturnValueInImplementedInterfaceWithSuperClass"/>
                     <exclude name="testGroupConversionGivenOnReturnValueInParallelInterfaces"/>
-                    <exclude name="testGroupConversionWithoutValidAnnotationOnConstructorReturnValue"/>
                 </methods>
             </class>
             <class name="org.hibernate.beanvalidation.tck.tests.constraints.groups.groupconversion.containerelement.InvalidGroupDefinitionsOnContainerElementsTest">
@@ -76,23 +69,8 @@
                     <exclude name="testReturnValueIsMarkedAsCascadedInInterfaceAndImplementationCausesException"/>
                 </methods>
             </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.constraints.validatorresolution.ValidatorResolutionTest">
-                <methods>
-                    <exclude name="testTargetedTypeIsConstructor"/>
-                </methods>
-            </class>
 
-            <!-- constructor interception, and value extractors that are not introspected types -->
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.ExecutableValidationTest">
-                <methods>
-                    <exclude name="testReturnValueValidationOfConstrainedConstructor"/>
-                </methods>
-            </class>
-            <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.types.ExecutableTypesTest">
-                <methods>
-                    <exclude name="testValidationOfConstrainedConstructorReturnValueWithExecutableTypeCONSTRUCTORS"/>
-                </methods>
-            </class>
+            <!-- value extractors that are not introspected types -->
             <class name="org.hibernate.beanvalidation.tck.tests.integration.cdi.managedobjects.ManagedServiceLoaderValueExtractorsTest">
                 <methods>
                     <exclude name=".*"/>

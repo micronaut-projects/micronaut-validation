@@ -24,32 +24,4 @@ public final class ComposedBeans {
             this.value = value;
         }
     }
-
-    @Introspected
-    public static class OverridesMissingMember {
-        @MissingMember
-        private String value;
-
-        public String getValue() {
-            return value;
-        }
-
-        public void setValue(String value) {
-            this.value = value;
-        }
-    }
-
-    @Introspected
-    public static class OverridesAbsentOccurrence {
-        @BadIndex
-        private String value;
-
-        public String getValue() {
-            return value;
-        }
-
-        public void setValue(String value) {
-            this.value = value;
-        }
-    }
 }

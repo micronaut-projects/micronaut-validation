@@ -68,13 +68,15 @@ final class ReflectedComposition {
      * @return The composing constraints, in declaration order
      */
     /**
-     * Checks the rules only the declared form of a constraint type answers: composing a constraint both
-     * directly and inside its container.
+     * Checks the rules only the declared form of a constraint type answers, by reading the composition the
+     * way a constraint without a retained tree is read: composing a constraint both directly and inside its
+     * container, and an override naming a member or an occurrence the composing constraint does not have.
      *
-     * @param constraintType The composed constraint type
+     * @param constraintType        The composed constraint type
+     * @param parentAnnotationValue The occurrence of the composed constraint
      */
-    static void checkDeclaredComposition(Class<? extends Annotation> constraintType) {
-        composingAnnotations(constraintType);
+    static void checkDeclaredComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
+        composingConstraints(constraintType, parentAnnotationValue);
     }
 
     static List<ReflectionSupport.ComposingConstraint> composingConstraints(

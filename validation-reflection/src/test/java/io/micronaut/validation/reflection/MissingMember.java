@@ -1,4 +1,4 @@
-package io.micronaut.validation.composition;
+package io.micronaut.validation.reflection;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.OverridesAttribute;
@@ -14,20 +14,19 @@ import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
 /**
- * A composed constraint naming an occurrence of {@link Size} that it does not compose: it composes one, and the
- * override selects the second.
+ * A composed constraint overriding a member {@link Size} does not declare at all.
  */
 @Constraint(validatedBy = {})
 @Size(min = 5)
 @Retention(RUNTIME)
 @Target({FIELD, METHOD, ANNOTATION_TYPE})
-public @interface BadIndex {
-    String message() default "index";
+public @interface MissingMember {
+    String message() default "missing";
 
     Class<?>[] groups() default {};
 
     Class<? extends Payload>[] payload() default {};
 
-    @OverridesAttribute(constraint = Size.class, name = "min", constraintIndex = 1)
-    int min() default 3;
+    @OverridesAttribute(constraint = Size.class, name = "thereIsNoSuchMember")
+    int bound() default 3;
 }

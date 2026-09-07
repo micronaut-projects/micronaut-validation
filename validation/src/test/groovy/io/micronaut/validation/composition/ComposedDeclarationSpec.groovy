@@ -3,7 +3,6 @@ package io.micronaut.validation.composition
 import io.micronaut.validation.validator.DefaultValidator
 import io.micronaut.validation.validator.DefaultValidatorConfiguration
 import jakarta.validation.ConstraintDefinitionException
-import spock.lang.PendingFeature
 import spock.lang.Specification
 
 /**
@@ -37,28 +36,6 @@ class ComposedDeclarationSpec extends Specification {
     void "a member overriding a member of another type is rejected"() {
         when: "@Abc.min is a String and overrides @Size.min, which is an int"
         validator().getConstraintsForClass(ComposedBeans.WrongOverrideType)
-            .getConstraintsForProperty("value")
-            .getConstraintDescriptors()
-
-        then:
-        thrown(ConstraintDefinitionException)
-    }
-
-    @PendingFeature(reason = "the checks are made on the reflective path only, so a constraint carrying a retained tree is described without them")
-    void "a member overriding a member the composed constraint does not declare is rejected"() {
-        when:
-        validator().getConstraintsForClass(ComposedBeans.OverridesMissingMember)
-            .getConstraintsForProperty("value")
-            .getConstraintDescriptors()
-
-        then:
-        thrown(ConstraintDefinitionException)
-    }
-
-    @PendingFeature(reason = "the checks are made on the reflective path only, so a constraint carrying a retained tree is described without them")
-    void "a member overriding an occurrence the composed constraint does not have is rejected"() {
-        when: "the override selects the second @Size, and one is composed"
-        validator().getConstraintsForClass(ComposedBeans.OverridesAbsentOccurrence)
             .getConstraintsForProperty("value")
             .getConstraintDescriptors()
 

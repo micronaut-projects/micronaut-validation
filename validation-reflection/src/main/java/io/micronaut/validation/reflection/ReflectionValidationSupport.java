@@ -104,8 +104,8 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public void checkComposition(Class<? extends Annotation> constraintType) {
-        ReflectedComposition.checkDeclaredComposition(constraintType);
+    public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
+        ReflectedComposition.checkDeclaredComposition(constraintType, parentAnnotationValue);
     }
 
     @Override

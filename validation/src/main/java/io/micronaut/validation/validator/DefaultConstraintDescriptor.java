@@ -317,7 +317,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                 composing.add(new RetainedComposing(composingType(constraintType, stereotype.getAnnotationName()), stereotype));
             }
         }
-        checkRetainedComposition(constraintType, composing);
+        checkRetainedComposition(constraintType, parentAnnotationValue, composing);
         Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
         for (RetainedComposing constraint : composing) {
             composingConstraints.add(retainedComposingConstraint(constraint.type(), constraint.value(), parentAnnotationValue, annotationMetadata));
@@ -332,7 +332,9 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
      * the default of the member it overrides. The rules only the declared form of the annotation type answers
      * are left to the reflection module, where it is present.
      */
-    private static void checkRetainedComposition(Class<? extends Annotation> constraintType, List<RetainedComposing> composing) {
+    private static void checkRetainedComposition(Class<? extends Annotation> constraintType,
+                                                 AnnotationValue<? extends Annotation> parentAnnotationValue,
+                                                 List<RetainedComposing> composing) {
         if (composing.isEmpty()) {
             return;
         }
@@ -357,7 +359,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                 }
             }
         }
-        ReflectionSupport.get().checkComposition(constraintType);
+        ReflectionSupport.get().checkComposition(constraintType, parentAnnotationValue);
     }
 
     /**
