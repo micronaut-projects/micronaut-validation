@@ -26,6 +26,9 @@ import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Optional;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -36,6 +39,10 @@ import java.util.Objects;
  */
 @Internal
 final class ContainerTypeArguments {
+
+    // the signature of a type does not change: what it binds is read once per type, container and index
+    private static final Map<Key, Optional<Argument<?>>> BOUND_TYPE_ARGUMENTS = new ConcurrentHashMap<>();
+    private static final Map<Key, Optional<Integer>> EXTRACTED_TYPE_ARGUMENT_INDEXES = new ConcurrentHashMap<>();
 
     private ContainerTypeArguments() {
     }
@@ -50,6 +57,12 @@ final class ContainerTypeArguments {
         if (declaredType == containerType || !containerType.isAssignableFrom(declaredType)) {
             return null;
         }
+        return BOUND_TYPE_ARGUMENTS.computeIfAbsent(new Key(declaredType, containerType, typeArgumentIndex),
+            key -> Optional.ofNullable(readBoundTypeArgument(key.declaredType(), key.containerType(), key.typeArgumentIndex()))).orElse(null);
+    }
+
+    @Nullable
+    private static Argument<?> readBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         Argument<?> annotated = annotatedBoundTypeArgument(declaredType, containerType, typeArgumentIndex);
         if (annotated != null) {
             return annotated;
@@ -90,10 +103,16 @@ final class ContainerTypeArguments {
 
     static Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
                                                      Class<?> extractorContainerType,
-                                                             Integer extractorTypeArgumentIndex) {
+                                                     Integer extractorTypeArgumentIndex) {
         if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
             return extractorTypeArgumentIndex;
         }
+        return EXTRACTED_TYPE_ARGUMENT_INDEXES.computeIfAbsent(new Key(declaredType, extractorContainerType, extractorTypeArgumentIndex),
+            key -> Optional.ofNullable(readExtractedTypeArgumentIndex(key.declaredType(), key.containerType(), key.typeArgumentIndex()))).orElse(null);
+    }
+
+    @Nullable
+    private static Integer readExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
         Integer resolved = resolveExtractedTypeArgumentIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex); // reflection: which type argument a sub type binds
         if (resolved != null) {
             return resolved;
@@ -128,5 +147,15 @@ final class ContainerTypeArguments {
             }
         }
         return extractorTypeArgumentIndex;
+    }
+
+    /**
+     * A type, the container type it is read as, and the index of the type argument asked for.
+     *
+     * @param declaredType      The type
+     * @param containerType     The container type
+     * @param typeArgumentIndex The index of the type argument
+     */
+    private record Key(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
     }
 }

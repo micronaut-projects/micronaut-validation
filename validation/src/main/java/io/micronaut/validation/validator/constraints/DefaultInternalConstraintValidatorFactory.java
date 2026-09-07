@@ -141,7 +141,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection) {
         return new ConstraintValidatorEntry(
             beanIntrospection.instantiate(),
-            ConstraintValidatorTargetResolver.getTargetType(beanIntrospection.getBeanType()),
+            ConstraintValidatorTargetResolver.getTargetType(beanIntrospection),
             ConstraintValidatorTargetResolver.validationTargets(beanIntrospection),
             null
         );
