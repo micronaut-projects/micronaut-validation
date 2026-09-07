@@ -28,6 +28,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.List;
 
@@ -214,6 +215,18 @@ public interface ReflectionSupport {
      * @since 5.2
      */
     Argument<?> valueExtractorArgument(Class<?> extractorType);
+
+    /**
+     * The names of the parameters of an executable the specification API names by its
+     * {@link java.lang.reflect.Executable}. Only the class file carries them, and only when it was compiled
+     * to, so a caller that asks by reflection is answered by reflection.
+     *
+     * @param executable The executable
+     * @return The names, one per parameter
+     * @throws jakarta.validation.ValidationException When nothing can read them
+     * @since 5.2
+     */
+    List<String> parameterNames(Executable executable);
 
 
 

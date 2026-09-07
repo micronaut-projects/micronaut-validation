@@ -29,6 +29,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
@@ -140,6 +141,12 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         throw missing("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
+    }
+
+    @Override
+    public List<String> parameterNames(Executable executable) {
+        throw missing("the parameter names of " + executable.getName() + " of "
+            + executable.getDeclaringClass().getName());
     }
 
     @Override

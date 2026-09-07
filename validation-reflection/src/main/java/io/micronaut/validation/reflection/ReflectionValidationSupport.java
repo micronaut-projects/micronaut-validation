@@ -34,8 +34,11 @@ import java.lang.annotation.Annotation;
 import jakarta.validation.ValidationException;
 
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
+import java.lang.reflect.Parameter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -142,6 +145,17 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         return ReflectionGenericArguments.resolveGenericToArgument(type, superType);
+    }
+
+    @Override
+    public List<String> parameterNames(Executable executable) {
+        Parameter[] parameters = executable.getParameters();
+        List<String> names = new ArrayList<>(parameters.length);
+        for (int i = 0; i < parameters.length; i++) {
+            Parameter parameter = parameters[i];
+            names.add(parameter.isNamePresent() ? parameter.getName() : "arg" + i);
+        }
+        return names;
     }
 
     @Override

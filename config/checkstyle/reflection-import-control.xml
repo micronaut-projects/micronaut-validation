@@ -51,14 +51,14 @@
         <file name="ExecutableMethodValidator">
             <allow pkg="java.lang.reflect"/>
         </file>
+        <!-- the parameter names an API asks for by Constructor or Method: named, never read here -->
+        <file name="DefaultParameterNameProvider">
+            <allow pkg="java.lang.reflect"/>
+        </file>
         <file name="DefaultValidator">
             <allow pkg="java.lang.reflect"/>
         </file>
         <file name="ValidationPath">
-            <allow pkg="java.lang.reflect"/>
-        </file>
-        <!-- the parameter names an API asks for by Executable -->
-        <file name="DefaultParameterNameProvider">
             <allow pkg="java.lang.reflect"/>
         </file>
 

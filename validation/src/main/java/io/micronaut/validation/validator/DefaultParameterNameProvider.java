@@ -19,14 +19,12 @@ import io.micronaut.core.annotation.Internal;
 import jakarta.validation.ParameterNameProvider;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
-import java.lang.reflect.Parameter;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Default {@link ParameterNameProvider} implementation.
+ * The parameter names the specification asks for by {@link Constructor} or {@link Method}: only the class
+ * file carries them, so {@link ReflectionSupport} decides who reads it.
  *
  * @author graemerocher
  * @since 5.1
@@ -36,21 +34,11 @@ public final class DefaultParameterNameProvider implements ParameterNameProvider
 
     @Override
     public List<String> getParameterNames(Constructor<?> constructor) {
-        return getParameterNames((Executable) constructor);
+        return ReflectionSupport.get().parameterNames(constructor);
     }
 
     @Override
     public List<String> getParameterNames(Method method) {
-        return getParameterNames((Executable) method);
-    }
-
-    private static List<String> getParameterNames(Executable executable) {
-        Parameter[] parameters = executable.getParameters();
-        List<String> names = new ArrayList<>(parameters.length);
-        for (int i = 0; i < parameters.length; i++) {
-            Parameter parameter = parameters[i];
-            names.add(parameter.isNamePresent() ? parameter.getName() : "arg" + i);
-        }
-        return names;
+        return ReflectionSupport.get().parameterNames(method);
     }
 }
