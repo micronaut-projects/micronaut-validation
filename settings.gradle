@@ -15,10 +15,16 @@ dependencyResolutionManagement {
     repositories {
         mavenLocal()
         mavenCentral()
+        // micronaut-core 5.2.0-SNAPSHOT, which carries the micronaut-reflection module: the mn catalog is
+        // resolved from its BOM here, the modules from the same repository declared in the base convention
+        maven {
+            url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
     }
 }
-
-includeBuild('/home/user/micronaut-core')
 
 rootProject.name = 'validation-parent'
 

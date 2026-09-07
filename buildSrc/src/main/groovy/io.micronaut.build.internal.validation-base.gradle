@@ -1,6 +1,14 @@
 // If you don't need any common settings/dependencies/... for everything, remove this convention plugin and the reference to it in `io.micronaut.build.internal.project-template-module.gradle` file
 repositories {
     mavenCentral()
+    // micronaut-core 5.2.0-SNAPSHOT, which carries the micronaut-reflection module; the project
+    // repositories replace the ones of settings.gradle, so the snapshots are declared here
+    maven {
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent {
+            snapshotsOnly()
+        }
+    }
 }
 
 configurations.all {

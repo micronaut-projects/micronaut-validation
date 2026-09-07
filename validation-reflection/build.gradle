@@ -8,7 +8,7 @@ dependencies {
     annotationProcessor mn.micronaut.inject.java
 
     api projects.micronautValidation
-    api "io.micronaut:micronaut-reflection"
+    api mn.micronaut.reflection
 
     testAnnotationProcessor projects.micronautValidationProcessor
     testAnnotationProcessor mn.micronaut.inject.java
