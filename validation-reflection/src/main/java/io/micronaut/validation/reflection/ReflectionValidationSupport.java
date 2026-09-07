@@ -104,6 +104,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public void checkComposition(Class<? extends Annotation> constraintType) {
+        ReflectedComposition.checkDeclaredComposition(constraintType);
+    }
+
+    @Override
     public Argument<?> argumentOf(AnnotatedType type) {
         return ReflectionArguments.of(type);
     }

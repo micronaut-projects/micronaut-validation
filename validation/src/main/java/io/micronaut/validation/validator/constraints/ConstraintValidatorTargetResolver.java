@@ -25,6 +25,7 @@ import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.validator.GenericArguments;
 import org.jspecify.annotations.Nullable;
 
+import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
@@ -33,7 +34,9 @@ import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
@@ -114,6 +117,32 @@ public final class ConstraintValidatorTargetResolver {
      * @param validatorType The validator type
      * @return Supported validation targets
      */
+    /**
+     * The validation targets a constraint type supports: the union of what its validators declare, a validator
+     * declaring nothing validating the annotated element, and both targets for a constraint declaring no
+     * validator, which is validated by what its composition declares.
+     *
+     * @param annotationType The constraint annotation type
+     * @return The targets
+     */
+    public static Set<ValidationTarget> constraintTargets(Class<? extends Annotation> annotationType) {
+        Constraint constraint = annotationType.getAnnotation(Constraint.class);
+        if (constraint == null || constraint.validatedBy().length == 0) {
+            return EnumSet.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
+        }
+        Set<ValidationTarget> targets = EnumSet.noneOf(ValidationTarget.class);
+        for (Class<?> validator : constraint.validatedBy()) {
+            Set<ValidationTarget> supported = validationTargets(validator);
+            if (supported.isEmpty()) {
+                // a validator declaring no target validates the annotated element
+                targets.add(ValidationTarget.ANNOTATED_ELEMENT);
+            } else {
+                targets.addAll(supported);
+            }
+        }
+        return targets;
+    }
+
     public static Set<ValidationTarget> validationTargets(Class<?> validatorType) {
         SupportedValidationTarget supportedValidationTarget = validatorType.getAnnotation(SupportedValidationTarget.class);
         return supportedValidationTarget == null ? Set.of() : Set.of(supportedValidationTarget.value());

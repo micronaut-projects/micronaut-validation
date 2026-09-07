@@ -67,6 +67,16 @@ final class ReflectedComposition {
      * @param parentAnnotationValue The occurrence of the composed constraint
      * @return The composing constraints, in declaration order
      */
+    /**
+     * Checks the rules only the declared form of a constraint type answers: composing a constraint both
+     * directly and inside its container.
+     *
+     * @param constraintType The composed constraint type
+     */
+    static void checkDeclaredComposition(Class<? extends Annotation> constraintType) {
+        composingAnnotations(constraintType);
+    }
+
     static List<ReflectionSupport.ComposingConstraint> composingConstraints(
         Class<? extends Annotation> constraintType,
         AnnotationValue<? extends Annotation> parentAnnotationValue) {
@@ -87,31 +97,13 @@ final class ReflectedComposition {
         if (composingAnnotations.isEmpty()) {
             return;
         }
-        Set<ValidationTarget> common = EnumSet.copyOf(validationTargets(parentType));
+        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(parentType));
         for (ComposingAnnotation composingAnnotation : composingAnnotations) {
-            common.retainAll(validationTargets(composingAnnotation.annotation().annotationType()));
+            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(composingAnnotation.annotation().annotationType()));
             if (common.isEmpty()) {
                 throw new ConstraintDefinitionException("Composing constraints must share a validation target with the composed constraint: " + parentType.getName());
             }
         }
-    }
-
-    private static Set<ValidationTarget> validationTargets(Class<? extends Annotation> annotationType) {
-        jakarta.validation.Constraint constraint = annotationType.getAnnotation(jakarta.validation.Constraint.class);
-        if (constraint == null || constraint.validatedBy().length == 0) {
-            return EnumSet.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
-        }
-        Set<ValidationTarget> targets = EnumSet.noneOf(ValidationTarget.class);
-        for (Class<?> validator : constraint.validatedBy()) {
-            Set<ValidationTarget> supported = ConstraintValidatorTargetResolver.validationTargets(validator);
-            if (supported.isEmpty()) {
-                // a validator declaring no target validates the annotated element
-                targets.add(ValidationTarget.ANNOTATED_ELEMENT);
-            } else {
-                targets.addAll(supported);
-            }
-        }
-        return targets;
     }
 
     @SuppressWarnings("unchecked")

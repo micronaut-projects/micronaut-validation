@@ -120,6 +120,16 @@ public interface ReflectionSupport {
     List<ComposingConstraint> composingConstraints(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue);
 
     /**
+     * Checks the rules of a composition that only the declared form of the constraint annotation type can
+     * answer: a constraint composed both directly and inside its repeatable container, which the retained tree
+     * of the generated metadata flattens into repeated occurrences.
+     *
+     * @param constraintType The composed constraint type
+     * @throws jakarta.validation.ConstraintDeclarationException When the declared composition breaks a rule
+     */
+    void checkComposition(Class<? extends Annotation> constraintType);
+
+    /**
      * The argument of an annotated type, the annotations of the type and of its type arguments included where
      * they can be read.
      *

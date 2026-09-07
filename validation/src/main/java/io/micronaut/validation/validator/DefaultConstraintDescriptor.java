@@ -24,8 +24,11 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.reflect.ClassUtils;
+import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import jakarta.validation.ConstraintDeclarationException;
+import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Payload;
@@ -37,6 +40,8 @@ import jakarta.validation.valueextraction.Unwrapping;
 
 import java.lang.annotation.Annotation;
 import java.util.Collections;
+import java.util.EnumSet;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -306,19 +311,89 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         List<AnnotationValue<?>> retained,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
-        Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
+        List<RetainedComposing> composing = new ArrayList<>();
         for (AnnotationValue<?> stereotype : retained) {
-            if (!isRetainedConstraint(stereotype)) {
-                continue;
+            if (isRetainedConstraint(stereotype)) {
+                composing.add(new RetainedComposing(composingType(constraintType, stereotype.getAnnotationName()), stereotype));
             }
-            composingConstraints.add(retainedComposingConstraint(constraintType, stereotype, parentAnnotationValue, annotationMetadata));
+        }
+        checkRetainedComposition(constraintType, composing);
+        Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
+        for (RetainedComposing constraint : composing) {
+            composingConstraints.add(retainedComposingConstraint(constraint.type(), constraint.value(), parentAnnotationValue, annotationMetadata));
         }
         return Collections.unmodifiableSet(composingConstraints);
     }
 
     /**
-     * Whether the constraint contract is among a set of retained stereotypes.
+     * The rules of a composition the retained tree can answer: a composed constraint and the constraints
+     * composing it share a validation target, and a member overriding a member of a composing constraint has
+     * the type of that member - the tree carries the value written with the type it was written with, next to
+     * the default of the member it overrides. The rules only the declared form of the annotation type answers
+     * are left to the reflection module, where it is present.
      */
+    private static void checkRetainedComposition(Class<? extends Annotation> constraintType, List<RetainedComposing> composing) {
+        if (composing.isEmpty()) {
+            return;
+        }
+        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(constraintType));
+        for (RetainedComposing constraint : composing) {
+            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(constraint.type()));
+            if (common.isEmpty()) {
+                throw new ConstraintDefinitionException("Composing constraints must share a validation target with the composed constraint: " + constraintType.getName());
+            }
+        }
+        for (RetainedComposing constraint : composing) {
+            Map<CharSequence, Object> defaultValues = constraint.value().getDefaultValues();
+            if (defaultValues == null) {
+                continue;
+            }
+            for (Map.Entry<CharSequence, Object> member : constraint.value().getValues().entrySet()) {
+                String name = member.getKey().toString();
+                Object defaultValue = defaultValues.get(name);
+                if (!name.startsWith("$") && defaultValue != null && !sameKind(member.getValue(), defaultValue)) {
+                    throw new ConstraintDefinitionException("The member of " + constraintType.getName() + " overriding "
+                        + constraint.type().getName() + "." + name + " does not have the type of that member");
+                }
+            }
+        }
+        ReflectionSupport.get().checkComposition(constraintType);
+    }
+
+    /**
+     * Whether a value written for a member is of the kind of the member's default: the metadata stores a
+     * value with the type of the member it was written for, so a String written over an int member is a String
+     * next to an Integer default, and an array over a single-valued member an array next to a value.
+     */
+    private static boolean sameKind(Object value, Object defaultValue) {
+        Class<?> valueType = value.getClass();
+        Class<?> defaultType = defaultValue.getClass();
+        if (valueType.isArray() || defaultType.isArray()) {
+            // an empty array says nothing of its component type: the metadata writes one for a member left empty
+            return valueType.isArray() && defaultType.isArray()
+                && (valueType.getComponentType() == defaultType.getComponentType() || isEmptyArray(value) || isEmptyArray(defaultValue));
+        }
+        return valueType == defaultType;
+    }
+
+    private static boolean isEmptyArray(Object array) {
+        return array instanceof Object[] objects && objects.length == 0;
+    }
+
+    /**
+     * A composing constraint the tree names, loaded through the loader of the composed constraint: the one the
+     * application sees the composition through. A type the validator's own loader can also see, as in a test
+     * archive, is another class to a caller comparing them.
+     */
+    @SuppressWarnings("unchecked")
+    private static Class<? extends Annotation> composingType(Class<? extends Annotation> constraintType, String name) {
+        return (Class<? extends Annotation>) ClassUtils
+            .forName(name, constraintType.getClassLoader())
+            .or(() -> ClassUtils.forName(name, DefaultConstraintDescriptor.class.getClassLoader()))
+            .filter(Class::isAnnotation)
+            .orElseThrow(() -> new ConstraintDeclarationException("Cannot load the composing constraint " + name));
+    }
+
     private static boolean containsConstraintContract(List<AnnotationValue<?>> retained) {
         for (AnnotationValue<?> stereotype : retained) {
             if (CONSTRAINT_ANNOTATION.equals(stereotype.getAnnotationName())) {
@@ -347,19 +422,11 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static DefaultConstraintDescriptor<Annotation> retainedComposingConstraint(
-        Class<? extends Annotation> constraintType,
+        Class<? extends Annotation> annotationType,
         AnnotationValue<?> composing,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         String name = composing.getAnnotationName();
-        // the composing constraint is a type the composed one refers to: it is loaded through the loader of
-        // the composed constraint, which is the one the application sees it through - a type the validator's
-        // own loader can also see, as in a test archive, is another class to the caller comparing them
-        Class<? extends Annotation> annotationType = (Class<? extends Annotation>) ClassUtils
-            .forName(name, constraintType.getClassLoader())
-            .or(() -> ClassUtils.forName(name, DefaultConstraintDescriptor.class.getClassLoader()))
-            .filter(Class::isAnnotation)
-            .orElseThrow(() -> new ConstraintDeclarationException("Cannot load the composing constraint " + name));
         // the values the tree carries are the ones the composing annotation sets, the overrides of the composed
         // one already applied; the reserved member holding the subtree is not one of them
         Map<CharSequence, Object> values = new LinkedHashMap<>(composing.getValues());
@@ -415,4 +482,13 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return attributes;
     }
 
+
+    /**
+     * A constraint the retained tree names as composing another, with its type loaded.
+     *
+     * @param type  The composing constraint type
+     * @param value The occurrence in the tree, the overrides of the composed constraint applied
+     */
+    private record RetainedComposing(Class<? extends Annotation> type, AnnotationValue<?> value) {
+    }
 }

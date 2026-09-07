@@ -105,6 +105,11 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
+    public void checkComposition(Class<? extends Annotation> constraintType) {
+        // the declared form of the annotation type is not read: the rules the retained tree cannot answer are not checked
+    }
+
+    @Override
     public Argument<?> argumentOf(AnnotatedType type) {
         return GenericArguments.of(type);
     }

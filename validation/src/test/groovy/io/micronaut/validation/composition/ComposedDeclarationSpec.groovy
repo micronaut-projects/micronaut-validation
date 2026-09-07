@@ -34,7 +34,6 @@ class ComposedDeclarationSpec extends Specification {
             .collect { [it.getAnnotation().annotationType().simpleName, it.getAttributes().get("min")] } == [["Size", 8]]
     }
 
-    @PendingFeature(reason = "the checks are made on the reflective path only, so a constraint carrying a retained tree is described without them")
     void "a member overriding a member of another type is rejected"() {
         when: "@Abc.min is a String and overrides @Size.min, which is an int"
         validator().getConstraintsForClass(ComposedBeans.WrongOverrideType)
