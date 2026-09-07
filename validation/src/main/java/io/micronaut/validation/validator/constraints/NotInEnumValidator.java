@@ -18,6 +18,8 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.annotation.NotInEnum;
 import jakarta.inject.Singleton;
 
@@ -26,6 +28,8 @@ import jakarta.inject.Singleton;
  * Validator for the {@link NotInEnum} constraint.
  */
 @Singleton
+@Introspected
+@ConstraintValidatorTypes(constraint = NotInEnum.class, target = Object.class)
 public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object> {
 
     @Override

@@ -30,8 +30,9 @@ import java.lang.annotation.Target;
  * validates. The validator reads them from the introspection instead of from the generic signature of the
  * class, so an introspected validator is described without reflection.
  *
- * <p>Not meant to be declared by hand: the processor sets it on every introspected implementation whose
- * type arguments resolve.</p>
+ * <p>The processor sets it on every introspected implementation whose type arguments resolve, so it is not
+ * normally declared by hand. The validators of this module are the exception: the processor depends on the
+ * module and cannot be run over its own sources, so they record what they validate themselves.</p>
  *
  * @author Denis Stepanov
  * @since 5.2

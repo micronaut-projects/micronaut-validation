@@ -4,6 +4,7 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
 
+@io.micronaut.core.annotation.Introspected
 @Singleton
 public class CustomMessageConstraint2Validator implements ConstraintValidator<CustomMessageConstraint, Object> {
 

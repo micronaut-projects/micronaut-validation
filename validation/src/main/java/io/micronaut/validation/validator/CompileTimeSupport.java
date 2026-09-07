@@ -109,16 +109,24 @@ final class CompileTimeSupport implements ReflectionSupport {
         // the declared form of the annotation type is not read: the rules the retained tree cannot answer are not checked
     }
 
+    /**
+     * A type argument bound in a super type the container does not restate is not in the generated metadata:
+     * the caller describes the extracted value from what the extractor declares instead.
+     */
     @Override
     public Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        throw missing("what " + declaredType.getName() + " binds the type argument " + typeArgumentIndex
-            + " of " + containerType.getName() + " to");
+        return null;
     }
 
+    /**
+     * A container that renames or reorders the type arguments of the type an extractor is written for says so
+     * only in its signature. Without it the argument is taken to be the one at the same position, which is
+     * what the reading of the signature itself falls back to, and which is right for every container that
+     * passes its type arguments through - a {@code List} read as an {@code Iterable}, and the rest.
+     */
     @Override
     public Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        throw missing("which type argument of " + declaredType.getName() + " carries the one extracted from "
-            + containerType.getName());
+        return typeArgumentIndex;
     }
 
     @Override
