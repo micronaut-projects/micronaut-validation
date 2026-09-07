@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
@@ -29,8 +28,6 @@ import jakarta.validation.ValidationException;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Arrays;
@@ -146,13 +143,9 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
-    public Argument<?> argumentOf(AnnotatedType type) {
-        throw missing("the annotations of the type " + type.getType().getTypeName());
-    }
-
-    @Override
-    public AnnotationMetadata annotationMetadataOf(AnnotatedElement element) {
-        throw missing("the annotations of " + element);
+    public Argument<?> valueExtractorArgument(Class<?> extractorType) {
+        throw missing("the extractor signature " + extractorType.getName() + " declares, for an instance"
+            + " registered through the configuration API");
     }
 
     /**

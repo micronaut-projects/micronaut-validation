@@ -61,10 +61,6 @@
         <file name="DefaultParameterNameProvider">
             <allow pkg="java.lang.reflect"/>
         </file>
-        <!-- the java.lang.reflect.Type a value extractor is resolved over -->
-        <file name="DefaultValidatorConfiguration">
-            <allow pkg="java.lang.reflect"/>
-        </file>
 
         <subpackage name="constraints">
             <!-- the runtime counterpart of the processor extensions, which reads the annotation type -->

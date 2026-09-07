@@ -16,7 +16,6 @@
 package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
@@ -25,8 +24,6 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.reflection.MethodHierarchy;
-import io.micronaut.reflection.ReflectionAnnotations;
-import io.micronaut.reflection.ReflectionArguments;
 import io.micronaut.reflection.ReflectionExecutables;
 import io.micronaut.reflection.ReflectiveIntrospection;
 import io.micronaut.validation.validator.ExecutableHierarchy;
@@ -34,8 +31,6 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedType;
 import jakarta.validation.ValidationException;
 
 import java.lang.reflect.Constructor;
@@ -150,12 +145,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public Argument<?> argumentOf(AnnotatedType type) {
-        return ReflectionArguments.of(type);
-    }
-
-    @Override
-    public AnnotationMetadata annotationMetadataOf(AnnotatedElement element) {
-        return ReflectionAnnotations.metadataOf(element);
+    public Argument<?> valueExtractorArgument(Class<?> extractorType) {
+        return ReflectedValueExtractors.argumentOf(extractorType);
     }
 }

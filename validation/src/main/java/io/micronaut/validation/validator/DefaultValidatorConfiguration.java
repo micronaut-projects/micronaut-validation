@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.annotation.ConfigurationProperties;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
@@ -27,7 +26,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -57,13 +55,6 @@ import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
 
 import java.lang.annotation.ElementType;
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedType;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
-import java.lang.reflect.WildcardType;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -503,20 +494,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     private void addValueExtractor(ValueExtractor<?> extractor, boolean replace) {
-        List<AnnotatedType> annotatedTypes = new ArrayList<>();
-        Class<? extends ValueExtractor> extractorClass = extractor.getClass();
-        determineValueExtractorDefinitions(annotatedTypes, extractorClass);
-        if (annotatedTypes.size() != 1) {
-            throw new IllegalStateException("Expected to find one annotation type! Got: " + annotatedTypes);
-        }
         ValueExtractorRegistry valueExtractorRegistry1 = getValueExtractorRegistry();
-        Argument<ValueExtractor<Object>> argument = (Argument<ValueExtractor<Object>>) argumentOf(annotatedTypes.get(0));
-        if (extractorClass.getAnnotations().length > 0) {
-            argument = Argument.of(
-                argument.getType(),
-                new AnnotationMetadataHierarchy(argument.getAnnotationMetadata(), annotationMetadataOf(extractorClass)),
-                argument.getTypeParameters());
-        }
+        Argument<ValueExtractor<Object>> argument =
+            (Argument<ValueExtractor<Object>>) ReflectionSupport.get().valueExtractorArgument(extractor.getClass());
         ValueExtractorDefinition<Object> definition = new ValueExtractorDefinition<>(
             argument,
             (ValueExtractor<Object>) extractor
@@ -529,14 +509,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @NonNull
-    private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
-        return ReflectionSupport.get().argumentOf(type);
-    }
-
-    private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
-        return ReflectionSupport.get().annotationMetadataOf(annotatedElement);
-    }
-
     @Override
     public Validator getValidator() {
         return new DefaultValidator(this);
@@ -573,43 +545,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
                 .sorted(Comparator.comparingInt(ValidationMetadataProvider::getOrder))
                 .toList();
         }
-    }
-
-    private static void determineValueExtractorDefinitions(List<AnnotatedType> valueExtractorDefinitions, Class<?> extractorImplementationType) {
-        if (!ValueExtractor.class.isAssignableFrom(extractorImplementationType)) {
-            return;
-        }
-
-        Class<?> superClass = extractorImplementationType.getSuperclass();
-        if (superClass != null && !Object.class.equals(superClass)) {
-            determineValueExtractorDefinitions(valueExtractorDefinitions, superClass);
-        }
-        for (Class<?> implementedInterface : extractorImplementationType.getInterfaces()) {
-            if (!ValueExtractor.class.equals(implementedInterface)) {
-                determineValueExtractorDefinitions(valueExtractorDefinitions, implementedInterface);
-            }
-        }
-        for (AnnotatedType annotatedInterface : extractorImplementationType.getAnnotatedInterfaces()) { // reflection: the ValueExtractor<...> signature of an instance the API hands over
-            if (ValueExtractor.class.equals(getClassFromType(annotatedInterface.getType()))) {
-                valueExtractorDefinitions.add(annotatedInterface);
-            }
-        }
-    }
-
-    public static Class<?> getClassFromType(Type type) {
-        if (type instanceof Class<?> classType) {
-            return classType;
-        }
-        if (type instanceof ParameterizedType parameterizedType) {
-            return getClassFromType(parameterizedType.getRawType());
-        }
-        if (type instanceof GenericArrayType) {
-            return Object[].class;
-        }
-        if (type instanceof WildcardType wildcardType) {
-            return getClassFromType(wildcardType.getUpperBounds()[0]);
-        }
-        throw new IllegalArgumentException("Unknown type: " + type);
     }
 
     private record DelegatingInternalConstraintValidatorFactory(

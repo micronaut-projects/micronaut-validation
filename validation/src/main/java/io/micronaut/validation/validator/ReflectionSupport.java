@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
@@ -28,8 +27,6 @@ import io.micronaut.inject.ExecutableMethod;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -206,21 +203,19 @@ public interface ReflectionSupport {
     <T> T instantiate(Class<T> type);
 
     /**
-     * The argument of an annotated type, the annotations of the type and of its type arguments included where
-     * they can be read.
+     * The argument describing a value extractor the specification API hands over as an instance: the
+     * {@code ValueExtractor} signature its class declares, with the annotations of that signature and of the
+     * class. Nothing generated describes an instance registered at runtime, so its class is read.
      *
-     * @param type The annotated type
+     * @param extractorType The class of the extractor instance
      * @return The argument
+     * @throws jakarta.validation.ValidationException When the class declares no single extractor signature,
+     *                                                or nothing can read it
+     * @since 5.2
      */
-    Argument<?> argumentOf(AnnotatedType type);
+    Argument<?> valueExtractorArgument(Class<?> extractorType);
 
-    /**
-     * The annotation metadata of an annotated element, where it can be read.
-     *
-     * @param element The element
-     * @return The metadata, empty when it cannot be read
-     */
-    AnnotationMetadata annotationMetadataOf(AnnotatedElement element);
+
 
     /**
      * One constraint a constraint type composes.
