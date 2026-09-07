@@ -6,6 +6,8 @@ dependencies {
     annotationProcessor mn.micronaut.inject.java
 
     api projects.micronautValidation
+    // the bootstrap validates the types of an application that never ran the processors: it describes them reflectively
+    api projects.micronautValidationReflection
 
     testAnnotationProcessor mn.micronaut.inject.java
     testImplementation mn.micronaut.inject.java.test

@@ -32,6 +32,7 @@ dependencies {
     implementation mn.micronaut.context
 
     implementation projects.micronautValidation
+    implementation projects.micronautValidationReflection
     implementation projects.micronautValidationProcessor
 
     implementation libs.arquillian.container
@@ -173,6 +174,7 @@ def singleJakartaTck = tasks.register('singleJakartaTck', Test) {
 
 def jakartaCoverageProjects = [
     project(':micronaut-validation'),
+    project(':micronaut-validation-reflection'),
     project(':micronaut-validation-bootstrap'),
     project(':micronaut-validation-jakarta'),
     project(':micronaut-validation-xml')

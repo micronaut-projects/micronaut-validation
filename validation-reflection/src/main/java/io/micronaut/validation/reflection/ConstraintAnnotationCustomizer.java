@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.validator.constraints;
+package io.micronaut.validation.reflection;
 
 import io.micronaut.context.annotation.AliasFor;
 import io.micronaut.core.annotation.AnnotationClassValue;

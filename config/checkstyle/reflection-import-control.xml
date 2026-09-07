@@ -29,7 +29,21 @@
     </file>
 
     <subpackage name="validator">
-        <!-- the executable an API names by its Method or Constructor, resolved to the best metadata there is -->
+        <!-- the executable an API names by its Method or Constructor, resolved to the best metadata there is;
+             the seam the reflection module implements, and the generated-metadata answer behind it -->
+        <file name="ReflectionSupport">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="CompileTimeSupport">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <file name="IntrospectedExecutable">
+            <allow pkg="java.lang.reflect"/>
+        </file>
+        <!-- the structure of a generic signature the API hands over as a Type -->
+        <file name="GenericArguments">
+            <allow pkg="java.lang.reflect"/>
+        </file>
         <file name="ExecutableMethodValidator">
             <allow pkg="java.lang.reflect"/>
         </file>
@@ -50,11 +64,6 @@
         <file name="ContainerTypeArguments">
             <allow pkg="java.lang.reflect"/>
         </file>
-        <!-- a constraint the processors never saw, described from its annotation type where there is no
-             retained tree to read -->
-        <file name="DefaultConstraintDescriptor">
-            <allow pkg="java.lang.reflect"/>
-        </file>
 
         <subpackage name="constraints">
             <file name="ConstraintDefinitions">
@@ -73,6 +82,11 @@
                 <allow pkg="java.lang.reflect"/>
             </file>
         </subpackage>
+    </subpackage>
+
+    <!-- the reflection module: reading the classes is what it is for -->
+    <subpackage name="reflection">
+        <allow pkg="java.lang.reflect"/>
     </subpackage>
 
     <subpackage name="xml">

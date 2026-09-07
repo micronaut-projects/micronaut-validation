@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
-import io.micronaut.reflection.ReflectionArguments;
 
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
@@ -55,8 +54,8 @@ final class ContainerTypeArguments {
         if (annotated != null) {
             return annotated;
         }
-        Argument<?> resolved = ReflectionArguments.resolveGenericToArgument(declaredType, containerType);
-        Argument<?>[] typeParameters = resolved.getTypeParameters();
+        Argument<?> resolved = GenericArguments.resolveGenericToArgument(declaredType, containerType);
+        Argument<?>[] typeParameters = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
         return typeArgumentIndex < typeParameters.length && typeParameters[typeArgumentIndex].getType() != Object.class
             ? typeParameters[typeArgumentIndex]
             : null;
@@ -75,7 +74,7 @@ final class ContainerTypeArguments {
                 && parameterizedType.getType() instanceof ParameterizedType type
                 && type.getRawType() == containerType) {
                 AnnotatedType bound = parameterizedType.getAnnotatedActualTypeArguments()[typeArgumentIndex];
-                return bound.getType() instanceof TypeVariable<?> ? null : ReflectionArguments.of(bound);
+                return bound.getType() instanceof TypeVariable<?> ? null : ReflectionSupport.get().argumentOf(bound);
             }
             Class<?> rawSupertype = supertype.getType() instanceof ParameterizedType type && type.getRawType() instanceof Class<?> raw ? raw
                 : supertype.getType() instanceof Class<?> supertypeClass ? supertypeClass : null;

@@ -1,4 +1,4 @@
-package io.micronaut.validation.retained
+package io.micronaut.validation.reflection
 
 import io.micronaut.core.annotation.AnnotationValue
 import io.micronaut.core.beans.BeanIntrospector

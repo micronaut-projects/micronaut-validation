@@ -26,9 +26,7 @@ import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.util.ArgumentUtils;
-import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.reflection.ReflectiveIntrospection;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintValidator;
@@ -450,7 +448,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      */
     /**
      * A property. Its constraints are those of its metadata; when the introspection knows the members of the
-     * property — a {@link ReflectiveIntrospection} does — the finder can look at the local element only,
+     * property — an introspection separating the declarations does — the finder can look at the local element only,
      * at the fields or the methods only, and the constraints of a member are attributed to the member.
      */
     private final class IntrospectedPropertyDescriptor implements PropertyDescriptor, ConstraintFinder {
@@ -530,7 +528,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
                 }
                 Set<ContainerElementTypeDescriptor> containerElements = new LinkedHashSet<>();
                 for (List<Argument<?>> arguments : byContainerType.values()) {
-                    containerElements.addAll(executables.containerElements(MethodHierarchy.mergeArgument(arguments)));
+                    containerElements.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
                 }
                 return containerElements;
             }
@@ -542,7 +540,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {
-                descriptors.addAll(executables.containerElements(MethodHierarchy.mergeArgument(arguments)));
+                descriptors.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
             }
             return descriptors;
         }
@@ -575,7 +573,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
          * own introspections instead, see {@link #superProperties()}.
          */
         private List<? extends BeanPropertyMember<?, ?>> members() {
-            return beanIntrospection instanceof ReflectiveIntrospection<?>
+            return ReflectionSupport.get().separatesDeclarations(beanIntrospection)
                 ? beanProperty.getMembers()
                 : List.of();
         }
@@ -591,7 +589,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
          * members already or when there is nothing to read the super types from
          */
         private List<BeanProperty<?, ?>> superProperties() {
-            if (declarations == null || beanIntrospection instanceof ReflectiveIntrospection<?>) {
+            if (declarations == null || ReflectionSupport.get().separatesDeclarations(beanIntrospection)) {
                 return List.of();
             }
             List<BeanProperty<?, ?>> properties = new ArrayList<>();

@@ -23,6 +23,7 @@ includeBuild('/home/user/micronaut-core')
 rootProject.name = 'validation-parent'
 
 include 'validation'
+include 'validation-reflection'
 include 'validation-bootstrap'
 include 'validation-xml'
 include 'validation-jakarta'

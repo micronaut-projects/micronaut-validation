@@ -1,7 +1,6 @@
-package io.micronaut.validation.validator.introspection
+package io.micronaut.validation.reflection
 
 import io.micronaut.core.beans.BeanIntrospector
-import io.micronaut.reflection.ReflectionBeanIntrospector
 import io.micronaut.validation.validator.DefaultValidator
 import io.micronaut.validation.validator.DefaultValidatorConfiguration
 import jakarta.validation.ConstraintDeclarationException
@@ -9,13 +8,13 @@ import spock.lang.Shared
 import spock.lang.Specification
 
 /**
- * The validator over generated introspections supplemented by the reflection bridge, as the TCK runs it.
+ * The validator over generated introspections supplemented by the reflection module, as the TCK runs it.
  */
 class IntrospectionModeSpec extends Specification {
 
     @Shared
     DefaultValidator validator = new DefaultValidator(new DefaultValidatorConfiguration().tap {
-        beanIntrospector = new ReflectionBeanIntrospector(BeanIntrospector.SHARED, type -> true, true, Set.of(io.micronaut.core.annotation.Introspected.AccessKind.FIELD, io.micronaut.core.annotation.Introspected.AccessKind.METHOD))
+        beanIntrospector = ReflectiveValidation.supplemented(BeanIntrospector.SHARED)
     })
 
     void "the constraints on the type arguments of a getter are validated"() {

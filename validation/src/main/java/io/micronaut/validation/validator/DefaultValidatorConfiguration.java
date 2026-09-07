@@ -28,8 +28,6 @@ import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.reflection.ReflectionAnnotations;
-import io.micronaut.reflection.ReflectionArguments;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
@@ -532,11 +530,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @NonNull
     private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
-        return ReflectionArguments.of(type);
+        return ReflectionSupport.get().argumentOf(type);
     }
 
     private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
-        return ReflectionAnnotations.metadataOf(annotatedElement);
+        return ReflectionSupport.get().annotationMetadataOf(annotatedElement);
     }
 
     @Override

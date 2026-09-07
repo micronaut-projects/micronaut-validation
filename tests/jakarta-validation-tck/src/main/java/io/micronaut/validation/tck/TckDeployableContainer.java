@@ -22,7 +22,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.inject.qualifiers.Qualifiers;
-import io.micronaut.reflection.ReflectionBeanIntrospector;
+import io.micronaut.validation.reflection.ReflectiveValidation;
 import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
@@ -82,8 +82,6 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
 
     private static final Logger LOGGER = LoggerFactory.getLogger(TckDeployableContainer.class);
     private static final String INITIAL_CONTEXT_FACTORY = "java.naming.factory.initial";
-    private static final boolean REFLECTION_ENABLED =
-        !"false".equalsIgnoreCase(System.getProperty("micronaut.validation.reflection.enabled", "true"));
     private static final String PRIORITY_INVOCATION_TRACKER =
         "org.hibernate.beanvalidation.tck.tests.integration.cdi.executable.priority.InvocationTracker";
 
@@ -275,14 +273,10 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         DefaultValidatorConfiguration validatorConfiguration = new DefaultValidatorConfiguration().setStrictConstraintDefinitions(true);
         applicationContext.findBean(ConversionService.class).ifPresent(validatorConfiguration::setConversionService);
         validatorConfiguration.setExecutionHandleLocator(applicationContext);
-        // the generated introspections of the archive, supplemented by the reflection bridge for the types
-        // without one; the same switch as MicronautValidatorConfiguration.REFLECTION_ENABLED, which the
-        // harness cannot reference because the bootstrap module is not on its compile classpath
+        // the generated introspections of the archive, supplemented by the reflection module for the types
+        // without one unless micronaut.validation.reflection.enabled says otherwise
         BeanIntrospector beanIntrospector = BeanIntrospector.forClassLoader(classLoader);
-        validatorConfiguration.setBeanIntrospector(REFLECTION_ENABLED
-            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true,
-                java.util.Set.of(io.micronaut.core.annotation.Introspected.AccessKind.FIELD, io.micronaut.core.annotation.Introspected.AccessKind.METHOD))
-            : beanIntrospector);
+        validatorConfiguration.setBeanIntrospector(ReflectiveValidation.supplemented(beanIntrospector));
         validatorConfiguration.setMetadataProviders(List.copyOf(applicationContext.getBeansOfType(ValidationMetadataProvider.class)));
         return validatorConfiguration;
     }

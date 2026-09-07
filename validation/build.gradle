@@ -10,7 +10,6 @@ dependencies {
     compileOnly libs.jakarta.el.api
 
     api mn.micronaut.inject
-    api "io.micronaut:micronaut-reflection"
     api mn.micronaut.core.reactive
     api libs.managed.validation
 

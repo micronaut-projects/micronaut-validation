@@ -19,11 +19,9 @@ import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.ApplicationContextBuilder;
 import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
-import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.validator.DefaultValidator;
-import io.micronaut.reflection.ReflectionBeanIntrospector;
+import io.micronaut.validation.reflection.ReflectiveValidation;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
@@ -72,7 +70,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
      * introspection off. It is on by default; a deployment that wants generated metadata only — a native
      * image, typically — sets it to {@code false} and validates what the annotation processor produced.
      */
-    public static final String REFLECTION_ENABLED = "micronaut.validation.reflection.enabled";
+    public static final String REFLECTION_ENABLED = ReflectiveValidation.ENABLED;
 
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
     private static final Set<String> BOOTSTRAP_PACKAGES = Set.of(
@@ -501,7 +499,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
 
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
         if (validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration
-            && !(defaultConfiguration.getBeanIntrospector() instanceof ReflectionBeanIntrospector)) {
+            && !ReflectiveValidation.isSupplemented(defaultConfiguration.getBeanIntrospector())) {
             defaultConfiguration.setBeanIntrospector(supplemented(defaultConfiguration.getBeanIntrospector()));
         }
         return new DefaultValidator(validatorConfiguration);
@@ -515,19 +513,14 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
      * @return The introspector the validator reads
      */
     public static BeanIntrospector supplemented(BeanIntrospector beanIntrospector) {
-        return isReflectionEnabled()
-            // Jakarta Validation reads a field directly, and a type described reflectively carries no
-            // @Introspected to declare that, so the access kinds are asked for here
-            ? new ReflectionBeanIntrospector(beanIntrospector, type -> true, true,
-                Set.of(Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD))
-            : beanIntrospector;
+        return ReflectiveValidation.supplemented(beanIntrospector);
     }
 
     /**
      * @return Whether the types without a generated introspection are described reflectively
      */
     public static boolean isReflectionEnabled() {
-        return !StringUtils.FALSE.equalsIgnoreCase(System.getProperty(REFLECTION_ENABLED, StringUtils.TRUE));
+        return ReflectiveValidation.isEnabled();
     }
 
     static ApplicationContext createBootstrapContext(Map<String, Object> properties) {

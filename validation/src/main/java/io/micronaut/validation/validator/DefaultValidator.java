@@ -52,7 +52,6 @@ import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
-import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
@@ -62,8 +61,6 @@ import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.reflection.ReflectionExecutables;
-import io.micronaut.reflection.ReflectiveIntrospection;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintDeclarationException;
@@ -433,7 +430,7 @@ public class DefaultValidator implements
         requireNonNull("object", object);
         requireNonNull("method", method);
         requireNonNull("context", validationContext);
-        final MethodHierarchy hierarchy = declarations.resolveHierarchy(method);
+        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
         ExecutableHierarchy.checkParameterDeclarations(hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
@@ -463,7 +460,7 @@ public class DefaultValidator implements
         requireNonNull("parameterValues", argumentValues);
         requireNonNull("groups", groups);
 
-        final MethodHierarchy hierarchy = declarations.resolveHierarchy(method);
+        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
         ExecutableHierarchy.checkParameterDeclarations(hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
@@ -493,7 +490,7 @@ public class DefaultValidator implements
         requireNonNull("method", method);
         requireNonNull("groups", groups);
 
-        return validateParameters(object, ReflectionExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
+        return validateParameters(object, ReflectionSupport.get().executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
     }
 
     @NonNull
@@ -506,7 +503,7 @@ public class DefaultValidator implements
         requireNonNull("object", object);
         requireNonNull("groups", groups);
 
-        return validateReturnValue(object, ReflectionExecutables.executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
+        return validateReturnValue(object, ReflectionSupport.get().executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
     }
 
     @Override
@@ -526,7 +523,7 @@ public class DefaultValidator implements
 
     @Override
     public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, Object returnValue, BeanValidationContext validationContext) {
-        final MethodHierarchy hierarchy = declarations.resolveHierarchy(executableMethod);
+        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
         ExecutableHierarchy.checkReturnValueDeclarations(hierarchy);
         final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
         final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, validationContext);
@@ -564,7 +561,7 @@ public class DefaultValidator implements
 
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectionExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = ReflectionSupport.get().beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         return validateConstructorParameters(
             declaringClass,
             introspection,
@@ -652,7 +649,7 @@ public class DefaultValidator implements
         requireNonNull("groups", groups);
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectionExecutables.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = ReflectionSupport.get().beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         // the constraints of a constructor apply to the object it creates: the root bean is null, like for its parameters
         final DefaultConstraintValidatorContext<T> context = introspection == null
             ? (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, declaringClass, BeanValidationContext.fromGroups(groups))
@@ -1099,11 +1096,11 @@ public class DefaultValidator implements
         }
         String propertyName = property.getName();
         Class<?> beanType = object.getClass();
-        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && introspection instanceof ReflectiveIntrospection) {
+        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && ReflectionSupport.get().separatesDeclarations(introspection)) {
             // the members declaring constraints are validated one by one, each against the value it holds. A
             // generated introspection reports its members only where the type asked for them, and merges what
-            // they declare into the property, so walking them is what a reflective description needs and what a
-            // generated one must not have done for it twice
+            // they declare into the property, so walking them is what a description separating the declarations
+            // needs and what a generated one must not have done for it twice
             List<? extends BeanPropertyMember<T, ?>> members = property.getMembers().stream()
                 .filter(BeanPropertyMember::isReadable)
                 .filter(this::isValidatedMember)

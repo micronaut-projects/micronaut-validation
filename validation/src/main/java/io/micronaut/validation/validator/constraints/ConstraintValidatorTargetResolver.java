@@ -19,7 +19,7 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
-import io.micronaut.reflection.ReflectionArguments;
+import io.micronaut.validation.validator.GenericArguments;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ConstraintDeclarationException;
@@ -250,7 +250,7 @@ public final class ConstraintValidatorTargetResolver {
 
     @Nullable
     private static Class<?> findTargetType(Class<?> type) {
-        Argument<ConstraintValidator> validator = ReflectionArguments.resolveGenericToArgument(type, ConstraintValidator.class);
+        Argument<ConstraintValidator> validator = GenericArguments.resolveGenericToArgument(type, ConstraintValidator.class);
         if (validator == null) {
             return null;
         }

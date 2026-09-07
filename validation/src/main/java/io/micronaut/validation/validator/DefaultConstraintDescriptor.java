@@ -23,35 +23,25 @@ import io.micronaut.inject.annotation.AnnotationMetadataSupport;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.CollectionUtils;
-import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.reflect.ClassUtils;
-import io.micronaut.core.reflect.ReflectionUtils;
-import io.micronaut.reflection.ReflectionAnnotations;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
-import jakarta.validation.OverridesAttribute;
 import jakarta.validation.Payload;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
-import jakarta.validation.ConstraintDefinitionException;
-import jakarta.validation.constraintvalidation.ValidationTarget;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.EnumSet;
 
 /**
  * Default constraint descriptor implementation.
@@ -388,227 +378,25 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     }
 
     /**
-     * The constraints a constraint composes, read off the annotation type. A constraint the processors never saw
-     * carries no retained tree - the type of a library, and every type the Jakarta Validation TCK declares - and
-     * reading the class back is the only way to describe what it composes.
+     * The constraints a constraint composes where the processors retained no tree of them - the constraint of
+     * a library, or of a type the processors never saw - read from the annotations of the constraint type by
+     * the reflection module where it is present, and none otherwise.
      */
+    @SuppressWarnings("unchecked")
     private static Set<DefaultConstraintDescriptor<Annotation>> reflectedComposingConstraints(
         Class<? extends Annotation> constraintType,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
-        List<ComposingAnnotation> composingAnnotations = composingAnnotations(constraintType);
-        checkCompositionTargets(constraintType, composingAnnotations);
         Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
-        for (ComposingAnnotation annotation : composingAnnotations) {
-            composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, annotationMetadata, composingAnnotations));
+        for (ReflectionSupport.ComposingConstraint composing : ReflectionSupport.get().composingConstraints(constraintType, parentAnnotationValue)) {
+            Class<Annotation> annotationType = (Class<Annotation>) composing.type();
+            AnnotationValue<Annotation> annotationValue = composing.value();
+            List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+            composingConstraints.add(validators.isEmpty()
+                ? new DefaultConstraintDescriptor<>(annotationType, annotationValue, annotationMetadata)
+                : new DefaultConstraintDescriptor<>(annotationType, annotationValue, annotationMetadata, validators, true));
         }
         return Collections.unmodifiableSet(composingConstraints);
-    }
-
-    /**
-     * A composed constraint and the constraints composing it share a validation target: generic, cross-parameter
-     * or both.
-     */
-    private static void checkCompositionTargets(Class<? extends Annotation> parentType, List<ComposingAnnotation> composingAnnotations) {
-        if (composingAnnotations.isEmpty()) {
-            return;
-        }
-        Set<ValidationTarget> common = EnumSet.copyOf(validationTargets(parentType));
-        for (ComposingAnnotation composingAnnotation : composingAnnotations) {
-            common.retainAll(validationTargets(composingAnnotation.annotation().annotationType()));
-            if (common.isEmpty()) {
-                throw new ConstraintDefinitionException("Composing constraints must share a validation target with the composed constraint: " + parentType.getName());
-            }
-        }
-    }
-
-    private static Set<ValidationTarget> validationTargets(Class<? extends Annotation> annotationType) {
-        jakarta.validation.Constraint constraint = annotationType.getAnnotation(jakarta.validation.Constraint.class);
-        if (constraint == null || constraint.validatedBy().length == 0) {
-            return EnumSet.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
-        }
-        Set<ValidationTarget> targets = EnumSet.noneOf(ValidationTarget.class);
-        for (Class<?> validator : constraint.validatedBy()) {
-            Set<ValidationTarget> supported = ConstraintValidatorTargetResolver.validationTargets(validator);
-            if (supported.isEmpty()) {
-                // a validator declaring no target validates the annotated element
-                targets.add(ValidationTarget.ANNOTATED_ELEMENT);
-            } else {
-                targets.addAll(supported);
-            }
-        }
-        return targets;
-    }
-
-    private static DefaultConstraintDescriptor<Annotation> composingConstraint(
-        ComposingAnnotation composingAnnotation,
-        Class<? extends Annotation> parentType,
-        AnnotationValue<? extends Annotation> parentAnnotationValue,
-        AnnotationMetadata annotationMetadata,
-        List<ComposingAnnotation> composingAnnotations) {
-        Annotation annotation = composingAnnotation.annotation();
-        Class<? extends Annotation> annotationType = annotation.annotationType();
-        Map<CharSequence, Object> values = ReflectionAnnotations.values(annotation);
-        applyOverrides(annotationType, composingAnnotation.constraintIndex(), parentType, parentAnnotationValue, values, composingAnnotations);
-        // the target of the composed constraint applies to the composing ones declaring one
-        ConstraintTarget validationAppliesTo = parentAnnotationValue.enumValue(ATTRIBUTE_VALIDATION_APPLIES_TO, ConstraintTarget.class).orElse(ConstraintTarget.IMPLICIT);
-        if (validationAppliesTo != ConstraintTarget.IMPLICIT && hasMember(annotationType, ATTRIBUTE_VALIDATION_APPLIES_TO)) {
-            values.put(ATTRIBUTE_VALIDATION_APPLIES_TO, validationAppliesTo);
-        }
-        values.put(ATTRIBUTE_GROUPS, parentAnnotationValue.classValues(ATTRIBUTE_GROUPS));
-        values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
-        AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
-            new AnnotationValue<>(annotationType.getName(), values, ReflectionAnnotations.defaultValues(annotationType)),
-            annotationType
-        );
-        List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-        return validators.isEmpty()
-            ? new DefaultConstraintDescriptor<>((Class<Annotation>) annotationType, annotationValue, annotationMetadata)
-            : new DefaultConstraintDescriptor<>((Class<Annotation>) annotationType, annotationValue, annotationMetadata, validators, true);
-    }
-
-    private static void applyOverrides(
-        Class<? extends Annotation> composingType,
-        int composingConstraintIndex,
-        Class<? extends Annotation> parentType,
-        AnnotationValue<? extends Annotation> parentAnnotationValue,
-        Map<CharSequence, Object> values,
-        List<ComposingAnnotation> composingAnnotations) {
-        Map<String, Object> parentAttributes = attributes(parentAnnotationValue);
-        for (Method method : parentType.getDeclaredMethods()) {
-            Object value = parentAttributes.get(method.getName());
-            if (value == null) {
-                continue;
-            }
-            OverridesAttribute override = method.getAnnotation(OverridesAttribute.class);
-            if (override != null) {
-                applyOverride(composingType, composingConstraintIndex, values, method, value, override, composingAnnotations);
-            }
-            OverridesAttribute.List overrides = method.getAnnotation(OverridesAttribute.List.class);
-            if (overrides != null) {
-                for (OverridesAttribute listedOverride : overrides.value()) {
-                    applyOverride(composingType, composingConstraintIndex, values, method, value, listedOverride, composingAnnotations);
-                }
-            }
-        }
-    }
-
-    private static void applyOverride(
-        Class<? extends Annotation> composingType,
-        int composingConstraintIndex,
-        Map<CharSequence, Object> values,
-        Method method,
-        Object value,
-        OverridesAttribute override,
-        List<ComposingAnnotation> composingAnnotations) {
-        if (override.constraint() != composingType) {
-            return;
-        }
-        long occurrences = composingAnnotations.stream().filter(annotation -> annotation.annotation().annotationType() == composingType).count();
-        if (override.constraintIndex() >= occurrences) {
-            throw new ConstraintDefinitionException("Invalid constraintIndex " + override.constraintIndex() + " overriding " + composingType.getName() + " in " + method.getDeclaringClass().getName());
-        }
-        if (override.constraintIndex() == -1 || override.constraintIndex() == composingConstraintIndex) {
-            String name = override.name().isEmpty() ? method.getName() : override.name();
-            checkOverride(method, value, composingType, name);
-            values.put(name, value);
-        }
-    }
-
-    /**
-     * An overriding member has the type of the member it overrides.
-     */
-    private static void checkOverride(Method method, Object value, Class<? extends Annotation> composingType, String memberName) {
-        Method member;
-        try {
-            member = composingType.getDeclaredMethod(memberName);
-        } catch (NoSuchMethodException e) {
-            throw new ConstraintDefinitionException("Cannot override the missing member " + composingType.getName() + "." + memberName + " from " + method.getDeclaringClass().getName(), e);
-        }
-        if (!isAssignableToMember(value, member.getReturnType())) {
-            throw new ConstraintDefinitionException("The member " + method.getDeclaringClass().getName() + "." + method.getName() + " does not have the type of " + composingType.getName() + "." + memberName);
-        }
-    }
-
-    /**
-     * Whether a value, as the metadata stores it, fits a member type: a class is stored as its name, an enum
-     * as its constant name, a primitive as its wrapper.
-     */
-    private static boolean isAssignableToMember(Object value, Class<?> memberType) {
-        if (memberType.isArray()) {
-            Class<?> valueType = value.getClass();
-            if (valueType.isArray()) {
-                return isAssignableToMember(java.lang.reflect.Array.getLength(value) == 0 ? null : java.lang.reflect.Array.get(value, 0), memberType.getComponentType());
-            }
-            return isAssignableToMember(value, memberType.getComponentType());
-        }
-        if (value == null) {
-            return true;
-        }
-        if (memberType == Class.class) {
-            return value instanceof Class || value instanceof AnnotationClassValue;
-        }
-        if (memberType.isEnum()) {
-            return memberType.isInstance(value) || value instanceof String;
-        }
-        if (memberType.isAnnotation()) {
-            return memberType.isInstance(value) || value instanceof AnnotationValue;
-        }
-        if (memberType.isPrimitive()) {
-            return ReflectionUtils.getWrapperType(memberType) == value.getClass();
-        }
-        return memberType.isAssignableFrom(value.getClass());
-    }
-
-    private static boolean hasMember(Class<? extends Annotation> annotationType, String memberName) {
-        for (Method method : annotationType.getDeclaredMethods()) {
-            if (method.getName().equals(memberName) && method.getParameterCount() == 0) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static List<ComposingAnnotation> composingAnnotations(Class<? extends Annotation> constraintType) {
-        List<ComposingAnnotation> composingAnnotations = new ArrayList<>();
-        Map<Class<? extends Annotation>, Integer> constraintIndexes = new LinkedHashMap<>();
-        Set<Class<? extends Annotation>> direct = new LinkedHashSet<>();
-        Set<Class<? extends Annotation>> contained = new LinkedHashSet<>();
-        for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (annotationType.isAnnotationPresent(jakarta.validation.Constraint.class)) {
-                if (contained.contains(annotationType)) {
-                    throw new ConstraintDeclarationException("A constraint composes " + annotationType.getName() + " both directly and in a container: " + constraintType.getName());
-                }
-                direct.add(annotationType);
-                int constraintIndex = constraintIndexes.merge(annotationType, 0, (previous, ignored) -> previous + 1);
-                composingAnnotations.add(new ComposingAnnotation(annotation, constraintIndex));
-                continue;
-            }
-            for (Annotation repeatedAnnotation : repeatedConstraintAnnotations(annotation)) {
-                Class<? extends Annotation> repeatedAnnotationType = repeatedAnnotation.annotationType();
-                if (direct.contains(repeatedAnnotationType)) {
-                    throw new ConstraintDeclarationException("A constraint composes " + repeatedAnnotationType.getName() + " both directly and in a container: " + constraintType.getName());
-                }
-                contained.add(repeatedAnnotationType);
-                int constraintIndex = constraintIndexes.merge(repeatedAnnotationType, 0, (previous, ignored) -> previous + 1);
-                composingAnnotations.add(new ComposingAnnotation(repeatedAnnotation, constraintIndex));
-            }
-        }
-        return composingAnnotations;
-    }
-
-    /**
-     * The constraints a repeatable container composes: the annotations the container holds that are constraints.
-     */
-    private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
-        List<Annotation> constraints = new ArrayList<>();
-        for (Annotation repeatedAnnotation : ReflectionAnnotations.contained(annotation)) {
-            if (repeatedAnnotation.annotationType().isAnnotationPresent(jakarta.validation.Constraint.class)) {
-                constraints.add(repeatedAnnotation);
-            }
-        }
-        return constraints;
     }
 
     private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
@@ -621,9 +409,4 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return attributes;
     }
 
-    private record ComposingAnnotation(
-        Annotation annotation,
-        int constraintIndex
-    ) {
-    }
 }

@@ -25,7 +25,6 @@ import io.micronaut.validation.validator.constraints.ConstraintDefinitions;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.core.type.Argument;
-import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 
 import java.lang.annotation.Annotation;
@@ -47,7 +46,7 @@ final class ValidatorDeclarations {
 
     private final BeanIntrospector beanIntrospector;
     private final boolean strictConstraintDefinitions;
-    private final Map<ExecutableHierarchy.Key, MethodHierarchy> executableHierarchies = new ConcurrentHashMap<>();
+    private final Map<ExecutableHierarchy.Key, ExecutableHierarchy.Resolved> executableHierarchies = new ConcurrentHashMap<>();
     private final Set<Class<?>> checkedConstraintDefinitions = ConcurrentHashMap.newKeySet();
     private final Set<BeanIntrospection<?>> checkedBeanDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
@@ -64,8 +63,8 @@ final class ValidatorDeclarations {
     /**
      * The hierarchy of a bean method, for the descriptors of a bean.
      */
-    MethodHierarchy resolveHierarchy(BeanMethod<?, ?> method) {
-        return MethodHierarchy.resolve(beanIntrospector, MethodHierarchy.Declaration.of(method, false), method.getName());
+    ExecutableHierarchy.Resolved resolveHierarchy(BeanMethod<?, ?> method) {
+        return ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, false), method.getName());
     }
 
     /**
@@ -81,7 +80,7 @@ final class ValidatorDeclarations {
     /**
      * A method with what it inherits and what the metadata providers configure for it.
      */
-    ConfiguredExecutable configuredExecutable(ExecutableMethod<?, ?> method, MethodHierarchy hierarchy) {
+    ConfiguredExecutable configuredExecutable(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
         return configuredExecutables.computeIfAbsent(ExecutableHierarchy.Key.of(method), key -> new ConfiguredExecutable(
             configuredMethodMetadata(method, hierarchy.annotationMetadata()),
             configuredParameterArguments(method, hierarchy.arguments()),
@@ -168,9 +167,9 @@ final class ValidatorDeclarations {
         return argument;
     }
 
-    MethodHierarchy resolveHierarchy(ExecutableMethod<?, ?> method) {
+    ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {
         return executableHierarchies.computeIfAbsent(ExecutableHierarchy.Key.of(method),
-            key -> MethodHierarchy.resolve(beanIntrospector, MethodHierarchy.Declaration.of(method), method.getMethodName()));
+            key -> ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method), method.getMethodName()));
     }
 
     /**
