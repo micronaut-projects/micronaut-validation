@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.visitor;
 
-import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.ast.ClassElement;
@@ -23,7 +22,6 @@ import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
-import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
@@ -31,7 +29,7 @@ import java.util.Set;
 
 /**
  * Records the types an introspected {@link jakarta.validation.ConstraintValidator} implementation binds -
- * the constraint and the validated type - in its introspection, as {@link ConstraintValidatorTypes}, so that
+ * the constraint and the validated type - in its introspection, so that
  * the validator reads them from the generated metadata rather than from the generic signature of the class.
  *
  * @author Denis Stepanov
@@ -70,11 +68,8 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
         if (constraint == null || target == null || unresolved(constraint) || unresolved(target)) {
             return;
         }
-        element.annotate(ConstraintValidatorTypes.class, builder -> builder
-            .member("constraint", new AnnotationClassValue<>(constraint.getName()))
-            .member("target", new AnnotationClassValue<>(target.getName())));
-        // the validator is described by its introspection: what it validates, and the validation target it
-        // declares. Without one the validator can only be read from the class
+        // the introspection records what the validator binds in ConstraintValidator - the constraint and the
+        // validated type - and the validation target it declares. Without one it can only be read from the class
         element.annotate(Introspected.class);
     }
 

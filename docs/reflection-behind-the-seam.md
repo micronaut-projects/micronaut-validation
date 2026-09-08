@@ -60,10 +60,17 @@ Three tests, all handing something to the specification API that nothing generat
 They need a home: a test task carrying the reflection module, in the shape of the existing `elTest` task, or
 a move into the suite of `micronaut-validation-reflection`.
 
-## The open core gap
+## The core gap, closed
 
-`BeanIntrospection` records nothing about the type arguments a class binds in its interfaces, while
-`BeanDefinition` records exactly that. Until that is closed, the six constraint validators of this module
-declare `@ConstraintValidatorTypes` and `@Introspected` by hand, because the processor that would write them
-depends on the module and cannot be run over its own sources. See
-[`core-issues/08-introspection-interface-type-arguments.md`](core-issues/08-introspection-interface-type-arguments.md).
+`BeanIntrospection` used to record nothing about the type arguments a class binds in its interfaces, while
+`BeanDefinition` recorded exactly that. That was filed as
+[`core-issues/08-introspection-interface-type-arguments.md`](core-issues/08-introspection-interface-type-arguments.md)
+and micronaut-core now carries `BeanIntrospection.getTypeArguments`.
+
+With it, the type a validator validates is the second argument its introspection records for
+`ConstraintValidator`, so the internal `@ConstraintValidatorTypes` annotation that stood in for it is gone,
+along with the six hand-written declarations of it. The processor visitor that wrote it now only introspects
+the validator, which is what makes the type arguments readable in the first place.
+
+The six built-in validators still carry `@Introspected` by hand: the processor that would add it depends on
+this module and cannot be run over its own sources.

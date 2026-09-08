@@ -22,7 +22,6 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
-import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import org.jspecify.annotations.Nullable;
@@ -75,9 +74,9 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * The type a validator validates, as its introspection records it - the processor writes
-     * {@link ConstraintValidatorTypes} into the introspection of an implementation - or as the generic
-     * signature of the class declares it where the introspection records nothing.
+     * The type a validator validates: the second type argument its introspection records for
+     * {@link ConstraintValidator}, or the generic signature of the class where the archive holds no
+     * introspection of it.
      *
      * @param introspection The introspection of the validator
      * @return The validated type, {@link Object} when unknown
@@ -89,7 +88,8 @@ public final class ConstraintValidatorTargetResolver {
 
     @Nullable
     private static Class<?> recordedTargetType(BeanIntrospection<?> introspection) {
-        return introspection.getAnnotationMetadata().classValue(ConstraintValidatorTypes.class, "target").orElse(null);
+        List<Argument<?>> typeArguments = introspection.getTypeArguments(ConstraintValidator.class);
+        return typeArguments.size() == 2 ? typeArguments.get(1).getType() : null;
     }
 
     /**

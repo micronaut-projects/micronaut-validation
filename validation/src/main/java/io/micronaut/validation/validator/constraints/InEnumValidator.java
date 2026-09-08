@@ -19,7 +19,6 @@ import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.annotation.InEnum;
 import jakarta.inject.Singleton;
 
@@ -28,7 +27,6 @@ import jakarta.inject.Singleton;
  */
 @Singleton
 @Introspected
-@ConstraintValidatorTypes(constraint = InEnum.class, target = Object.class)
 public class InEnumValidator implements ConstraintValidator<InEnum, Object> {
 
     @Override

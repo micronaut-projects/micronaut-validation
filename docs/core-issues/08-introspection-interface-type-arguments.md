@@ -1,5 +1,9 @@
 # A bean introspection does not record the type arguments a bean binds in its interfaces
 
+**Status: closed.** micronaut-core carries `BeanIntrospection.getTypeArguments`, and micronaut-validation
+reads the type a validator validates from it. The `@ConstraintValidatorTypes` workaround described at the
+end of this file has been removed.
+
 **Component:** `micronaut-core` — `core` (`BeanIntrospection`), `core-processor` (`BeanIntrospectionWriter`)
 **Found on:** micronaut-core `5.2.0-SNAPSHOT`, measured from micronaut-validation `reflection-behind-seam-wip`
 **Unblocks:** 24 tests of `micronaut-validation`, and the last reflective read the validator cannot remove
@@ -96,10 +100,10 @@ reading the class.
   variable rather than a resolved type, matching what `BeanDefinition` does
 - an `@Introspected` class implementing no generic interface reports an empty list rather than throwing
 
-## Workaround in the meantime
+## The workaround, now removed
 
-micronaut-validation annotates the validators it owns with an internal `@ConstraintValidatorTypes`, carrying
-the constraint and the target, and reads it from the introspection. Its own annotation processor writes that
-for user validators, but it cannot be run over `micronaut-validation` itself, because the processor depends
-on the module, so the six built-in validators declare it by hand. Closing this issue removes the annotation,
-the hand declarations and the processor visitor that writes it.
+micronaut-validation annotated the validators it owns with an internal `@ConstraintValidatorTypes`, carrying
+the constraint and the target, and read it from the introspection. Closing this removed the annotation, the
+six hand declarations and the annotation-writing half of the processor visitor. What the visitor still does
+is introspect every constraint validator, without which there is no introspection to read the type arguments
+from.

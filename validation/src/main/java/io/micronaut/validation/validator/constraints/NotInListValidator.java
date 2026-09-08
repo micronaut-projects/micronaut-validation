@@ -20,7 +20,6 @@ import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.validation.annotation.ConstraintValidatorTypes;
 import io.micronaut.validation.annotation.NotInList;
 import jakarta.inject.Singleton;
 
@@ -29,7 +28,6 @@ import jakarta.inject.Singleton;
  */
 @Singleton
 @Introspected
-@ConstraintValidatorTypes(constraint = NotInList.class, target = Object.class)
 public class NotInListValidator implements ConstraintValidator<NotInList, Object> {
 
     @Override
