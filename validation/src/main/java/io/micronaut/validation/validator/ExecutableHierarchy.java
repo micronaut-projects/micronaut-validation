@@ -18,6 +18,7 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
@@ -305,13 +306,24 @@ public final class ExecutableHierarchy {
             Class<?> from = conversion.classValue("from").orElse(Default.class);
             Class<?> to = conversion.classValue("to")
                 .orElseThrow(() -> new ConstraintDeclarationException("Group conversion is missing a target group"));
-            if (from.isAnnotationPresent(GroupSequence.class)) {
+            if (isGroupSequence(from)) {
                 throw new ConstraintDeclarationException("Group conversion source cannot be a group sequence: " + from.getName());
             }
             if (seen.putIfAbsent(from, to) != null) {
                 throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
             }
         }
+    }
+
+    /**
+     * Whether a group is a group sequence: the introspection of the group says so where the archive holds
+     * one, and only a group it never introspected is read from the class.
+     */
+    private static boolean isGroupSequence(Class<?> group) {
+        BeanIntrospection<?> introspection = BeanIntrospector.SHARED.findIntrospection(group).orElse(null);
+        return introspection == null
+            ? ReflectionSupport.get().isGroupSequence(group)
+            : introspection.getAnnotationMetadata().hasAnnotation(GroupSequence.class);
     }
 
     private static boolean addsParameterConstraints(Resolved hierarchy) {

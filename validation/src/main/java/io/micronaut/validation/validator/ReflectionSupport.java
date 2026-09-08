@@ -274,6 +274,16 @@ public interface ReflectionSupport {
      */
     Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType);
 
+    /**
+     * Whether a group is a group sequence, for a group the archive holds no introspection of. A group
+     * conversion may not name one as its source, which is the rule this answers.
+     *
+     * @param group The group
+     * @return Whether the group declares {@link jakarta.validation.GroupSequence}
+     * @since 5.2
+     */
+    boolean isGroupSequence(Class<?> group);
+
 
 
     /**

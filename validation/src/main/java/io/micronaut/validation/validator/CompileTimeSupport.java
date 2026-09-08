@@ -185,6 +185,15 @@ final class CompileTimeSupport implements ReflectionSupport {
         return Set.of();
     }
 
+    /**
+     * A group sequence is read from the introspection of the group; a group the archive never introspected is
+     * not known to be one, and the rule that a conversion may not name one goes unchecked rather than wrong.
+     */
+    @Override
+    public boolean isGroupSequence(Class<?> group) {
+        return false;
+    }
+
     @Override
     public List<String> parameterNames(Executable executable) {
         throw missing("the parameter names of " + executable.getName() + " of "

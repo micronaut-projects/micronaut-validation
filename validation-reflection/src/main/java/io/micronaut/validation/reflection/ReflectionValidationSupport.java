@@ -31,6 +31,7 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
@@ -165,6 +166,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
         return ReflectedConstraints.declaredValidators(constraintType);
+    }
+
+    @Override
+    public boolean isGroupSequence(Class<?> group) {
+        return group.isAnnotationPresent(GroupSequence.class);
     }
 
     @Override
