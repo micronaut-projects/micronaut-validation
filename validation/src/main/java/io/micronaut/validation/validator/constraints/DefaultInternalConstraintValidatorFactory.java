@@ -103,7 +103,11 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             return entry;
         }
         try {
+            // a validator the introspection can build itself is built from it; one that takes its
+            // dependencies through its constructor is the container's to build, so it falls to the
+            // bean registration, which supplies them
             entry = beanIntrospector.findIntrospection(type)
+                    .filter(introspection -> introspection.getConstructorArguments().length == 0)
                     .map(this::instantiateConstraintValidatorEntry)
                     .orElseGet(() -> instantiateConstraintValidatorEntryOfBeanRegistration(type));
         } catch (Exception e) {

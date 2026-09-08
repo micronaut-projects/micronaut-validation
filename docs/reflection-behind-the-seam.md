@@ -50,15 +50,19 @@ way to close it, in the same shape as the report-as-single-violation marker.
 
 ## What still needs the module
 
-Three tests, all handing something to the specification API that nothing generated describes:
-
-- two register a `ValueExtractor` instance through `Configuration.addValueExtractor`, so only the instance's
-  class says what it extracts
-- one uses a `@Singleton` validator declared in a Groovy test source, which the Java annotation processor
-  does not reach, so it carries no introspection
+Two tests, both registering a `ValueExtractor` instance through `Configuration.addValueExtractor`. The
+specification hands the extractor over as an object, so only its class says what it extracts, and nothing
+generated describes an instance registered at runtime.
 
 They need a home: a test task carrying the reflection module, in the shape of the existing `elTest` task, or
 a move into the suite of `micronaut-validation-reflection`.
+
+## A validator the container builds
+
+Introspecting every constraint validator made the introspection the first place the validator factory looks,
+which is wrong for a validator that takes its dependencies through its constructor: the introspection can
+name it but not build it. Such a validator falls to the bean registration, which supplies them. Without that,
+any injected `@Singleton` validator fails with "No default constructor exists".
 
 ## The core gap, closed
 
