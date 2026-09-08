@@ -1,7 +1,8 @@
 # A bean introspection does not record the type arguments a bean binds in its interfaces
 
-**Status: closed.** micronaut-core carries `BeanIntrospection.getTypeArguments`, and micronaut-validation
-reads what a validator validates from it.
+**Status: closed** by micronaut-core
+[#13048](https://github.com/micronaut-projects/micronaut-core/pull/13048). micronaut-validation reads what a
+validator validates from `BeanIntrospection.getTypeArguments`.
 
 **Component:** `micronaut-core` — `core` (`BeanIntrospection`), `core-processor` (`BeanIntrospectionWriter`)
 **Found on:** micronaut-core `5.2.0-SNAPSHOT`, measured from micronaut-validation `reflection-behind-seam-wip`
@@ -45,8 +46,16 @@ no introspection to read.
 The internal `@ConstraintValidatorTypes` annotation that stood in for this is gone, with the six hand-written
 declarations of it the built-in validators carried.
 
-## Still worth confirming
+## The no-argument overload
 
-`BeanDefinition.getTypeArguments()` with no argument returns empty while the named overload returns the
-arguments. That may be defined as the first generic super type rather than any interface, in which case only
-the documentation is at fault.
+Reading empty from `getTypeArguments()` while the named overload returned the arguments looked like a second
+defect. It is not. The no-argument form means the arguments the type itself *declares*, on the introspection
+as on the bean definition, and the class above declares none:
+
+| Type | `getTypeArguments()` | `getTypeArguments(ConstraintValidator)` |
+| --- | --- | --- |
+| `Bound implements ConstraintValidator<NotNull, CharSequence>` | `[]` | `[NotNull A, CharSequence T]` |
+| `Open<T> implements ConstraintValidator<NotNull, T>` | `[Object T]` | `[NotNull A, Object T]` |
+
+Measured on the snapshot carrying the fix. The contract was only ever stated on `BeanDefinition`; #13048
+states it on the introspection and in the guide, which closes the part of this that was real.
