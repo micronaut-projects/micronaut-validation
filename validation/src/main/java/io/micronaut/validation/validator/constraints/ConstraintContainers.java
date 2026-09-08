@@ -174,11 +174,28 @@ public final class ConstraintContainers {
         if (contained.isEmpty()) {
             return null;
         }
-        String constraintName = contained.get(0).getAnnotationName();
-        return ClassUtils.forName(constraintName, classLoader)
-            .filter(type -> type.isAnnotation() && type.isAnnotationPresent(Constraint.class))
+        AnnotationValue<Annotation> first = contained.get(0);
+        return ClassUtils.forName(first.getAnnotationName(), classLoader)
+            .filter(type -> type.isAnnotation() && isConstraint(first, type))
             .<Class<? extends Annotation>>map(type -> (Class<? extends Annotation>) type)
             .orElse(null);
+    }
+
+    /**
+     * Whether an occurrence is one of a constraint: the contract is retained on it, which the annotation
+     * processor sees to, and only metadata described reflectively - which records no stereotypes - has the
+     * annotation type read for it.
+     */
+    private static boolean isConstraint(AnnotationValue<?> occurrence, Class<?> annotationType) {
+        List<AnnotationValue<?>> stereotypes = occurrence.getStereotypes();
+        if (stereotypes != null) {
+            for (AnnotationValue<?> stereotype : stereotypes) {
+                if (Constraint.class.getName().equals(stereotype.getAnnotationName())) {
+                    return true;
+                }
+            }
+        }
+        return ReflectionSupport.get().isConstraintAnnotation(annotationType);
     }
 
     private static ClassLoader contextClassLoader() {

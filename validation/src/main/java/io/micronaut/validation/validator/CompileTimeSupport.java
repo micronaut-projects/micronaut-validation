@@ -194,6 +194,15 @@ final class CompileTimeSupport implements ReflectionSupport {
         return false;
     }
 
+    /**
+     * The contract is retained on every occurrence the processor compiles, so an occurrence that does not
+     * carry it is not one of a constraint as far as the generated metadata goes.
+     */
+    @Override
+    public boolean isConstraintAnnotation(Class<?> annotationType) {
+        return false;
+    }
+
     @Override
     public List<String> parameterNames(Executable executable) {
         throw missing("the parameter names of " + executable.getName() + " of "

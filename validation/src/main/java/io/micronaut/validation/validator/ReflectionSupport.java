@@ -284,6 +284,17 @@ public interface ReflectionSupport {
      */
     boolean isGroupSequence(Class<?> group);
 
+    /**
+     * Whether an annotation type is a constraint, for an occurrence that does not say so itself. The
+     * annotation processor retains the contract on every occurrence it compiles, so this is reached only for
+     * metadata described reflectively, where no stereotype was recorded.
+     *
+     * @param annotationType The annotation type
+     * @return Whether the type declares {@link jakarta.validation.Constraint}
+     * @since 5.2
+     */
+    boolean isConstraintAnnotation(Class<?> annotationType);
+
 
 
     /**

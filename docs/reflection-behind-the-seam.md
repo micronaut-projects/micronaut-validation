@@ -18,6 +18,7 @@ module and which therefore runs on `CompileTimeSupport` alone.
 | The report-as-single-violation marker | 1 | the occurrence, which the processor now retains |
 | The validation target a validator declares | 2 | the introspection of the validator |
 | Whether a group is a group sequence | 1 | the introspection of the group |
+| Whether a repeatable container holds a constraint | 1 | the occurrence, which retains the contract |
 
 The validator holds no reflective cache: the two that keyed a `ConcurrentHashMap` by `Class` moved into
 `micronaut-validation-reflection` with the reads they served.
@@ -32,7 +33,7 @@ with no failures.
 
 ## What stayed, and why
 
-Twelve call sites remain, and nine of them are not metadata reads at all:
+Eleven call sites remain, and none of them is a metadata read:
 
 - `getSuperclass` and `getInterfaces` walks in `ValidatorDeclarations`, `ExecutableHierarchy`,
   `DefaultValidator` and `DefaultConstraintValidatorContext`. These ask a class what it extends. They load no
@@ -40,14 +41,10 @@ Twelve call sites remain, and nine of them are not metadata reads at all:
   configuration deliberately does not list them among reflective calls. Making them require the module is not
   an option either way: `ValidatorDeclarations` accounts for 106 tests and `ExecutableHierarchy` for 78,
   because they are how constraint inheritance and method hierarchies are resolved at all.
-- Three matches are false positives of the inventory grep: `BeanDefinition.getConstructor`,
-  `ConstraintDescriptor.getAnnotation` and `AnnotationMetadata.getAnnotation` are Micronaut APIs.
+- Two matches are false positives of the inventory grep: `BeanDefinition.getConstructor` and
+  `ConstraintDescriptor.getAnnotation` are Micronaut APIs, as are the two `AnnotationMetadata.getAnnotation`
+  calls in `ValueExtractorDefinition`.
 
-One genuine read is left. `ConstraintContainers` loads the constraint a repeatable container holds and asks
-the class whether it is a constraint. Reading that from the occurrence's stereotypes was tried and reverted:
-an occurrence nested inside a repeatable container does not carry the constraint contract, and the attempt
-broke six tests across three suites. Retaining the contract on contained occurrences in the processor is the
-way to close it, in the same shape as the report-as-single-violation marker.
 
 ## Registering a value extractor without its class being read
 
