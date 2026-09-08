@@ -26,8 +26,9 @@ Two processor changes carry most of the weight. Constraint validators are now in
 validator validates and the target it declares are read from metadata rather than from the class. The
 report-as-single-violation marker is retained on the occurrences of a constraint that declares it.
 
-Failures without the reflection module went from 61 to 3 over the course of this work, while all three TCK
-profiles stayed at 1054, 1019 and 1019 with no failures.
+Failures without the reflection module went from 61 to none: the validation suite passes whole on a
+classpath that has no reflection module. All three TCK profiles stayed at 1054, 1019 and 1019 throughout,
+with no failures.
 
 ## What stayed, and why
 
@@ -60,9 +61,6 @@ type argument carries it and whether it is unwrapped by default, as a `ValueExtr
 `DefaultValidatorConfiguration` and the context `DefaultValidatorFactory.usingContext()` returns both accept
 it, so an application that does not want the reflection module can register an extractor and say what it
 extracts. The specification's own signature still works and still reads the class, which needs the module.
-
-With that, nothing in `micronaut-validation` needs the reflection module for its own tests: the suite passes
-whole without it.
 
 ## A validator the container builds
 
