@@ -48,14 +48,21 @@ an occurrence nested inside a repeatable container does not carry the constraint
 broke six tests across three suites. Retaining the contract on contained occurrences in the processor is the
 way to close it, in the same shape as the report-as-single-violation marker.
 
-## What still needs the module
+## Registering a value extractor without its class being read
 
-Two tests, both registering a `ValueExtractor` instance through `Configuration.addValueExtractor`. The
-specification hands the extractor over as an object, so only its class says what it extracts, and nothing
-generated describes an instance registered at runtime.
+The specification registers a value extractor as an instance and says nothing else about it, so
+`ValidatorContext.addValueExtractor(ValueExtractor)` has no choice but to read the `ValueExtractor`
+signature the class declares. That signature is the one thing about an extractor that no annotation
+processor can have recorded, because the registration happens at runtime.
 
-They need a home: a test task carrying the reflection module, in the shape of the existing `elTest` task, or
-a move into the suite of `micronaut-validation-reflection`.
+`MicronautValidatorContext` takes the description instead: the container type, the type of the value, which
+type argument carries it and whether it is unwrapped by default, as a `ValueExtractorDefinition`.
+`DefaultValidatorConfiguration` and the context `DefaultValidatorFactory.usingContext()` returns both accept
+it, so an application that does not want the reflection module can register an extractor and say what it
+extracts. The specification's own signature still works and still reads the class, which needs the module.
+
+With that, nothing in `micronaut-validation` needs the reflection module for its own tests: the suite passes
+whole without it.
 
 ## A validator the container builds
 

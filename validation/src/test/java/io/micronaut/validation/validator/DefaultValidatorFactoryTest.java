@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
@@ -77,7 +78,7 @@ class DefaultValidatorFactoryTest {
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
         ValueExtractorRegistry factoryRegistry = configuration.getValueExtractorRegistry();
 
-        factory.usingContext().addValueExtractor(new BoxExtractor());
+        factory.usingContext().addValueExtractor(definitionOf(new BoxExtractor()));
 
         assertTrue(factoryRegistry.findValueExtractors(Box.class).isEmpty());
     }
@@ -87,11 +88,11 @@ class DefaultValidatorFactoryTest {
         DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
         BoxExtractor factoryExtractor = new BoxExtractor("factory");
         BoxExtractor contextExtractor = new BoxExtractor("context");
-        configuration.addValueExtractor(factoryExtractor);
+        configuration.addValueExtractor(definitionOf(factoryExtractor));
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
 
         jakarta.validation.Validator validator = factory.usingContext()
-            .addValueExtractor(contextExtractor)
+            .addValueExtractor(definitionOf(contextExtractor))
             .getValidator();
 
         Set<ConstraintViolation<BoxBean>> violations = validator.validate(new BoxBean(new Box<>(null)));
@@ -141,6 +142,15 @@ class DefaultValidatorFactoryTest {
         BoxBean(Box<String> box) {
             this.box = box;
         }
+    }
+
+    /**
+     * What the extractor extracts, said outright: the container it reads, the type of the value it yields
+     * and which type argument carries it. Registering an extractor this way describes it without its class
+     * being read, which is what the specification's own signature cannot do.
+     */
+    private static ValueExtractorDefinition<Box<Object>> definitionOf(BoxExtractor extractor) {
+        return new ValueExtractorDefinition<>((Class) Box.class, (Class) Object.class, 0, false, (ValueExtractor) extractor);
     }
 
     private static final class BoxExtractor implements ValueExtractor<Box<@ExtractedValue ?>> {

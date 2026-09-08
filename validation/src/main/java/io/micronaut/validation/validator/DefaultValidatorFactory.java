@@ -19,6 +19,7 @@ import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -76,7 +77,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     }
 
     @Override
-    public ValidatorContext usingContext() {
+    public MicronautValidatorContext usingContext() {
         return new DefaultFactoryValidatorContext(newValidatorConfiguration());
     }
 
@@ -150,7 +151,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         return valueExtractorRegistry;
     }
 
-    private final class DefaultFactoryValidatorContext implements ValidatorContext {
+    private final class DefaultFactoryValidatorContext implements MicronautValidatorContext {
 
         private final DefaultValidatorConfiguration validatorConfiguration;
 
@@ -191,6 +192,20 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         @Override
         public ValidatorContext addValueExtractor(jakarta.validation.valueextraction.ValueExtractor<?> extractor) {
             validatorConfiguration.addValueExtractor(extractor);
+            return this;
+        }
+
+        /**
+         * Registers a value extractor described in full, so that nothing has to be read from its class.
+         *
+         * @param definition The extractor and what it extracts
+         * @param <T>        The container type
+         * @return This context
+         * @since 5.2
+         */
+        @Override
+        public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {
+            validatorConfiguration.addValueExtractor(definition);
             return this;
         }
 

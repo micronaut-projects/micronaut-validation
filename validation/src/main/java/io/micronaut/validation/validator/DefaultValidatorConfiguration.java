@@ -67,7 +67,7 @@ import java.util.Optional;
  * @since 1.2
  */
 @ConfigurationProperties(ValidatorConfiguration.PREFIX)
-public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware {
+public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware, MicronautValidatorContext {
 
     @Nullable
     private InternalConstraintValidatorFactory constraintValidatorFactory;
@@ -484,6 +484,26 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     /**
+     * Registers a value extractor described in full, so that nothing has to be read from its class.
+     *
+     * <p>The specification registers an extractor as an instance and says nothing else about it, so
+     * {@link #addValueExtractor(ValueExtractor)} has to read the {@code ValueExtractor} signature the class
+     * declares, which needs {@code micronaut-validation-reflection}. This overload takes that description
+     * instead: the container type, the extracted type, which type argument carries the extracted value, and
+     * whether the value is unwrapped by default.</p>
+     *
+     * @param definition The extractor and what it extracts
+     * @param <T>        The container type
+     * @return This context
+     * @since 5.2
+     */
+    @Override
+    public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {
+        getValueExtractorRegistry().addValueExtractor(definition);
+        return this;
+    }
+
+    /**
      * Replaces a value extractor for the same container type and type argument if present.
      *
      * @param extractor The extractor
@@ -491,6 +511,17 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     public void replaceValueExtractor(ValueExtractor<?> extractor) {
         addValueExtractor(extractor, true);
+    }
+
+    /**
+     * Replaces a value extractor described in full, for the same container type and type argument if present.
+     *
+     * @param definition The extractor and what it extracts
+     * @param <T>        The container type
+     * @since 5.2
+     */
+    public <T> void replaceValueExtractor(ValueExtractorDefinition<T> definition) {
+        getValueExtractorRegistry().replaceValueExtractor(definition);
     }
 
     private void addValueExtractor(ValueExtractor<?> extractor, boolean replace) {
