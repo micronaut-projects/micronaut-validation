@@ -65,6 +65,45 @@ final class ReflectionGenericArguments {
         return (Argument<T>) resolve(type, superType, Map.of(), new HashSet<>());
     }
 
+    /**
+     * Which of a type's own type arguments carries the argument a super type declares at an index. A type passing
+     * its two arguments to a base that swaps them on the way to {@code Map} carries the map's value, argument 1, in
+     * its own argument 0. The bindings of every level in between are carried, which a match of the super type by its
+     * raw type loses.
+     *
+     * @param type                   The type
+     * @param superType              The generic super type
+     * @param superTypeArgumentIndex The index of the argument of the super type
+     * @return The index among the type arguments of the type, {@code null} when the argument is bound to a type rather
+     * than to one of the type's own variables, or the type does not extend the super type
+     */
+    @Nullable
+    static Integer declaredTypeArgumentIndex(Class<?> type, Class<?> superType, int superTypeArgumentIndex) {
+        if (type == superType || !superType.isAssignableFrom(type)) {
+            return null;
+        }
+        TypeVariable<?>[] variables = type.getTypeParameters();
+        // each of the type's own variables is bound to an argument recognised by identity once the walk has carried it
+        // through every level, so a variable of an intermediate type that shares its name is not mistaken for it
+        Argument<?>[] own = new Argument<?>[variables.length];
+        Map<TypeVariable<?>, Argument<?>> bindings = new HashMap<>();
+        for (int i = 0; i < variables.length; i++) {
+            own[i] = of(variables[i], Map.of());
+            bindings.put(variables[i], own[i]);
+        }
+        Argument<?> resolved = resolve(type, superType, bindings, new HashSet<>());
+        Argument<?>[] typeParameters = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
+        if (superTypeArgumentIndex >= typeParameters.length) {
+            return null;
+        }
+        for (int i = 0; i < own.length; i++) {
+            if (typeParameters[superTypeArgumentIndex] == own[i]) {
+                return i;
+            }
+        }
+        return null;
+    }
+
     @Nullable
     private static Argument<?> resolve(Class<?> type, Class<?> superType, Map<TypeVariable<?>, Argument<?>> bindings, Set<Class<?>> visited) {
         if (!visited.add(type)) {

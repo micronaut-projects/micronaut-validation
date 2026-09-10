@@ -46,6 +46,22 @@ Eleven call sites remain, and none of them is a metadata read:
   calls in `ValueExtractorDefinition`.
 
 
+## Bindings made one level up
+
+A type argument bound at an intermediate generic super type is the case core
+[#13081](https://github.com/micronaut-projects/micronaut-core/pull/13081) fixed for bean definitions: a walk that
+matches the super type by its raw type, without carrying the bindings of the levels between, loses it. Two of the three
+walks of the reflection module had the same defect.
+
+- The validated type of a constraint validator was read off the first parameterized super class and given up on there,
+  so a cross-parameter validator validating `String` through an abstract base was accepted by the strict definition
+  check.
+- The type argument a container passes on to the one an extractor extracts was looked for one level up only, so a
+  type swapping its arguments through a base read a map's value from the wrong argument.
+
+Both now go through `ReflectionGenericArguments`, whose walk carries the bindings of every level and which was right
+already. `IntermediateBindingSpec` holds the shapes, with the same shapes bound directly beside them.
+
 ## Registering a value extractor without its class being read
 
 The specification registers a value extractor as an instance and says nothing else about it, so

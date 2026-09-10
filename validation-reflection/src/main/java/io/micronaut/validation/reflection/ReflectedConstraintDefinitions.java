@@ -16,6 +16,7 @@
 package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.type.Argument;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
@@ -25,8 +26,6 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.util.Arrays;
 import java.util.List;
 
@@ -154,47 +153,11 @@ final class ReflectedConstraintDefinitions {
     }
 
     private static Class<?> validatedType(Class<?> validator) {
-        Class<?> directType = validatedType(validator.getGenericInterfaces());
-        if (directType != Object.class) {
-            return directType;
-        }
-        Type genericSuperclass = validator.getGenericSuperclass();
-        if (genericSuperclass instanceof ParameterizedType parameterizedType) {
-            return validatedType(parameterizedType);
-        }
-        Class<?> superclass = validator.getSuperclass();
-        if (superclass != null && superclass != Object.class) {
-            return validatedType(superclass);
-        }
-        return Object.class;
-    }
-
-    private static Class<?> validatedType(Type[] interfaces) {
-        for (Type interfaceType : interfaces) {
-            if (interfaceType instanceof ParameterizedType parameterizedType) {
-                Class<?> validatedType = validatedType(parameterizedType);
-                if (validatedType != Object.class) {
-                    return validatedType;
-                }
-            } else if (interfaceType instanceof Class<?> interfaceClass) {
-                Class<?> validatedType = validatedType(interfaceClass.getGenericInterfaces());
-                if (validatedType != Object.class) {
-                    return validatedType;
-                }
-            }
-        }
-        return Object.class;
-    }
-
-    private static Class<?> validatedType(ParameterizedType parameterizedType) {
-        if (parameterizedType.getRawType() != jakarta.validation.ConstraintValidator.class) {
-            return Object.class;
-        }
-        Type type = parameterizedType.getActualTypeArguments()[1];
-        if (type instanceof Class<?> validatedType) {
-            return validatedType;
-        }
-        return Object.class;
+        // the second type argument of ConstraintValidator through every level between: a base leaving it open and a
+        // sub type binding it is read as the type the sub type binds
+        Argument<?> signature = ReflectionGenericArguments.resolveGenericToArgument(validator, jakarta.validation.ConstraintValidator.class);
+        Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
+        return typeParameters.length == 2 ? typeParameters[1].getType() : Object.class;
     }
 
     private static Method requiredMember(Class<? extends Annotation> annotationType, String name) {

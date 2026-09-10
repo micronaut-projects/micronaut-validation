@@ -23,12 +23,10 @@ import io.micronaut.reflection.ReflectionArguments;
 import java.lang.reflect.AnnotatedParameterizedType;
 import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.lang.reflect.TypeVariable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -112,41 +110,9 @@ final class ReflectionContainerTypeArguments {
 
     @Nullable
     private static Integer readExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
-        Integer resolved = boundIndex(declaredType, declaredType.getGenericSuperclass(), extractorContainerType, extractorTypeArgumentIndex);
-        if (resolved != null) {
-            return resolved;
-        }
-        for (Type genericInterface : declaredType.getGenericInterfaces()) {
-            resolved = boundIndex(declaredType, genericInterface, extractorContainerType, extractorTypeArgumentIndex);
-            if (resolved != null) {
-                return resolved;
-            }
-        }
-        return extractorTypeArgumentIndex;
-    }
-
-    @Nullable
-    private static Integer boundIndex(Class<?> declaredType,
-                                      Type genericType,
-                                      Class<?> extractorContainerType,
-                                      int extractorTypeArgumentIndex) {
-        if (!(genericType instanceof ParameterizedType parameterizedType) || parameterizedType.getRawType() != extractorContainerType) {
-            return null;
-        }
-        Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
-        if (extractorTypeArgumentIndex >= actualTypeArguments.length) {
-            return null;
-        }
-        Type actualTypeArgument = actualTypeArguments[extractorTypeArgumentIndex];
-        if (actualTypeArgument instanceof TypeVariable<?> typeVariable) {
-            TypeVariable<?>[] declaredTypeParameters = declaredType.getTypeParameters();
-            for (int i = 0; i < declaredTypeParameters.length; i++) {
-                if (Objects.equals(declaredTypeParameters[i].getName(), typeVariable.getName())) {
-                    return i;
-                }
-            }
-        }
-        return extractorTypeArgumentIndex;
+        Integer declared = ReflectionGenericArguments.declaredTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+        // an argument the type binds to a type, rather than passing one of its own variables on, keeps the index
+        return declared == null ? extractorTypeArgumentIndex : declared;
     }
 
     /**
