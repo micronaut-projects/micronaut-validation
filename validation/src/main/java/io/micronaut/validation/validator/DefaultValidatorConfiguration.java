@@ -415,7 +415,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
             @Override
             public <T, R> Optional<ExecutableMethod<T, R>> findExecutableMethod(Class<T> beanType, String method, Class<?>... arguments) {
-                if (beanType == null) {
+                if (beanType == null || beanContext == null) {
                     return Optional.empty();
                 }
                 Collection<BeanDefinition<T>> definitions = beanContext.getBeanDefinitions(beanType);
@@ -593,7 +593,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         }
 
         @Override
-        public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
+        public <T extends jakarta.validation.ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> validatorType,
                                                                                       Class<?> targetType,
                                                                                       ConstraintTarget constraintTarget) {
             if (!isCompatible(validatorType, targetType, constraintTarget)) {

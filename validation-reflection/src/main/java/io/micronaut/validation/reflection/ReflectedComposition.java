@@ -28,6 +28,7 @@ import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.OverridesAttribute;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Array;
@@ -199,16 +200,16 @@ final class ReflectedComposition {
      * Whether a value, as the metadata stores it, fits a member type: a class is stored as its name, an enum
      * as its constant name, a primitive as its wrapper.
      */
-    private static boolean isAssignableToMember(Object value, Class<?> memberType) {
+    private static boolean isAssignableToMember(@Nullable Object value, Class<?> memberType) {
+        if (value == null) {
+            return true;
+        }
         if (memberType.isArray()) {
             Class<?> valueType = value.getClass();
             if (valueType.isArray()) {
                 return isAssignableToMember(Array.getLength(value) == 0 ? null : Array.get(value, 0), memberType.getComponentType());
             }
             return isAssignableToMember(value, memberType.getComponentType());
-        }
-        if (value == null) {
-            return true;
         }
         if (memberType == Class.class) {
             return value instanceof Class || value instanceof AnnotationClassValue;

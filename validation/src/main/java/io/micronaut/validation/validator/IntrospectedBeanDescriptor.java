@@ -129,6 +129,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return hasConstraints() || getConstrainedProperties().stream().anyMatch(property -> property.hasConstraints() || property.isCascaded());
     }
 
+    @Nullable
     @Override
     public PropertyDescriptor getConstraintsForProperty(String propertyName) {
         if (propertyName == null) {
@@ -212,6 +213,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      * generated one, every public method and the constructor of a reflective one — and from the metadata
      * providers for what the introspection does not know.
      */
+    @Nullable
     @Override
     public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
         if (methodName == null) {
@@ -255,6 +257,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return new LinkedHashSet<>(methods.values());
     }
 
+    @Nullable
     @Override
     public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
         ConstructorDescriptor provided = metadataProviders.stream()
@@ -777,7 +780,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
     }
 
     private record PropertyMetadataResolution(
-        PropertyDescriptor descriptor,
+        @Nullable PropertyDescriptor descriptor,
         boolean annotationsIgnored
     ) {
     }

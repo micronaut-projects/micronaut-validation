@@ -79,6 +79,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -1290,7 +1291,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
 
         @Override
         @Nullable
-        public MethodDescriptor getConstraintsForMethod(@Nullable String methodName, Class<?>... parameterTypes) {
+        public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
             return Optional.ofNullable(mapping.methods().get(new ExecutableKey(methodName, Arrays.asList(parameterTypes))))
                 .map(XmlMethodDescriptor::new)
                 .orElse(null);
@@ -1388,27 +1389,32 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             this.executable = executable;
         }
 
+        @Override
         public String getName() {
             return executable.name();
         }
 
+        @Override
         public List<ParameterDescriptor> getParameterDescriptors() {
             List<ParameterDescriptor> descriptors = new ArrayList<>(executable.parameters().size());
-            Parameter[] sourceParameters = executable.source().getParameters();
+            Parameter[] sourceParameters = executable.resolvedSource().getParameters();
             for (int i = 0; i < executable.parameters().size(); i++) {
                 descriptors.add(new XmlParameterDescriptor(i, executable.parameters().get(i), sourceParameters[i]));
             }
             return List.copyOf(descriptors);
         }
 
+        @Override
         public CrossParameterDescriptor getCrossParameterDescriptor() {
-            return new XmlCrossParameterDescriptor(executable.crossParameter(), executable.source());
+            return new XmlCrossParameterDescriptor(executable.crossParameter(), executable.resolvedSource());
         }
 
+        @Override
         public ReturnValueDescriptor getReturnValueDescriptor() {
-            return new XmlReturnValueDescriptor(executable.returnValue(), executable.source());
+            return new XmlReturnValueDescriptor(executable.returnValue(), executable.resolvedSource());
         }
 
+        @Override
         public boolean hasConstrainedParameters() {
             if (getCrossParameterDescriptor().hasConstraints()) {
                 return true;
@@ -1420,6 +1426,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                     || !parameter.getConstrainedContainerElementTypes().isEmpty());
         }
 
+        @Override
         public boolean hasConstrainedReturnValue() {
             ReturnValueDescriptor descriptor = getReturnValueDescriptor();
             return descriptor.hasConstraints()
@@ -1428,14 +1435,17 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                 || !descriptor.getConstrainedContainerElementTypes().isEmpty();
         }
 
+        @Override
         public boolean hasConstraints() {
             return false;
         }
 
+        @Override
         public Class<?> getElementClass() {
             return Object.class;
         }
 
+        @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
             return Collections.emptySet();
         }
@@ -1665,7 +1675,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         @Override
         @Nullable
         public ConstraintTarget getValidationAppliesTo() {
-            return (ConstraintTarget) readMember(annotation, ATTRIBUTE_VALIDATION_APPLIES_TO, null);
+            return (ConstraintTarget) readOptionalMember(annotation, ATTRIBUTE_VALIDATION_APPLIES_TO);
         }
 
         @Override
@@ -1684,10 +1694,19 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         }
 
         private static Object readMember(Annotation annotation, String member, Object defaultValue) {
+            Object value = readOptionalMember(annotation, member);
+            return value == null ? defaultValue : value;
+        }
+
+        /**
+         * The value of a member of an annotation, which is never {@code null}, or {@code null} when the annotation
+         * type declares no such member.
+         */
+        private static @Nullable Object readOptionalMember(Annotation annotation, String member) {
             try {
                 return annotation.annotationType().getDeclaredMethod(member).invoke(annotation); // reflection: the same, one member read
             } catch (NoSuchMethodException e) {
-                return defaultValue;
+                return null;
             } catch (ReflectiveOperationException e) {
                 throw new ValidationException("Cannot read annotation member " + annotation.annotationType().getName() + "." + member, e);
             }
@@ -1774,10 +1793,18 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
     }
 
     private record ExecutableMapping(String name,
-                                     Executable source,
+                                     @Nullable Executable source,
                                      List<ParameterMapping> parameters,
                                      ElementMapping crossParameter,
                                      ElementMapping returnValue) {
+
+        /**
+         * The executable the mapping names, which the parsing of a mapping resolves against the bean type before
+         * anything reads it.
+         */
+        Executable resolvedSource() {
+            return Objects.requireNonNull(source, "The executable of a validation XML mapping is resolved as it is parsed");
+        }
 
         List<Class<?>> parameterTypes() {
             return parameters.stream()
@@ -1792,7 +1819,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         ExecutableMapping withContainerElements(Element executableElement,
                                                 String defaultPackage,
                                                 XmlValidationMetadataProvider provider) {
-            Type[] genericParameterTypes = source.getGenericParameterTypes(); // reflection: the parameter types of an executable an XML mapping names
+            Type[] genericParameterTypes = resolvedSource().getGenericParameterTypes(); // reflection: the parameter types of an executable an XML mapping names
             List<ParameterMapping> resolvedParameters = new ArrayList<>(parameters.size());
             int parameterIndex = 0;
             NodeList children = executableElement.getChildNodes();
@@ -1811,7 +1838,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
                         parameterIndex++;
                     }
                     case "return-value" -> {
-                        Type returnType = source instanceof Method method ? method.getGenericReturnType() : source.getDeclaringClass(); // reflection: the return type of the same
+                        Type returnType = resolvedSource() instanceof Method method ? method.getGenericReturnType() : resolvedSource().getDeclaringClass(); // reflection: the return type of the same
                         resolvedReturnValue = returnValue.withContainerElements(
                             provider.parseContainerElements(element, defaultPackage, returnType)
                         );

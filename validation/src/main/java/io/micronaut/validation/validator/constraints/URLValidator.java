@@ -69,7 +69,7 @@ public class URLValidator extends AbstractPatternValidator<URL> {
             return false;
         }
 
-        Pattern pattern = getPattern(annotationMetadata, true);
+        Pattern pattern = getOptionalPattern(annotationMetadata);
         return pattern == null || pattern.matcher(value).matches();
     }
 }

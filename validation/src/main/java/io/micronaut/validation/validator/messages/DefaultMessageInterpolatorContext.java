@@ -55,7 +55,7 @@ public final class DefaultMessageInterpolatorContext implements MessageInterpola
     }
 
     @Override
-    public Object getValidatedValue() {
+    public @Nullable Object getValidatedValue() {
         return validatedValue;
     }
 

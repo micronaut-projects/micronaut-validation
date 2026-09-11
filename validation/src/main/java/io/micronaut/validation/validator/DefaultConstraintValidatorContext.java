@@ -63,23 +63,22 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     boolean disableDefaultConstraintViolation;
-    ConstraintDescriptor<Annotation> constraint;
+    @Nullable ConstraintDescriptor<Annotation> constraint;
 
     private final BeanValidationContext validationContext;
     private final DefaultValidator defaultValidator;
-    private final BeanIntrospection<R> beanIntrospection;
-    private final R rootBean;
+    private final @Nullable BeanIntrospection<R> beanIntrospection;
+    private final @Nullable R rootBean;
     @Nullable
     private final Class<R> rootClass;
     private final Set<Object> validatedObjects = new HashSet<>(20);
     private final ValidationPath currentPath;
     private final List<Class<?>> definedGroups;
-    private String messageTemplate = null;
+    private @Nullable String messageTemplate;
     private final Set<ConstraintViolation<R>> overallViolations;
 
     // Contextual values
-    @Nullable
-    private Object[] executableParameterValues;
+    private Object @Nullable [] executableParameterValues;
     private ElementType elementType = ElementType.FIELD;
     @Nullable
     private Class<?> unwrappedContainerType;
@@ -91,17 +90,17 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
     private boolean hasCurrentViolations = false;
 
-    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, BeanIntrospection<R> beanIntrospection, R rootBean, BeanValidationContext validationContext) {
+    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, @Nullable BeanIntrospection<R> beanIntrospection, @Nullable R rootBean, BeanValidationContext validationContext) {
         this(defaultValidator, beanIntrospection, validationContext, rootBean, null, new ValidationPath(), new LinkedHashSet<>(), null, Collections.emptyList());
     }
 
     private DefaultConstraintValidatorContext(DefaultValidator defaultValidator,
-                                              BeanIntrospection<R> beanIntrospection,
-                                              BeanValidationContext validationContext, R rootBean,
-                                              Object executableReturnValue,
+                                              @Nullable BeanIntrospection<R> beanIntrospection,
+                                              BeanValidationContext validationContext, @Nullable R rootBean,
+                                              @Nullable Object executableReturnValue,
                                               ValidationPath path,
                                               Set<ConstraintViolation<R>> overallViolations,
-                                              Object[] executableParameterValues,
+                                              Object @Nullable [] executableParameterValues,
                                               List<Class<?>> currentGroups) {
         this.validationContext = validationContext;
         this.defaultValidator = defaultValidator;
@@ -178,11 +177,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return false;
     }
 
-    public Object[] getExecutableParameterValues() {
+    public Object @Nullable [] getExecutableParameterValues() {
         return executableParameterValues;
     }
 
-    public Object getExecutableReturnValue() {
+    public @Nullable Object getExecutableReturnValue() {
         return executableReturnValue;
     }
 
@@ -247,7 +246,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return () -> this.executableParameterValues = prevExecutableParameterValues;
     }
 
-    public ValidationCloseable withExecutableReturnValue(Object executableReturnValue) {
+    public ValidationCloseable withExecutableReturnValue(@Nullable Object executableReturnValue) {
         Object prevExecutableReturnValue = this.executableReturnValue;
         this.executableReturnValue = executableReturnValue;
         return () -> this.executableReturnValue = prevExecutableReturnValue;
@@ -479,7 +478,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return rootBean;
     }
 
-    public Class<R> getRootClass() {
+    public @Nullable Class<R> getRootClass() {
         return rootClass;
     }
 
@@ -500,7 +499,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     @Override
     public String getDefaultConstraintMessageTemplate() {
-        return getMessageTemplate().orElse(Objects.requireNonNull(constraint).getMessageTemplate());
+        return getMessageTemplate().orElse(currentConstraint().getMessageTemplate());
+    }
+
+    /**
+     * The constraint being validated: set for as long as its validator runs, which is when a violation is built.
+     *
+     * @return The constraint
+     */
+    ConstraintDescriptor<Annotation> currentConstraint() {
+        return Objects.requireNonNull(constraint, "No constraint is being validated");
     }
 
     @NonNull

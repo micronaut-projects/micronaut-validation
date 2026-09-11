@@ -22,6 +22,8 @@ jmh = "1.37"
 # gradle plugins
 micronaut-gradle-plugin = "5.0.2"
 errorprone-no-reflection = "1.0.1"
+# the NullAway of micronautBuild.nullAway, which reads this version in place of its own default
+nullaway = "0.14.1"
 
 [libraries]
 # core

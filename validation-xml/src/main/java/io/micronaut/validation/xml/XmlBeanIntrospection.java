@@ -305,12 +305,12 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
         }
 
         @Override
-        public void set(T bean, Object value) {
+        public void set(T bean, @Nullable Object value) {
             throw new UnsupportedOperationException(readOnly());
         }
 
         @Override
-        public T withValue(T bean, Object value) {
+        public T withValue(T bean, @Nullable Object value) {
             throw new UnsupportedOperationException(readOnly());
         }
 

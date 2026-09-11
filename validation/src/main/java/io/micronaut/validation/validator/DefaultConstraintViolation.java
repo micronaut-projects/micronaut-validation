@@ -43,13 +43,13 @@ import java.util.Objects;
 record DefaultConstraintViolation<T>(
     @Nullable T rootBean,
     @Nullable Class<T> rootBeanClass,
-    Object leafBean,
-    Object invalidValue,
+    @Nullable Object leafBean,
+    @Nullable Object invalidValue,
     String message,
     String messageTemplate,
     Path path,
     ConstraintDescriptor<?> constraintDescriptor,
-    @Nullable Object[] executableParameterValues,
+    Object @Nullable [] executableParameterValues,
     @Nullable Object executableReturnValue
 ) implements ConstraintViolation<T> {
 
@@ -64,27 +64,27 @@ record DefaultConstraintViolation<T>(
     }
 
     @Override
-    public T getRootBean() {
+    public @Nullable T getRootBean() {
         return rootBean;
     }
 
     @Override
-    public Class<T> getRootBeanClass() {
+    public @Nullable Class<T> getRootBeanClass() {
         return rootBeanClass;
     }
 
     @Override
-    public Object getLeafBean() {
+    public @Nullable Object getLeafBean() {
         return leafBean;
     }
 
     @Override
-    public Object[] getExecutableParameters() {
+    public Object @Nullable [] getExecutableParameters() {
         return executableParameterValues;
     }
 
     @Override
-    public Object getExecutableReturnValue() {
+    public @Nullable Object getExecutableReturnValue() {
         return executableReturnValue;
     }
 
@@ -94,7 +94,7 @@ record DefaultConstraintViolation<T>(
     }
 
     @Override
-    public Object getInvalidValue() {
+    public @Nullable Object getInvalidValue() {
         return invalidValue;
     }
 

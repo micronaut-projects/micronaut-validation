@@ -17,6 +17,7 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanWrapper;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
@@ -442,7 +443,7 @@ final class InternalConstraintValidators {
         return result;
     }
 
-    public static LocalDateTime toLocalDateTime(Calendar calendar) {
+    public static @Nullable LocalDateTime toLocalDateTime(@Nullable Calendar calendar) {
         if (calendar == null) {
             return null;
         }

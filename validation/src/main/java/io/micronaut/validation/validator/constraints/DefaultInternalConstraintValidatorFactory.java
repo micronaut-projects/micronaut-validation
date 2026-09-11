@@ -67,7 +67,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     }
 
     @Override
-    public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> type) {
+    public <T extends ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> type) {
         ConstraintValidatorEntry entry = findConstraintValidator(type);
         if (entry == null) {
             return null;
@@ -77,6 +77,11 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
 
     @Override
     public void releaseInstance(ConstraintValidator<?, ?> constraintValidator) {
+        BeanContext beanContext = this.beanContext;
+        if (beanContext == null) {
+            // without a bean context no validator is a bean registration to destroy
+            return;
+        }
         validators.values()
             .stream()
             .filter(entry -> entry.beanRegistration != null && entry.constraintValidator == constraintValidator)
@@ -84,7 +89,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     }
 
     @Override
-    public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> type, Class<?> targetType, ConstraintTarget constraintTarget) {
+    public <T extends ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> type, Class<?> targetType, ConstraintTarget constraintTarget) {
         ConstraintValidatorEntry entry = findConstraintValidator(type);
         if (entry == null) {
             return null;
@@ -119,7 +124,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         return entry;
     }
 
-    @NonNull
+    @Nullable
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfDeclaredConstructor(Class<T> type) {
         T constraintValidator = ReflectionSupport.get().instantiate(type);
         if (constraintValidator == null) {

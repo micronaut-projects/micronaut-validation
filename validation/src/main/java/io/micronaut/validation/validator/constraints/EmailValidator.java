@@ -82,7 +82,7 @@ public class EmailValidator extends AbstractPatternValidator<Email> {
             isValid = DomainNameUtil.isValidEmailDomainAddress(domainPart);
         }
 
-        final Pattern pattern = getPattern(annotationMetadata, true);
+        final Pattern pattern = getOptionalPattern(annotationMetadata);
         if (pattern == null || !isValid) {
             return isValid;
         }

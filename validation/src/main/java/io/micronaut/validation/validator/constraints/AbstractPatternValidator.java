@@ -17,6 +17,7 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.Pattern;
@@ -38,30 +39,34 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
     private static final Map<PatternKey, java.util.regex.Pattern> COMPUTED_PATTERNS = new ConcurrentHashMap<>(10);
 
     /**
-     * Gets the pattern for the given annotation metadata.
+     * Gets the pattern the given annotation metadata requires.
      *
      * @param annotationMetadata The metadata
-     * @param isOptional         Whether the pattern is required to be returned
      * @return The pattern
+     * @throws ValidationException When the metadata specifies no pattern
      */
-    java.util.regex.Pattern getPattern(
-        @NonNull AnnotationValue<?> annotationMetadata,
-        boolean isOptional) {
-        final Optional<String> regexp = annotationMetadata.get("regexp", String.class);
-        final String pattern;
+    java.util.regex.Pattern getPattern(@NonNull AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.get("regexp", String.class)
+            .orElseThrow(() -> new ValidationException("No pattern specified"));
+        return compile(pattern, annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS));
+    }
 
-        if (isOptional) {
-            pattern = regexp.orElse(".*");
-        } else {
-            pattern = regexp
-                .orElseThrow(() -> new ValidationException("No pattern specified"));
-        }
-
+    /**
+     * Gets the pattern the given annotation metadata may specify.
+     *
+     * @param annotationMetadata The metadata
+     * @return The pattern, {@code null} when the metadata specifies none that restricts the value
+     */
+    java.util.regex.@Nullable Pattern getOptionalPattern(@NonNull AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.get("regexp", String.class).orElse(".*");
         final Pattern.Flag[] flags = annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS);
-        if (isOptional && pattern.equals(".*") && flags.length == 0) {
+        if (pattern.equals(".*") && flags.length == 0) {
             return null;
         }
+        return compile(pattern, flags);
+    }
 
+    private static java.util.regex.Pattern compile(String pattern, Pattern.Flag[] flags) {
         int computedFlag = 0;
         for (Pattern.Flag flag : flags) {
             computedFlag = computedFlag | flag.getValue();

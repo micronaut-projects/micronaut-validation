@@ -60,7 +60,7 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         );
     }
 
-    @NonNull
+    @Nullable
     private static Integer findExtractedTypeArgumentIndex(@NotNull Argument<?> argument) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         Integer typeArgumentIndex = null;
@@ -85,7 +85,6 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         throw new ValueExtractorDefinitionException("ValueExtractor definition is missing @ExtractedValue on an argument: " + argument);
     }
 
-    @Nullable
     private static AnnotationValue<?> findExtractedValue(@NotNull Argument<?> argument, ValueExtractor<?> valueExtractor) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         for (Argument<?> typeParameter : typeParameters) {

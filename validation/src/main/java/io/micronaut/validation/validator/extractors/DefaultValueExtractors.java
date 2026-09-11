@@ -222,7 +222,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
             && possibleLessSpecific.containerType().isAssignableFrom(possibleMoreSpecific.containerType());
     }
 
-    private record ExtractorKey(Class<?> containerType, Integer typeArgumentIndex) {
+    private record ExtractorKey(Class<?> containerType, @Nullable Integer typeArgumentIndex) {
     }
 
 }

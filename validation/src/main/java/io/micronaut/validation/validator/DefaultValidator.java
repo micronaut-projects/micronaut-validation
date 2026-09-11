@@ -296,7 +296,7 @@ public class DefaultValidator implements
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, Object value, BeanValidationContext context) {
+    public <T> Set<ConstraintViolation<T>> validateValue(Class<T> beanType, String propertyName, @Nullable Object value, BeanValidationContext context) {
         requireNonNull("beanType", beanType);
         requireNonEmpty("propertyName", propertyName);
 
@@ -425,11 +425,11 @@ public class DefaultValidator implements
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateParameters(T object, ExecutableMethod method, @NonNull Object[] parameterValues, BeanValidationContext validationContext) {
+    public <T> Set<ConstraintViolation<T>> validateParameters(T object, ExecutableMethod method, @NonNull Object[] parameterValues, @Nullable BeanValidationContext validationContext) {
         requireNonNull("parameterValues", parameterValues);
         requireNonNull("object", object);
         requireNonNull("method", method);
-        requireNonNull("context", validationContext);
+        final BeanValidationContext beanValidationContext = requireNonNull("context", validationContext);
         final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
         ExecutableHierarchy.checkParameterDeclarations(hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
@@ -439,7 +439,7 @@ public class DefaultValidator implements
             throw new IllegalArgumentException("The method parameter array must have exactly " + argLen + " elements.");
         }
 
-        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, validationContext);
+        DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, object, beanValidationContext);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
                 AnnotationMetadata methodAnnotationMetadata = configured.annotationMetadata();
@@ -522,11 +522,11 @@ public class DefaultValidator implements
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, Object returnValue, BeanValidationContext validationContext) {
+    public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, @Nullable Object returnValue, @Nullable BeanValidationContext validationContext) {
         final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
         ExecutableHierarchy.checkReturnValueDeclarations(hierarchy);
         final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
-        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, validationContext);
+        final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, requireNonNull("validationContext", validationContext));
 
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod)) {
@@ -602,8 +602,8 @@ public class DefaultValidator implements
     }
 
     @Override
-    public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Class<? extends T> beanType, @NonNull Argument<?>[] constructorArguments, @NonNull Object[] parameterValues, BeanValidationContext validationContext) {
-        return validateConstructorParameters(beanType, null, AnnotationMetadata.EMPTY_METADATA, constructorArguments, parameterValues, validationContext, null);
+    public <T> Set<ConstraintViolation<T>> validateConstructorParameters(Class<? extends T> beanType, @NonNull Argument<?>[] constructorArguments, @NonNull Object[] parameterValues, @Nullable BeanValidationContext validationContext) {
+        return validateConstructorParameters(beanType, null, AnnotationMetadata.EMPTY_METADATA, constructorArguments, parameterValues, requireNonNull("validationContext", validationContext), null);
     }
 
     /**
@@ -632,7 +632,7 @@ public class DefaultValidator implements
             : (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext(this, introspection, null, validationContext);
         ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredConstructor(beanType, constructorMetadata, constructorArguments);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues)) {
-            try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(beanType.getSimpleName(), constructorArguments)) {
+            try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(beanType.getSimpleName(), beanType, constructorArguments)) {
                 validateParametersInternal(context, null, configured.annotationMetadata(), parameterValues, configured.arguments(), argLength, parameterNames);
             }
         }
@@ -659,7 +659,7 @@ public class DefaultValidator implements
         ExecutableHierarchy.checkGroupConversions(constructorMetadata, constructorMetadata.hasStereotype(Valid.class));
         final Argument<T> returnArgument = (Argument<T>) configured.returnArgument();
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(createdObject)) {
-            try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addConstructorNode(declaringClass.getSimpleName(), beanConstructor.getArguments())) {
+            try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addConstructorNode(declaringClass.getSimpleName(), declaringClass, beanConstructor.getArguments())) {
                 try (ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
                     boolean canCascade = true;
                     for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(createdObject)) {
@@ -725,7 +725,7 @@ public class DefaultValidator implements
 
         boolean canCascade = true;
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(
-            rootClass.getName(), injectionPoint.getDeclaringBean().getConstructor().getArguments())) {
+            rootClass.getName(), rootClass, injectionPoint.getDeclaringBean().getConstructor().getArguments())) {
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addPropertyNode(argument.getName())) {
                 try (DefaultConstraintValidatorContext.ValidationCloseable ignore4 = context.convertGroups(argument.getAnnotationMetadata())) {
                     for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
@@ -773,7 +773,7 @@ public class DefaultValidator implements
             } else {
                 constructorName = beanType.getSimpleName();
             }
-            try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(constructorName)) {
+            try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(constructorName, beanType)) {
                 for (ExecutableMethod<T, ?> executableMethod : executableMethods) {
                     if (executableMethod.hasAnnotation(Property.class)) {
                         final boolean hasConstraint = ConstraintContainers.hasConstraints(executableMethod.getAnnotationMetadata(), currentClassLoader());
@@ -1224,7 +1224,7 @@ public class DefaultValidator implements
         return false;
     }
 
-    private <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, T object) {
+    private <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, @Nullable T object) {
         ValidationPath currentPath = context.getCurrentPath();
         ValidationPath previousPath = currentPath.previousPath();
         try {
@@ -1241,7 +1241,7 @@ public class DefaultValidator implements
     }
 
     private <R> boolean canCascade(@NonNull DefaultConstraintValidatorContext<R> context,
-                                   Object leftBean) {
+                                   @Nullable Object leftBean) {
         try {
             ValidationPath currentPath = context.getCurrentPath();
             ValidationPath previousPath = currentPath.previousPath();
@@ -1270,9 +1270,9 @@ public class DefaultValidator implements
     }
 
     final <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
-                                     Object bean,
+                                     @Nullable Object bean,
                                      Argument<E> elementArgument,
-                                     E elementValue,
+                                     @Nullable E elementValue,
                                      boolean canCascade) {
         visitElement(context,
             bean,
@@ -1284,10 +1284,10 @@ public class DefaultValidator implements
     }
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
-                                     Object bean,
+                                     @Nullable Object bean,
                                      Argument<E> elementArgument,
                                      AnnotationMetadata annotationMetadata,
-                                     E elementValue,
+                                     @Nullable E elementValue,
                                      boolean canCascade) {
         visitElement(context,
             bean,
@@ -1301,9 +1301,9 @@ public class DefaultValidator implements
     }
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
-                                     Object bean,
+                                     @Nullable Object bean,
                                      Argument<E> elementArgument,
-                                     E elementValue,
+                                     @Nullable E elementValue,
                                      boolean canCascade,
                                      boolean needsCanCascadeCheck,
                                      boolean cacheConstraints) {
@@ -1320,10 +1320,10 @@ public class DefaultValidator implements
     }
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
-                                     Object bean,
+                                     @Nullable Object bean,
                                      Argument<E> elementArgument,
                                      AnnotationMetadata annotationMetadata,
-                                     E elementValue,
+                                     @Nullable E elementValue,
                                      boolean canCascade,
                                      boolean needsCanCascadeCheck,
                                      boolean cacheConstraints) {
@@ -1340,10 +1340,10 @@ public class DefaultValidator implements
     }
 
     private <R, E> void visitElement(DefaultConstraintValidatorContext<R> context,
-                                     Object leftBean,
+                                     @Nullable Object leftBean,
                                      Argument<E> elementArgument,
                                      AnnotationMetadata annotationMetadata,
-                                     E elementValue,
+                                     @Nullable E elementValue,
                                      boolean canCascade,
                                      boolean hasValid,
                                      boolean needsCanCascadeCheck,
@@ -1367,10 +1367,10 @@ public class DefaultValidator implements
     }
 
     private <R, E> boolean visitContainer(DefaultConstraintValidatorContext<R> context,
-                                          Object leftBean,
+                                          @Nullable Object leftBean,
                                           Argument<E> containerArgument,
                                           AnnotationMetadata annotationMetadata,
-                                          E containerValue,
+                                          @Nullable E containerValue,
                                           List<DefaultConstraintDescriptor<Annotation>> constraints,
                                           boolean canCascade) {
         if (!isValidated(containerArgument) && !hasValidatedTypeArgument(containerArgument)) {
@@ -1466,7 +1466,7 @@ public class DefaultValidator implements
 
         for (ValueExtractorDefinition<E> valueExtractorDefinition : valueExtractorDefinitions) {
 
-            if (isLegacyValid && valueExtractorDefinition.containerType().equals(Map.class) && valueExtractorDefinition.typeArgumentIndex() == 0) {
+            if (isLegacyValid && valueExtractorDefinition.containerType().equals(Map.class) && Objects.equals(valueExtractorDefinition.typeArgumentIndex(), 0)) {
                 // Legacy Map validation only validates values
                 continue;
             }
@@ -1656,13 +1656,13 @@ public class DefaultValidator implements
     }
 
     private <R, E> void propagateValidation(DefaultConstraintValidatorContext<R> context,
-                                            Object leftBean,
+                                            @Nullable Object leftBean,
                                             Argument<E> elementType,
-                                            E elementValue,
+                                            @Nullable E elementValue,
                                             boolean needsCanCascadeCheck) {
 
-        final BeanIntrospection<E> beanIntrospection = getBeanIntrospection(elementValue, elementType.getType());
-        if (beanIntrospection == null) {
+        final BeanIntrospection<E> beanIntrospection = elementValue == null ? null : getBeanIntrospection(elementValue, elementType.getType());
+        if (elementValue == null || beanIntrospection == null) {
             // Error if not introspected
             ConstraintDescriptor<Annotation> constraintDescriptor = notIntrospectedConstraint(elementType, elementValue);
             DefaultConstraintViolation<R> violation = createConstraintViolation(context, leftBean, elementValue, constraintDescriptor);
@@ -1743,7 +1743,7 @@ public class DefaultValidator implements
                                 }
 
                                 @Override
-                                public boolean isValid(E value, AnnotationValue<Annotation> annotationMetadata, ConstraintValidatorContext context) {
+                                public boolean isValid(@Nullable E value, AnnotationValue<Annotation> annotationMetadata, ConstraintValidatorContext context) {
                                     return constraintValidator.isValid(value, context);
                                 }
                             };
@@ -1963,7 +1963,7 @@ public class DefaultValidator implements
      * @return the value
      * @param <T> value Type
      */
-    private static <T> T requireNonNull(String name, T value) {
+    private static <T> T requireNonNull(String name, @Nullable T value) {
         if (value == null) {
             throw new IllegalArgumentException("Argument [" + name + "] cannot be null");
         }
@@ -1989,7 +1989,7 @@ public class DefaultValidator implements
         return value;
     }
 
-    private static <E> ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<E> notIntrospectedArgument, E elementValue) {
+    private static <E> ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
         return new NotIntrospectedConstraintDescriptor<>(notIntrospectedArgument, elementValue);
     }
 

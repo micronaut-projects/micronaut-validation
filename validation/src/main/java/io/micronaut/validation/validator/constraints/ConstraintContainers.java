@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.reflect.ClassUtils;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
@@ -165,6 +166,7 @@ public final class ConstraintContainers {
      * The constraint a container holds: an annotation whose {@code value} is a list of constraints of one type,
      * whatever its name — {@code X.List} by convention, though a container is free to be named otherwise.
      */
+    @Nullable
     private static Class<? extends Annotation> containedConstraintType(AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
         AnnotationValue<?> container = annotationMetadata.getAnnotation(containerName);
         if (container == null) {

@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.io.service.SoftServiceLoader;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
@@ -53,7 +54,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
      */
     private static final class LocalConstraintValidators extends DefaultConstraintValidators {
 
-        private Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap;
+        private @Nullable Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap;
 
         @Override
         protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
@@ -61,10 +62,12 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
         }
 
         private <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidatorFromServiceLoader(Class<A> constraintType, Class<T> targetType) {
-            if (validatorMap == null) {
-                validatorMap = initializeValidatorMap();
+            Map<ValidatorKey, ConstraintValidator<?, ?>> validators = validatorMap;
+            if (validators == null) {
+                validators = initializeValidatorMap();
+                validatorMap = validators;
             }
-            return validatorMap.entrySet().stream()
+            return validators.entrySet().stream()
                 .filter(entry -> {
                     final ValidatorKey key = entry.getKey();
                     final Class<?>[] left = {constraintType, targetType};
@@ -77,7 +80,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
         }
 
         private Map<ValidatorKey, ConstraintValidator<?, ?>> initializeValidatorMap() {
-            validatorMap = new LinkedHashMap<>();
+            Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap = new LinkedHashMap<>();
             for (ConstraintValidator<?, ?> validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
                 try {
                     final Argument<ConstraintValidator> validatorArgument = ReflectionSupport.get().genericSuperArgument(validator.getClass(), ConstraintValidator.class);

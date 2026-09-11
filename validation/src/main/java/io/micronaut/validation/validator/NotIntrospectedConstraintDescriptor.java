@@ -25,6 +25,7 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.Payload;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Collections;
@@ -44,9 +45,9 @@ import java.util.Set;
 public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintDescriptor<Annotation> {
 
     private final Argument<E> notIntrospectedArgument;
-    private final E elementValue;
+    private final @Nullable E elementValue;
 
-    NotIntrospectedConstraintDescriptor(Argument<E> notIntrospectedArgument, E elementValue) {
+    NotIntrospectedConstraintDescriptor(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
         this.notIntrospectedArgument = notIntrospectedArgument;
         this.elementValue = elementValue;
     }
@@ -85,7 +86,7 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     @Override
     public Map<String, Object> getAttributes() {
         var argType = notIntrospectedArgument.getType().getName();
-        if (notIntrospectedArgument.isTypeVariable()) {
+        if (notIntrospectedArgument.isTypeVariable() && elementValue != null) {
             argType = elementValue.getClass().getName();
         }
         return Collections.singletonMap("type", argType);

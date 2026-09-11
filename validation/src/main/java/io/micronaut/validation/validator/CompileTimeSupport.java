@@ -114,7 +114,7 @@ final class CompileTimeSupport implements ReflectionSupport {
      * the caller describes the extracted value from what the extractor declares instead.
      */
     @Override
-    public Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         return null;
     }
 

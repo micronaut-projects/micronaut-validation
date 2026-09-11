@@ -56,7 +56,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
 
-    private ClassElement classElement;
+    private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
 
     @Override
@@ -190,9 +190,13 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
      */
     @Nullable
     private ClassElement containerGetterTypeArgument(FieldElement field) {
+        ClassElement owner = classElement;
+        if (owner == null) {
+            return null;
+        }
         String suffix = NameUtils.capitalize(field.getName());
-        MethodElement getter = classElement.findMethod("get" + suffix)
-            .or(() -> classElement.findMethod("is" + suffix))
+        MethodElement getter = owner.findMethod("get" + suffix)
+            .or(() -> owner.findMethod("is" + suffix))
             .filter(method -> method.getParameters().length == 0)
             .orElse(null);
         if (getter == null) {
@@ -294,7 +298,10 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
         for (var entry : typeArguments.entrySet()) {
-            inheritAnnotationsForParameter(entry.getValue(), parentTypeArguments.get(entry.getKey()));
+            ClassElement parentTypeArgument = parentTypeArguments.get(entry.getKey());
+            if (parentTypeArgument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), parentTypeArgument);
+            }
         }
     }
 }

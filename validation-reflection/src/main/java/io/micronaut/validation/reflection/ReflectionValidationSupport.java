@@ -116,17 +116,17 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         return ReflectionContainerTypeArguments.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
     }
 
     @Override
-    public Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
     }
 
     @Override
-    public <T> T instantiate(Class<T> type) {
+    public <T> @Nullable T instantiate(Class<T> type) {
         Constructor<T> constructor;
         try {
             constructor = type.getDeclaredConstructor();
@@ -149,7 +149,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+    public <T> @Nullable Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         return ReflectionGenericArguments.resolveGenericToArgument(type, superType);
     }
 

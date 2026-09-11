@@ -123,12 +123,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
             null,
             messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
                 constraintValidatorContext,
-                constraintValidatorContext.constraint,
+                constraintValidatorContext.currentConstraint(),
                 null
             )),
             messageTemplate,
             validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
-            constraintValidatorContext.constraint,
+            constraintValidatorContext.currentConstraint(),
             null,
             null)
         );

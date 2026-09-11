@@ -22,6 +22,8 @@ import jakarta.inject.Singleton;
 
 import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
+import org.jspecify.annotations.Nullable;
+
 import java.lang.annotation.ElementType;
 import java.util.List;
 
@@ -36,7 +38,7 @@ import java.util.List;
 @Internal
 public class CompositeTraversableResolver implements TraversableResolver {
 
-    private final List<TraversableResolver> traversableResolvers;
+    private final @Nullable List<TraversableResolver> traversableResolvers;
 
     /**
      * Default constructor.
