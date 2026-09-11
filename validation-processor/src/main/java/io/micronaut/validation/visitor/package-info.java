@@ -1,5 +1,5 @@
 /*
- * Copyright 2017-2024 original authors
+ * Copyright 2017-2026 original authors
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,11 @@
  * limitations under the License.
  */
 /**
- * Package annotations.
+ * The type element visitors of the validation annotation processor, which mark what the validator validates.
  *
- * @since 4.9.0
+ * @since 5.2
  */
-@Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
 @NullMarked
-package io.micronaut.validation.validator.extractors;
+package io.micronaut.validation.visitor;
 
-import io.micronaut.context.annotation.Requires;
-import io.micronaut.core.util.StringUtils;
-import io.micronaut.validation.validator.ValidatorConfiguration;
 import org.jspecify.annotations.NullMarked;
