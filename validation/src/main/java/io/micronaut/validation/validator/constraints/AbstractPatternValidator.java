@@ -23,7 +23,6 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.Pattern;
 import java.lang.annotation.Annotation;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.PatternSyntaxException;
 
