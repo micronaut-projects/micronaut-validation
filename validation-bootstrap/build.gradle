@@ -15,6 +15,12 @@ dependencies {
     testRuntimeOnly mnTest.junit.jupiter.engine
 }
 
+noReflection {
+    // the Jakarta bootstrap: providers and value extractors registered as services, the XML module and the EL
+    // interpolator when they are present, and the classes validation.xml names
+    allowIn("io.micronaut.validation.bootstrap.MicronautValidatorConfiguration", "SERVICE_LOADING", "CLASS_LOADING", "CLASS_MEMBERS", "REFLECTIVE_ACCESS")
+}
+
 micronautBuild {
     binaryCompatibility {
         enabledAfter("5.2.0")

@@ -11,6 +11,15 @@ dependencies {
     testRuntimeOnly mnTest.junit.jupiter.engine
 }
 
+noReflection {
+    // a mapping names the classes, members and constraint attributes it declares, read from the classes it names
+    allowIn("io.micronaut.validation.xml.XmlValidationMetadataProvider", "ANNOTATIONS", "CLASS_MEMBERS", "GENERIC_SIGNATURES", "REFLECTIVE_ACCESS", "CLASS_NAMES", "CLASS_LOADING", "ENUM_CONSTANTS")
+    // a mapped bean no introspection describes, read through the fields and getters the mapping names
+    allowIn("io.micronaut.validation.xml.XmlBeanIntrospection", "ANNOTATIONS", "CLASS_MEMBERS", "REFLECTIVE_ACCESS")
+    // the executable types validation.xml names
+    allowIn("io.micronaut.validation.xml.ValidationXmlBootstrapConfigurationLoader", "ENUM_CONSTANTS")
+}
+
 micronautBuild {
     binaryCompatibility {
         enabledAfter("5.2.0")

@@ -37,8 +37,9 @@ Eleven call sites remain, and none of them is a metadata read:
 
 - `getSuperclass` and `getInterfaces` walks in `ValidatorDeclarations`, `ExecutableHierarchy`,
   `DefaultValidator` and `DefaultConstraintValidatorContext`. These ask a class what it extends. They load no
-  annotations and no members, they need no native-image configuration, and the reflection checkstyle
-  configuration deliberately does not list them among reflective calls. Making them require the module is not
+  annotations and no members, and they need no native-image configuration. The NoReflection check reports
+  `getInterfaces` as `INTERFACES`, so the four classes are allowed it by name in `validation/build.gradle`;
+  `getSuperclass` it does not report. Making them require the module is not
   an option either way: `ValidatorDeclarations` accounts for 106 tests and `ExecutableHierarchy` for 78,
   because they are how constraint inheritance and method hierarchies are resolved at all.
 - Two matches are false positives of the inventory grep: `BeanDefinition.getConstructor` and

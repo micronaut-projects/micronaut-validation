@@ -79,6 +79,37 @@ tasks.named("check") {
     dependsOn(elTest)
 }
 
+noReflection {
+    // the interceptor hands the validator the method the framework invokes, which the API names by its Method,
+    // and a ParameterNameProvider of the application is asked by Method too
+    allowIn("io.micronaut.validation.ValidatingInterceptor", "TARGET_MEMBERS")
+    allowIn("io.micronaut.validation.validator.DefaultValidator", "TARGET_MEMBERS", "INTERFACES", "CLASS_NAMES")
+    // the ValidationMessages bundle of the application
+    allowIn("io.micronaut.validation.el.ElMessageInterpolator", "CLASS_LOADING")
+    // constraint validators registered as services, and the reflection module found as one
+    allowIn("io.micronaut.validation.validator.DefaultAnnotatedElementValidator", "SERVICE_LOADING")
+    allowIn("io.micronaut.validation.validator.ReflectionSupport", "SERVICE_LOADING")
+    // the interfaces a type implements: constraint inheritance, method hierarchies, group inheritance
+    allowIn("io.micronaut.validation.validator.ValidatorDeclarations", "INTERFACES")
+    allowIn("io.micronaut.validation.validator.ExecutableHierarchy", "INTERFACES")
+    allowIn("io.micronaut.validation.validator.DefaultConstraintValidatorContext", "INTERFACES")
+    // a path names a constructor node by the simple name of its class
+    allowIn("io.micronaut.validation.validator.IntrospectedExecutableDescriptors", "CLASS_NAMES")
+    // the structure of a generic signature the API hands over as a Type
+    allowIn("io.micronaut.validation.validator.GenericArguments", "GENERIC_SIGNATURES")
+    // a constraint type the metadata names, loaded by the class loader asking
+    allowIn("io.micronaut.validation.validator.constraints.ConstraintContainers", "CLASS_LOADING")
+    allowIn("io.micronaut.validation.validator.DefaultConstraintDescriptor", "CLASS_LOADING", "ENUM_CONSTANTS")
+    // sets of the ValidationTarget and MethodType constants of the API
+    allowIn("io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver", "ENUM_CONSTANTS")
+    allowIn("io.micronaut.validation.validator.IntrospectedBeanDescriptor", "ENUM_CONSTANTS")
+    // the constants of the enum a constraint names
+    allowIn("io.micronaut.validation.validator.constraints.InEnumValidator", "ENUM_CONSTANTS")
+    allowIn("io.micronaut.validation.validator.constraints.NotInEnumValidator", "ENUM_CONSTANTS")
+    // the elements of an array of any component type, primitive ones included
+    allowIn("io.micronaut.validation.validator.constraints.UniqueElementsValidator", "REFLECTIVE_ACCESS")
+}
+
 spotless {
     java {
         targetExclude '**/io/micronaut/validation/validator/constraints/EmailValidator.java'

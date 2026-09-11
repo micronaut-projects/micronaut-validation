@@ -1,26 +1,18 @@
 plugins {
     id 'io.micronaut.build.internal.validation-base'
     id "io.micronaut.build.internal.module"
+    id 'io.micronaut.errorprone.no-reflection'
+}
+
+// Where reflection may be called from, checked as the main sources compile: the NoReflection check of
+// micronaut-errorprone-no-reflection. The noReflection block of each module names the classes allowed to, and for
+// what; a class named there is a decision to make deliberately
+tasks.withType(JavaCompile).configureEach {
+    // NoReflection is the only ErrorProne check of the build, and it checks the main sources only
+    options.errorprone.enabled = name == 'compileJava'
+    options.errorprone.disableAllChecks = true
 }
 
 dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
-}
-
-// Where reflection may be read from: config/checkstyle/reflection.xml, run apart from checkstyle.xml because
-// the "Update common files" job overwrites that one and its suppressions with the template's copy
-def checkstyleReflection = tasks.register('checkstyleReflection', Checkstyle) {
-    description = 'Checks where reflection is read from, against config/checkstyle/reflection.xml'
-    group = 'verification'
-    configFile = rootProject.file('config/checkstyle/reflection.xml')
-    configDirectory = rootProject.file('config/checkstyle')
-    source = sourceSets.main.allJava
-    classpath = files()
-    reports {
-        xml.required = false
-        html.required = true
-    }
-}
-tasks.named('check') {
-    dependsOn(checkstyleReflection)
 }

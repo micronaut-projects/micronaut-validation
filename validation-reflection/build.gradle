@@ -18,6 +18,11 @@ dependencies {
     testImplementation mn.micronaut.inject.java.test
 }
 
+noReflection {
+    // reading the classes is what this module is for
+    allowIn("io.micronaut.validation.reflection.*")
+}
+
 micronautBuild {
     binaryCompatibility {
         enabledAfter("5.2.0")

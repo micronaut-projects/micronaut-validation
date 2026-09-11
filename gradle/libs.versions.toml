@@ -21,6 +21,7 @@ jmh = "1.37"
 
 # gradle plugins
 micronaut-gradle-plugin = "5.0.2"
+errorprone-no-reflection = "1.0.1"
 
 [libraries]
 # core
@@ -56,6 +57,7 @@ jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess"
 
 # gradle plugins
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
+gradle-errorprone-no-reflection = { module = "io.micronaut.errorprone:micronaut-errorprone-no-reflection-gradle-plugin", version.ref = "errorprone-no-reflection" }
 
 [plugins]
 jmh = { id = "me.champeau.jmh", version = "0.7.3" }
