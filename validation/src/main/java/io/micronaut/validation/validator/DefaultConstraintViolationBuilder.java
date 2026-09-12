@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.inject.MethodReference;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.validation.ConstraintValidatorContext;
@@ -105,7 +106,8 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         String name = null;
         if (index != -1) {
             if (node instanceof ValidationPath.DefaultMethodNode methodNode) {
-                name = methodNode.getMethodReference().getArguments()[index].getName();
+                MethodReference<?, ?> methodReference = methodNode.getMethodReference();
+                name = constraintValidatorContext.defaultValidator().parameterName(methodReference, index);
             }
         }
         validationPath.addParameterNode(name, index);
@@ -121,12 +123,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
             null,
             messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
                 constraintValidatorContext,
-                constraintValidatorContext.constraint,
+                constraintValidatorContext.currentConstraint(),
                 null
             )),
             messageTemplate,
             validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
-            constraintValidatorContext.constraint,
+            constraintValidatorContext.currentConstraint(),
             null,
             null)
         );

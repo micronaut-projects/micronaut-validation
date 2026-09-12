@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.NotInList;
 import jakarta.inject.Singleton;
 
@@ -26,6 +27,7 @@ import jakarta.inject.Singleton;
  * Validator for the {@link NotInList} constraint.
  */
 @Singleton
+@Introspected
 public class NotInListValidator implements ConstraintValidator<NotInList, Object> {
 
     @Override

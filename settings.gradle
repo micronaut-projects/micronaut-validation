@@ -20,6 +20,10 @@ dependencyResolutionManagement {
 rootProject.name = 'validation-parent'
 
 include 'validation'
+include 'validation-reflection'
+include 'validation-bootstrap'
+include 'validation-xml'
+include 'validation-jakarta'
 include 'validation-bom'
 include 'validation-processor'
 include 'test-suite'
@@ -35,4 +39,3 @@ micronautBuild {
     importMicronautCatalog("micronaut-rxjava3")
     importMicronautCatalog("micronaut-kotlin")
 }
-

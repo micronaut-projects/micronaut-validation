@@ -31,6 +31,17 @@ public interface ValueExtractorRegistry {
     <T> void addValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition);
 
     /**
+     * Replaces a value extractor for the same container type and type argument if present.
+     *
+     * @param valueExtractorDefinition The value extractor definition
+     * @param <T> The container type
+     * @since 5.1
+     */
+    default <T> void replaceValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition) {
+        addValueExtractor(valueExtractorDefinition);
+    }
+
+    /**
      * Finds {@link ValueExtractor}s for the given type.
      * @param targetType The target type of the value
      * @param <T> The target type

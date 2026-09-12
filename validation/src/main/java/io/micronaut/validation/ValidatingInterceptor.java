@@ -112,7 +112,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                     throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
                 }
             }
-            return validateReturnExecutableValidator(context, targetMethod);
+            return validateReturnExecutableValidator(executableValidator, context, targetMethod);
         } else if (micronautValidator != null) {
             ExecutableMethod<Object, Object> executableMethod = context.getExecutableMethod();
             if (executableMethod.getArguments().length != 0) {
@@ -142,22 +142,24 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 getValidationGroups(context))
                         );
                         case SYNCHRONOUS ->
-                            validateReturnMicronautValidator(context, executableMethod);
+                            validateReturnMicronautValidator(micronautValidator, context, executableMethod);
                         default -> interceptedMethod.unsupported();
                     };
                 } catch (Exception e) {
                     return interceptedMethod.handleException(e);
                 }
             } else {
-                return validateReturnMicronautValidator(context, executableMethod);
+                return validateReturnMicronautValidator(micronautValidator, context, executableMethod);
             }
         }
         return context.proceed();
     }
 
-    private Object validateReturnMicronautValidator(MethodInvocationContext<Object, Object> context, ExecutableMethod<Object, Object> executableMethod) {
+    private @Nullable Object validateReturnMicronautValidator(ExecutableMethodValidator validator,
+                                                              MethodInvocationContext<Object, Object> context,
+                                                              ExecutableMethod<Object, Object> executableMethod) {
         Object result = context.proceed();
-        Set<ConstraintViolation<Object>> constraintViolations = micronautValidator.validateReturnValue(
+        Set<ConstraintViolation<Object>> constraintViolations = validator.validateReturnValue(
                 context.getTarget(),
                 executableMethod,
                 result,
@@ -168,9 +170,11 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
         return result;
     }
 
-    private Object validateReturnExecutableValidator(MethodInvocationContext<Object, Object> context, Method targetMethod) {
+    private @Nullable Object validateReturnExecutableValidator(ExecutableValidator validator,
+                                                               MethodInvocationContext<Object, Object> context,
+                                                               Method targetMethod) {
         final Object result = context.proceed();
-        Set<ConstraintViolation<Object>> constraintViolations = executableValidator.validateReturnValue(
+        Set<ConstraintViolation<Object>> constraintViolations = validator.validateReturnValue(
                 context.getTarget(),
                 targetMethod,
                 result,

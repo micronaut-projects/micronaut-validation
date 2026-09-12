@@ -17,6 +17,7 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanWrapper;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
@@ -115,6 +116,28 @@ final class InternalConstraintValidators {
                 return decimalValue.compareTo(BigDecimal.valueOf(max)) <= 0;
             }
             return value.longValue() <= max;
+        };
+
+    final ConstraintValidator<Max, CharSequence> maxCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            final Long max = annotationMetadata.getValue(Long.class).orElseThrow(() ->
+                new ValidationException("@Max annotation specified without value")
+            );
+            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(max)) <= 0;
+        };
+
+    final ConstraintValidator<Min, CharSequence> minCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            final Long min = annotationMetadata.getValue(Long.class).orElseThrow(() ->
+                new ValidationException("@Min annotation specified without value")
+            );
+            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(min)) >= 0;
         };
 
     final ConstraintValidator<Min, Number> minNumberValidator =
@@ -420,7 +443,7 @@ final class InternalConstraintValidators {
         return result;
     }
 
-    public static LocalDateTime toLocalDateTime(Calendar calendar) {
+    public static @Nullable LocalDateTime toLocalDateTime(@Nullable Calendar calendar) {
         if (calendar == null) {
             return null;
         }

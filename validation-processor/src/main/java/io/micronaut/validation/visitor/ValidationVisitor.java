@@ -15,10 +15,13 @@
  */
 package io.micronaut.validation.visitor;
 
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.naming.NameUtils;
 import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -32,6 +35,7 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
@@ -52,7 +56,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
 
-    private ClassElement classElement;
+    private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
 
     @Override
@@ -98,7 +102,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null || element.hasStereotype(Vetoed.class)) {
+        if (classElement == null) {
             return;
         }
         if (!visited.add(element)) {
@@ -114,14 +118,27 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
         boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
-        if (parametersRequireValidation || returnTypeRequiresValidation || methodAnnotatedForValidation) {
-            if (isPrivate) {
-                throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
-            } else {
-                element.annotate(RequiresValidation.class);
-                classElement.annotate(RequiresValidation.class);
-            }
+        if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation) {
+            return;
         }
+        // a vetoed method is not validated when it is invoked: it asks for no validation advice. It is
+        // described all the same - the specification describes every constrained method, whether or not
+        // anything validates it - so being described and being validated are decided apart
+        boolean vetoed = element.hasStereotype(Vetoed.class);
+        if (isPrivate) {
+            if (vetoed) {
+                return;
+            }
+            throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
+        }
+        // the specification describes every constrained method: a bean method of the introspection
+        // is what a MethodDescriptor is read from, and only an executable method becomes one
+        element.annotate(Executable.class);
+        if (vetoed) {
+            return;
+        }
+        element.annotate(RequiresValidation.class);
+        classElement.annotate(RequiresValidation.class);
     }
 
     @Override
@@ -135,7 +152,66 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (visitElementValidationAndMarkForValidationIfNeeded(element, true)) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
+            declareFieldConstraintsOnContainerGetter(element);
         }
+    }
+
+    /**
+     * A getter that holds the value of a field in a container - {@code Optional<String> getAlpha()} for a
+     * {@code String alpha} - reads as a property of the container type, and a description of the bean has the
+     * one property where the type has both a field and a getter. What the field declares are the constraints
+     * the value it holds has to meet, so they are declared for the type argument that holds it as well: the
+     * property reads {@code Optional<@Pattern String>}, and the value extractor of the container hands the
+     * value to the constraint.
+     *
+     * @param field The field
+     */
+    private void declareFieldConstraintsOnContainerGetter(FieldElement field) {
+        ClassElement typeArgument = containerGetterTypeArgument(field);
+        if (typeArgument == null) {
+            return;
+        }
+        Stream.concat(
+                field.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
+                field.getAnnotationNamesByStereotype(ANN_VALID).stream()
+            )
+            .filter(name -> !typeArgument.hasAnnotation(name))
+            .flatMap(name -> field.getAnnotationValuesByName(name).stream())
+            .forEach(typeArgument::annotate);
+        visitElementValidationAndMarkForValidationIfNeeded(typeArgument, true);
+    }
+
+    /**
+     * The type argument a getter of the same name as a field holds the field's type in: the single type
+     * argument of a container that is not an iterable or a map, which holds one value rather than many.
+     *
+     * @param field The field
+     * @return The type argument, {@code null} when the type has no such getter
+     */
+    @Nullable
+    private ClassElement containerGetterTypeArgument(FieldElement field) {
+        ClassElement owner = classElement;
+        if (owner == null) {
+            return null;
+        }
+        String suffix = NameUtils.capitalize(field.getName());
+        MethodElement getter = owner.findMethod("get" + suffix)
+            .or(() -> owner.findMethod("is" + suffix))
+            .filter(method -> method.getParameters().length == 0)
+            .orElse(null);
+        if (getter == null) {
+            return null;
+        }
+        ClassElement returnType = getter.getReturnType().getGenericType();
+        if (returnType.isAssignable(Iterable.class) || returnType.isAssignable(Map.class)) {
+            return null;
+        }
+        Collection<ClassElement> typeArguments = returnType.getTypeArguments().values();
+        if (typeArguments.size() != 1) {
+            return null;
+        }
+        ClassElement typeArgument = typeArguments.iterator().next();
+        return typeArgument.getName().equals(field.getGenericType().getName()) ? typeArgument : null;
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
@@ -222,7 +298,10 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
         for (var entry : typeArguments.entrySet()) {
-            inheritAnnotationsForParameter(entry.getValue(), parentTypeArguments.get(entry.getKey()));
+            ClassElement parentTypeArgument = parentTypeArguments.get(entry.getKey());
+            if (parentTypeArgument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), parentTypeArgument);
+            }
         }
     }
 }

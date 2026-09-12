@@ -60,7 +60,7 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         );
     }
 
-    @NonNull
+    @Nullable
     private static Integer findExtractedTypeArgumentIndex(@NotNull Argument<?> argument) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         Integer typeArgumentIndex = null;
@@ -82,14 +82,9 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         if (typeArgumentIndex != null) {
             return typeArgumentIndex;
         }
-        if (typeParameters.length == 1) {
-            // On missing @ExtractedValue select first type parameter by default
-            return 0;
-        }
         throw new ValueExtractorDefinitionException("ValueExtractor definition is missing @ExtractedValue on an argument: " + argument);
     }
 
-    @Nullable
     private static AnnotationValue<?> findExtractedValue(@NotNull Argument<?> argument, ValueExtractor<?> valueExtractor) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         for (Argument<?> typeParameter : typeParameters) {
@@ -100,10 +95,6 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         }
         AnnotationValue<ExtractedValue> annotationValue = argument.getAnnotationMetadata().getAnnotation(ExtractedValue.class);
         if (annotationValue == null) {
-            if (typeParameters.length == 1) {
-                // On missing @ExtractedValue select first type parameter by default
-                return AnnotationValue.builder(ExtractedValue.class).build();
-            }
             throw new ValueExtractorDefinitionException("ValueExtractor definition '" + valueExtractor + "' is missing @ExtractedValue!");
         }
         if (annotationValue.classValue("type").isEmpty()) {

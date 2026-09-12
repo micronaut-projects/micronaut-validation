@@ -28,9 +28,6 @@ public class TckExtension implements LoadableExtension {
 
     @Override
     public void register(ExtensionBuilder builder) {
-//        SLF4JBridgeHandler.removeHandlersForRootLogger();
-//        SLF4JBridgeHandler.install();
-//        Logger.getLogger("").setLevel(Level.FINEST);
 
         builder.service(DeployableContainer.class, TckDeployableContainer.class);
         builder.service(Protocol.class, TckProtocol.class);

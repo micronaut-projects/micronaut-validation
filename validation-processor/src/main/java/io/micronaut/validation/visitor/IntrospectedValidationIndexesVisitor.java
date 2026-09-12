@@ -27,6 +27,7 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -49,8 +50,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         .member("annotation", new AnnotationClassValue<>(ANN_VALID))
         .build();
 
-    private ClassElement classElement;
-
     @Override
     public int getOrder() {
         return IntrospectedTypeElementVisitor.POSITION + 10; // Should just before the introspected visitor
@@ -69,13 +68,15 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
-        classElement = element;
-        if (classElement.hasStereotype(Introspected.class)) {
-            AnnotationMetadata annotationMetadata = classElement.getAnnotationMetadata();
+        if (element.hasStereotype(Introspected.class)) {
+            AnnotationMetadata annotationMetadata = element.getAnnotationMetadata();
             AnnotationValue<Introspected> introspectedAnnotation = annotationMetadata.getAnnotation(Introspected.class);
-            classElement.annotate(Introspected.class, builder -> {
+            List<AnnotationValue<Introspected.IndexedAnnotation>> declaredIndexed = introspectedAnnotation == null
+                ? List.of()
+                : introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class);
+            element.annotate(Introspected.class, builder -> {
                 AnnotationValue<?>[] indexed = Stream.concat(
-                    introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class).stream(),
+                    declaredIndexed.stream(),
                     Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID)
                 ).toArray(AnnotationValue<?>[]::new);
                 builder.member("indexed", indexed);

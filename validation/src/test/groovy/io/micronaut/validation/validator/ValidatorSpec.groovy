@@ -23,7 +23,6 @@ import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
 import spock.lang.AutoCleanup
 import spock.lang.Issue
-import spock.lang.PendingFeature
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -157,7 +156,6 @@ class ValidatorSpec extends Specification {
 
     }
 
-    @PendingFeature
     @Issue("https://github.com/micronaut-projects/micronaut-validation/pull/165")
     void "test validate bean property with Optional getter"() {
         given:
@@ -736,6 +734,15 @@ class ValidatorSpec extends Specification {
         beanDescriptor.getConstrainedProperties().size() == 0
     }
 
+    void "test descriptor returns null for unconstrained property"() {
+        given:
+        BeanDescriptor beanDescriptor = validator.getConstraintsForClass(PartiallyConstrainedBook)
+
+        expect:
+        beanDescriptor.getConstraintsForProperty("title")
+        beanDescriptor.getConstraintsForProperty("subtitle") == null
+    }
+
     void "test cascade to container of non-introspected class" () {
         when:
         def notIntrospected = new ValidatorSpecClasses.Bee("")
@@ -832,12 +839,12 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
-    void "test @Introspected is required to validate the bean"() {
+    void "test a constrained @Value field is validated at inject time without @Introspected"() {
         when:
         applicationContext.getBean(A)
-        then:
+        then: "the definition validates the value it injects, no introspection of the bean needed"
         BeanInstantiationException e = thrown()
-        e.message.contains('''Cannot validate bean [io.micronaut.validation.validator.A]. No bean introspection present. Please add @Introspected.''')
+        e.message.contains('''number - must be less than or equal to 20''')
         and:
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition', getClass().getClassLoader()).isPresent()
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
@@ -1062,6 +1069,14 @@ class Book {
 
     @Size(min = 1, max = 10)
     List<@Valid Author> authors = []
+}
+
+@Introspected
+class PartiallyConstrainedBook {
+    @NotBlank
+    String title
+
+    String subtitle
 }
 
 @Introspected

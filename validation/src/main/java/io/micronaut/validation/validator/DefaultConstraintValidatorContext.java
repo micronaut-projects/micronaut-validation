@@ -34,6 +34,7 @@ import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -42,6 +43,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -61,40 +63,44 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     boolean disableDefaultConstraintViolation;
-    ConstraintDescriptor<Annotation> constraint;
+    @Nullable ConstraintDescriptor<Annotation> constraint;
 
     private final BeanValidationContext validationContext;
     private final DefaultValidator defaultValidator;
-    private final BeanIntrospection<R> beanIntrospection;
-    private final R rootBean;
+    private final @Nullable BeanIntrospection<R> beanIntrospection;
+    private final @Nullable R rootBean;
     @Nullable
     private final Class<R> rootClass;
     private final Set<Object> validatedObjects = new HashSet<>(20);
     private final ValidationPath currentPath;
     private final List<Class<?>> definedGroups;
-    private String messageTemplate = null;
+    private @Nullable String messageTemplate;
     private final Set<ConstraintViolation<R>> overallViolations;
 
     // Contextual values
+    private Object @Nullable [] executableParameterValues;
+    private ElementType elementType = ElementType.FIELD;
     @Nullable
-    private Object[] executableParameterValues;
+    private Class<?> unwrappedContainerType;
+    @Nullable
+    private Class<?> implicitGroup;
     @Nullable
     private Object executableReturnValue;
     private List<Class<?>> currentGroups;
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
     private boolean hasCurrentViolations = false;
 
-    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, BeanIntrospection<R> beanIntrospection, R rootBean, BeanValidationContext validationContext) {
+    DefaultConstraintValidatorContext(DefaultValidator defaultValidator, @Nullable BeanIntrospection<R> beanIntrospection, @Nullable R rootBean, BeanValidationContext validationContext) {
         this(defaultValidator, beanIntrospection, validationContext, rootBean, null, new ValidationPath(), new LinkedHashSet<>(), null, Collections.emptyList());
     }
 
     private DefaultConstraintValidatorContext(DefaultValidator defaultValidator,
-                                              BeanIntrospection<R> beanIntrospection,
-                                              BeanValidationContext validationContext, R rootBean,
-                                              Object executableReturnValue,
+                                              @Nullable BeanIntrospection<R> beanIntrospection,
+                                              BeanValidationContext validationContext, @Nullable R rootBean,
+                                              @Nullable Object executableReturnValue,
                                               ValidationPath path,
                                               Set<ConstraintViolation<R>> overallViolations,
-                                              Object[] executableParameterValues,
+                                              Object @Nullable [] executableParameterValues,
                                               List<Class<?>> currentGroups) {
         this.validationContext = validationContext;
         this.defaultValidator = defaultValidator;
@@ -115,6 +121,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      */
     public @NonNull BeanValidationContext getValidationContext() {
         return validationContext;
+    }
+
+    DefaultValidator defaultValidator() {
+        return defaultValidator;
     }
 
     private static List<Class<?>> processGroups(List<Class<?>> definedGroups) {
@@ -148,6 +158,14 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public boolean containsGroup(Collection<Class<?>> constraintGroups) {
+        if (implicitGroup != null && currentGroups.contains(implicitGroup)
+            && (constraintGroups.isEmpty() || constraintGroups.contains(Default.class))) {
+            // a constraint declared by an interface without a group is in the group of the interface
+            return true;
+        }
+        if (constraintGroups.isEmpty()) {
+            return currentGroups.contains(Default.class);
+        }
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }
@@ -159,11 +177,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return false;
     }
 
-    public Object[] getExecutableParameterValues() {
+    public Object @Nullable [] getExecutableParameterValues() {
         return executableParameterValues;
     }
 
-    public Object getExecutableReturnValue() {
+    public @Nullable Object getExecutableReturnValue() {
         return executableReturnValue;
     }
 
@@ -176,13 +194,59 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return () -> validatedObjects.remove(obj);
     }
 
+    /**
+     * Validates the member of a property: the traversable resolver is told which kind of member declares the
+     * constraints, and the constraints a member of an interface declares belong to the group of the interface.
+     *
+     * @param elementType   The kind of member
+     * @param implicitGroup The interface declaring the member, null for a class
+     * @return The closeable restoring the previous member
+     */
+    public ValidationCloseable withMember(ElementType elementType, @Nullable Class<?> implicitGroup) {
+        ElementType prevElementType = this.elementType;
+        Class<?> prevImplicitGroup = this.implicitGroup;
+        this.elementType = elementType;
+        this.implicitGroup = implicitGroup;
+        return () -> {
+            this.elementType = prevElementType;
+            this.implicitGroup = prevImplicitGroup;
+        };
+    }
+
+    /**
+     * The value of a container is unwrapped: the nodes of what it holds report the container it was declared as.
+     *
+     * @param containerType The declared container type
+     * @return The closeable restoring the previous state
+     */
+    public ValidationCloseable withUnwrappedContainer(Class<?> containerType) {
+        Class<?> previous = this.unwrappedContainerType;
+        this.unwrappedContainerType = containerType;
+        return () -> this.unwrappedContainerType = previous;
+    }
+
+    /**
+     * @param containerType The container type holding the values
+     * @return The container type to report: the declared one when its value was unwrapped
+     */
+    public Class<?> reportedContainerType(Class<?> containerType) {
+        return unwrappedContainerType != null ? unwrappedContainerType : containerType;
+    }
+
+    /**
+     * @return The kind of member being validated, a field unless a getter is
+     */
+    public ElementType elementType() {
+        return elementType;
+    }
+
     public ValidationCloseable withExecutableParameterValues(Object[] executableParameterValues) {
         Object[] prevExecutableParameterValues = this.executableParameterValues;
         this.executableParameterValues = executableParameterValues;
         return () -> this.executableParameterValues = prevExecutableParameterValues;
     }
 
-    public ValidationCloseable withExecutableReturnValue(Object executableReturnValue) {
+    public ValidationCloseable withExecutableReturnValue(@Nullable Object executableReturnValue) {
         Object prevExecutableReturnValue = this.executableReturnValue;
         this.executableReturnValue = executableReturnValue;
         return () -> this.executableReturnValue = prevExecutableReturnValue;
@@ -239,7 +303,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     List<DefaultConstraintValidatorContext.ValidationGroup> findGroupSequences(@Nullable Object bean) {
         if (bean == null) {
-            return findGroupSequences();
+            // no instance yet, a constructor or a value: the default group sequence is the one of the validated type
+            return beanIntrospection == null ? findGroupSequences() : findGroupSequences(beanIntrospection);
         } else {
             BeanIntrospection<?> beanIntrospection = defaultValidator.getBeanIntrospection(bean);
             if (beanIntrospection == null) {
@@ -260,24 +325,65 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
-        if (hasDefaultGroup(ctx.definedGroups)) {
-            Class<Object>[] classGroupSequence = beanIntrospection.classValues(GroupSequence.class);
-            if (classGroupSequence.length > 0) {
-                if (Arrays.stream(classGroupSequence).noneMatch(c -> c == beanIntrospection.getBeanType())) {
-                    throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + beanIntrospection.getBeanType());
-                }
-                List<ValidationGroup> dest = new ArrayList<>();
-                for (Class<Object> group : classGroupSequence) {
-                    if (group == beanIntrospection.getBeanType()) {
-                        dest.add(new ValidationGroup(true, true, List.of(Default.class)));
-                    } else {
-                        findGroups(ctx, dest, List.of(group), new HashSet<>());
-                    }
-                }
-                return dest;
+        if (!hasDefaultGroup(ctx.definedGroups)) {
+            return findGroupSequences(ctx);
+        }
+        Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
+        Class<?> defaultGroupType = beanIntrospection.getBeanType();
+        if (classGroupSequence.length == 0) {
+            return findGroupSequences(ctx);
+        }
+        validateDefaultGroupSequence(defaultGroupType, classGroupSequence);
+        return expandDefaultGroupSequence(ctx, defaultGroupType, classGroupSequence);
+    }
+
+    /**
+     * The default group sequences the super types of a bean redefine, each applying to the constraints its
+     * type declares: a redefinition is not inherited, it isolates the constraints of the type redefining it.
+     *
+     * @param beanIntrospection The bean introspection
+     * @return The sequences by the type declaring them, empty when the bean redefines its own or the default group is not validated
+     */
+    public Map<Class<?>, List<ValidationGroup>> findIsolatedGroupSequences(BeanIntrospection<?> beanIntrospection) {
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        if (!hasDefaultGroup(ctx.definedGroups)
+            || defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class).length > 0) {
+            return Map.of();
+        }
+        Map<Class<?>, List<ValidationGroup>> isolated = new LinkedHashMap<>();
+        for (BeanIntrospection<?> superIntrospection : defaultValidator.declarations().superIntrospections(beanIntrospection)) {
+            Class<?> superType = superIntrospection.getBeanType();
+            Class<Object>[] classGroupSequence = superIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
+            if (!superType.isInterface() && classGroupSequence.length > 0) {
+                validateDefaultGroupSequence(superType, classGroupSequence);
+                isolated.put(superType, expandDefaultGroupSequence(ctx, superType, classGroupSequence));
             }
         }
-        return findGroupSequences(ctx);
+        return isolated;
+    }
+
+    private static void validateDefaultGroupSequence(Class<?> defaultGroupType,
+                                                     Class<Object>[] classGroupSequence) {
+        if (Arrays.stream(classGroupSequence).anyMatch(Default.class::equals)) {
+            throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+        }
+        if (Arrays.stream(classGroupSequence).noneMatch(c -> c == defaultGroupType)) {
+            throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + defaultGroupType);
+        }
+    }
+
+    private static List<ValidationGroup> expandDefaultGroupSequence(FindGroupContext ctx,
+                                                                    Class<?> defaultGroupType,
+                                                                    Class<Object>[] classGroupSequence) {
+        List<ValidationGroup> dest = new ArrayList<>();
+        for (Class<Object> group : classGroupSequence) {
+            if (group == defaultGroupType) {
+                dest.add(new ValidationGroup(true, true, List.of(Default.class)));
+            } else {
+                findGroups(ctx, dest, List.of(group), new HashSet<>());
+            }
+        }
+        return dest;
     }
 
     public List<ValidationGroup> findGroupSequences() {
@@ -314,6 +420,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
         int start = dest.size();
         for (Class<?> g : groupSequence) {
+            if (g == Default.class) {
+                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+            }
             findGroups(ctx, dest, g, processedGroups);
         }
         for (int i = start; i < groupSequence.size(); i++) {
@@ -369,7 +478,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return rootBean;
     }
 
-    public Class<R> getRootClass() {
+    public @Nullable Class<R> getRootClass() {
         return rootClass;
     }
 
@@ -390,7 +499,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     @Override
     public String getDefaultConstraintMessageTemplate() {
-        return getMessageTemplate().orElse(Objects.requireNonNull(constraint).getMessageTemplate());
+        return getMessageTemplate().orElse(currentConstraint().getMessageTemplate());
+    }
+
+    /**
+     * The constraint being validated: set for as long as its validator runs, which is when a violation is built.
+     *
+     * @return The constraint
+     */
+    ConstraintDescriptor<Annotation> currentConstraint() {
+        return Objects.requireNonNull(constraint, "No constraint is being validated");
     }
 
     @NonNull

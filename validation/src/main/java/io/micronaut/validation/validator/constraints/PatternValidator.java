@@ -37,7 +37,7 @@ public class PatternValidator extends AbstractPatternValidator<Pattern> {
             // null valid according to spec
             return true;
         }
-        java.util.regex.Pattern regex = getPattern(annotationMetadata, false);
+        java.util.regex.Pattern regex = getPattern(annotationMetadata);
         return regex.matcher(value).matches();
     }
 }

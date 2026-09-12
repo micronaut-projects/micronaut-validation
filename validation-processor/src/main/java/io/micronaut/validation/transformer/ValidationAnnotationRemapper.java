@@ -18,10 +18,12 @@ package io.micronaut.validation.transformer;
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
+import io.micronaut.core.annotation.Retainable;
 import io.micronaut.inject.annotation.AnnotationRemapper;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
+import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
 
 import java.lang.annotation.Inherited;
@@ -42,6 +44,22 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
 
     @Override
     public List<AnnotationValue<?>> remap(AnnotationValue<?> annotation, VisitorContext visitorContext) {
+        if (annotation.getAnnotationName().equals(Constraint.class.getName())) {
+            // marking the contract itself makes every constraint annotation retainable, so an annotation
+            // composing one keeps that occurrence attributed to it
+            return List.of(
+                    annotation.mutate().stereotype(
+                            AnnotationValue.builder(Retainable.class).build()
+                    ).build());
+        }
+        if (annotation.getAnnotationName().equals(ReportAsSingleViolation.class.getName())) {
+            // the marker says a composition reports one violation rather than the ones it composes, and it is
+            // read per constraint: retaining it keeps it on the occurrence, where the metadata answers for it
+            return List.of(
+                    annotation.mutate().stereotype(
+                            AnnotationValue.builder(Retainable.class).build()
+                    ).build());
+        }
         if (annotation.getAnnotationName().equals(Valid.class.getName())) {
             return List.of(
                     annotation.mutate().stereotype(

@@ -46,7 +46,7 @@ public @interface NotInList {
     /**
      * @return message code
      */
-    String message() default "Not a supported value ({validatedValue})";
+    String message() default "Not a supported value (${validatedValue})";
 
     /**
      * @return The groups to apply

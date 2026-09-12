@@ -67,6 +67,8 @@ class Test {
         AssertTrue  | null                                                              | Boolean | false    | "must be true"
         DecimalMax  | [value: '1.0']                                                    | String  | '1.1'    | "must be less than or equal to 1.0"
         DecimalMax  | [value: '1.0', message: "{validatedValue} exceeds max: {value}"]  | String  | '1.1'    | "1.1 exceeds max: 1.0"
+        DecimalMax  | [value: '1.0', message: '${validatedValue} exceeds max: {value}'] | String  | '1.1'    | "1.1 exceeds max: 1.0"
+        DecimalMax  | [value: '1.0', message: '${validatedValue.length()} long']        | String  | '1.1'    | '${validatedValue.length()} long'
         DecimalMin  | [value: '1.0']                                                    | String  | '0.9'    | "must be greater than or equal to 1.0"
         Digits      | [integer: 2, fraction: 2]                                         | String  | '110.20' | "numeric value out of bounds (<2 digits>.<2 digits> expected)"
         Email       | null                                                              | String  | 'junk'   | "must be a well-formed email address"

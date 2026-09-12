@@ -1,6 +1,22 @@
 plugins {
     id 'io.micronaut.build.internal.validation-base'
     id "io.micronaut.build.internal.module"
+    id 'io.micronaut.errorprone.no-reflection'
+}
+
+// NullAway through the Micronaut build convention: NullAway and MissingOverride as errors over io.micronaut, in the
+// NullAway version the catalog names
+micronautBuild {
+    nullAway = true
+}
+
+// Where reflection may be called from, checked as the main sources compile: the NoReflection check of
+// micronaut-errorprone-no-reflection. The noReflection block of each module names the classes allowed to, and for
+// what; a class named there is a decision to make deliberately
+tasks.withType(JavaCompile).configureEach {
+    // the main sources only, with the checks named here and by the NullAway convention and none of ErrorProne's own
+    options.errorprone.enabled = name == 'compileJava'
+    options.errorprone.disableAllChecks = true
 }
 
 dependencies {

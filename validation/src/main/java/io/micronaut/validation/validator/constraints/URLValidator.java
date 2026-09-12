@@ -17,6 +17,7 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.util.StringUtils;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.URL;
 import jakarta.inject.Singleton;
 import org.jspecify.annotations.NonNull;
@@ -32,6 +33,7 @@ import java.util.regex.Pattern;
  * @since 5.1.0
  */
 @Singleton
+@Introspected
 public class URLValidator extends AbstractPatternValidator<URL> {
     private static final String MEMBER_PROTOCOL = "protocol";
     private static final String MEMBER_HOST = "host";
@@ -67,7 +69,7 @@ public class URLValidator extends AbstractPatternValidator<URL> {
             return false;
         }
 
-        Pattern pattern = getPattern(annotationMetadata, true);
+        Pattern pattern = getOptionalPattern(annotationMetadata);
         return pattern == null || pattern.matcher(value).matches();
     }
 }

@@ -47,6 +47,11 @@ public interface BeanValidationContext {
         if (ArrayUtils.isEmpty(groups)) {
             return DEFAULT;
         } else {
+            for (Class<?> group : groups) {
+                if (group == null) {
+                    throw new IllegalArgumentException("Validation groups cannot contain null");
+                }
+            }
             return new DefaultBeanValidationContext(
                     Arrays.asList(groups)
             );

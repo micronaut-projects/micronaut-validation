@@ -1,0 +1,30 @@
+plugins {
+    id "io.micronaut.build.internal.validation-module"
+}
+
+description = "Reflective descriptions for the validator: the types, constraints and executables the annotation processors never saw, read through micronaut-reflection"
+
+dependencies {
+    annotationProcessor mn.micronaut.inject.java
+
+    api projects.micronautValidation
+    api mn.micronaut.reflection
+
+    testAnnotationProcessor projects.micronautValidationProcessor
+    testAnnotationProcessor mn.micronaut.inject.java
+    testCompileOnly mn.micronaut.inject.groovy
+    testImplementation projects.micronautValidationProcessor
+    testImplementation mn.micronaut.inject
+    testImplementation mn.micronaut.inject.java.test
+}
+
+noReflection {
+    // reading the classes is what this module is for
+    allowIn("io.micronaut.validation.reflection.*")
+}
+
+micronautBuild {
+    binaryCompatibility {
+        enabledAfter("5.2.0")
+    }
+}

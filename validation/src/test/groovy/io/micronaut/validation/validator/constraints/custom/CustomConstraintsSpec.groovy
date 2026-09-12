@@ -3,11 +3,25 @@ package io.micronaut.validation.validator.constraints.custom
 import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.validation.validator.Validator
+import jakarta.validation.Constraint
+import jakarta.validation.ConstraintValidator
+import jakarta.validation.ConstraintValidatorContext
 import jakarta.validation.Valid
+import jakarta.validation.Payload
+import jakarta.validation.UnexpectedTypeException
 import jakarta.validation.ValidatorFactory
 import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Specification
+
+import java.lang.annotation.Annotation
+import java.lang.annotation.Retention
+import java.lang.annotation.Target
+
+import static java.lang.annotation.ElementType.ANNOTATION_TYPE
+import static java.lang.annotation.ElementType.FIELD
+import static java.lang.annotation.ElementType.METHOD
+import static java.lang.annotation.RetentionPolicy.RUNTIME
 
 class CustomConstraintsSpec extends Specification {
 
@@ -210,6 +224,14 @@ class CustomConstraintsSpec extends Specification {
         violations.size() == 1
         violations[0].message == "invalid"
     }
+
+    void "test inherited jakarta constraint validator target type mismatch throws unexpected type"() {
+        when:
+        validator.validate(new InheritedBoundaryBean(value: "abc"))
+
+        then:
+        thrown(UnexpectedTypeException)
+    }
 }
 
 @Introspected
@@ -249,3 +271,31 @@ class CustomInvalidOuter {}
 @Introspected
 @CustomMessageConstraint2
 class CustomInvalidOuter2 {}
+
+@Introspected
+class InheritedBoundaryBean {
+    @InheritedBoundary
+    String value
+}
+
+@Constraint(validatedBy = [InheritedBoundaryValidator])
+@Target([METHOD, FIELD, ANNOTATION_TYPE])
+@Retention(RUNTIME)
+@interface InheritedBoundary {
+    String message() default "invalid boundary"
+
+    Class<?>[] groups() default []
+
+    Class<? extends Payload>[] payload() default []
+}
+
+abstract class AbstractInheritedBoundaryValidator<A extends Annotation> implements ConstraintValidator<A, Integer> {
+    @Override
+    boolean isValid(Integer value, ConstraintValidatorContext context) {
+        true
+    }
+}
+
+@Introspected
+class InheritedBoundaryValidator extends AbstractInheritedBoundaryValidator<InheritedBoundary> {
+}

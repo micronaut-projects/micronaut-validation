@@ -92,7 +92,25 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                 }
                 continue;
             }
-            if (c == L_BRACE) {
+            if (c == DOLL_BRACE && !isVariable && i + 1 < template.length() && template.charAt(i + 1) == L_BRACE) {
+                // ${name} is an expression of the Jakarta EL syntax, which this interpolator cannot evaluate.
+                // A bare variable of it — ${validatedValue} of the built-in constraints — is resolved anyway,
+                // so that a message reads the same whether or not an EL implementation is on the class path;
+                // anything else is left to the interpolator that can evaluate it.
+                int end = template.indexOf(R_BRACE, i + 2);
+                if (end > -1) {
+                    String variableName = template.substring(i + 2, end);
+                    Object variableValue = resolveVariable(variableName, context);
+                    if (variableValue == null) {
+                        builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
+                    } else {
+                        builder.append(variableValue);
+                    }
+                    i = end;
+                    continue;
+                }
+                builder.append(c);
+            } else if (c == L_BRACE) {
                 if (!isVariable) {
                     isVariable = true;
                     builder = variableBuilder;
@@ -105,10 +123,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     isVariable = false;
                     String variableName = variableBuilder.toString();
                     variableBuilder.setLength(0);
-                    Object variableValue = context.getVariables().get(variableName);
-                    if (variableValue == null) {
-                        variableValue = messageSource.getMessage(variableName, context).orElse(null);
-                    }
+                    Object variableValue = resolveVariable(variableName, context);
                     if (variableValue == null) {
                         builder.append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
@@ -122,6 +137,15 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
             }
         }
         return builder.toString();
+    }
+
+    @Nullable
+    private Object resolveVariable(String variableName, MessageSource.MessageContext context) {
+        Object variableValue = context.getVariables().get(variableName);
+        if (variableValue == null) {
+            variableValue = messageSource.getMessage(variableName, context).orElse(null);
+        }
+        return variableValue;
     }
 
     @Override
