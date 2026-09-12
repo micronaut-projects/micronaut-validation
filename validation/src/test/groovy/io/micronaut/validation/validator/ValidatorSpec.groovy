@@ -832,15 +832,26 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
-    void "test @Introspected is required to validate the bean"() {
+    void "test a constrained @Value property is validated at injection time without @Introspected"() {
         when:
         applicationContext.getBean(A)
         then:
         BeanInstantiationException e = thrown()
-        e.message.contains('''Cannot validate bean [io.micronaut.validation.validator.A]. No bean introspection present. Please add @Introspected.''')
+        e.message.contains('''io.micronaut.validation.validator.A.number - must be less than or equal to 20''')
         and:
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition', getClass().getClassLoader()).isPresent()
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
+    }
+
+    void "test @Introspected is required to validate the bean after construction"() {
+        when:
+        applicationContext.getBean(NotIntrospectedBean)
+        then:
+        BeanInstantiationException e = thrown()
+        e.message.contains('''Cannot validate bean [io.micronaut.validation.validator.NotIntrospectedBean]. No bean introspection present. Please add @Introspected.''')
+        and:
+        ClassUtils.forName('io.micronaut.validation.validator.$NotIntrospectedBean$Definition', getClass().getClassLoader()).isPresent()
+        ClassUtils.forName('io.micronaut.validation.validator.$NotIntrospectedBean$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
     }
 
     void "test @Introspected is required to validate the bean and it's intercepted if one of the methods requires validation"() {
