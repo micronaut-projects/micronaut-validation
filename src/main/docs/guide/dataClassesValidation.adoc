@@ -5,7 +5,7 @@ snippet::io.micronaut.docs.validation.Person[tags="class"]
 
 TIP: The {coreDocsUrl}core/annotation/Introspected[@Introspected] annotation can be used as a meta-annotation; common annotations like `@jakarta.persistence.Entity` are treated as `@Introspected`
 
-The above example defines a `Person` class that has two properties (`name` and `age`) that have constraints applied. Note that in Java the annotations can be on the field or the getter, and with Kotlin data classes, the annotation should target the field.
+The above example defines a `Person` class that has two properties (`name` and `age`) that have constraints applied. Note that in Java the annotations can be on the field or the getter, with Kotlin data classes, the annotation should target the field, and in Python the constraints are declared on the attributes of a `dataclass` with `typing.Annotated`.
 
 To validate the class manually, inject an instance of api:validation.validator.Validator[]:
 
@@ -44,4 +44,4 @@ snippet::io.micronaut.docs.validation.iterable.BookInfoSpec[tags="validate-itera
 <1> The violation on the 1-st index in List
 <2> The violation was found in Map's key
 
-NOTE: This feature is not yet supported in Groovy and Kotlin
+NOTE: This feature is not yet supported in Groovy, Kotlin and Python
