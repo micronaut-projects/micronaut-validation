@@ -3,13 +3,11 @@ from typing import Annotated
 from jakarta.inject import Singleton
 from jakarta.validation.constraints import NotBlank
 from java.time import Duration
-from micronaut.validation import Validated
 
 from .DurationPattern import DurationPattern
 
 
 # tag::class[]
-@Validated
 @Singleton
 class HolidayService:
 

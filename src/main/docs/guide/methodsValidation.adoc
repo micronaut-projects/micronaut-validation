@@ -11,8 +11,6 @@ The above example declares that the `@NotBlank` annotation will be validated whe
 [.lang-python]
 --
 The above example declares that the `NotBlank` constraint will be validated when invoking the `say_hello` method. Constraints on parameters are declared with `typing.Annotated`.
-
-NOTE: In Python the class must be annotated with ann:validation.Validated[] (`micronaut.validation.Validated`): the Python compiler only routes calls to the methods of a class through the proxy that performs the validation when the class declares the annotation.
 --
 
 WARNING: If you use Kotlin, the class and method must be declared `open` so Micronaut can create a compile-time subclass. Alternatively you can annotate the class with ann:validation.Validated[] and configure the Kotlin `all-open` plugin to open classes annotated with this type. See the https://kotlinlang.org/docs/reference/compiler-plugins.html[Compiler plugins] section.

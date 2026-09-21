@@ -44,4 +44,4 @@ snippet::io.micronaut.docs.validation.iterable.BookInfoSpec[tags="validate-itera
 <1> The violation on the 1-st index in List
 <2> The violation was found in Map's key
 
-NOTE: This feature is not yet supported in Groovy, Kotlin and Python
+NOTE: This feature is not yet supported in Groovy and Kotlin

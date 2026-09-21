@@ -3,15 +3,11 @@ from typing import Annotated
 from jakarta.inject import Inject
 from jakarta.validation import ConstraintViolationException
 from micronaut.test.extensions.junit5.annotation import MicronautTest
-from org.junit.jupiter.api import Disabled, Test
+from org.junit.jupiter.api import Test
 
 from .BookInfoService import BookInfoService
 
 
-# TODO(python): constraints on generic type arguments (list[Annotated[str, NotBlank]]) are recorded in the
-# metadata but the Python compiler drops the ValidatedElement marker the validation visitor adds to the type
-# argument, so the container elements are never validated. See micronaut/docs/DISABLED_TESTS.md.
-@Disabled("TODO(python): container element validation is not supported by the Python compiler yet")
 @MicronautTest
 class BookInfoSpec:
 

@@ -2,11 +2,9 @@ from typing import Annotated
 
 from jakarta.inject import Singleton
 from jakarta.validation.constraints import Min, NotBlank
-from micronaut.validation import Validated
 
 # tag::validate-iterables[]
 
-@Validated
 @Singleton
 class BookInfoService:
     def set_book_authors(
