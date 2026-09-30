@@ -20,21 +20,27 @@ import io.micronaut.aop.InterceptedMethod;
 import io.micronaut.aop.MethodInterceptor;
 import io.micronaut.aop.MethodInvocationContext;
 import org.jspecify.annotations.Nullable;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import jakarta.inject.Singleton;
+import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintViolation;
+import jakarta.validation.Valid;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableValidator;
 
 import java.lang.reflect.Method;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
 
@@ -56,6 +62,11 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     private final @Nullable ExecutableMethodValidator micronautValidator;
     private final ConversionService conversionService;
     private final boolean isPrependPropertyPath;
+    /**
+     * Whether a method's return value is validated, by method. Resolved from annotation metadata, so
+     * it is the same for the life of the method.
+     */
+    private final Map<ExecutableMethod<Object, Object>, Boolean> returnValueValidation;
 
     /**
      * Creates ValidatingInterceptor from the validatorFactory.
@@ -71,6 +82,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                  ValidatorConfiguration validatorConfiguration) {
         this.conversionService = conversionService;
         isPrependPropertyPath = validatorConfiguration.isPrependPropertyPath();
+        this.returnValueValidation = new ConcurrentHashMap<>();
 
         if (validatorFactory != null) {
             jakarta.validation.Validator validator = validatorFactory.getValidator();
@@ -142,17 +154,61 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 getValidationGroups(context))
                         );
                         case SYNCHRONOUS ->
-                            validateReturnMicronautValidator(context, executableMethod);
+                            hasReturnValueValidation(executableMethod)
+                                ? validateReturnMicronautValidator(context, executableMethod)
+                                : context.proceed();
                         default -> interceptedMethod.unsupported();
                     };
                 } catch (Exception e) {
                     return interceptedMethod.handleException(e);
                 }
-            } else {
+            } else if (hasReturnValueValidation(executableMethod)) {
                 return validateReturnMicronautValidator(context, executableMethod);
+            } else {
+                return context.proceed();
             }
         }
         return context.proceed();
+    }
+
+    /**
+     * Whether the return value of a method can produce a violation at all.
+     *
+     * <p>Validating a return value is not free even when there is nothing on it to validate: the
+     * validator resolves the group sequences first, which asks for a {@link io.micronaut.core.beans.BeanIntrospection}
+     * of the validation group, and the default group has none. On a runtime where an introspection
+     * miss is expensive that cost is paid by every advised call. Measured on a Pyronaut application,
+     * where a miss walks the classpath, it was about a tenth of request time on a route whose only
+     * reason to be advised was a constrained parameter.
+     *
+     * <p>A return value with no constraint and no {@link Valid} cannot be violated: without
+     * {@code @Valid} the validator does not cascade into the returned object's own constraints, so
+     * there is nothing for it to find. The whole annotation hierarchy is consulted rather than the
+     * declared metadata, which errs towards validating: anything unrecognised keeps the previous
+     * behaviour.
+     *
+     * @param executableMethod The method
+     * @return Whether its return value is validated
+     */
+    private boolean hasReturnValueValidation(ExecutableMethod<Object, Object> executableMethod) {
+        return returnValueValidation.computeIfAbsent(executableMethod, method -> {
+            ReturnType<Object> returnType = method.getReturnType();
+            return !returnType.isVoid() && requiresValidation(returnType.asArgument());
+        });
+    }
+
+    private static boolean requiresValidation(Argument<?> argument) {
+        AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
+        if (annotationMetadata.hasStereotype(Constraint.class) || annotationMetadata.hasStereotype(Valid.class)) {
+            return true;
+        }
+        // a constraint can sit on a type argument, as in List<@NotBlank String>
+        for (Argument<?> typeParameter : argument.getTypeParameters()) {
+            if (requiresValidation(typeParameter)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private Object validateReturnMicronautValidator(MethodInvocationContext<Object, Object> context, ExecutableMethod<Object, Object> executableMethod) {
