@@ -43,4 +43,11 @@ public @interface ValidationField {
      * @return Whether the field itself authorizes reflective access
      */
     boolean authorized();
+
+    /**
+     * Identifies fields whose constraints use the configured generated property accessor.
+     *
+     * @return Whether property access was selected instead of direct field access
+     */
+    boolean property() default false;
 }

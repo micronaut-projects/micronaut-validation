@@ -18,11 +18,11 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
@@ -603,19 +603,15 @@ final class IntrospectedExecutableDescriptors {
          * inherited method.
          */
         private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
-            if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()) {
+            if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()
+                || !ValidationMetadataSupport.declares(method.getDeclaringBean().getAnnotationMetadata(), method.getName(), Argument.toClassArray(method.getArguments()))) {
                 // inherited as is: the described type declares nothing on it
-                return AnnotationMetadata.EMPTY_METADATA;
-            }
-            Class<?> describedType = method.getDeclaringBean().getBeanType();
-            if (GeneratedAnnotationFactories.typeMetadata(describedType) != null
-                && GeneratedAnnotationFactories.methodDeclaration(describedType, method.getName(), Argument.toClassArray(method.getArguments())) == null) {
                 return AnnotationMetadata.EMPTY_METADATA;
             }
             if (hierarchy != null && hierarchy.declared().exact()) {
                 return hierarchy.declared().annotationMetadata();
             }
-            return method.getAnnotationMetadata();
+            return method.getDeclaredMethodAnnotationMetadata();
         }
 
         @Override

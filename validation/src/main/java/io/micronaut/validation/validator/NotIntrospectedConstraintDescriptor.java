@@ -17,7 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
 import jakarta.validation.ConstraintTarget;
@@ -55,7 +55,7 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     @Override
     public Annotation getAnnotation() {
         // the violation reports a type that is not introspected: the annotation it stands for
-        return GeneratedAnnotationFactories.create(Introspected.class, new AnnotationValue<>(Introspected.class.getName()));
+        return ValidationMetadataSupport.create(Introspected.class, new AnnotationValue<>(Introspected.class.getName()));
     }
 
     @Override

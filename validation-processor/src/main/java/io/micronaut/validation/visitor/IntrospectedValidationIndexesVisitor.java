@@ -25,6 +25,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.processing.ProcessingException;
@@ -34,12 +35,14 @@ import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.metadata.ContainerMapping;
 import io.micronaut.validation.validator.metadata.ContainerMappings;
 import io.micronaut.validation.validator.metadata.ValidationField;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 
 import org.jspecify.annotations.NonNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Set;
@@ -84,6 +87,29 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         if (element.hasStereotype(Introspected.class)) {
+            var hierarchy = new LinkedHashMap<String, AnnotationValue<?>>();
+            hierarchy(element, hierarchy);
+            var arguments = element.getAllTypeArguments().entrySet().stream()
+                .map(entry -> AnnotationValue.builder("io.micronaut.validation.internal.TypeArguments")
+                    .member("type", entry.getKey())
+                    .member("arguments", entry.getValue().values().stream()
+                        .map(type -> typeUse(type, new HashSet<>())).toArray(AnnotationValue<?>[]::new)).build())
+                .toArray(AnnotationValue<?>[]::new);
+            element.annotate(ValidationMetadataSupport.HIERARCHY,
+                builder -> builder.member("types", hierarchy.values().toArray(AnnotationValue<?>[]::new))
+                    .member("arguments", arguments)
+                    .member("methods", element.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).stream()
+                        .map(method -> AnnotationValue.builder("io.micronaut.validation.internal.Method")
+                            .member("name", method.getName())
+                            .member("parameters", Stream.of(method.getParameters())
+                                .map(parameter -> new AnnotationClassValue<>(parameter.getType().getName()))
+                                .toArray(AnnotationClassValue<?>[]::new)).build())
+                        .toArray(AnnotationValue<?>[]::new)));
+            element.getFields().forEach(field -> field.annotate(ValidationMetadataSupport.TYPE_USE,
+                builder -> builder.members(typeUse(field.getGenericType(), new HashSet<>()).getValues())));
+            element.getMethods().stream().filter(method -> method.getParameters().length == 0)
+                .forEach(method -> method.annotate(ValidationMetadataSupport.TYPE_USE,
+                    builder -> builder.members(typeUse(method.getGenericReturnType(), new HashSet<>()).getValues())));
             List<? extends GenericPlaceholderElement> own =
                     element.getDeclaredGenericPlaceholders();
             AnnotationValue<?>[] mappings =
@@ -104,6 +130,15 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                                                     .build())
                             .toArray(AnnotationValue<?>[]::new);
             element.annotate(ContainerMappings.class, builder -> builder.member("value", mappings));
+            boolean propertyAccess = element.isRecord() || Stream.of(element.getAnnotationMetadata()
+                .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class))
+                .noneMatch(kind -> kind == Introspected.AccessKind.FIELD);
+            Set<String> propertyFields = propertyAccess ? element.getBeanProperties().stream()
+                .filter(property -> property.getReadMethod().filter(method -> !method.isReflectionRequired(
+                    ClassElement.of(element.getName() + "$ValidationAccess"))).isPresent())
+                .flatMap(property -> property.getField().stream())
+                .map(field -> field.getDeclaringType().getName() + "." + field.getName())
+                .collect(Collectors.toSet()) : Set.of();
             element.getFields()
                     .forEach(
                             field ->
@@ -111,6 +146,9 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                                             ValidationField.class,
                                             builder ->
                                                     builder.member(
+                                                                    "property", propertyFields.contains(
+                                                                        field.getDeclaringType().getName() + "." + field.getName()))
+                                                            .member(
                                                                     "reflection",
                                                                     field.isReflectionRequired(
                                                                             ClassElement.of(
@@ -224,6 +262,35 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             throw new ProcessingException(
                     element, "Cannot register annotated validation fields", e);
         }
+    }
+
+    private static AnnotationValue<?> typeUse(ClassElement type, Set<Object> visited) {
+        var value = AnnotationValue.builder(ValidationMetadataSupport.TYPE_USE);
+        var annotations = type.getTypeAnnotationMetadata().getAnnotationNames().stream()
+            .flatMap(name -> type.getTypeAnnotationMetadata().getAnnotationValuesByName(name).stream())
+            .toArray(AnnotationValue<?>[]::new);
+        value.member("annotations", annotations);
+        if (!type.isPrimitive() && visited.add(type.getNativeType())) {
+            value.member("arguments", type.getTypeArguments().values().stream()
+                .map(argument -> typeUse(argument, new HashSet<>(visited)))
+                .toArray(AnnotationValue<?>[]::new));
+        }
+        return value.build();
+    }
+
+    private static void hierarchy(ClassElement type, LinkedHashMap<String, AnnotationValue<?>> entries) {
+        if (entries.containsKey(type.getName())) {
+            return;
+        }
+        var value = AnnotationValue.builder("io.micronaut.validation.internal.Type")
+            .member("type", new AnnotationClassValue<>(type.getName()))
+            .member("interfaces", type.getInterfaces().stream()
+                .map(it -> new AnnotationClassValue<>(it.getName())).toArray(AnnotationClassValue<?>[]::new));
+        type.getSuperType().ifPresent(parent -> value.member("superType", new AnnotationClassValue<>(parent.getName())));
+        entries.put(type.getName(), value.build());
+        type.getSuperType().filter(parent -> !parent.getName().equals(Object.class.getName()))
+            .ifPresent(parent -> hierarchy(parent, entries));
+        type.getInterfaces().forEach(parent -> hierarchy(parent, entries));
     }
 
     private static int variableIndex(

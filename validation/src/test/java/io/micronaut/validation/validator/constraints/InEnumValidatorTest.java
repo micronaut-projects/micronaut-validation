@@ -114,10 +114,10 @@ class InEnumValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@ReflectiveAccess @InEnum(value = TestEnum.class) String component,
-                      @ReflectiveAccess @InEnum(value = TestEnum.class, caseSensitive = false) String caseInsensitiveComponent,
-                      @ReflectiveAccess @InEnum(value = TestEnum.class) TestEnum enumComponent,
-                      @ReflectiveAccess @InEnum(value = TestEnum.class) Integer intComponent) {}
+    record TestRecord(@InEnum(value = TestEnum.class) String component,
+                      @InEnum(value = TestEnum.class, caseSensitive = false) String caseInsensitiveComponent,
+                      @InEnum(value = TestEnum.class) TestEnum enumComponent,
+                      @InEnum(value = TestEnum.class) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {
@@ -169,7 +169,7 @@ class InEnumValidatorTest {
     @Test
     void testManualValidator() {
         InEnumValidator inEnumValidator = new InEnumValidator();
-        AnnotationValue<InEnum> ann = AnnotationValue.builder(InEnum.class).value(TestEnum.class).build();
+        AnnotationValue<InEnum> ann = AnnotationValue.builder(InEnum.class).value(TestEnum.class).member("$enumValues", new String[]{"ONE", "TWO"}).build();
         assertTrue(inEnumValidator.isValid("ONE", ann, null));
         assertTrue(!inEnumValidator.isValid("THREE", ann, null));
         assertTrue(inEnumValidator.isValid(null, ann, null));
@@ -177,7 +177,7 @@ class InEnumValidatorTest {
         assertTrue(inEnumValidator.isValid(TestEnum.ONE, ann, null)); // Enum type
 
         AnnotationValue<InEnum> insensitiveAnn = AnnotationValue.builder(InEnum.class)
-                .value(TestEnum.class)
+                .value(TestEnum.class).member("$enumValues", new String[]{"ONE", "TWO"})
                 .member("caseSensitive", false)
                 .build();
         assertTrue(inEnumValidator.isValid("one", insensitiveAnn, null)); // Should pass (insensitive match)

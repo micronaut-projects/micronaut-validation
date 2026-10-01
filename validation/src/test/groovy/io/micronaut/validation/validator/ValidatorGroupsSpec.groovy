@@ -7,7 +7,6 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
-import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import spock.lang.AutoCleanup
@@ -133,7 +132,7 @@ interface GroupThree {}
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

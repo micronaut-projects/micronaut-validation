@@ -22,7 +22,7 @@ class ReturnHierarchyBeansSpec extends Specification {
         def method = type.getMethod("place")
         return validator.forExecutables()
             .validateReturnValue(bean, method, "")
-            .collect { it.getConstraintDescriptor().getAnnotation().annotationType().simpleName }
+            .collect { it.getConstraintDescriptor().getType().simpleName }
             .toSet()
     }
 

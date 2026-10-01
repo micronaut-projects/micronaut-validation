@@ -30,7 +30,7 @@ class ComposedDeclarationSpec extends Specification {
         expect: "it is described, and the constraint it composes carries the overridden member"
         descriptors.size() == 1
         descriptors[0].getComposingConstraints()
-            .collect { [it.getAnnotation().annotationType().simpleName, it.getAttributes().get("min")] } == [["Size", 8]]
+            .collect { [it.getType().simpleName, it.getAttributes().get("min")] } == [["Size", 8]]
     }
 
     void "a member overriding a member of another type is rejected"() {

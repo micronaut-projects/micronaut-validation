@@ -21,11 +21,12 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationField;
 import jakarta.validation.constraintvalidation.ValidationTarget;
@@ -37,6 +38,7 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -96,6 +98,16 @@ public interface ReflectionSupport {
     }
 
     /**
+     * Normalizes metadata loaded by the optional provider before validation traversal.
+     *
+     * @param argument The described argument
+     * @return The argument carrying the standard validation markers
+     */
+    default Argument<?> prepareArgument(Argument<?> argument) {
+        return argument;
+    }
+
+    /**
      * Reads a declaration through generated access or an explicitly authorized field accessor.
      *
      * @param member The declaration
@@ -111,6 +123,25 @@ public interface ReflectionSupport {
             return AnnotatedFieldAccessor.read(member, bean);
         }
         return member.read(bean);
+    }
+
+    /**
+     * Reads through the generated property accessor when property access was selected.
+     * A differently typed getter cannot supply the value of a field declaration.
+     *
+     * @param member The declaration
+     * @param property The generated property
+     * @param bean The instance
+     * @param <T> The bean type
+     * @return The value for the configured access mode
+     * @since 5.3.0
+     */
+    default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
+        if (member.getAnnotationMetadata().booleanValue(ValidationField.class, "property").orElse(false)
+            && member.asArgument().equalsStructure(property.asArgument())) {
+            return property.get(bean);
+        }
+        return readMember(member, bean);
     }
 
     /**
@@ -137,7 +168,7 @@ public interface ReflectionSupport {
         throw new jakarta.validation.ValidationException(
                 "No generated class reference for "
                         + name
-                        + ": compile with micronaut-validation-processor or add"
+                        + ": add"
                         + " micronaut-validation-reflection");
     }
 
@@ -162,9 +193,7 @@ public interface ReflectionSupport {
                             + ": add micronaut-validation-reflection");
         }
         var declaration = ValidationDeclaration.generated(introspection, kind, name, parameters);
-        return declaration == null && kind.equals("method")
-            ? io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories.methodDeclaration(type, name, parameters.toArray(Class<?>[]::new))
-            : declaration;
+        return declaration;
     }
 
     /**
@@ -201,7 +230,7 @@ public interface ReflectionSupport {
         throw new jakarta.validation.ValidationException(
                 "No generated enum constants for "
                         + type.getName()
-                        + ": compile with micronaut-validation-processor or add"
+                        + ": add"
                         + " micronaut-validation-reflection");
     }
 
@@ -221,6 +250,15 @@ public interface ReflectionSupport {
     }
 
     /**
+     * @param type The annotation interface
+     * @param value The occurrence
+     * @return Typed runtime attributes, or null when using ordinary metadata
+     */
+    default @Nullable Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
+        return null;
+    }
+
+    /**
      * Optional fallback for an annotation not described by generated providers.
      *
      * @param type The annotation interface
@@ -233,7 +271,7 @@ public interface ReflectionSupport {
         throw new jakarta.validation.ValidationException(
                 "No generated annotation implementation for "
                         + type.getName()
-                        + ": compile with micronaut-validation-processor or add"
+                        + ": add"
                         + " micronaut-validation-reflection");
     }
 
@@ -262,7 +300,7 @@ public interface ReflectionSupport {
         if (type == Object.class || type == jakarta.validation.groups.Default.class) {
             return List.of();
         }
-        var metadata = GeneratedAnnotationFactories.typeMetadata(type);
+        var metadata = ValidationMetadataSupport.hierarchy(type);
         if (metadata == null) {
             throw new jakarta.validation.ValidationException(
                     "No generated hierarchy for "
@@ -270,7 +308,15 @@ public interface ReflectionSupport {
                             + ": add micronaut-validation-reflection or compile the type with"
                             + " micronaut-validation-processor");
         }
-        return metadata.interfaces();
+        return List.of(metadata.classValues("interfaces"));
+    }
+
+    /**
+     * @param type The hierarchy to resolve
+     * @return Whether generated metadata or the optional provider can describe it
+     */
+    default boolean canResolveHierarchy(Class<?> type) {
+        return ValidationMetadataSupport.hierarchy(type) != null;
     }
 
     /**
@@ -282,7 +328,7 @@ public interface ReflectionSupport {
         if (type == Object.class) {
             return null;
         }
-        var metadata = GeneratedAnnotationFactories.typeMetadata(type);
+        var metadata = ValidationMetadataSupport.hierarchy(type);
         if (metadata == null) {
             throw new jakarta.validation.ValidationException(
                     "No generated hierarchy for "
@@ -290,7 +336,7 @@ public interface ReflectionSupport {
                             + ": add micronaut-validation-reflection or compile the type with"
                             + " micronaut-validation-processor");
         }
-        return metadata.superType();
+        return metadata.classValue("superType").orElse(null);
     }
 
     /**

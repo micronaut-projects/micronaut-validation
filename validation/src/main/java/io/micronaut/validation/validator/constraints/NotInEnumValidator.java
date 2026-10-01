@@ -15,7 +15,7 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
@@ -49,12 +49,13 @@ public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
 
-            var constants = GeneratedAnnotationFactories.enumConstants(enumClass);
+            var constants = annotationMetadata.contains("$enumValues")
+                ? java.util.List.of(annotationMetadata.stringValues("$enumValues"))
+                : ValidationMetadataSupport.enumConstants(enumClass).stream().map(Enum::name).toList();
             if (constants.isEmpty()) {
                 return true; // Invalid enum class, pass validation
             }
-            for (Enum<?> constant : constants) {
-                String name = constant.name();
+            for (String name : constants) {
                 if (caseSensitive ? name.equals(stringValue) : name.equalsIgnoreCase(stringValue)) {
                     return false; // Match found, validation fails
                 }

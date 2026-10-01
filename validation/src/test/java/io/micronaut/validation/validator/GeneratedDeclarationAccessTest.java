@@ -28,6 +28,28 @@ class GeneratedDeclarationAccessTest {
     private final Validator validator = Validator.getInstance();
 
     @Test
+    void defaultPropertyAccessUsesTheGetterWithoutReflectivePermission() {
+        var bean = new StandardBean();
+        assertEquals(1, validator.validate(bean).size());
+        assertEquals(1, bean.reads);
+        bean.value = "valid";
+        assertTrue(validator.validate(bean).isEmpty());
+        assertEquals(2, bean.reads);
+    }
+
+    @Test
+    void recordComponentsUseGeneratedAccessorsWithoutReflectivePermission() {
+        assertEquals(2, validator.validate(new StandardRecord(null, java.util.Arrays.asList((String) null))).size());
+        assertTrue(validator.validate(new StandardRecord("valid", java.util.List.of("valid"))).isEmpty());
+        assertEquals(1, validator.validate(new FieldRecord(null)).size());
+    }
+
+    @Test
+    void propertyAccessDoesNotEraseADifferentlyTypedFieldDeclaration() {
+        assertThrows(ValidationException.class, () -> validator.validate(new DifferentlyTypedGetter()));
+    }
+
+    @Test
     void fieldAndGetterReadTheirOwnValuesAndKeepRepeatedConstraints() {
         assertEquals(2, validator.validate(new DifferentValues()).size());
         assertEquals(1, validator.validate(new DifferentValues("field", null)).size());
@@ -46,12 +68,12 @@ class GeneratedDeclarationAccessTest {
     }
 
     @Test
-    void privateMethodValidationUsesGeneratedDeclarationsWithoutInvokingTheMethod() throws Exception {
+    void privateMethodValidationRequiresTheOptionalProvider() throws Exception {
         var bean = new PrivateExecutable();
         var method = PrivateExecutable.class.getDeclaredMethod("process", String.class);
-        assertEquals(1, validator.forExecutables().validateParameters(bean, method, new Object[]{null}).size());
-        assertEquals(1, validator.forExecutables().validateReturnValue(bean, method, null).size());
-        assertEquals(1, validator.forExecutables().validateReturnValue(bean, method, java.util.Arrays.asList((String) null)).size());
+        var failure = assertThrows(ValidationException.class,
+            () -> validator.forExecutables().validateParameters(bean, method, new Object[]{null}));
+        assertTrue(failure.getMessage().contains("micronaut-validation-reflection"));
     }
 
     @Test
@@ -137,4 +159,24 @@ class GeneratedDeclarationAccessTest {
     @Introspected static class Concrete extends Middle<String> { }
     interface Pair<A, B> { }
     @Introspected static class Swapped<X, Y> implements Pair<Y, X> { }
+
+    @Introspected
+    static class StandardBean {
+        @NotNull private String value;
+        private int reads;
+        public String getValue() { reads++; return value; }
+        public void setValue(String value) { this.value = value; }
+    }
+
+    @Introspected
+    record StandardRecord(@NotNull String value, java.util.List<@NotNull String> items) { }
+
+    @Introspected(accessKind = {Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD})
+    record FieldRecord(@NotNull String value) { }
+
+    @Introspected
+    static class DifferentlyTypedGetter {
+        @NotNull private String value;
+        public java.util.Optional<String> getValue() { return java.util.Optional.ofNullable(value); }
+    }
 }

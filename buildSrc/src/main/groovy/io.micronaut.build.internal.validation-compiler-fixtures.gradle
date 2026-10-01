@@ -1,31 +1,20 @@
 plugins {
     id 'io.micronaut.build.internal.validation-module'
 }
-tasks.register('compileEnforcementFixtureProcessor', JavaCompile) {
-    source = fileTree('src/compilerNegative/processor') { include '**/*.java' }
-    classpath = files()
-    destinationDirectory = layout.buildDirectory.dir('compilerNegative/processor')
-    javaCompiler = tasks.named('compileJava', JavaCompile).flatMap { it.javaCompiler }
-    options.compilerArgs.add('-proc:none')
-}
-
 def compilerNegativeTasks = [Reflection: 'NoReflection', HiddenReflection: 'NoReflection', Nullness: 'NullAway', Generated: 'NoReflection', GeneratedNullness: 'NullAway'].collect { fixture, diagnostic ->
     def taskName = "compileCompiler${fixture}Negative"
     noReflection.checkedTasks.add(taskName)
     tasks.register(taskName, JavaCompile) {
         group = 'verification'
         description = "Proves the ${diagnostic} production compiler gate rejects ${fixture.toLowerCase()} violations."
-        source = fileTree("src/compilerNegative/${fixture.startsWith('Generated') ? 'generated' : fixture.toLowerCase()}") { include '**/*.java' }
+        source = fileTree("src/compilerNegative/${fixture.toLowerCase()}") { include '**/*.java' }
         classpath = sourceSets.main.compileClasspath
         destinationDirectory = layout.buildDirectory.dir("compilerNegative/${fixture}")
         javaCompiler = tasks.named('compileJava', JavaCompile).flatMap { it.javaCompiler }
+        options.annotationProcessorPath = configurations.annotationProcessor
         if (fixture.startsWith('Generated')) {
-            dependsOn tasks.named('compileEnforcementFixtureProcessor')
-            options.annotationProcessorPath = configurations.annotationProcessor + files(layout.buildDirectory.dir('compilerNegative/processor'))
-            options.compilerArgs.addAll(['-processor', 'io.micronaut.validation.fixture.ForbiddenProcessor',
-                "-AfixtureNullness=${fixture == 'GeneratedNullness'}"])
-        } else {
-            options.annotationProcessorPath = configurations.annotationProcessor
+            // A checked-in generated-source fixture proves @Generated does not disable enforcement.
+            options.compilerArgs.add('-proc:none')
         }
         options.failOnError = false
         options.incremental = false

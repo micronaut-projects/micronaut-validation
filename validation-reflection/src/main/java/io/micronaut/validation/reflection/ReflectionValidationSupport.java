@@ -17,6 +17,9 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.validation.annotation.ValidatedElement;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
@@ -29,7 +32,7 @@ import io.micronaut.reflection.ReflectionExecutables;
 import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import jakarta.validation.Constraint;
 import jakarta.validation.GroupSequence;
@@ -277,15 +280,55 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public Argument<?> prepareArgument(Argument<?> argument) {
+        Argument<?>[] parameters = argument.getTypeParameters();
+        Argument<?>[] prepared = new Argument<?>[parameters.length];
+        boolean validated = argument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class)
+            || argument.getAnnotationMetadata().hasStereotype(jakarta.validation.Constraint.class)
+            || argument.getAnnotationMetadata().hasAnnotation(jakarta.validation.Valid.class);
+        for (int i = 0; i < parameters.length; i++) {
+            prepared[i] = prepareArgument(parameters[i]);
+            validated |= prepared[i].getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
+        }
+        var metadata = argument.getAnnotationMetadata();
+        if (validated && !metadata.hasAnnotation(ValidatedElement.class)) {
+            var marker = new MutableAnnotationMetadata();
+            marker.addDeclaredAnnotation(ValidatedElement.class.getName(), java.util.Map.of());
+            metadata = ConfiguredMetadata.merge(metadata, marker);
+        }
+        return ExecutableHierarchy.copyArgument(argument, metadata, prepared);
+    }
+
+    @Override
+    public java.util.Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
+        var annotation = annotation(type, value);
+        var attributes = new LinkedHashMap<String, Object>();
+        for (var member : type.getDeclaredMethods()) {
+            try {
+                member.setAccessible(true);
+                attributes.put(member.getName(), member.invoke(annotation));
+            } catch (ReflectiveOperationException e) {
+                throw new ValidationException("Cannot read constraint attributes for " + type.getName(), e);
+            }
+        }
+        return attributes;
+    }
+
+    @Override
     public List<Class<?>> interfaces(Class<?> type) {
-        var generated = GeneratedAnnotationFactories.typeMetadata(type);
-        return generated == null ? List.of(type.getInterfaces()) : generated.interfaces();
+        var generated = ValidationMetadataSupport.hierarchy(type);
+        return generated == null ? List.of(type.getInterfaces()) : List.of(generated.classValues("interfaces"));
+    }
+
+    @Override
+    public boolean canResolveHierarchy(Class<?> type) {
+        return true;
     }
 
     @Override
     public @Nullable Class<?> superType(Class<?> type) {
-        var generated = GeneratedAnnotationFactories.typeMetadata(type);
-        return generated == null ? type.getSuperclass() : generated.superType();
+        var generated = ValidationMetadataSupport.hierarchy(type);
+        return generated == null ? type.getSuperclass() : generated.classValue("superType").orElse(null);
     }
 
     @Override
@@ -346,10 +389,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        if (!io.micronaut.validation.validator.metadata.GeneratedConstraintRules.composition(
-                constraintType)) {
-            ReflectedComposition.checkDeclaredComposition(constraintType, parentAnnotationValue);
-        }
+        ReflectedComposition.checkDeclaredComposition(constraintType, parentAnnotationValue);
     }
 
     @Override
@@ -382,10 +422,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
-        if (!io.micronaut.validation.validator.metadata.GeneratedConstraintRules.definition(
-                constraintType)) {
-            ReflectedConstraintDefinitions.validate(constraintType);
-        }
+        ReflectedConstraintDefinitions.validate(constraintType);
     }
 
     @Override

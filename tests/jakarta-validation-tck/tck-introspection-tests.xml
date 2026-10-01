@@ -3,11 +3,12 @@
 <suite name="Jakarta-Bean-Validation-TCK" verbose="1">
     <!--
         Generated descriptions, with micronaut.validation.reflection.enabled=false.
-        The complete 1,054-test audit passes every former exclusion except the constructor
-        descriptor of a non-static inner class. Core's generated constructor metadata does
-        not include its implicit enclosing-instance parameter. The optional reflection stack
-        passes this case. The restricted suite therefore runs 1,053 tests with one measured
-        exclusion; excluded tests are not reported as skipped.
+        The audit retains seven measured exclusions. Core constructor metadata omits the
+        enclosing-instance parameter of a non-static inner class. Six XML tests name private
+        methods (Groups.convert and IgnoreAnnotations.foobar) that standard introspections
+        do not expose. Describing them requires the optional provider; validation does not
+        generate extra declaration classes. The full Jakarta stack tests all 1,054 cases.
+        This restricted suite runs 1,047 tests; excluded tests are not reported as skipped.
 
         Reassess with -PtckIntrospectionSuite=tck-spec-tests.xml before removing this exclusion.
     -->
@@ -19,6 +20,24 @@
             <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
                 <methods>
                     <exclude name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest">
+                <methods>
+                    <exclude name="testGroupConversionsAppliedOnConstructor"/>
+                    <exclude name="testGroupConversionsAppliedOnField"/>
+                    <exclude name="testGroupConversionsAppliedOnGetter"/>
+                    <exclude name="testGroupConversionsAppliedOnMethod"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsOnMethodTest">
+                <methods>
+                    <exclude name="testIgnoreAnnotationsOnMethodLevel"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest">
+                <methods>
+                    <exclude name="testIgnoreAnnotationsOnReturnValueParameterAndCrossParameter"/>
                 </methods>
             </class>
         </classes>

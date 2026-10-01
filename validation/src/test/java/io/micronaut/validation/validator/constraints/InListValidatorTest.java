@@ -114,10 +114,10 @@ class InListValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@ReflectiveAccess @InList(value = {"ONE", "TWO"}) String component,
-                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
-                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}) TestEnum enumComponent,
-                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}) Integer intComponent) {}
+    record TestRecord(@InList(value = {"ONE", "TWO"}) String component,
+                      @InList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
+                      @InList(value = {"ONE", "TWO"}) TestEnum enumComponent,
+                      @InList(value = {"ONE", "TWO"}) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {

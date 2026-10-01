@@ -16,9 +16,9 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
@@ -79,9 +79,7 @@ public final class ExecutableHierarchy {
     public static Resolved resolve(BeanIntrospector introspector, Declaration local, String name) {
         Class<?>[] parameterTypes = Argument.toClassArray(local.arguments());
         List<Declaration> inherited = inherited(introspector, local.declaringType(), name, parameterTypes);
-        var generated = GeneratedAnnotationFactories.methodDeclaration(local.declaringType(), name, parameterTypes);
-        Declaration declared = generated == null ? local : new Declaration(generated.declaringType(),
-            generated.metadata(), generated.parameters().toArray(Argument<?>[]::new), generated.argument(), true);
+        Declaration declared = declaredBy(introspector, local.declaringType(), name, parameterTypes).orElse(local);
         return merge(local, declared, inherited);
     }
 
@@ -153,18 +151,14 @@ public final class ExecutableHierarchy {
         if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
             return Optional.empty();
         }
-        var generated = GeneratedAnnotationFactories.methodDeclaration(type, name, parameterTypes);
-        if (generated != null) {
-            return Optional.of(new Declaration(generated.declaringType(), generated.metadata(),
-                generated.parameters().toArray(Argument<?>[]::new), generated.argument(), true));
-        }
         return introspector.findIntrospection((Class<Object>) type)
+            .filter(introspection -> ValidationMetadataSupport.declares(introspection.getAnnotationMetadata(), name, parameterTypes))
             .flatMap(introspection -> introspection.getBeanMethods().stream()
                 .filter(method -> method.getName().equals(name)
                     && method.getDeclaringType() == type
                     && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes))
                 .findFirst())
-            .map(method -> Declaration.of(method, false));
+            .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
     }
 
     /**
@@ -575,8 +569,10 @@ public final class ExecutableHierarchy {
         public static Declaration of(BeanMethod<?, ?> method, boolean exact) {
             return new Declaration(method.getDeclaringType(),
                 exact ? method.getDeclaredMethodAnnotationMetadata() : declaredOf(method.getAnnotationMetadata()),
-                method.getArguments(),
-                returnArgumentOf(method.getReturnType()),
+                exact ? ValidationMetadataSupport.declaredArguments(method.getArguments(), method.getDeclaredMethodAnnotationMetadata()) : method.getArguments(),
+                exact ? ValidationMetadataSupport.argument(
+                    returnArgumentOf(method.getReturnType()).withAnnotationMetadata(method.getDeclaredMethodAnnotationMetadata()),
+                    method.getDeclaredMethodAnnotationMetadata()) : returnArgumentOf(method.getReturnType()),
                 exact);
         }
 

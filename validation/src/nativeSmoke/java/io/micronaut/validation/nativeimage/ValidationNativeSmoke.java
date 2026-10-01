@@ -25,7 +25,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
- * Exercises generated access, concrete annotations, generic containers, and annotated-field native
+ * Exercises generated access, generic containers, and annotated-field native
  * registration.
  */
 public final class ValidationNativeSmoke {
@@ -43,11 +43,10 @@ public final class ValidationNativeSmoke {
                 throw new AssertionError("Generated declarations were lost");
             }
             var violations = validator.validate(new Annotated());
-            if (violations.size() != 1
-                    || !(violations.iterator().next().getConstraintDescriptor().getAnnotation()
-                            instanceof NotNull)) {
+            if (violations.size() != 1 || validator.validate(new Component(null)).size() != 1
+                || validator.validate(new Property()).size() != 1) {
                 throw new AssertionError(
-                        "Field-specific registration or generated annotations were lost");
+                        "Field-specific registration or generated accessor metadata was lost");
             }
         }
         System.out.println("Native validation smoke passed");
@@ -68,5 +67,24 @@ public final class ValidationNativeSmoke {
             visibility = Introspected.Visibility.ANY)
     public static final class Annotated {
         @NotNull @ReflectiveAccess private @Nullable String value;
+    }
+
+    /**
+     * Record components use generated accessors.
+     *
+     * @param value The constrained value
+     */
+    @Introspected
+    public record Component(@NotNull @Nullable String value) { }
+
+    /** Backing field constraints use the generated property getter. */
+    @Introspected
+    public static final class Property {
+        @NotNull private @Nullable String value;
+
+        /** @return The constrained property */
+        public @Nullable String getValue() {
+            return value;
+        }
     }
 }

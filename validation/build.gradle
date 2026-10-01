@@ -14,7 +14,6 @@ dependencies {
     api mn.micronaut.inject
     api mn.micronaut.core.reactive
     api libs.managed.validation
-    runtimeOnly projects.micronautValidationMetadata
 
     implementation mnReactor.micronaut.reactor
 
@@ -91,7 +90,6 @@ noReflection {
     forbid("io.micronaut.core.annotation.AnnotationSource#synthesizeDeclared")
     forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredMethod")
     forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredField")
-    allowIn("io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories", "SERVICE_LOADING")
     allowIn("io.micronaut.validation.validator.AnnotatedFieldAccessor", "CLASS_MEMBERS", "REFLECTIVE_ACCESS")
     allowIn("io.micronaut.validation.validator.ConstraintValidatorServiceDiscovery", "SERVICE_LOADING")
     allowIn("io.micronaut.validation.validator.ReflectionSupportServiceDiscovery", "SERVICE_LOADING")

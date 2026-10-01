@@ -17,49 +17,47 @@ package io.micronaut.validation.xml;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.ReturnType;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 /**
- * The description of a bean the annotation processor never introspected, read from what a
- * constraint mapping declares about it: the mapping names the fields and the getters that carry
- * constraints, and each of them names through its generic signature the type it holds and the type
- * arguments a container element constraint is declared for.
- *
- * <p>A mapping that does not ignore the annotations of a member asks for them as well, and a type
- * with no introspection has them nowhere but on the member itself, so the constraints and the
- * cascades the member declares are read from it - those, and nothing else: what a type declares
- * beyond the members a mapping names is what a generated introspection, or the reflection module
- * where it is present, describes. The annotations this description carries are the ones {@link
- * XmlValidationMetadataProvider} then merges the mapping into, or replaces where the mapping
- * ignores them, exactly as it does over a generated introspection.
+ * XML declarations exposed through the same arguments and metadata as a generated introspection.
  *
  * @param <T> The bean type
- * @since 5.2
  */
 @Internal
 final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
-
     private final Class<T> beanType;
+    private final AnnotationMetadata metadata;
     private final List<BeanProperty<T, Object>> properties;
+    private final List<BeanMethod<T, Object>> methods;
+    private final List<BeanConstructor<T>> constructors;
+    private final @Nullable BeanIntrospection<T> original;
 
-    XmlBeanIntrospection(Class<T> beanType, Map<String, ValidationDeclaration> members) {
+    XmlBeanIntrospection(Class<T> beanType, AnnotationMetadata metadata,
+                         Map<String, ValidationDeclaration> properties,
+                         Collection<ValidationDeclaration> methods,
+                         Collection<ValidationDeclaration> constructors,
+                         @Nullable BeanIntrospection<T> original) {
         this.beanType = beanType;
-        List<BeanProperty<T, Object>> mapped = new ArrayList<>(members.size());
-        for (Map.Entry<String, ValidationDeclaration> member : members.entrySet()) {
-            mapped.add(new XmlBeanProperty(member.getKey(), member.getValue()));
-        }
-        this.properties = List.copyOf(mapped);
+        this.metadata = metadata;
+        this.properties = properties.entrySet().stream()
+            .<BeanProperty<T, Object>>map(entry -> new XmlBeanProperty(entry.getKey(), entry.getValue())).toList();
+        this.methods = methods.stream().<BeanMethod<T, Object>>map(XmlBeanMethod::new).toList();
+        this.constructors = constructors.stream().<BeanConstructor<T>>map(XmlBeanConstructor::new).toList();
+        this.original = original;
     }
 
     @Override
@@ -69,7 +67,7 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
     @Override
     public AnnotationMetadata getAnnotationMetadata() {
-        return AnnotationMetadata.EMPTY_METADATA;
+        return metadata;
     }
 
     @Override
@@ -78,51 +76,85 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
     }
 
     @Override
+    public Collection<BeanMethod<T, Object>> getBeanMethods() {
+        return methods;
+    }
+
+    @Override
+    public List<BeanConstructor<T>> getConstructors() {
+        return constructors;
+    }
+
+    @Override
+    public BeanConstructor<T> getConstructor() {
+        if (constructors.isEmpty()) {
+            if (original != null) {
+                return original.getConstructor();
+            }
+            throw new UnsupportedOperationException(unsupported());
+        }
+        return constructors.getFirst();
+    }
+
+    @Override
+    public List<Argument<?>> getTypeArguments(@Nullable Class<?> superType) {
+        return original == null ? List.of() : original.getTypeArguments(superType);
+    }
+
+    @Override
     public Collection<BeanProperty<T, Object>> getIndexedProperties(Class<? extends Annotation> annotationType) {
-        return List.of();
+        return properties.stream().filter(property -> property.getAnnotationMetadata().hasStereotype(annotationType)).toList();
     }
 
     @Override
     public Optional<BeanProperty<T, Object>> getIndexedProperty(Class<? extends Annotation> annotationType, String annotationValue) {
-        return Optional.empty();
+        return getIndexedProperties(annotationType).stream()
+            .filter(property -> property.getAnnotationMetadata().stringValue(annotationType).filter(annotationValue::equals).isPresent())
+            .findFirst();
     }
 
     @Override
     public Builder<T> builder() {
+        if (original != null) {
+            return original.builder();
+        }
         throw new UnsupportedOperationException(unsupported());
     }
 
     @Override
     public T instantiate() {
+        if (original != null) {
+            return original.instantiate();
+        }
         throw new UnsupportedOperationException(unsupported());
     }
 
     @Override
     public T instantiate(boolean strictNullable, Object... arguments) {
+        if (original != null) {
+            return original.instantiate(strictNullable, arguments);
+        }
         throw new UnsupportedOperationException(unsupported());
     }
 
     private String unsupported() {
-        return "Cannot instantiate a bean described by validation XML alone: " + beanType.getName();
+        return "XML metadata cannot instantiate " + beanType.getName();
     }
 
-    /** A property the mapping names, read through the field or the getter it names it by. */
     private final class XmlBeanProperty implements BeanProperty<T, Object> {
-
         private final String name;
         private final ValidationDeclaration source;
         private final Argument<Object> argument;
-        private final AnnotationMetadata annotationMetadata;
 
         @SuppressWarnings("unchecked")
         private XmlBeanProperty(String name, ValidationDeclaration source) {
             this.name = name;
             this.source = source;
             this.argument = (Argument<Object>) source.argument().withName(name);
-            this.annotationMetadata = source.metadata();
         }
 
         @Override
+
         public String getName() {
             return name;
         }
@@ -134,7 +166,7 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
         @Override
         public AnnotationMetadata getAnnotationMetadata() {
-            return annotationMetadata;
+            return argument.getAnnotationMetadata();
         }
 
         @Override
@@ -164,16 +196,108 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
         @Override
         public void set(T bean, @Nullable Object value) {
-            throw new UnsupportedOperationException(readOnly());
+            throw new UnsupportedOperationException(unsupported());
         }
 
         @Override
         public T withValue(T bean, @Nullable Object value) {
-            throw new UnsupportedOperationException(readOnly());
+            throw new UnsupportedOperationException(unsupported());
+        }
+    }
+
+    private final class XmlBeanMethod implements BeanMethod<T, Object> {
+        private final ValidationDeclaration source;
+
+        private XmlBeanMethod(ValidationDeclaration source) {
+            this.source = source;
         }
 
-        private String readOnly() {
-            return "Cannot write a property described by validation XML alone: " + beanType.getName() + "." + name;
+        @Override
+        public String getName() {
+            return source.name();
+        }
+
+        @Override
+        public BeanIntrospection<T> getDeclaringBean() {
+            return XmlBeanIntrospection.this;
+        }
+
+        @Override
+        public AnnotationMetadata getAnnotationMetadata() {
+            return source.metadata();
+        }
+
+        @Override
+        public AnnotationMetadata getDeclaredMethodAnnotationMetadata() {
+            return source.metadata();
+        }
+
+        @Override
+        public Argument<?>[] getArguments() {
+            return source.parameters().toArray(Argument.ZERO_ARGUMENTS);
+        }
+
+        @Override
+        public ReturnType<Object> getReturnType() {
+            return new ReturnType<>() {
+                @Override
+                @SuppressWarnings("unchecked") public Class<Object> getType() {
+                    return (Class<Object>) source.argument().getType();
+                }
+
+                @Override
+                public Argument<?>[] getTypeParameters() {
+                    return source.argument().getTypeParameters();
+                }
+
+                @Override
+                public Map<String, Argument<?>> getTypeVariables() {
+                    return source.argument().getTypeVariables();
+                }
+
+                @Override
+                public AnnotationMetadata getAnnotationMetadata() {
+                    return source.argument().getAnnotationMetadata();
+                }
+
+                @Override
+                @SuppressWarnings("unchecked") public Argument<Object> asArgument() {
+                    return (Argument<Object>) source.argument();
+                }
+            };
+        }
+
+        @Override
+        public @Nullable Object invoke(T instance, Object... arguments) {
+            throw new UnsupportedOperationException("XML executable metadata is used for validation: " + source.name());
+        }
+    }
+
+    private final class XmlBeanConstructor implements BeanConstructor<T> {
+        private final ValidationDeclaration source;
+
+        private XmlBeanConstructor(ValidationDeclaration source) {
+            this.source = source;
+        }
+
+        @Override
+        public Class<T> getDeclaringBeanType() {
+            return beanType;
+        }
+
+        @Override
+        public Argument<?>[] getArguments() {
+            return source.parameters().toArray(Argument.ZERO_ARGUMENTS);
+        }
+
+        @Override
+        public AnnotationMetadata getAnnotationMetadata() {
+            return source.metadata();
+        }
+
+        @Override
+        public T instantiate(@Nullable Object... arguments) {
+            throw new UnsupportedOperationException(unsupported());
         }
     }
 }

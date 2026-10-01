@@ -114,10 +114,10 @@ class NotInListValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) String component,
-                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
-                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) TestEnum enumComponent,
-                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) Integer intComponent) {}
+    record TestRecord(@NotInList(value = {"ONE", "TWO"}) String component,
+                      @NotInList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
+                      @NotInList(value = {"ONE", "TWO"}) TestEnum enumComponent,
+                      @NotInList(value = {"ONE", "TWO"}) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {

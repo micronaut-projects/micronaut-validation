@@ -27,7 +27,7 @@ class IntrospectionOnlySpec extends Specification {
 
         expect:
         descriptor.getConstraintsForProperty("name") != null
-        descriptor.getConstraintsForProperty("name").constraintDescriptors*.annotation*.annotationType() as Set ==
+        descriptor.getConstraintsForProperty("name").constraintDescriptors*.type as Set ==
             [DecimalMin, Size] as Set
     }
 
@@ -36,7 +36,7 @@ class IntrospectionOnlySpec extends Specification {
         def descriptor = validator.getConstraintsForClass(Impl)
 
         expect:
-        descriptor.getConstraintsForProperty("lastName").constraintDescriptors*.annotation*.annotationType() as Set ==
+        descriptor.getConstraintsForProperty("lastName").constraintDescriptors*.type as Set ==
             [DecimalMin, Size] as Set
     }
 
@@ -47,7 +47,7 @@ class IntrospectionOnlySpec extends Specification {
 
         expect:
         descriptor != null
-        descriptor.parameterDescriptors[0].constraintDescriptors*.annotation*.annotationType() == [NotNull]
+        descriptor.parameterDescriptors[0].constraintDescriptors*.type == [NotNull]
     }
 
     void "a parameter constrained in parallel interfaces is a declaration error"() {
@@ -63,7 +63,7 @@ class IntrospectionOnlySpec extends Specification {
         def descriptor = validator.getConstraintsForClass(Impl).getConstraintsForProperty("name")
 
         expect:
-        descriptor.findConstraints().unorderedAndMatchingGroups(Contract).constraintDescriptors*.annotation*.annotationType() == [Size]
+        descriptor.findConstraints().unorderedAndMatchingGroups(Contract).constraintDescriptors*.type == [Size]
     }
 
     @Introspected(accessKind = [Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD], visibility = Introspected.Visibility.ANY)

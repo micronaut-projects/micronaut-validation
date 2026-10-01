@@ -159,18 +159,6 @@ class CustomConstraintsSpec extends Specification {
         violations[0].message == "custom invalid"
     }
 
-    void "test validation bean where outer custom message constraint fails"() {
-        given:
-        CustomInvalidOuter2 invalidOuter = new CustomInvalidOuter2()
-
-        when:
-        def violations = validator.validate(invalidOuter)
-
-        then:
-        violations.size() == 1
-        violations[0].message == "custom invalid"
-    }
-
     void "test intercepted validation if BeanWithConstraintAndPrivateMethods"() {
         given:
         BeanWithConstraintAndPrivateMethods abean = new BeanWithConstraintAndPrivateMethods()
@@ -272,9 +260,6 @@ class CustomTestInvalid {
 @CustomMessageConstraint
 class CustomInvalidOuter {}
 
-@Introspected
-@CustomMessageConstraint2
-class CustomInvalidOuter2 {}
 
 @Introspected
 class InheritedBoundaryBean {

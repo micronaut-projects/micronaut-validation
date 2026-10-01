@@ -19,7 +19,6 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.annotation.ValidatedElement;
-import io.micronaut.validation.validator.constraints.ConstraintContainers;
 
 import jakarta.validation.Valid;
 
@@ -34,15 +33,12 @@ final class ArgumentValidationMetadata {
      * constraint or the cascade itself.
      */
     static <E> boolean isValidated(Argument<E> containerArgument) {
-        AnnotationMetadata annotationMetadata = containerArgument.getAnnotationMetadata();
-        return annotationMetadata.hasAnnotation(ValidatedElement.class)
-                || ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader())
-                || annotationMetadata.hasAnnotation(Valid.class);
+        return ReflectionSupport.get().prepareArgument(containerArgument).getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
     }
 
     static boolean hasValidatedTypeArgument(Argument<?> argument) {
-        for (Argument<?> typeParameter : argument.getTypeParameters()) {
-            if (isValidated(typeParameter) || hasValidatedTypeArgument(typeParameter)) {
+        for (Argument<?> typeParameter : ReflectionSupport.get().prepareArgument(argument).getTypeParameters()) {
+            if (isValidated(typeParameter)) {
                 return true;
             }
         }
@@ -50,7 +46,10 @@ final class ArgumentValidationMetadata {
     }
 
     static boolean hasCascadedTypeArgument(Argument<?> argument) {
-        for (Argument<?> typeParameter : argument.getTypeParameters()) {
+        for (Argument<?> typeParameter : ReflectionSupport.get().prepareArgument(argument).getTypeParameters()) {
+            if (!isValidated(typeParameter)) {
+                continue;
+            }
             AnnotationMetadata annotationMetadata = typeParameter.getAnnotationMetadata();
             if (annotationMetadata.hasAnnotation(Valid.class)
                     || annotationMetadata.hasStereotype(Valid.class)
@@ -61,10 +60,4 @@ final class ArgumentValidationMetadata {
         return false;
     }
 
-    private static ClassLoader currentClassLoader() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        return classLoader == null
-                ? ArgumentValidationMetadata.class.getClassLoader()
-                : classLoader;
-    }
 }

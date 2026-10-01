@@ -63,8 +63,8 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
@@ -427,7 +427,7 @@ public class DefaultValidator
         Optional<BeanDescriptor> metadataDescriptor = metadataProviders.stream()
             .flatMap(provider -> provider.getConstraintsForClass(clazz).stream())
             .findFirst();
-        return beanIntrospector.findIntrospection(clazz)
+        return findIntrospection(clazz)
             .map(introspection -> (BeanDescriptor) new IntrospectedBeanDescriptor(
                 introspection,
                 beanAnnotationMetadata(introspection),
@@ -900,13 +900,13 @@ public class DefaultValidator
      * annotation processor never saw describes the bean it configures.
      */
     private <T> Optional<BeanIntrospection<T>> findIntrospection(@NonNull Class<T> type) {
-        Optional<BeanIntrospection<T>> introspection = beanIntrospector.findIntrospection(type);
         for (ValidationMetadataProvider provider : metadataProviders) {
-            if (introspection.isEmpty()) {
-                introspection = provider.getBeanIntrospection(type);
+            Optional<BeanIntrospection<T>> configured = provider.getBeanIntrospection(type);
+            if (configured.isPresent()) {
+                return configured;
             }
         }
-        return introspection;
+        return beanIntrospector.findIntrospection(type);
     }
 
     private <T> void validateParametersInternal(@NonNull DefaultConstraintValidatorContext<T> context,
@@ -1215,11 +1215,11 @@ public class DefaultValidator
                 try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(memberMetadata)) {
                     Object value;
                     try {
-                        value = ReflectionSupport.get().readMember(member, object);
+                        value = ReflectionSupport.get().readMember(member, property, object);
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }
-                    Argument<Object> argument = (Argument<Object>) GeneratedAnnotationFactories.propertyArgument(object.getClass(), member).withName(property.getName()).withAnnotationMetadata(memberMetadata);
+                    Argument<Object> argument = (Argument<Object>) ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()).withName(property.getName()).withAnnotationMetadata(memberMetadata);
                     visitElement(context, object, argument, memberMetadata, value, canCascade, true, false);
                 }
             }
@@ -1227,7 +1227,7 @@ public class DefaultValidator
     }
 
     private boolean isCascadedMember(Class<?> beanType, BeanPropertyMember<?, ?> member) {
-        return member.getAnnotationMetadata().hasStereotype(Valid.class) || hasCascadedTypeArgument(GeneratedAnnotationFactories.propertyArgument(beanType, member));
+        return member.getAnnotationMetadata().hasStereotype(Valid.class) || hasCascadedTypeArgument(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
     }
 
     /**
@@ -1241,7 +1241,7 @@ public class DefaultValidator
         }
         return ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader())
             || annotationMetadata.hasStereotype(Valid.class)
-            || hasValidatedTypeArgument(GeneratedAnnotationFactories.propertyArgument(beanType, member))
+            || hasValidatedTypeArgument(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()))
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 

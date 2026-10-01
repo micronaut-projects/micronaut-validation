@@ -11,7 +11,6 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.validation.annotation.ValidatedElement
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
-import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 
 import javax.annotation.processing.SupportedAnnotationTypes
@@ -767,7 +766,7 @@ class Book {
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new ConfigurationReaderVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new ConfigurationReaderVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

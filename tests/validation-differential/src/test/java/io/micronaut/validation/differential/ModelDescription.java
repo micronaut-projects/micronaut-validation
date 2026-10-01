@@ -34,7 +34,10 @@ record ModelDescription(String name, Kind kind, int minimum, int maximum, int wi
 
     boolean comprehensiveOnly() { return kind == Kind.XML || kind == Kind.BOOTSTRAP || kind == Kind.EXTRACTORS; }
 
-    boolean expectsCapability(int operation) { return kind == Kind.PRIVATE_FIELDS && !permission; }
+    boolean expectsCapability(int operation) {
+        // Jakarta custom validators initialize a concrete annotation through the optional provider.
+        return kind == Kind.CUSTOM || (kind == Kind.PRIVATE_FIELDS && !permission);
+    }
 
     List<ModelDescription> smaller() {
         List<ModelDescription> models = new ArrayList<>();

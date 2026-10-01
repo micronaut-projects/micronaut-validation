@@ -22,7 +22,6 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.GroupDefinitionException;
@@ -134,11 +133,22 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             return DEFAULT_GROUPS;
         }
         sanityCheckGroups(definedGroups);
-        List<Class<?>> groupList = new ArrayList<>();
+        List<Class<?>> groups = new ArrayList<>();
         for (Class<?> group : definedGroups) {
-            addInheritedGroups(group, groupList);
+            addInheritedGroups(group, groups);
         }
-        return Collections.unmodifiableList(groupList);
+        return List.copyOf(groups);
+    }
+
+    private static void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
+        if (!groups.contains(group)) {
+            groups.add(group);
+            if (ReflectionSupport.get().canResolveHierarchy(group)) {
+                for (Class<?> inherited : ReflectionSupport.get().interfaces(group)) {
+                    addInheritedGroups(inherited, groups);
+                }
+            }
+        }
     }
 
     private static void sanityCheckGroups(List<Class<?>> groups) {
@@ -167,13 +177,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             return true;
         }
         if (constraintGroups.isEmpty()) {
-            return currentGroups.contains(Default.class);
+            return currentGroups.stream().anyMatch(group -> group == Default.class
+                || (convertedGroups.isEmpty() && Default.class.isAssignableFrom(group)));
         }
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }
         for (Class<?> group : currentGroups) {
-            if (constraintGroups.contains(group)) {
+            if (constraintGroups.stream().anyMatch(constraintGroup -> constraintGroup == group
+                || (convertedGroups.isEmpty() && constraintGroup.isAssignableFrom(group)))) {
                 return true;
             }
         }
@@ -298,6 +310,13 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             av -> av.classValue("from").orElse(Default.class),
             av -> av.classValue("to").orElseThrow())
         );
+        for (Class<?> group : prevGroups) {
+            if (newConvertGroups.keySet().stream().anyMatch(source -> source != group && source.isAssignableFrom(group))
+                && !ReflectionSupport.get().canResolveHierarchy(group)) {
+                throw new ValidationException("No generated group hierarchy for " + group.getName()
+                    + ": add micronaut-validation-reflection for inherited group conversion");
+            }
+        }
         convertedGroups.putAll(newConvertGroups);
         currentGroups = prevGroups.stream().<Class<?>>map(c -> convertGroup(convertedGroups, c)).toList();
         return () -> {
@@ -416,16 +435,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
-        var generated = GeneratedAnnotationFactories.typeMetadata(group);
-        List<Class<?>> groupSequence =
-                generated != null && generated.groupSequence() != null
-                        ? generated.groupSequence()
-                        : ctx
-                                .defaultValidator
-                                .getBeanIntrospector()
-                                .findIntrospection(group).stream()
-                .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
-                .toList();
+        List<Class<?>> groupSequence = ctx.defaultValidator.getBeanIntrospector()
+            .findIntrospection(group).stream()
+            .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
+            .toList();
         if (groupSequence.isEmpty()) {
             dest.add(new ValidationGroup(false, false, List.of(group)));
             return;
@@ -492,16 +505,6 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     public @Nullable Class<R> getRootClass() {
         return rootClass;
-    }
-
-    private static void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
-        if (!groups.contains(group)) {
-            groups.add(group);
-        }
-
-        for (Class<?> inheritedGroup : ReflectionSupport.get().interfaces(group)) {
-            addInheritedGroups(inheritedGroup, groups);
-        }
     }
 
     @Override

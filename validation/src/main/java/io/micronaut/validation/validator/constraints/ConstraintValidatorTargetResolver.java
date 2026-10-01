@@ -140,6 +140,17 @@ public final class ConstraintValidatorTargetResolver {
      */
     public static Set<ValidationTarget> constraintTargets(AnnotationValue<?> annotationValue,
                                                           Class<? extends Annotation> annotationType) {
+        if (annotationValue.contains("$validationTargets")) {
+            Set<ValidationTarget> targets = new LinkedHashSet<>();
+            for (String target : annotationValue.stringValues("$validationTargets")) {
+                switch (target) {
+                    case "PARAMETERS" -> targets.add(ValidationTarget.PARAMETERS);
+                    case "ANNOTATED_ELEMENT" -> targets.add(ValidationTarget.ANNOTATED_ELEMENT);
+                    default -> throw new jakarta.validation.ConstraintDefinitionException("Unknown validation target: " + target);
+                }
+            }
+            return targets;
+        }
         return constraintTargets(declaredValidators(annotationValue, annotationType));
     }
 

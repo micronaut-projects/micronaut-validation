@@ -16,6 +16,9 @@ dependencies {
     testImplementation projects.micronautValidationProcessor
     testImplementation mn.micronaut.inject
     testImplementation mn.micronaut.inject.java.test
+    testImplementation mnTest.junit.jupiter.api
+    testRuntimeOnly mnTest.junit.jupiter.engine
+    testRuntimeOnly libs.junit.platform.launcher
 }
 
 noReflection {

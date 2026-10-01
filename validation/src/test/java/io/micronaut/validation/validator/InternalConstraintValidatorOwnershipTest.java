@@ -91,7 +91,7 @@ class InternalConstraintValidatorOwnershipTest {
         @PreDestroy void destroy() { counters.dependenciesDestroyed.incrementAndGet(); }
     }
 
-    abstract static class OwnedValidator implements ConstraintValidator<ValidatorLifecycleTest.Threshold, Integer> {
+    abstract static class OwnedValidator implements ConstraintValidator<io.micronaut.validation.annotation.InList, Integer> {
         private final Counters counters;
         OwnedValidator(Counters counters) {
             this.counters = counters;

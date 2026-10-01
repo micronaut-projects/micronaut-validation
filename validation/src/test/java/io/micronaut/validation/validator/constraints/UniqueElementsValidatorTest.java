@@ -130,10 +130,10 @@ class UniqueElementsValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@ReflectiveAccess @UniqueElements List<String> stringList,
-                      @ReflectiveAccess @UniqueElements String[] stringArray,
-                      @ReflectiveAccess @UniqueElements int[] intArray,
-                      @ReflectiveAccess @UniqueElements Integer nonCollection) {}
+    record TestRecord(@UniqueElements List<String> stringList,
+                      @UniqueElements String[] stringArray,
+                      @UniqueElements int[] intArray,
+                      @UniqueElements Integer nonCollection) {}
 
     @Test
     void testRecordValidation() {

@@ -18,7 +18,7 @@ package io.micronaut.validation.validator.metadata;
 import io.micronaut.core.annotation.Internal;
 
 /**
- * The generated type and requiredness of an annotation member.
+ * The declared type and requiredness of an annotation member.
  *
  * @param type The member type
  * @param required Whether the member has no default

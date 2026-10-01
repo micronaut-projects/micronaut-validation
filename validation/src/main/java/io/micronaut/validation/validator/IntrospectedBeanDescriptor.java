@@ -15,12 +15,12 @@
  */
 package io.micronaut.validation.validator;
 
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.beans.BeanMethod;
@@ -69,7 +69,7 @@ import java.util.stream.Collectors;
  * @since 1.2.0
  */
 @Internal
-class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
+public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
     private final BeanIntrospection<?> beanIntrospection;
     private final AnnotationMetadata beanAnnotationMetadata;
@@ -105,7 +105,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      * @param propertyAnnotationMetadata The property annotation metadata
      * @param metadataProviders The validation metadata providers
      */
-    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
+    public IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
                                AnnotationMetadata beanAnnotationMetadata,
                                Map<String, AnnotationMetadata> propertyAnnotationMetadata,
                                List<ValidationMetadataProvider> metadataProviders) {
@@ -538,7 +538,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             // them differently, an interface getter can declare another container than the implementation
             Map<Class<?>, List<Argument<?>>> byContainer = new LinkedHashMap<>();
             for (BeanPropertyMember<?, ?> member : members) {
-                byContainer.computeIfAbsent(GeneratedAnnotationFactories.propertyArgument(beanIntrospection.getBeanType(), member).getType(), ignored -> new ArrayList<>()).add(GeneratedAnnotationFactories.propertyArgument(beanIntrospection.getBeanType(), member));
+                byContainer.computeIfAbsent(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()).getType(), ignored -> new ArrayList<>()).add(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {
@@ -714,6 +714,10 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
      * @param <A>           The annotation type
      */
     private record ImplicitGroupConstraintDescriptor<A extends Annotation>(ConstraintDescriptor<A> delegate, Class<?> implicitGroup) implements ConstraintDescriptor<A> {
+
+        public Class<?> getType() {
+            return ((DefaultConstraintDescriptor<?>) delegate).getType();
+        }
 
         @Override
         public A getAnnotation() {

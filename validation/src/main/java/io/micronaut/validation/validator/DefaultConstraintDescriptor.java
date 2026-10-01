@@ -22,7 +22,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationEnumValues;
 
 import jakarta.validation.ConstraintDeclarationException;
@@ -164,6 +164,9 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this.validationAppliesTo = validationAppliesTo;
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
+        annotationValue.stringValue("$compositionError").ifPresent(error -> {
+            throw new ConstraintDeclarationException(error);
+        });
         this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
         // the marker is a stereotype of the constraint where the metadata retains it, and read from
         // the type
@@ -202,7 +205,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public T getAnnotation() {
-        return GeneratedAnnotationFactories.create(type, annotationValue);
+        return ValidationMetadataSupport.create(type, annotationValue);
     }
 
     @Override
@@ -245,14 +248,16 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     @Override
     public Map<String, Object> getAttributes() {
-        Map<String, Object> generated = GeneratedAnnotationFactories.attributes(annotationValue);
-        if (generated != null) {
-            return generated;
+        var reflected = ReflectionSupport.get().annotationAttributes(type, annotationValue);
+        if (reflected != null) {
+            return reflected;
         }
         final Map<?, ?> values = annotationValue.getValues();
         Map<String, Object> variables = CollectionUtils.newLinkedHashMap(values.size());
         for (Map.Entry<?, ?> entry : values.entrySet()) {
-            variables.put(entry.getKey().toString(), entry.getValue());
+            if (!entry.getKey().toString().startsWith("$")) {
+                variables.put(entry.getKey().toString(), entry.getValue());
+            }
         }
         if (annotationValue.getDefaultValues() != null) {
             final Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
@@ -266,7 +271,26 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                 }
             }
         }
-        return variables;
+        ValidationMetadataSupport.standardDefaults(type).forEach((name, value) -> variables.putIfAbsent(name.toString(), value));
+        variables.put("groups", getGroups().contains(Default.class) && groups.isEmpty() ? new Class<?>[0] : groups.toArray(Class<?>[]::new));
+        variables.put("payload", payload.toArray(Class<?>[]::new));
+        variables.replaceAll((name, value) -> copyAttribute(value));
+        return Collections.unmodifiableMap(variables);
+    }
+
+    private static Object copyAttribute(Object value) {
+        return switch (value) {
+            case Object[] array -> array.clone();
+            case boolean[] array -> array.clone();
+            case byte[] array -> array.clone();
+            case short[] array -> array.clone();
+            case char[] array -> array.clone();
+            case int[] array -> array.clone();
+            case long[] array -> array.clone();
+            case float[] array -> array.clone();
+            case double[] array -> array.clone();
+            default -> value;
+        };
     }
 
     @Override

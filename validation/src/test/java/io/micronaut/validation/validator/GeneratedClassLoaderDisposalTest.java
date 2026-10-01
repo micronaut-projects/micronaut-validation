@@ -27,10 +27,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 class GeneratedClassLoaderDisposalTest {
     @Test
-    void closingFactoryDoesNotRetainApplicationClassesOrGeneratedProviders() throws Exception {
+    void closingFactoryDoesNotRetainApplicationClasses() throws Exception {
         WeakReference<ClassLoader> reference = validateInDisposableLoader();
         // Core's service index holds its most recently used loader. Refresh that independent,
-        // bounded cache before testing whether validation's providers and closed owners retain it.
+        // bounded cache before testing whether validation metadata and closed owners retain it.
         BeanIntrospector.forClassLoader(getClass().getClassLoader())
             .getIntrospection(GeneratedDeclarationAccessTest.Authorized.class);
         for (int attempt = 0; attempt < 100 && reference.get() != null; attempt++) {

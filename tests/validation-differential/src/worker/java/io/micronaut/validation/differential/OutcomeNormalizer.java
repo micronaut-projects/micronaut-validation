@@ -69,10 +69,23 @@ final class OutcomeNormalizer {
 
     private static String descriptor(ConstraintDescriptor<?> descriptor) {
         List<String> composition = descriptor.getComposingConstraints().stream().map(OutcomeNormalizer::descriptor).sorted().toList();
-        return descriptor.getAnnotation().annotationType().getName() + ":attributes=" + value(descriptor.getAttributes())
+        return annotationType(descriptor) + ":attributes=" + value(descriptor.getAttributes())
             + ":groups=" + sorted(descriptor.getGroups()) + ":payload=" + sorted(descriptor.getPayload())
             + ":target=" + descriptor.getValidationAppliesTo() + ":unwrap=" + descriptor.getValueUnwrapping()
             + ":single=" + descriptor.isReportAsSingleViolation() + ":composition=" + composition;
+    }
+
+    private static String annotationType(ConstraintDescriptor<?> descriptor) {
+        if (descriptor.getClass().getName().startsWith("io.micronaut.validation.")) {
+            try {
+                var method = descriptor.getClass().getMethod("getType");
+                method.setAccessible(true);
+                return ((Class<?>) method.invoke(descriptor)).getName();
+            } catch (ReflectiveOperationException e) {
+                throw new AssertionError("Micronaut descriptor must expose its metadata type", e);
+            }
+        }
+        return descriptor.getAnnotation().annotationType().getName();
     }
 
     static String exception(Throwable failure) {

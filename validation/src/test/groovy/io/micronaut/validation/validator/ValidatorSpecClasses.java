@@ -214,7 +214,7 @@ public class ValidatorSpecClasses {
     // test validate property argument cascade - nested iterables
     @Introspected
     public record PositiveMatrix (
-        @ReflectiveAccess List<List<@Min(value=0) Integer>> matrix
+        List<List<@Min(value=0) Integer>> matrix
     ) {}
 
     // test validate method argument generic annotations
@@ -284,24 +284,23 @@ public class ValidatorSpecClasses {
 
     // not introspected, expect validation failure
     public record Bee(
-        @ReflectiveAccess @NotBlank String name
+        @NotBlank String name
     ) {}
 
     @Introspected
     public record HiveOfBeeMap(
-        @ReflectiveAccess
         Map<String, @Valid Bee> bees
     ) {}
 
     @Introspected
     public record HiveOfBeeList(
-        @ReflectiveAccess List<@NotNull @Valid Bee> bees
+        List<@NotNull @Valid Bee> bees
     ) {}
 
     // test cascade to bean - enum
     @Introspected
     public record EnumList(
-        @ReflectiveAccess List<@Valid @NotNull AuthorState> enums
+        List<@Valid @NotNull AuthorState> enums
     ) {}
 
     enum AuthorState {
@@ -338,6 +337,6 @@ public class ValidatorSpecClasses {
 
     @Introspected
     public record Ingredient(
-        @ReflectiveAccess @NotBlank String name
+        @NotBlank String name
     ) {}
 }

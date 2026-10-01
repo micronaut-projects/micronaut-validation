@@ -17,6 +17,7 @@ package io.micronaut.validation.visitor;
 
 import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.NonNull;
@@ -33,9 +34,12 @@ import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
+import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
@@ -104,7 +108,12 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!visited.add(element)) {
             return;
         }
-
+        if (!element.getOverriddenMethods().isEmpty()) {
+            var declared = Stream.of(element.getParameters()).map(parameter -> declaredTypeUse(parameter, new HashSet<>()))
+                .toArray(AnnotationValue<?>[]::new);
+            element.annotate(ValidationMetadataSupport.DECLARED_PARAMETERS, builder -> builder.member("arguments", declared));
+        }
+        element.getOverriddenMethods().forEach(parent -> inheritAnnotationsForMethod(element, parent));
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
@@ -169,7 +178,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private static boolean hasValidation(TypedElement element, Set<Object> visited) {
         AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
-        if (metadata.hasStereotype(ANN_CONSTRAINT) || metadata.hasStereotype(ANN_VALID)) {
+        if (metadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(metadata) || metadata.hasStereotype(ANN_VALID)) {
             return true;
         }
         if (element instanceof ClassElement type && type.isPrimitive() || !visited.add(element.getNativeType())) {
@@ -194,14 +203,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
         MutableAnnotationMetadataDelegate<AnnotationMetadata> methodAnnotationMetadata = e.getMethodAnnotationMetadata();
-        return methodAnnotationMetadata.hasStereotype(ANN_VALID) || (requireOnConstraint && methodAnnotationMetadata.hasStereotype(ANN_CONSTRAINT));
+        return methodAnnotationMetadata.hasStereotype(ANN_VALID)
+            || (requireOnConstraint && (methodAnnotationMetadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(methodAnnotationMetadata.getAnnotationMetadata())));
     }
 
     private boolean visitElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
         boolean requiresTypeValidation = visitTypedElementValidationAndMarkForValidationIfNeeded(e, requireOnConstraint);
 
         AnnotationMetadata annotationMetadata = e instanceof ClassElement ce ? ce.getTypeAnnotationMetadata() : e.getAnnotationMetadata();
-        boolean requiresValidation = (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
+        boolean requiresValidation = (requireOnConstraint && (annotationMetadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(annotationMetadata)))
             || annotationMetadata.hasStereotype(ANN_VALID)
             || requiresTypeValidation;
         if (requiresValidation) {
@@ -213,6 +223,12 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             }
         }
         return requiresValidation;
+    }
+
+    private static boolean hasContainerConstraint(AnnotationMetadata metadata) {
+        return metadata.getAnnotationNames().stream().flatMap(name -> metadata.getAnnotationValuesByName(name).stream())
+            .flatMap(value -> value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream())
+            .anyMatch(value -> value.contains(io.micronaut.validation.validator.ValidationAnnotationUtil.CONSTRAINT_TYPE));
     }
 
     private boolean visitTypedElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
@@ -229,4 +245,68 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         return requires;
     }
 
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForMethod(MethodElement method, MethodElement parent) {
+        ParameterElement[] methodParameters = method.getParameters();
+        ParameterElement[] parentParameters = parent.getParameters();
+
+        for (int i = 0; i < methodParameters.length; ++i) {
+            inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
+        }
+        // Core merges method annotations itself. Only nested type-use annotations need
+        // supplementation; copying the return declaration would make it local to an override.
+        Map<String, ClassElement> local = method.getGenericReturnType().getTypeArguments();
+        Map<String, ClassElement> inherited = parent.getGenericReturnType().getTypeArguments();
+        for (var entry : local.entrySet()) {
+            ClassElement argument = inherited.get(entry.getKey());
+            if (argument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), argument);
+            }
+        }
+    }
+
+    /**
+     * Method that makes sure that all the annotations are inherited from parent.
+     * In particular, type arguments annotations are not inherited by default.
+     */
+    private void inheritAnnotationsForParameter(TypedElement element, TypedElement parentElement) {
+        if (!element.getType().equals(parentElement.getType())) {
+            return;
+        }
+        Stream<String> parentAnnotations = Stream.concat(
+            parentElement.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
+            parentElement.getAnnotationNamesByStereotype(ANN_VALID).stream()
+        );
+        parentAnnotations
+            .filter(name -> !element.hasAnnotation(name))
+            .flatMap(name -> parentElement.getAnnotationValuesByName(name).stream())
+            .forEach(element::annotate);
+
+        Map<String, ClassElement> typeArguments = element.getGenericType().getTypeArguments();
+        Map<String, ClassElement> parentTypeArguments = parentElement.getGenericType().getTypeArguments();
+        if (typeArguments.size() != parentTypeArguments.size()) {
+            return;
+        }
+        for (var entry : typeArguments.entrySet()) {
+            ClassElement parentTypeArgument = parentTypeArguments.get(entry.getKey());
+            if (parentTypeArgument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), parentTypeArgument);
+            }
+        }
+    }
+
+    private static AnnotationValue<?> declaredTypeUse(TypedElement element, Set<Object> visited) {
+        AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
+        var result = AnnotationValue.builder(ValidationMetadataSupport.TYPE_USE)
+            .member("annotations", metadata.getDeclaredAnnotationNames().stream()
+                .flatMap(name -> metadata.getDeclaredAnnotationValuesByName(name).stream()).toArray(AnnotationValue<?>[]::new));
+        if (visited.add(element.getNativeType())) {
+            result.member("arguments", element.getGenericType().getTypeArguments().values().stream()
+                .map(argument -> declaredTypeUse(argument, new HashSet<>(visited))).toArray(AnnotationValue<?>[]::new));
+        }
+        return result.build();
+    }
 }

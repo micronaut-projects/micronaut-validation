@@ -15,8 +15,6 @@
  */
 package io.micronaut.docs.validation;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 // tag::class[]
 import io.micronaut.core.annotation.Introspected;
 
@@ -29,7 +27,6 @@ public class Person {
     private String name;
 
     @Min(18)
-    @ReflectiveAccess
     private int age;
 
     @NotBlank

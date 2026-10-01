@@ -21,8 +21,8 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
@@ -93,8 +93,20 @@ public final class ConstraintContainers {
         // be the
         // one of the loader asking
         Set<Class<? extends Annotation>> types = new LinkedHashSet<>();
-        for (String name : constraintNames(annotationMetadata, classLoader)) {
+        var names = constraintNames(annotationMetadata, classLoader);
+        var declared = annotationMetadata.getDeclaredAnnotationNames();
+        boolean hasDeclared = names.stream().anyMatch(name -> declared.contains(name) || declared.contains(name + "$List"));
+        for (String name : names) {
+            if (hasDeclared && !declared.contains(name) && !declared.contains(name + "$List")) {
+                continue;
+            }
             var values = annotationMetadata.getAnnotationValuesByName(name);
+            if (values.isEmpty()) {
+                values = annotationMetadata.getAnnotationNames().stream()
+                    .flatMap(containerName -> annotationMetadata.getAnnotationValuesByName(containerName).stream())
+                    .flatMap(container -> container.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream())
+                    .filter(value -> value.getAnnotationName().equals(name)).toList();
+            }
             AnnotationValue<?> occurrence =
                     values.isEmpty() ? AnnotationValue.builder(name).build() : values.getFirst();
             types.add(constraintType(occurrence, classLoader));
@@ -187,10 +199,6 @@ public final class ConstraintContainers {
             return null;
         }
         AnnotationValue<Annotation> first = contained.get(0);
-        var generated = GeneratedAnnotationFactories.definition(first.getAnnotationName());
-        if (generated != null) {
-            return generated.type();
-        }
         if (first.annotationClassValues(ValidationAnnotationUtil.CONSTRAINT_TYPE).length == 0
                 && !ReflectionSupport.get().isReflectionEnabled()) {
             return null;
@@ -216,12 +224,9 @@ public final class ConstraintContainers {
                 return (Class<? extends Annotation>) type;
             }
         }
-        var generated = GeneratedAnnotationFactories.definition(value.getAnnotationName());
-        if (generated != null) {
-            return generated.type();
-        }
-        return (Class<? extends Annotation>)
-                ReflectionSupport.get().classForName(value.getAnnotationName(), classLoader);
+        var standard = ValidationMetadataSupport.standardConstraint(value.getAnnotationName());
+        return standard != null ? standard : (Class<? extends Annotation>)
+            ReflectionSupport.get().classForName(value.getAnnotationName(), classLoader);
     }
 
     /**
@@ -238,7 +243,8 @@ public final class ConstraintContainers {
                 }
             }
         }
-        return ReflectionSupport.get().isConstraintAnnotation(annotationType);
+        return ValidationMetadataSupport.standardConstraint(occurrence.getAnnotationName()) != null
+            || ReflectionSupport.get().isConstraintAnnotation(annotationType);
     }
 
     private static ClassLoader contextClassLoader() {

@@ -8,7 +8,6 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.validation.validator.Validator
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
-import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 import spock.lang.AutoCleanup
 import io.micronaut.validation.visitor.ValidationVisitor
@@ -106,7 +105,7 @@ class Test {
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

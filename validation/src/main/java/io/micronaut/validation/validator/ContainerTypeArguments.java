@@ -15,9 +15,9 @@
  */
 package io.micronaut.validation.validator;
 
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -53,7 +53,7 @@ final class ContainerTypeArguments {
         }
         var generated = introspector.findIntrospection(declaredType).orElse(null);
         if (generated != null) {
-            List<Argument<?>> arguments = GeneratedAnnotationFactories.typeArguments(generated, containerType);
+            List<Argument<?>> arguments = ValidationMetadataSupport.typeArguments(generated, containerType);
             if (typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()) {
                 return arguments.get(typeArgumentIndex);
             }

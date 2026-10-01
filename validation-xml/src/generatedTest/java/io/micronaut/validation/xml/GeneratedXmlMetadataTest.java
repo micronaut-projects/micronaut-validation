@@ -16,7 +16,6 @@
 package io.micronaut.validation.xml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -38,6 +37,20 @@ import java.util.Set;
 
 class GeneratedXmlMetadataTest {
     @Test
+    void defaultIgnorePolicyRemovesUnmappedExecutableAndNestedAnnotations() {
+        String xml = "<constraint-mappings version=\"3.1\"><bean class=\"" + ExecutableBean.class.getName()
+            + "\"/></constraint-mappings>";
+        var provider = new XmlValidationMetadataProvider(getClass().getClassLoader(),
+            Set.of(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))));
+        var method = provider.getBeanIntrospection(ExecutableBean.class).orElseThrow().getBeanMethods().stream()
+            .filter(candidate -> candidate.getName().equals("handle")).findFirst().orElseThrow();
+        assertTrue(method.getAnnotationMetadata().isEmpty());
+        assertTrue(method.getArguments()[0].getAnnotationMetadata().isEmpty());
+        assertTrue(method.getArguments()[0].getTypeParameters()[0].getAnnotationMetadata().isEmpty());
+        assertTrue(method.getReturnType().asArgument().getTypeParameters()[0].getAnnotationMetadata().isEmpty());
+    }
+
+    @Test
     void xmlUsesGeneratedMembersAndAnnotationsWithoutEitherReflectionModule() {
         assertThrows(
                 ClassNotFoundException.class,
@@ -53,9 +66,8 @@ class GeneratedXmlMetadataTest {
         try (var factory = new DefaultValidatorFactory(configuration)) {
             var violations = factory.getValidator().validate(new Bean());
             assertEquals(1, violations.size());
-            assertInstanceOf(
-                    NotNull.class,
-                    violations.iterator().next().getConstraintDescriptor().getAnnotation());
+            assertThrows(ValidationException.class,
+                () -> violations.iterator().next().getConstraintDescriptor().getAnnotation());
         }
     }
 
@@ -141,5 +153,13 @@ class GeneratedXmlMetadataTest {
             visibility = Introspected.Visibility.ANY)
     static class ForbiddenBean {
         @NotNull private String value;
+    }
+
+    @Introspected
+    static class ExecutableBean {
+        @NotNull
+        public List<@NotNull String> handle(@NotNull List<@NotNull String> values) {
+            return values;
+        }
     }
 }

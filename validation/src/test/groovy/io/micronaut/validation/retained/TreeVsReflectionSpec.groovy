@@ -21,9 +21,9 @@ class TreeVsReflectionSpec extends Specification {
 
         when: "what the reflective implementation reports"
         Set<ConstraintDescriptor<?>> constraints = descriptor.getConstraintDescriptors()
-        def minimumLength = constraints.find { it.getAnnotation().annotationType().simpleName == "MinimumLength" }
+        def minimumLength = constraints.find { it.getType().simpleName == "MinimumLength" }
         def reflective = minimumLength.getComposingConstraints()
-                .collect { [it.getAnnotation().annotationType().name, it.getAttributes().findAll { k, v -> k == "min" }] }
+                .collect { [it.getType().name, it.getAttributes().findAll { k, v -> k == "min" }] }
 
         and: "what a walk over the retained tree reports"
         def metadata = BeanIntrospector.SHARED.getIntrospection(Account)

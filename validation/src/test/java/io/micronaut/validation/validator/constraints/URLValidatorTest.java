@@ -15,8 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -41,9 +39,9 @@ class URLValidatorTest {
 
     @Introspected
     record TestUrl(
-        @ReflectiveAccess @URL String url,
-        @ReflectiveAccess @URL(protocol = "https", host = "micronaut.io", port = 443) String restrictedUrl,
-        @ReflectiveAccess @URL(regexp = "https://.*", flags = Pattern.Flag.CASE_INSENSITIVE) String matchingUrl) {
+        @URL String url,
+        @URL(protocol = "https", host = "micronaut.io", port = 443) String restrictedUrl,
+        @URL(regexp = "https://.*", flags = Pattern.Flag.CASE_INSENSITIVE) String matchingUrl) {
     }
 
     @Test

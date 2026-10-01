@@ -5,7 +5,6 @@ import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.annotation.processing.test.JavaParser
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
-import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 
 import javax.annotation.processing.SupportedAnnotationTypes
@@ -138,7 +137,7 @@ class Test {
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

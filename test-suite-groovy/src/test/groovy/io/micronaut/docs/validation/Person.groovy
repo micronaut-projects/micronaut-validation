@@ -25,11 +25,9 @@ import jakarta.validation.constraints.NotBlank
 class Person {
 
     @NotBlank
-    @io.micronaut.core.annotation.ReflectiveAccess
     String name
 
     @Min(18L)
-    @io.micronaut.core.annotation.ReflectiveAccess
     int age
 }
 // end::class[]

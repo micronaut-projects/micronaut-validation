@@ -7,3 +7,5 @@ COMPOSITION,3,8,1,false,false,2,0
 EXECUTABLES,0,1,1,false,false,2,0
 
 INHERITANCE,3,6,1,true,false,0,7
+# Jakarta initialization must report an explicit capability error in the default worker.
+CUSTOM,0,1,0,false,true,0,0,7

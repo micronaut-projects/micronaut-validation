@@ -19,6 +19,7 @@ import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -27,7 +28,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.metadata.ContainerMapping;
 import io.micronaut.validation.validator.metadata.ContainerMappings;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
@@ -83,10 +83,6 @@ final class CompileTimeSupport implements ReflectionSupport {
                 }
             }
         }
-        var declaration = GeneratedAnnotationFactories.methodDeclaration(declaringType, method.getName(), method.getParameterTypes());
-        if (declaration != null) {
-            return new GeneratedDeclaredExecutable<>(method, declaration);
-        }
         throw new ValidationException("No metadata describes the method " + method.getName() + Arrays.toString(method.getParameterTypes())
             + " of " + declaringType.getName() + ": the type is neither a bean nor introspected with the method listed as"
                         + " executable, and the micronaut-validation-reflection module, which would"
@@ -111,6 +107,9 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public ExecutableHierarchy.Resolved resolveHierarchy(BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name) {
+        if (introspector.findIntrospection(local.declaringType()).isEmpty()) {
+            return ExecutableHierarchy.merge(local, local, List.of());
+        }
         return ExecutableHierarchy.resolve(introspector, local, name);
     }
 
@@ -126,8 +125,7 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        io.micronaut.validation.validator.metadata.GeneratedConstraintRules.composition(
-                constraintType);
+        // the declared form of the annotation type is not read: the rules the retained tree cannot answer are not checked
     }
 
     /**
@@ -142,7 +140,7 @@ final class CompileTimeSupport implements ReflectionSupport {
             return null;
         }
         List<Argument<?>> arguments =
-                GeneratedAnnotationFactories.typeArguments(introspection, containerType);
+                ValidationMetadataSupport.typeArguments(introspection, containerType);
         return typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()
                 ? arguments.get(typeArgumentIndex)
                 : null;
@@ -212,14 +210,8 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
-        var definition = GeneratedAnnotationFactories.definition(constraintType);
-        if (definition == null) {
-            throw missing("the constraint definition of " + constraintType.getName());
-        }
-        if (definition.definitionError() != null) {
-            throw new jakarta.validation.ConstraintDefinitionException(
-                    definition.definitionError());
-        }
+        throw missing("the members " + constraintType.getName() + " declares, which the constraint definition"
+            + " rules are checked against");
     }
 
     @Override
@@ -228,7 +220,7 @@ final class CompileTimeSupport implements ReflectionSupport {
                 BeanIntrospector.SHARED.findIntrospection(type).orElse(null);
         if (introspection != null) {
             List<Argument<?>> arguments =
-                    GeneratedAnnotationFactories.typeArguments(introspection, superType);
+                    ValidationMetadataSupport.typeArguments(introspection, superType);
             if (!arguments.isEmpty()) {
                 return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
             }
@@ -245,17 +237,7 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
                                                                         Class<? extends Annotation> constraintType) {
-        var definition = GeneratedAnnotationFactories.definition(constraintType);
-        if (definition == null) {
-            return value;
-        }
-        return AnnotationValue.builder(value)
-                .member(
-                        ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY,
-                        definition
-                                .metadata()
-                                .classValues(jakarta.validation.Constraint.class, "validatedBy"))
-                .build();
+        return value;
     }
 
     /**
@@ -266,11 +248,7 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
-        var definition = GeneratedAnnotationFactories.definition(constraintType);
-        return definition != null
-                && definition
-                        .metadata()
-                        .hasAnnotation(jakarta.validation.ReportAsSingleViolation.class);
+        return false;
     }
 
     /**
@@ -279,13 +257,7 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
-        var definition = GeneratedAnnotationFactories.definition(constraintType);
-        return definition == null
-                ? List.of()
-                : List.of(
-                        definition
-                                .metadata()
-                                .classValues(jakarta.validation.Constraint.class, "validatedBy"));
+        return List.of();
     }
 
     /**
@@ -304,8 +276,8 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public boolean isGroupSequence(Class<?> group) {
-        var metadata = GeneratedAnnotationFactories.typeMetadata(group);
-        return metadata != null && metadata.groupSequence() != null;
+        return BeanIntrospector.SHARED.findIntrospection(group)
+            .map(introspection -> introspection.hasAnnotation(jakarta.validation.GroupSequence.class)).orElse(false);
     }
 
     /**
@@ -314,7 +286,7 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public boolean isConstraintAnnotation(Class<?> annotationType) {
-        return GeneratedAnnotationFactories.definition(annotationType) != null;
+        return false;
     }
 
     @Override

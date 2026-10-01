@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
@@ -25,9 +26,8 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.validation.validator.metadata.ValidationTypeMetadata;
 
 import org.jspecify.annotations.Nullable;
 
@@ -75,7 +75,7 @@ final class ValidatorDeclarations {
 
     /** The hierarchy of a bean method, for the descriptors of a bean. */
     ExecutableHierarchy.Resolved resolveHierarchy(BeanMethod<?, ?> method) {
-        return ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, false), method.getName());
+        return ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
     }
 
     /** The argument of a property as the metadata providers configure it. */
@@ -225,20 +225,19 @@ final class ValidatorDeclarations {
         }
     }
 
-    private static @Nullable ValidationTypeMetadata hierarchy(
+    private static @Nullable AnnotationValue<Annotation> hierarchy(
             Class<?> type, BeanIntrospection<?> root) {
-        var provider = GeneratedAnnotationFactories.embedded(root.getAnnotationMetadata());
-        return provider == null ? null : provider.typeMetadata(type.getName());
+        return ValidationMetadataSupport.hierarchy(root.getAnnotationMetadata(), type);
     }
 
     private static @Nullable Class<?> superType(Class<?> type, BeanIntrospection<?> root) {
         var metadata = hierarchy(type, root);
-        return metadata == null ? ReflectionSupport.get().superType(type) : metadata.superType();
+        return metadata == null ? ReflectionSupport.get().superType(type) : metadata.classValue("superType").orElse(null);
     }
 
     private static List<Class<?>> interfaces(Class<?> type, BeanIntrospection<?> root) {
         var metadata = hierarchy(type, root);
-        return metadata == null ? ReflectionSupport.get().interfaces(type) : metadata.interfaces();
+        return metadata == null ? ReflectionSupport.get().interfaces(type) : List.of(metadata.classValues("interfaces"));
     }
 
     private void addSuperIntrospection(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {

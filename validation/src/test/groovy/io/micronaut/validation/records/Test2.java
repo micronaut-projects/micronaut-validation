@@ -1,7 +1,5 @@
 package io.micronaut.validation.records;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.Requires;
 import org.jspecify.annotations.NonNull;
@@ -12,6 +10,6 @@ import jakarta.validation.constraints.NotNull;
 
 @Requires(property = "spec.name", value = "RecordBeansSpec")
 record Test2(
-    @ReflectiveAccess @Inject @NonNull @NotNull ConversionService conversionService,
+    @Inject @NonNull @NotNull ConversionService conversionService,
     @Inject @NonNull @NotNull BeanContext beanContext) {
 }

@@ -18,7 +18,7 @@ class ReturnHierarchyIntrospectedSpec extends Specification {
         def method = bean.getClass().getMethod("place")
         return validator.forExecutables()
             .validateReturnValue(bean, method, bean.place())
-            .collect { it.getConstraintDescriptor().getAnnotation().annotationType().simpleName }
+            .collect { it.getConstraintDescriptor().getType().simpleName }
             .toSet()
     }
 
