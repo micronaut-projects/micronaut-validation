@@ -26,7 +26,7 @@ Bootstrap and XML modules do not automatically add the reflection provider. XML 
 
 Ordinary group inheritance uses class assignability. Cascade conversion of inherited groups needs the requested group's generated hierarchy or the optional provider; a missing hierarchy produces a capability error. Duplicate requested groups are validated once.
 
-The restricted TCK profile retains seven measured exclusions: core constructor metadata omits the enclosing-instance parameter of a non-static inner class, and six XML tests name private methods absent from standard introspections. It runs 1,047 tests. The full Jakarta stack uses the optional provider and tests all 1,054 cases, including these exclusions.
+The restricted TCK profile retains seven measured exclusions. Core processes only the first repeated `@ClassImport`, so the TCK's import containing the inner constructor fixture is ignored. Core describes the enclosing-instance parameter correctly when that fixture is imported alone. Six XML tests name private methods absent from standard introspections. The restricted profile runs 1,047 tests. The full Jakarta stack uses the optional provider and tests all 1,054 cases, including these exclusions.
 
 == Maintainer Verification
 
