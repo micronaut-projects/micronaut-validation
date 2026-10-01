@@ -1,5 +1,7 @@
 package io.micronaut.validation.validator.introspection;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.NotBlank;
 
@@ -31,6 +33,7 @@ public class Holder {
 
     public static class NotIntrospectedField {
 
+        @ReflectiveAccess
         private List<@NotBlank String> strings = List.of("");
 
         public List<String> getStrings() {

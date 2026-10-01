@@ -22,7 +22,6 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
-import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.ReflectionSupport;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
@@ -33,11 +32,11 @@ import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.Collection;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The default implementation of {@link InternalConstraintValidatorFactory}.
@@ -50,16 +49,26 @@ import java.util.concurrent.ConcurrentHashMap;
 @Internal
 public class DefaultInternalConstraintValidatorFactory implements InternalConstraintValidatorFactory {
 
-    private final Map<Class<?>, ConstraintValidatorEntry> validators = new ConcurrentHashMap<>();
+    private final Map<ConstraintValidator<?, ?>, ConstraintValidatorEntry> validators =
+            Collections.synchronizedMap(new IdentityHashMap<>());
     private final BeanIntrospector beanIntrospector;
     @Nullable
     private final BeanContext beanContext;
 
+    /**
+     * Creates a factory using explicit generated metadata and optional dependency injection.
+     * @param beanIntrospector The metadata resolver
+     * @param beanContext The optional context owning validator dependencies
+     */
     public DefaultInternalConstraintValidatorFactory(BeanIntrospector beanIntrospector, @Nullable BeanContext beanContext) {
         this.beanIntrospector = beanIntrospector;
         this.beanContext = beanContext;
     }
 
+    /**
+     * Creates the context-managed validator factory.
+     * @param beanContext The context owning validator dependencies
+     */
     @Inject
     public DefaultInternalConstraintValidatorFactory(BeanContext beanContext) {
         this.beanIntrospector = BeanIntrospector.SHARED;
@@ -77,15 +86,12 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
 
     @Override
     public void releaseInstance(ConstraintValidator<?, ?> constraintValidator) {
-        BeanContext beanContext = this.beanContext;
-        if (beanContext == null) {
-            // without a bean context no validator is a bean registration to destroy
-            return;
+        ConstraintValidatorEntry entry = validators.remove(constraintValidator);
+        if (entry != null && beanContext != null) {
+            if (entry.beanRegistration != null) {
+                beanContext.destroyDependentBean(entry.beanRegistration);
+            }
         }
-        validators.values()
-            .stream()
-            .filter(entry -> entry.beanRegistration != null && entry.constraintValidator == constraintValidator)
-            .forEach(entry -> beanContext.destroyBean(entry.beanRegistration));
     }
 
     @Override
@@ -98,15 +104,13 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         if (ConstraintValidatorTargetResolver.allowsConstraintTarget(entry.target, constraintTarget) && entry.targetType.isAssignableFrom(resolvedTargetType)) {
             return (T) entry.constraintValidator;
         }
+        releaseInstance(entry.constraintValidator);
         return null;
     }
 
     @Nullable
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry findConstraintValidator(Class<T> type) {
-        ConstraintValidatorEntry entry = validators.get(type);
-        if (entry != null) {
-            return entry;
-        }
+        ConstraintValidatorEntry entry;
         try {
             // a validator the introspection can build itself is built from it; one that takes its
             // dependencies through its constructor is the container's to build, so it falls to the
@@ -115,11 +119,13 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
                     .filter(introspection -> introspection.getConstructorArguments().length == 0)
                     .map(this::instantiateConstraintValidatorEntry)
                     .orElseGet(() -> instantiateConstraintValidatorEntryOfBeanRegistration(type));
+        } catch (ValidationException e) {
+            throw e;
         } catch (Exception e) {
             throw new ValidationException("Cannot initialize validator: " + type.getName(), e);
         }
         if (entry != null) {
-            validators.put(type, entry);
+            validators.put(entry.constraintValidator, entry);
         }
         return entry;
     }
@@ -134,8 +140,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             constraintValidator,
             ConstraintValidatorTargetResolver.getTargetType(type),
             ConstraintValidatorTargetResolver.validationTargets(type),
-            null
-        );
+            null);
     }
 
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection) {
@@ -143,31 +148,31 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             beanIntrospection.instantiate(),
             ConstraintValidatorTargetResolver.getTargetType(beanIntrospection),
             ConstraintValidatorTargetResolver.validationTargets(beanIntrospection),
-            null
-        );
+            null);
     }
 
     @Nullable
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfBeanRegistration(Class<T> type) {
-        Collection<BeanRegistration<T>> beanRegistrations = beanContext == null ? List.of() : beanContext.getBeanRegistrations(type);
-        if (CollectionUtils.isEmpty(beanRegistrations)) {
-            // the specification asks the default factory to call the public no-arg constructor of a validator
-            // it knows nothing else about
+        if (beanContext == null || beanContext.findBeanDefinition(type).isEmpty()) {
             return instantiateConstraintValidatorEntryOfDeclaredConstructor(type);
         }
-        BeanRegistration<T> beanRegistration = beanRegistrations.iterator().next();
-        List<Argument<?>> typeArguments = beanRegistration.getBeanDefinition().getTypeArguments(ConstraintValidator.class);
+        var definition = beanContext.getBeanDefinition(type);
+        List<Argument<?>> arguments = definition.getTypeArguments(ConstraintValidator.class);
+        BeanRegistration<T> registration = beanContext.getBeanRegistration(
+                definition.isSingleton() || definition.isProxy()
+                        ? new OwnedValidatorDefinition<>(definition)
+                        : definition);
+        T instance = registration.bean();
         return new ConstraintValidatorEntry(
-                beanRegistration.bean(),
-                typeArguments.size() == 2 ? typeArguments.get(1).getType() : Object.class,
-                ConstraintValidatorTargetResolver.validationTargets(beanRegistration.getAnnotationMetadata()),
-                beanRegistration);
+                instance,
+                arguments.size() == 2 ? arguments.get(1).getType() : Object.class,
+                ConstraintValidatorTargetResolver.validationTargets(
+                        definition.getAnnotationMetadata()),
+                registration);
     }
 
     private record ConstraintValidatorEntry(ConstraintValidator<?, ?> constraintValidator,
                                             Class<?> targetType,
                                             Set<ValidationTarget> target,
-                                            @Nullable BeanRegistration<?> beanRegistration) {
-    }
-
+                                            @Nullable BeanRegistration<?> beanRegistration) { }
 }

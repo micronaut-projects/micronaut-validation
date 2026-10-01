@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.annotation.AnnotationValue;
@@ -48,7 +50,7 @@ import jakarta.validation.metadata.Scope;
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.Collections;
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -239,7 +241,8 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-        Set<MethodType> requested = EnumSet.of(methodType, methodTypes);
+        Set<MethodType> requested = new HashSet<>(java.util.Arrays.asList(methodTypes));
+        requested.add(methodType);
         Map<String, MethodDescriptor> methods = new LinkedHashMap<>();
         for (BeanMethod<?, ?> method : beanIntrospection.getBeanMethods()) {
             if (!requested.contains(isGetter(method) ? MethodType.GETTER : MethodType.NON_GETTER)) {
@@ -394,9 +397,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return descriptors;
     }
 
-    /**
-     * The constraint types of a metadata, loaded by the context class loader.
-     */
+    /** The constraint types of a metadata, loaded by the context class loader. */
     private static List<Class<? extends Annotation>> constraintTypes(AnnotationMetadata annotationMetadata) {
         return List.copyOf(ConstraintContainers.constraintTypes(annotationMetadata, currentClassLoader()));
     }
@@ -446,9 +447,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         return classLoader == null ? IntrospectedBeanDescriptor.class.getClassLoader() : classLoader;
     }
 
-    /**
-     * Internal implementation of {@link PropertyDescriptor}.
-     */
+    /** Internal implementation of {@link PropertyDescriptor}. */
     /**
      * A property. Its constraints are those of its metadata; when the introspection knows the members of the
      * property — an introspection separating the declarations does — the finder can look at the local element only,
@@ -539,7 +538,7 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
             // them differently, an interface getter can declare another container than the implementation
             Map<Class<?>, List<Argument<?>>> byContainer = new LinkedHashMap<>();
             for (BeanPropertyMember<?, ?> member : members) {
-                byContainer.computeIfAbsent(member.asArgument().getType(), ignored -> new ArrayList<>()).add(member.asArgument());
+                byContainer.computeIfAbsent(GeneratedAnnotationFactories.propertyArgument(beanIntrospection.getBeanType(), member).getType(), ignored -> new ArrayList<>()).add(GeneratedAnnotationFactories.propertyArgument(beanIntrospection.getBeanType(), member));
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {

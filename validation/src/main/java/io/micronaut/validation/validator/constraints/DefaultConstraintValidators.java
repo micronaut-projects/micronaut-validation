@@ -55,15 +55,13 @@ import java.util.Optional;
 @Introspected
 public class DefaultConstraintValidators implements ConstraintValidatorRegistry {
 
-    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new CopyOnWriteMap<>(16 * 1024);
+    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = CopyOnWriteMap.create(16 * 1024);
 
     @Nullable
     private final BeanContext beanContext;
     private final Map<ValidatorKey, ConstraintValidator<?, ?>> internalValidators;
 
-    /**
-     * Default constructor.
-     */
+    /** Default constructor. */
     public DefaultConstraintValidators() {
         this(null);
     }

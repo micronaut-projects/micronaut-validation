@@ -16,12 +16,13 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
@@ -51,15 +52,15 @@ import java.util.Set;
 import java.util.function.Function;
 
 /**
- * The descriptors of the executables, the parameters, the return values and the container elements of a
- * bean, built from the metadata of its {@link io.micronaut.core.beans.BeanIntrospection} — generated at
- * compilation time or reflective — rather than from reflection of their own.
+ * The descriptors of the executables, the parameters, the return values and the container elements
+ * of a bean, built from the metadata of its {@link io.micronaut.core.beans.BeanIntrospection} —
+ * generated at compilation time or reflective — rather than from reflection of their own.
  *
- * <p>A constraint declared on a method or a constructor belongs to its return value, to its parameters as a
- * cross-parameter constraint, or to both, as the section 4.5.2.1 of the specification decides:
- * {@code validationAppliesTo} when the constraint declares it, else the validation targets its validators
- * support. The rule is the one {@code DefaultValidator} applies when it validates, so that the metadata and
- * the validation agree.</p>
+ * <p>A constraint declared on a method or a constructor belongs to its return value, to its
+ * parameters as a cross-parameter constraint, or to both, as the section 4.5.2.1 of the
+ * specification decides: {@code validationAppliesTo} when the constraint declares it, else the
+ * validation targets its validators support. The rule is the one {@code DefaultValidator} applies
+ * when it validates, so that the metadata and the validation agree.
  *
  * @author Denis Stepanov
  * @since 5.2
@@ -109,8 +110,8 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /**
-     * The container element descriptors of an argument: one per type argument that is constrained, cascaded,
-     * converts groups or holds constrained container elements of its own.
+     * The container element descriptors of an argument: one per type argument that is constrained,
+     * cascaded, converts groups or holds constrained container elements of its own.
      *
      * @param argument The argument
      * @return The descriptors
@@ -157,9 +158,12 @@ final class IntrospectedExecutableDescriptors {
         return descriptors;
     }
 
-    /**
-     * Whether a constraint declared on an executable applies to the given target.
-     */
+    /** Whether a constraint declared on an executable applies to the given target. */
+    private static String simpleName(Class<?> type) {
+        String name = type.getName();
+        return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
+    }
+
     private static boolean targets(ConstraintDescriptor<?> descriptor, ConstraintTarget target) {
         ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
         if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT) {
@@ -197,8 +201,8 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /**
-     * The part shared by the elements: a metadata, the constraints it declares filtered by the groups of the
-     * finder, the cascade and the group conversions.
+     * The part shared by the elements: a metadata, the constraints it declares filtered by the
+     * groups of the finder, the cascade and the group conversions.
      */
     private abstract class IntrospectedElement implements ElementDescriptor, ElementDescriptor.ConstraintFinder {
 
@@ -260,9 +264,7 @@ final class IntrospectedExecutableDescriptors {
         }
     }
 
-    /**
-     * A parameter of an executable.
-     */
+    /** A parameter of an executable. */
     private final class IntrospectedParameterDescriptor extends IntrospectedElement implements ParameterDescriptor {
 
         private final int index;
@@ -319,8 +321,9 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /**
-     * The return value of an executable: the constraints of the executable that target it, the cascade
-     * declared on the executable or on its return type, and the container elements of the return type.
+     * The return value of an executable: the constraints of the executable that target it, the
+     * cascade declared on the executable or on its return type, and the container elements of the
+     * return type.
      */
     private final class IntrospectedReturnValueDescriptor extends IntrospectedElement implements ReturnValueDescriptor {
 
@@ -379,8 +382,8 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /**
-     * The cross-parameter constraints of an executable: the constraints of the executable that target the
-     * parameters.
+     * The cross-parameter constraints of an executable: the constraints of the executable that
+     * target the parameters.
      */
     private final class IntrospectedCrossParameterDescriptor extends IntrospectedElement implements CrossParameterDescriptor {
 
@@ -398,8 +401,9 @@ final class IntrospectedExecutableDescriptors {
         }
 
         /**
-         * The executable's constraints targeting the parameters. The metadata of an executable is the one of
-         * its declaration, so an executable inherited from a super type has no local constraints.
+         * The executable's constraints targeting the parameters. The metadata of an executable is
+         * the one of its declaration, so an executable inherited from a super type has no local
+         * constraints.
          */
         @Override
         Set<ConstraintDescriptor<?>> allConstraints() {
@@ -428,9 +432,7 @@ final class IntrospectedExecutableDescriptors {
         }
     }
 
-    /**
-     * A constrained type argument of a container.
-     */
+    /** A constrained type argument of a container. */
     private final class IntrospectedContainerElementDescriptor extends IntrospectedElement implements ContainerElementTypeDescriptor {
 
         private final Class<?> containerClass;
@@ -484,9 +486,7 @@ final class IntrospectedExecutableDescriptors {
         }
     }
 
-    /**
-     * The part shared by the methods and the constructors.
-     */
+    /** The part shared by the methods and the constructors. */
     private abstract class IntrospectedExecutableDescriptor implements jakarta.validation.metadata.ExecutableDescriptor, ElementDescriptor.ConstraintFinder {
 
         private final String name;
@@ -598,12 +598,18 @@ final class IntrospectedExecutableDescriptors {
         }
 
         /**
-         * What the method declares itself, for the local scope: the exact declaration when the hierarchy knows
-         * it, the whole metadata of a method the bean type declares, nothing for an inherited method.
+         * What the method declares itself, for the local scope: the exact declaration when the
+         * hierarchy knows it, the whole metadata of a method the bean type declares, nothing for an
+         * inherited method.
          */
         private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
             if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()) {
                 // inherited as is: the described type declares nothing on it
+                return AnnotationMetadata.EMPTY_METADATA;
+            }
+            Class<?> describedType = method.getDeclaringBean().getBeanType();
+            if (GeneratedAnnotationFactories.typeMetadata(describedType) != null
+                && GeneratedAnnotationFactories.methodDeclaration(describedType, method.getName(), Argument.toClassArray(method.getArguments())) == null) {
                 return AnnotationMetadata.EMPTY_METADATA;
             }
             if (hierarchy != null && hierarchy.declared().exact()) {
@@ -623,7 +629,8 @@ final class IntrospectedExecutableDescriptors {
         private final Class<?> beanType;
 
         IntrospectedConstructorDescriptor(BeanConstructor<?> constructor) {
-            super(constructor.getDeclaringBeanType().getSimpleName(),
+            super(
+                    simpleName(constructor.getDeclaringBeanType()),
                 constructor.getAnnotationMetadata(),
                 constructor.getArguments(),
                 Argument.of(constructor.getDeclaringBeanType()),
@@ -641,7 +648,7 @@ final class IntrospectedExecutableDescriptors {
      * A group conversion.
      *
      * @param from The source group
-     * @param to   The target group
+     * @param to The target group
      */
     record DefaultGroupConversionDescriptor(Class<?> from, Class<?> to) implements GroupConversionDescriptor {
 

@@ -4,7 +4,11 @@ plugins {
 
 dependencies {
     compileOnly mn.micronaut.core.processor
+    compileOnly mn.micronaut.inject.java
     implementation projects.micronautValidation
+    api libs.sourcegen.generator.bytecode
+    api libs.sourcegen.annotations
+    implementation libs.asm
 
     testImplementation mn.micronaut.core.reactive
 

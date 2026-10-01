@@ -15,9 +15,15 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.validation.validator.metadata.ContainerMappings;
+import io.micronaut.validation.validator.metadata.ContainerMapping;
+import java.util.List;
 
 /**
  * Maps the type argument a value extractor extracts onto the type arguments of the container as declared: a
@@ -41,22 +47,38 @@ final class ContainerTypeArguments {
      * and its own type arguments.
      */
     @Nullable
-    static Argument<?> resolveBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    static Argument<?> resolveBoundTypeArgument(BeanIntrospector introspector, Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         if (declaredType == containerType || !containerType.isAssignableFrom(declaredType)) {
             return null;
+        }
+        var generated = introspector.findIntrospection(declaredType).orElse(null);
+        if (generated != null) {
+            List<Argument<?>> arguments = GeneratedAnnotationFactories.typeArguments(generated, containerType);
+            if (typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()) {
+                return arguments.get(typeArgumentIndex);
+            }
         }
         return ReflectionSupport.get().boundTypeArgument(declaredType, containerType, typeArgumentIndex);
     }
 
-    /**
-     * Which of a type's own type arguments carries the one an extractor extracts.
-     */
+    /** Which of a type's own type arguments carries the one an extractor extracts. */
     @Nullable
-    static Integer resolveExtractedTypeArgumentIndex(Class<?> declaredType,
+    static Integer resolveExtractedTypeArgumentIndex(BeanIntrospector introspector, Class<?> declaredType,
                                                      Class<?> extractorContainerType,
                                                      @Nullable Integer extractorTypeArgumentIndex) {
         if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
             return extractorTypeArgumentIndex;
+        }
+        var generated = introspector.findIntrospection(declaredType).orElse(null);
+        var mappings = generated == null ? null : generated.getAnnotationMetadata().getAnnotation(ContainerMappings.class);
+        if (mappings != null) {
+            for (var mapping : mappings.getAnnotations("value", ContainerMapping.class)) {
+                if (mapping.stringValue("type").orElse("").equals(extractorContainerType.getName())) {
+                    int[] indexes = mapping.intValues("indexes");
+                    return extractorTypeArgumentIndex >= 0 && extractorTypeArgumentIndex < indexes.length && indexes[extractorTypeArgumentIndex] >= 0
+                        ? indexes[extractorTypeArgumentIndex] : null;
+                }
+            }
         }
         return ReflectionSupport.get().extractedTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
     }

@@ -37,7 +37,7 @@ class VehicleSpec {
         val exception = shouldThrow<BeanInstantiationException> {
             applicationContext.getBean(Vehicle::class.java)
         }
-        assertTrue(exception.message!!.contains("EngineConfig.getCylinders - must be greater than or equal to 1"))
+        assertTrue(exception.message!!.contains("EngineConfig.getCylinders - must be greater than or equal to 1"), exception.message)
 
         applicationContext.close()
     }

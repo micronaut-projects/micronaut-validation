@@ -20,7 +20,7 @@ class RetainedConstraintSpec extends Specification {
         System.err.println("RETAINED tree = " + minimumLength.getStereotypes())
         def sizes = minimumLength.getStereotypes()
                 .findAll { it.getAnnotationName() == "jakarta.validation.constraints.Size" }
-        sizes*.getValues() == [[min: 8]]
+        sizes*.intValue("min")*.orElse(-1) == [8]
 
         and: "the flat index still exposes the effective value"
         System.err.println("RETAINED flat Size = " + username.getAnnotationValuesByName("jakarta.validation.constraints.Size")*.values)

@@ -18,12 +18,11 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.GroupDefinitionException;
@@ -33,6 +32,9 @@ import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.ArrayList;
@@ -41,14 +43,13 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -59,7 +60,6 @@ import java.util.stream.Collectors;
 @Internal
 public final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorContext {
 
-    private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     boolean disableDefaultConstraintViolation;
@@ -102,6 +102,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                                               Set<ConstraintViolation<R>> overallViolations,
                                               Object @Nullable [] executableParameterValues,
                                               List<Class<?>> currentGroups) {
+        defaultValidator.checkOpen();
         this.validationContext = validationContext;
         this.defaultValidator = defaultValidator;
         this.beanIntrospection = beanIntrospection;
@@ -117,6 +118,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     /**
      * The validation context.
+     *
      * @return The context
      */
     public @NonNull BeanValidationContext getValidationContext() {
@@ -160,7 +162,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     public boolean containsGroup(Collection<Class<?>> constraintGroups) {
         if (implicitGroup != null && currentGroups.contains(implicitGroup)
             && (constraintGroups.isEmpty() || constraintGroups.contains(Default.class))) {
-            // a constraint declared by an interface without a group is in the group of the interface
+            // a constraint declared by an interface without a group is in the group of the
+            // interface
             return true;
         }
         if (constraintGroups.isEmpty()) {
@@ -195,10 +198,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
-     * Validates the member of a property: the traversable resolver is told which kind of member declares the
-     * constraints, and the constraints a member of an interface declares belong to the group of the interface.
+     * Validates the member of a property: the traversable resolver is told which kind of member
+     * declares the constraints, and the constraints a member of an interface declares belong to the
+     * group of the interface.
      *
-     * @param elementType   The kind of member
+     * @param elementType The kind of member
      * @param implicitGroup The interface declaring the member, null for a class
      * @return The closeable restoring the previous member
      */
@@ -214,7 +218,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
-     * The value of a container is unwrapped: the nodes of what it holds report the container it was declared as.
+     * The value of a container is unwrapped: the nodes of what it holds report the container it was
+     * declared as.
      *
      * @param containerType The declared container type
      * @return The closeable restoring the previous state
@@ -303,7 +308,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     List<DefaultConstraintValidatorContext.ValidationGroup> findGroupSequences(@Nullable Object bean) {
         if (bean == null) {
-            // no instance yet, a constructor or a value: the default group sequence is the one of the validated type
+            // no instance yet, a constructor or a value: the default group sequence is the one of
+            // the validated type
             return beanIntrospection == null ? findGroupSequences() : findGroupSequences(beanIntrospection);
         } else {
             BeanIntrospection<?> beanIntrospection = defaultValidator.getBeanIntrospection(bean);
@@ -338,11 +344,13 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
-     * The default group sequences the super types of a bean redefine, each applying to the constraints its
-     * type declares: a redefinition is not inherited, it isolates the constraints of the type redefining it.
+     * The default group sequences the super types of a bean redefine, each applying to the
+     * constraints its type declares: a redefinition is not inherited, it isolates the constraints
+     * of the type redefining it.
      *
      * @param beanIntrospection The bean introspection
-     * @return The sequences by the type declaring them, empty when the bean redefines its own or the default group is not validated
+     * @return The sequences by the type declaring them, empty when the bean redefines its own or
+     * the default group is not validated
      */
     public Map<Class<?>, List<ValidationGroup>> findIsolatedGroupSequences(BeanIntrospection<?> beanIntrospection) {
         FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
@@ -408,12 +416,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
-        Class<?> finalGroup = group;
-        List<Class<?>> groupSequence = GROUP_SEQUENCES.computeIfAbsent(group, ignore -> {
-            return ctx.defaultValidator.getBeanIntrospector().findIntrospection(finalGroup).stream()
+        var generated = GeneratedAnnotationFactories.typeMetadata(group);
+        List<Class<?>> groupSequence =
+                generated != null && generated.groupSequence() != null
+                        ? generated.groupSequence()
+                        : ctx
+                                .defaultValidator
+                                .getBeanIntrospector()
+                                .findIntrospection(group).stream()
                 .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
                 .toList();
-        });
         if (groupSequence.isEmpty()) {
             dest.add(new ValidationGroup(false, false, List.of(group)));
             return;
@@ -487,7 +499,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             groups.add(group);
         }
 
-        for (Class<?> inheritedGroup : group.getInterfaces()) {
+        for (Class<?> inheritedGroup : ReflectionSupport.get().interfaces(group)) {
             addInheritedGroups(inheritedGroup, groups);
         }
     }
@@ -503,7 +515,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
-     * The constraint being validated: set for as long as its validator runs, which is when a violation is built.
+     * The constraint being validated: set for as long as its validator runs, which is when a
+     * violation is built.
      *
      * @return The constraint
      */

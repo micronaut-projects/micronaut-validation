@@ -12,7 +12,7 @@ class IntermediateBindingSpec extends Specification {
 
     void "the generic walk carries a binding made one level up"() {
         expect:
-        ReflectionGenericArguments.resolveGenericToArgument(IntermediateBindings.StringCrossParameterValidator, ConstraintValidator)
+        io.micronaut.reflection.ReflectionArguments.resolveGenericToArgument(IntermediateBindings.StringCrossParameterValidator, ConstraintValidator)
             .typeParameters*.type == [IntermediateBindings.IllegalCrossParameter, String]
     }
 

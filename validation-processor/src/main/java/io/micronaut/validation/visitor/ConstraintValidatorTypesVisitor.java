@@ -40,6 +40,9 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
 
     private static final String CONSTRAINT_VALIDATOR = "jakarta.validation.ConstraintValidator";
 
+    /** Creates the visitor used by annotation processing. */
+    public ConstraintValidatorTypesVisitor() { }
+
     @Override
     public int getOrder() {
         // before the introspection visitor, so that the annotation is part of the introspection

@@ -12,7 +12,7 @@ Use the aggregate module when an application, test suite, or library needs the J
 
 dependency:micronaut-validation-jakarta[groupId="io.micronaut.validation"]
 
-The aggregate pulls in the optional modules that make up the Jakarta compliance stack.
+The aggregate explicitly includes `micronaut-validation-reflection`, bootstrap, XML, and the Jakarta EL implementation.
 
 == Module Model
 
@@ -20,16 +20,16 @@ The aggregate pulls in the optional modules that make up the Jakarta compliance 
 The default lightweight validation implementation. It uses generated annotation metadata and bean introspections and remains free of XML, reflection fallback, and `jakarta.validation.spi.ValidationProvider` ServiceLoader registration. It carries the Jakarta EL message interpolator, which replaces the default one only when a Jakarta EL implementation is on the classpath; it has no dependency on one.
 
 `micronaut-validation-reflection`::
-Optional. Describes reflectively what the annotation processors never saw, through the `micronaut-reflection` module of Micronaut core: a type without a generated introspection, a constraint whose composition is not retained in the metadata, and the executables the Jakarta Validation API names by their `java.lang.reflect.Method` or `Constructor`. Without it the validator reads the generated metadata and nothing else; the reflective description of the types can be switched off with the system property `micronaut.validation.reflection.enabled=false`.
+Optional. Describes reflectively what the annotation processors never saw, through the `micronaut-reflection` module of Micronaut core: a type without a generated introspection, a constraint whose composition is not retained in the metadata, and the executables the Jakarta Validation API names by their `java.lang.reflect.Method` or `Constructor`. Without it the validator reads generated metadata; the only reflective field-read exception requires `@ReflectiveAccess` on that field. the reflective description of the types can be switched off with the system property `micronaut.validation.reflection.enabled=false`.
 
 `micronaut-validation-bootstrap`::
-Provides the Jakarta `ValidationProvider`, `Configuration`, and `ValidatorFactory` bootstrap integration used by `jakarta.validation.Validation`. It depends on `micronaut-validation-reflection`, since a bootstrap validates the types of an application that may never have run the processors.
+Provides the Jakarta `ValidationProvider`, `Configuration`, and `ValidatorFactory` bootstrap integration used by `jakarta.validation.Validation`. It uses generated metadata first and has no dependency on `micronaut-validation-reflection`. Bootstrap classes without generated constructors require the optional reflection provider.
 
 `micronaut-validation-xml`::
-Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources.
+Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources. Classes, declaration signatures, annotation members, and access use generated metadata first. Missing metadata requires `micronaut-validation-reflection`; XML does not independently authorize reflection.
 
 `micronaut-validation-jakarta`::
-Aggregates bootstrap and XML support for the Jakarta compliance stack, and brings the Jakarta EL implementation that the interpolator of `micronaut-validation` needs. Types without a generated introspection are described through `micronaut-validation-reflection`.
+Aggregates reflection, bootstrap, and XML support for the Jakarta compliance stack, and brings the Jakarta EL implementation that the interpolator of `micronaut-validation` needs. Types without a generated introspection are described through `micronaut-validation-reflection`.
 
 == Choosing Modules
 

@@ -1,5 +1,7 @@
 package io.micronaut.validation.validator.introspection;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.NotNull;
 
@@ -7,9 +9,11 @@ import jakarta.validation.constraints.NotNull;
 public class Address {
 
     @NotNull
+    @ReflectiveAccess
     private String street;
 
     @NotNull(groups = Basic.class)
+    @ReflectiveAccess
     private String zip;
 
     public String getStreet() {

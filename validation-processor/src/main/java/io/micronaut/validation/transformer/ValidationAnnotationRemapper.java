@@ -71,7 +71,8 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             Optional<AnnotationValue<?>> optionalConstraint = stereotypes.stream().filter(stereotype -> stereotype.getAnnotationName().equals(Constraint.class.getName())).findFirst();
             if (optionalConstraint.isPresent()) {
                 AnnotationValue<?> constraintAnnotationValue = optionalConstraint.get();
-                AnnotationValueBuilder<?> builder = annotation.mutate();
+                AnnotationValueBuilder<?> builder = annotation.mutate()
+                    .member(ValidationAnnotationUtil.CONSTRAINT_TYPE, new AnnotationClassValue<>(annotation.getAnnotationName()));
                 AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
                 if (validatedBy.length > 0) {
                     builder = builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);

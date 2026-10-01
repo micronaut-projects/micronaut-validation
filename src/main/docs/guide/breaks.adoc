@@ -1,5 +1,12 @@
 This section documents breaking changes between Micronaut Validation versions:
 
+=== Micronaut Validation 5.3.0
+
+* Micronaut core 5.3 is the minimum supported core version.
+* Default validation no longer discovers or invokes arbitrary runtime members. An inaccessible field requires field-specific `@ReflectiveAccess` or `micronaut-validation-reflection`. Type-level annotations and `visibility = ANY` do not grant the field exception.
+* Bootstrap no longer adds the reflection provider transitively. Applications relying on reflection fallback must add `micronaut-validation-reflection` or use `micronaut-validation-jakarta`.
+* Field and getter constraints are evaluated against their own values. Separate declarations can produce violations with identical paths and messages; these violations retain their multiplicity.
+
 === Micronaut Validation 5.0.0
 
 - The api:validation.validator.DefaultValidator[] methods `requireNonNull(String, T)` and `requireNonEmpty(String, String)` deprecated previously and are no longer exposed as part of the public API.

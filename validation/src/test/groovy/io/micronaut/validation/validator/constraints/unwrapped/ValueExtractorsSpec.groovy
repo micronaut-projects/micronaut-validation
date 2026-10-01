@@ -28,6 +28,7 @@ import io.micronaut.validation.validator.constraints.unwrapped.MyOptional;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull
+    @io.micronaut.core.annotation.ReflectiveAccess
     private MyOptional<String> field;
 
     public MyOptional<String> getField() {

@@ -19,7 +19,6 @@ import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.core.naming.NameUtils;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
@@ -35,11 +34,8 @@ import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
-import java.util.Collection;
 import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
-import java.util.stream.Stream;
 
 /**
  * The visitor creates annotations utilized by the Validator.
@@ -109,7 +105,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
 
-        element.getOverriddenMethods().forEach(m -> inheritAnnotationsForMethod(element, m));
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
@@ -118,7 +113,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
         boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
-        if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation) {
+        boolean inheritedValidation = element.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation);
+        if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation && !inheritedValidation) {
             return;
         }
         // a vetoed method is not validated when it is invoked: it asks for no validation advice. It is
@@ -134,6 +130,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         // the specification describes every constrained method: a bean method of the introspection
         // is what a MethodDescriptor is read from, and only an executable method becomes one
         element.annotate(Executable.class);
+        if (classElement.isInterface() || classElement.isAbstract()) {
+            classElement.annotate(Introspected.class);
+        }
         if (vetoed) {
             return;
         }
@@ -152,66 +151,35 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (visitElementValidationAndMarkForValidationIfNeeded(element, true)) {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
-            declareFieldConstraintsOnContainerGetter(element);
         }
     }
 
-    /**
-     * A getter that holds the value of a field in a container - {@code Optional<String> getAlpha()} for a
-     * {@code String alpha} - reads as a property of the container type, and a description of the bean has the
-     * one property where the type has both a field and a getter. What the field declares are the constraints
-     * the value it holds has to meet, so they are declared for the type argument that holds it as well: the
-     * property reads {@code Optional<@Pattern String>}, and the value extractor of the container hands the
-     * value to the constraint.
-     *
-     * @param field The field
-     */
-    private void declareFieldConstraintsOnContainerGetter(FieldElement field) {
-        ClassElement typeArgument = containerGetterTypeArgument(field);
-        if (typeArgument == null) {
-            return;
+    private static boolean requiresValidation(MethodElement method) {
+        if (method.hasStereotype(ANN_CONSTRAINT) || method.hasStereotype(ANN_VALID)
+            || hasValidation(method.getGenericReturnType(), new HashSet<>())) {
+            return true;
         }
-        Stream.concat(
-                field.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
-                field.getAnnotationNamesByStereotype(ANN_VALID).stream()
-            )
-            .filter(name -> !typeArgument.hasAnnotation(name))
-            .flatMap(name -> field.getAnnotationValuesByName(name).stream())
-            .forEach(typeArgument::annotate);
-        visitElementValidationAndMarkForValidationIfNeeded(typeArgument, true);
+        for (ParameterElement parameter : method.getParameters()) {
+            if (hasValidation(parameter, new HashSet<>())) {
+                return true;
+            }
+        }
+        return false;
     }
 
-    /**
-     * The type argument a getter of the same name as a field holds the field's type in: the single type
-     * argument of a container that is not an iterable or a map, which holds one value rather than many.
-     *
-     * @param field The field
-     * @return The type argument, {@code null} when the type has no such getter
-     */
-    @Nullable
-    private ClassElement containerGetterTypeArgument(FieldElement field) {
-        ClassElement owner = classElement;
-        if (owner == null) {
-            return null;
+    private static boolean hasValidation(TypedElement element, Set<Object> visited) {
+        AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
+        if (metadata.hasStereotype(ANN_CONSTRAINT) || metadata.hasStereotype(ANN_VALID)) {
+            return true;
         }
-        String suffix = NameUtils.capitalize(field.getName());
-        MethodElement getter = owner.findMethod("get" + suffix)
-            .or(() -> owner.findMethod("is" + suffix))
-            .filter(method -> method.getParameters().length == 0)
-            .orElse(null);
-        if (getter == null) {
-            return null;
+        if (element instanceof ClassElement type && type.isPrimitive() || !visited.add(element.getNativeType())) {
+            return false;
         }
-        ClassElement returnType = getter.getReturnType().getGenericType();
-        if (returnType.isAssignable(Iterable.class) || returnType.isAssignable(Map.class)) {
-            return null;
+        ClassElement generic = element.getGenericType();
+        if (generic != element && hasValidation(generic, visited)) {
+            return true;
         }
-        Collection<ClassElement> typeArguments = returnType.getTypeArguments().values();
-        if (typeArguments.size() != 1) {
-            return null;
-        }
-        ClassElement typeArgument = typeArguments.iterator().next();
-        return typeArgument.getName().equals(field.getGenericType().getName()) ? typeArgument : null;
+        return generic.getTypeArguments().values().stream().anyMatch(argument -> hasValidation(argument, visited));
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
@@ -261,47 +229,4 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         return requires;
     }
 
-    /**
-     * Method that makes sure that all the annotations are inherited from parent.
-     * In particular, type arguments annotations are not inherited by default.
-     */
-    private void inheritAnnotationsForMethod(MethodElement method, MethodElement parent) {
-        ParameterElement[] methodParameters = method.getParameters();
-        ParameterElement[] parentParameters = parent.getParameters();
-
-        for (int i = 0; i < methodParameters.length; ++i) {
-            inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
-        }
-        inheritAnnotationsForParameter(method.getReturnType(), parent.getReturnType());
-    }
-
-    /**
-     * Method that makes sure that all the annotations are inherited from parent.
-     * In particular, type arguments annotations are not inherited by default.
-     */
-    private void inheritAnnotationsForParameter(TypedElement element, TypedElement parentElement) {
-        if (!element.getType().equals(parentElement.getType())) {
-            return;
-        }
-        Stream<String> parentAnnotations = Stream.concat(
-            parentElement.getAnnotationNamesByStereotype(ANN_CONSTRAINT).stream(),
-            parentElement.getAnnotationNamesByStereotype(ANN_VALID).stream()
-        );
-        parentAnnotations
-            .filter(name -> !element.hasAnnotation(name))
-            .flatMap(name -> parentElement.getAnnotationValuesByName(name).stream())
-            .forEach(element::annotate);
-
-        Map<String, ClassElement> typeArguments = element.getGenericType().getTypeArguments();
-        Map<String, ClassElement> parentTypeArguments = parentElement.getGenericType().getTypeArguments();
-        if (typeArguments.size() != parentTypeArguments.size()) {
-            return;
-        }
-        for (var entry : typeArguments.entrySet()) {
-            ClassElement parentTypeArgument = parentTypeArguments.get(entry.getKey());
-            if (parentTypeArgument != null) {
-                inheritAnnotationsForParameter(entry.getValue(), parentTypeArgument);
-            }
-        }
-    }
 }

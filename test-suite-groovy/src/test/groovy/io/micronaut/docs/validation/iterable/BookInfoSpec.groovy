@@ -9,6 +9,7 @@ import spock.lang.Specification
 class BookInfoSpec extends Specification {
 
     @Inject
+    @io.micronaut.core.annotation.ReflectiveAccess
     BookInfoService bookInfoService
 
     // tag::validate-iterables[]

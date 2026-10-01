@@ -1,5 +1,7 @@
 package io.micronaut.docs.validation.path.model;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.docs.validation.path.validations.DagTaskValidation;
 import jakarta.validation.Valid;
@@ -16,13 +18,16 @@ import java.util.stream.Collectors;
 @DagTaskValidation
 public class Dag extends Task {
     @NotNull
+    @ReflectiveAccess
     private Integer concurrent = 0;
 
     @NotEmpty
     @Valid
+    @ReflectiveAccess
     private List<DagTask> dagTasks;
 
     @Valid
+    @ReflectiveAccess
     protected List<Task> errors;
 
     public Dag() {
@@ -119,6 +124,7 @@ public class Dag extends Task {
     @Introspected
     public static class DagTask {
         @NotNull
+        @ReflectiveAccess
         private Task task;
 
         private List<String> dependsOn;
@@ -148,6 +154,7 @@ public class Dag extends Task {
         }
 
         public static abstract class DagTaskBuilder<C extends DagTask, B extends DagTaskBuilder<C, B>> {
+            @ReflectiveAccess
             private @NotNull Task task;
             private List<String> dependsOn;
 
@@ -189,6 +196,7 @@ public class Dag extends Task {
         private boolean concurrent$set;
         private @NotEmpty
         @Valid List<DagTask> dagTasks;
+        @ReflectiveAccess
         private @Valid List<Task> errors;
 
         public B concurrent(@NotNull Integer concurrent) {

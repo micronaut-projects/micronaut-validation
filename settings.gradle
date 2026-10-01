@@ -26,13 +26,16 @@ include 'validation-xml'
 include 'validation-jakarta'
 include 'validation-bom'
 include 'validation-processor'
+include 'validation-metadata'
 include 'test-suite'
 include 'test-suite-groovy'
 include 'test-suite-kotlin'
 
 include 'tests:jakarta-validation-tck'
+include 'tests:validation-differential'
 
 micronautBuild {
+    addSnapshotRepository()
     useStandardizedProjectNames.set(true)
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")

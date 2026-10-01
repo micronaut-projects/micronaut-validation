@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -47,15 +49,19 @@ class InListValidatorTest {
     @Introspected
     static class TestPojo {
         @InList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private String field;
 
         @InList(value = {"ONE", "TWO"}, caseSensitive = false)
+        @ReflectiveAccess
         private String caseInsensitiveField;
 
         @InList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private TestEnum enumField;
 
         @InList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private Integer intField;
 
         public TestPojo(String field, String caseInsensitiveField, TestEnum enumField, Integer intField) {
@@ -108,10 +114,10 @@ class InListValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@InList(value = {"ONE", "TWO"}) String component,
-                      @InList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
-                      @InList(value = {"ONE", "TWO"}) TestEnum enumComponent,
-                      @InList(value = {"ONE", "TWO"}) Integer intComponent) {}
+    record TestRecord(@ReflectiveAccess @InList(value = {"ONE", "TWO"}) String component,
+                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
+                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}) TestEnum enumComponent,
+                      @ReflectiveAccess @InList(value = {"ONE", "TWO"}) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {

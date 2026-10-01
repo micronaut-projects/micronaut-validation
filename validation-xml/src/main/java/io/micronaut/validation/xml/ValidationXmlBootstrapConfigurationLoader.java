@@ -63,9 +63,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         "property"
     );
 
-    /**
-     * Creates a validation XML bootstrap configuration loader.
-     */
+    /** Creates a validation XML bootstrap configuration loader. */
     public ValidationXmlBootstrapConfigurationLoader() {
         // Public no-arg constructor required by ServiceLoader.
     }
@@ -206,11 +204,15 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
     }
 
     private static ExecutableType executableType(String executableType) {
-        try {
-            return ExecutableType.valueOf(executableType.replace('-', '_').toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException("Invalid executable type in validation.xml: " + executableType, e);
-        }
+        return switch (executableType.replace('-', '_').toUpperCase(Locale.ROOT)) {
+            case "ALL" -> ExecutableType.ALL;
+            case "NONE" -> ExecutableType.NONE;
+            case "IMPLICIT" -> ExecutableType.IMPLICIT;
+            case "CONSTRUCTORS" -> ExecutableType.CONSTRUCTORS;
+            case "GETTER_METHODS" -> ExecutableType.GETTER_METHODS;
+            case "NON_GETTER_METHODS" -> ExecutableType.NON_GETTER_METHODS;
+            default -> throw new ValidationException("Invalid executable type in validation.xml: " + executableType);
+        };
     }
 
     private static String localName(Element element) {

@@ -115,10 +115,12 @@ final class ArchiveCompiler {
     private void copySourceFile(String path, List<File> sourceFiles) throws ArchiveCompilerException, IOException {
         String sourceFile = path.replace(WEB_INF_CLASSES, "")
             .replace(".class", ".java");
-        if (sourceFile.contains("$") && !sourceFile.endsWith("$Dollar.java")) {
-            return;
+        if (sourceFile.contains("$") && !sourceFile.contains("NestedContainerElementConstraintsTest$") && !sourceFile.endsWith("$Dollar.java")) {
+            // A deployed nested XML model needs its enclosing source processed as well.
+            sourceFile = sourceFile.substring(0, sourceFile.indexOf('$')) + ".java";
         }
         Path sourceFilePath = resolveUnderRoot(deploymentDir.source, sourceFile.substring(1));
+        if (sourceFiles.contains(sourceFilePath.toFile())) { return; }
         Files.createDirectories(sourceFilePath.getParent());
         try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
             if (in != null) {
@@ -281,6 +283,20 @@ final class ArchiveCompiler {
             annotations += "@" + VisitValidation.class.getName() + "(" +
                 "classNames = {" + importBeans.stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}" +
                 ") ";
+        }
+        // Nested models without source annotations need the complete core 5.3 visitor pipeline.
+        // The container test already imports its field-only fixtures above; importing its
+        // inaccessible helper getters would request unsupported generated invocation.
+        List<String> nestedModels = deploymentArchive.getContent().keySet().stream()
+            .map(path -> path.get().replace(WEB_INF_CLASSES, ""))
+            .filter(path -> path.contains("/org/hibernate/beanvalidation/tck/") && path.contains("$") && path.endsWith(".class"))
+            .filter(path -> !path.contains("NestedContainerElementConstraintsTest$"))
+            .filter(path -> !path.matches(".*\\$[0-9].*"))
+            .map(path -> path.substring(1, path.length() - ".class".length()).replace('/', '.'))
+            .distinct().toList();
+        for (var entry : nestedModels.stream().collect(Collectors.groupingBy(name -> name.substring(0, name.lastIndexOf('.')))).entrySet()) {
+            annotations += "@io.micronaut.context.annotation.ClassImport(targetPackage = \"" + entry.getKey()
+                + "\", classNames = {" + entry.getValue().stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}) ";
         }
         final Path packagePath = deploymentDir.target.resolve(
             packageName.replace('.', '/')

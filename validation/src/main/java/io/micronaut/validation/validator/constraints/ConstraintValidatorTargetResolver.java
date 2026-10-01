@@ -17,36 +17,36 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
-import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
-import org.jspecify.annotations.Nullable;
+import io.micronaut.validation.validator.metadata.ValidationEnumValues;
 
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.UnexpectedTypeException;
-import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
-import java.util.EnumSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
 /**
- * Internal helpers for resolving Jakarta and Micronaut constraint validator
- * target types.
+ * Internal helpers for resolving Jakarta and Micronaut constraint validator target types.
  *
- * <p>The default validator and optional reflection fallback both need the same
- * generic-signature parsing. Keep that logic here so fixes stay consistent
- * without widening the user-facing validation API.</p>
+ * <p>The default validator and optional reflection fallback both need the same generic-signature
+ * parsing. Keep that logic here so fixes stay consistent without widening the user-facing
+ * validation API.
  *
  * @since 5.1
  */
@@ -74,8 +74,8 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * The type a validator validates: the second type argument its introspection records for
-     * {@link ConstraintValidator}, or the generic signature of the class where the archive holds no
+     * The type a validator validates: the second type argument its introspection records for {@link
+     * ConstraintValidator}, or the generic signature of the class where the archive holds no
      * introspection of it.
      *
      * @param introspection The introspection of the validator
@@ -109,7 +109,7 @@ public final class ConstraintValidatorTargetResolver {
      * @return Supported validation targets
      */
     public static Set<ValidationTarget> validationTargets(AnnotationMetadata annotationMetadata) {
-        return Set.of(annotationMetadata.enumValues(SupportedValidationTarget.class, ValidationTarget.class));
+        return ValidationEnumValues.targets(annotationMetadata);
     }
 
     /**
@@ -119,9 +119,9 @@ public final class ConstraintValidatorTargetResolver {
      * @return Supported validation targets
      */
     /**
-     * The validation targets a constraint type supports: the union of what its validators declare, a validator
-     * declaring nothing validating the annotated element, and both targets for a constraint declaring no
-     * validator, which is validated by what its composition declares.
+     * The validation targets a constraint type supports: the union of what its validators declare,
+     * a validator declaring nothing validating the annotated element, and both targets for a
+     * constraint declaring no validator, which is validated by what its composition declares.
      *
      * @param annotationType The constraint annotation type
      * @return The targets
@@ -131,10 +131,11 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * The validation targets a constraint supports, for an occurrence that records the validators it declares.
+     * The validation targets a constraint supports, for an occurrence that records the validators
+     * it declares.
      *
      * @param annotationValue The occurrence
-     * @param annotationType  The constraint annotation type
+     * @param annotationType The constraint annotation type
      * @return The targets
      */
     public static Set<ValidationTarget> constraintTargets(AnnotationValue<?> annotationValue,
@@ -144,9 +145,9 @@ public final class ConstraintValidatorTargetResolver {
 
     private static Set<ValidationTarget> constraintTargets(List<Class<?>> declaredValidators) {
         if (declaredValidators.isEmpty()) {
-            return EnumSet.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
+            return Set.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
         }
-        Set<ValidationTarget> targets = EnumSet.noneOf(ValidationTarget.class);
+        Set<ValidationTarget> targets = new LinkedHashSet<>();
         for (Class<?> validator : declaredValidators) {
             Set<ValidationTarget> supported = validationTargets(validator);
             if (supported.isEmpty()) {
@@ -160,8 +161,8 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * The validators a constraint declares: the ones its occurrence carries, which the annotation processor
-     * records, and where it carries none the ones its annotation type declares.
+     * The validators a constraint declares: the ones its occurrence carries, which the annotation
+     * processor records, and where it carries none the ones its annotation type declares.
      */
     private static List<Class<?>> declaredValidators(AnnotationValue<?> annotationValue,
                                                      Class<? extends Annotation> annotationType) {
@@ -170,7 +171,8 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     public static Set<ValidationTarget> validationTargets(Class<?> validatorType) {
-        // the introspection of a validator records what it declares; a validator without one is read
+        // the introspection of a validator records what it declares; a validator without one is
+        // read
         return BeanIntrospector.SHARED.findIntrospection(validatorType)
             .map(introspection -> validationTargets(introspection.getAnnotationMetadata()))
             .orElseGet(() -> ReflectionSupport.get().supportedValidationTargets(validatorType));
@@ -194,26 +196,29 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * The type a validator validates: the second type argument of {@link ConstraintValidator}, resolved through
-     * the hierarchy of the validator type by {@link ReflectionArguments#resolveGenericToArgument}, the
-     * same resolution the value extractors and the generic bean arguments use.
+     * The type a validator validates: the second type argument of {@link ConstraintValidator},
+     * resolved through the hierarchy of the validator type by {@link
+     * ReflectionArguments#resolveGenericToArgument}, the same resolution the value extractors and
+     * the generic bean arguments use.
      */
     /**
-     * Checks that the {@code validationAppliesTo} of a constraint is one the element it is declared on
-     * allows, as the sections 3.1.1.4 and 4.5.2.1 of the specification require: a target may only be
-     * declared on an executable, {@code PARAMETERS} needs parameters, {@code RETURN_VALUE} needs a return
-     * value, a constraint whose validators validate both the parameters and the return value of an
-     * executable with both must declare which, and a constraint targeting the parameters needs a validator
-     * that validates them.
+     * Checks that the {@code validationAppliesTo} of a constraint is one the element it is declared
+     * on allows, as the sections 3.1.1.4 and 4.5.2.1 of the specification require: a target may
+     * only be declared on an executable, {@code PARAMETERS} needs parameters, {@code RETURN_VALUE}
+     * needs a return value, a constraint whose validators validate both the parameters and the
+     * return value of an executable with both must declare which, and a constraint targeting the
+     * parameters needs a validator that validates them.
      *
-     * @param constraintType     The constraint type
-     * @param validatorTypes     The validator types
+     * @param constraintType The constraint type
+     * @param validatorTypes The validator types
      * @param validationAppliesTo The declared target, {@code null} when the member is absent
-     * @param onExecutable       Whether the constraint is declared on an executable
-     * @param hasParameters      Whether the executable has parameters
-     * @param hasReturnValue     Whether the executable has a return value
-     * @throws ConstraintDeclarationException When the target is not allowed where the constraint is declared
-     * @throws ConstraintDefinitionException  When the constraint targets the parameters with no validator for them
+     * @param onExecutable Whether the constraint is declared on an executable
+     * @param hasParameters Whether the executable has parameters
+     * @param hasReturnValue Whether the executable has a return value
+     * @throws ConstraintDeclarationException When the target is not allowed where the constraint is
+     * declared
+     * @throws ConstraintDefinitionException When the constraint targets the parameters with no
+     * validator for them
      */
     public static void checkTargetDeclaration(Class<?> constraintType,
                                               List<? extends Class<?>> validatorTypes,
@@ -239,30 +244,34 @@ public final class ConstraintValidatorTargetResolver {
         if (declared == ConstraintTarget.PARAMETERS) {
             if (!hasParameters) {
                 throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
-                    + " declares validationAppliesTo = PARAMETERS on an executable without parameters");
+                    + " declares validationAppliesTo = PARAMETERS on an executable"
+                                + " without parameters");
             }
             if (!parameters && !validatorTypes.isEmpty()) {
                 throw new ConstraintDefinitionException("The constraint " + constraintType.getName()
-                    + " targets the parameters but none of its validators supports ValidationTarget.PARAMETERS");
+                    + " targets the parameters but none of its validators supports"
+                                + " ValidationTarget.PARAMETERS");
             }
         } else if (declared == ConstraintTarget.RETURN_VALUE) {
             if (!hasReturnValue) {
                 throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
-                    + " declares validationAppliesTo = RETURN_VALUE on an executable without a return value");
+                    + " declares validationAppliesTo = RETURN_VALUE on an executable"
+                                + " without a return value");
             }
         } else if (parameters && annotatedElement && hasParameters && hasReturnValue) {
             throw new ConstraintDeclarationException("The constraint " + constraintType.getName()
-                + " validates both the parameters and the return value and must declare validationAppliesTo on "
-                + "an executable with parameters and a return value");
+                + " validates both the parameters and the return value and must declare"
+                            + " validationAppliesTo on an executable with parameters and a return"
+                            + " value");
         }
     }
 
     /**
-     * Whether at least one of the validators supports the given target: the cross-parameter phase of an
-     * executable only runs the validators supporting {@link ValidationTarget#PARAMETERS}, the other phases
-     * the ones supporting {@link ValidationTarget#ANNOTATED_ELEMENT}.
+     * Whether at least one of the validators supports the given target: the cross-parameter phase
+     * of an executable only runs the validators supporting {@link ValidationTarget#PARAMETERS}, the
+     * other phases the ones supporting {@link ValidationTarget#ANNOTATED_ELEMENT}.
      *
-     * @param validatorTypes   The validator types
+     * @param validatorTypes The validator types
      * @param constraintTarget The target
      * @return Whether a validator supports the target
      */
@@ -276,13 +285,13 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     /**
-     * Selects the validator of a constraint for a value type, as the section 4.6.4 of the specification
-     * resolves it: among the validators supporting the target and accepting the type, the one whose
-     * validated type is the most specific; two equally specific ones are an error.
+     * Selects the validator of a constraint for a value type, as the section 4.6.4 of the
+     * specification resolves it: among the validators supporting the target and accepting the type,
+     * the one whose validated type is the most specific; two equally specific ones are an error.
      *
-     * @param constraintType   The constraint type
-     * @param validatorTypes   The validator types declared by the constraint
-     * @param valueType        The type of the validated value
+     * @param constraintType The constraint type
+     * @param validatorTypes The validator types declared by the constraint
+     * @param valueType The type of the validated value
      * @param constraintTarget The target
      * @return The validator, or {@code null} when none accepts the type
      * @throws UnexpectedTypeException When several validators are equally specific

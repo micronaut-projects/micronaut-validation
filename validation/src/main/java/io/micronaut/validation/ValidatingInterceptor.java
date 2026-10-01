@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation;
 
+import io.micronaut.validation.validator.ReflectionSupport;
+
 import io.micronaut.aop.InterceptPhase;
 import io.micronaut.aop.InterceptedMethod;
 import io.micronaut.aop.MethodInterceptor;
@@ -47,9 +49,7 @@ import static io.micronaut.validation.ConstraintViolationExceptionUtil.createCon
 @Singleton
 public class ValidatingInterceptor implements MethodInterceptor<Object, Object> {
 
-    /**
-     * The position of the interceptor. See {@link io.micronaut.core.order.Ordered}
-     */
+    /** The position of the interceptor. See {@link io.micronaut.core.order.Ordered} */
     public static final int POSITION = InterceptPhase.VALIDATE.getPosition();
 
     private final @Nullable ExecutableValidator executableValidator;
@@ -99,8 +99,8 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     @Override
     public Object intercept(MethodInvocationContext<Object, Object> context) {
         if (executableValidator != null) {
-            Method targetMethod = context.getTargetMethod();
-            if (targetMethod.getParameterTypes().length != 0) {
+            Method targetMethod = ReflectionSupport.get().targetMethod(context.getExecutableMethod());
+            if (context.getArguments().length != 0) {
                 Set<ConstraintViolation<Object>> constraintViolations = executableValidator
                         .validateParameters(
                                 context.getTarget(),

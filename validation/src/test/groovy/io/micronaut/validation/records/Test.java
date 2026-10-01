@@ -1,5 +1,7 @@
 package io.micronaut.validation.records;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.annotation.ConfigurationProperties;
 import io.micronaut.context.annotation.Requires;
@@ -11,7 +13,7 @@ import jakarta.validation.constraints.Min;
 @Requires(property = "spec.name", value = "RecordBeansSpec")
 @ConfigurationProperties("foo")
 record Test(
-    @Min(20) int num,
+    @ReflectiveAccess @Min(20) int num,
     String name,
     @Inject ConversionService conversionService,
     @Inject BeanContext beanContext) {

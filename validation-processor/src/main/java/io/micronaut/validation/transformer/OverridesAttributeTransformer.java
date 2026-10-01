@@ -49,6 +49,7 @@ public final class OverridesAttributeTransformer implements NamedAnnotationTrans
         annotation.intValue("constraintIndex").ifPresent(index -> aliasFor.member("index", index));
         // @OverridesAttribute overrides with the default of the overriding member when it is not set
         aliasFor.member("applyDefault", true);
-        return List.of(aliasFor.build());
+        // Keep the Jakarta declaration for generated definition validation.
+        return List.of(annotation, aliasFor.build());
     }
 }

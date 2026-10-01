@@ -22,17 +22,15 @@ import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.UniqueElements;
 import jakarta.inject.Singleton;
 
-import java.lang.reflect.Array;
-import java.util.HashSet;
-import java.util.Objects;
-import java.util.Set;
-import java.util.stream.StreamSupport;
+import org.jspecify.annotations.NullMarked;
 
-/**
- * Validator for the {@link UniqueElements} constraint.
- */
+import java.util.HashSet;
+import java.util.Set;
+
+/** Validator for the {@link UniqueElements} constraint. */
 @Singleton
 @Introspected
+@NullMarked
 public class UniqueElementsValidator implements ConstraintValidator<UniqueElements, Object> {
 
     @Override
@@ -46,20 +44,66 @@ public class UniqueElementsValidator implements ConstraintValidator<UniqueElemen
         Set<Object> seen = new HashSet<>();
 
         if (value instanceof Iterable<?> iterable) {
-            return StreamSupport.stream(iterable.spliterator(), false)
-                    .filter(Objects::nonNull) // Ignore null elements
-                    .allMatch(seen::add);
-        } else if (value.getClass().isArray()) {
-            int length = Array.getLength(value);
-            for (int i = 0; i < length; i++) {
-                Object element = Array.get(value, i);
+            for (Object element : iterable) {
                 if (element != null && !seen.add(element)) {
                     return false;
                 }
             }
-            return true;
-        } else {
-            return true; // Not a collection or array, pass
+        } else if (value instanceof Object[] array) {
+            for (Object element : array) {
+                if (element != null && !seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof boolean[] array) {
+            for (boolean element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof byte[] array) {
+            for (byte element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof short[] array) {
+            for (short element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof char[] array) {
+            for (char element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof int[] array) {
+            for (int element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof long[] array) {
+            for (long element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof float[] array) {
+            for (float element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
+        } else if (value instanceof double[] array) {
+            for (double element : array) {
+                if (!seen.add(element)) {
+                    return false;
+                }
+            }
         }
+        return true;
     }
 }

@@ -1,5 +1,7 @@
 package io.micronaut.validation.validator.introspection;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.Size;
 
@@ -7,6 +9,7 @@ import jakarta.validation.constraints.Size;
 public class Child extends Parent {
 
     @Size(max = 3)
+    @ReflectiveAccess
     private String nickname = "also too long";
 
     public String getNickname() {

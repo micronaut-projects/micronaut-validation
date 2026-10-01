@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
-import io.micronaut.core.io.service.SoftServiceLoader;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
@@ -42,16 +41,12 @@ import java.util.Optional;
 @Internal
 public class DefaultAnnotatedElementValidator extends DefaultValidator implements AnnotatedElementValidator {
 
-    /**
-     * Default constructor.
-     */
+    /** Default constructor. */
     public DefaultAnnotatedElementValidator() {
         super(new DefaultValidatorConfiguration().setConstraintValidatorRegistry(new LocalConstraintValidators()));
     }
 
-    /**
-     * Local constraint validator lookup using service loader.
-     */
+    /** Local constraint validator lookup using service loader. */
     private static final class LocalConstraintValidators extends DefaultConstraintValidators {
 
         private @Nullable Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap;
@@ -81,7 +76,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
 
         private Map<ValidatorKey, ConstraintValidator<?, ?>> initializeValidatorMap() {
             Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap = new LinkedHashMap<>();
-            for (ConstraintValidator<?, ?> validator : SoftServiceLoader.load(ConstraintValidator.class).collectAll()) {
+            for (ConstraintValidator<?, ?> validator : ConstraintValidatorServiceDiscovery.load()) {
                 try {
                     final Argument<ConstraintValidator> validatorArgument = ReflectionSupport.get().genericSuperArgument(validator.getClass(), ConstraintValidator.class);
                     final Class<?>[] typeArgs = validatorArgument == null ? null : Argument.toClassArray(validatorArgument.getTypeParameters());
@@ -89,8 +84,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
                         validatorMap.put(new ValidatorKey(typeArgs[0], typeArgs[1]), validator);
                     }
                 } catch (Exception e) {
-                    // as this will occur in the compiler, we print a warning and not log it
-                    System.err.println("WARNING: Could not load validator [" + validator.getClass().getName() + "]: " + e.getMessage());
+                    throw new jakarta.validation.ValidationException("Cannot resolve generated validator arguments for " + validator.getClass().getName(), e);
                 }
             }
 

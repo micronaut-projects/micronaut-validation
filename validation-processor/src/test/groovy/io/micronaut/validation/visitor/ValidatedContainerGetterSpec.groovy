@@ -10,7 +10,7 @@ import jakarta.validation.constraints.Pattern
  */
 class ValidatedContainerGetterSpec extends AbstractTypeElementSpec {
 
-    void "test the constraints of a field are declared for the type argument an Optional getter holds it in"() {
+    void "test a field constraint is not substituted onto an Optional getter"() {
         given:
         def introspection = buildBeanIntrospection('test.Test', '''
 package test;
@@ -42,8 +42,8 @@ class Test {
         argument.type == Optional
         argument.typeParameters.length == 1
         argument.typeParameters[0].type == String
-        argument.typeParameters[0].annotationMetadata.hasAnnotation(Pattern)
-        argument.typeParameters[0].annotationMetadata.stringValue(Pattern, "regexp").get() == "[a-z]+"
+        !argument.typeParameters[0].annotationMetadata.hasAnnotation(Pattern)
+        introspection.getRequiredProperty("alpha", Optional).members.find { it.elementType == java.lang.annotation.ElementType.FIELD }.annotationMetadata.hasAnnotation(Pattern)
     }
 
     void "test a type argument keeps the constraint it declares itself"() {
@@ -73,7 +73,7 @@ class Test {
 
         then:
         typeArgument.annotationMetadata.hasAnnotation(NotNull)
-        typeArgument.annotationMetadata.hasAnnotation(Pattern)
+        !typeArgument.annotationMetadata.hasAnnotation(Pattern)
     }
 
     void "test the constraints of a field are left alone when the getter holds many values"() {

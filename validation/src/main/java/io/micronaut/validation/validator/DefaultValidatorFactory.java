@@ -18,8 +18,8 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
-import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
+import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
@@ -28,8 +28,12 @@ import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.ValidatorFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Default validator factory implementation.
@@ -44,16 +48,17 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     private final Validator validator;
     private final ValidatorConfiguration configuration;
+    private final List<DefaultValidator> ownedValidators = new ArrayList<>();
+    private boolean closed;
 
-    /**
-     * The constructor.
-     */
+    /** The constructor. */
     public DefaultValidatorFactory() {
         this(new DefaultValidatorConfiguration());
     }
 
     /**
      * The constructor.
+     *
      * @param configuration The configuration.
      */
     public DefaultValidatorFactory(ValidatorConfiguration configuration) {
@@ -62,6 +67,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     /**
      * Default constructor.
+     *
      * @param validator The validator.
      * @param configuration The configuration.
      */
@@ -69,15 +75,20 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     public DefaultValidatorFactory(Validator validator, ValidatorConfiguration configuration) {
         this.validator = validator;
         this.configuration = configuration;
+        if (validator instanceof DefaultValidator defaultValidator) {
+            ownedValidators.add(defaultValidator);
+        }
     }
 
     @Override
-    public jakarta.validation.Validator getValidator() {
+    public synchronized jakarta.validation.Validator getValidator() {
+        requireOpen();
         return validator;
     }
 
     @Override
-    public MicronautValidatorContext usingContext() {
+    public synchronized MicronautValidatorContext usingContext() {
+        requireOpen();
         return new DefaultFactoryValidatorContext(newValidatorConfiguration());
     }
 
@@ -113,7 +124,37 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public void close() {
-        // no-op
+        java.util.List<DefaultValidator> closing;
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            ownedValidators.forEach(DefaultValidator::checkCloseAllowed);
+            closed = true;
+            closing = java.util.List.copyOf(ownedValidators);
+            ownedValidators.clear();
+        }
+        RuntimeException failure = null;
+        for (DefaultValidator owned : closing) {
+            try {
+                owned.close();
+            } catch (RuntimeException e) {
+                if (failure == null) {
+                    failure = e;
+                } else {
+                    failure.addSuppressed(e);
+                }
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private void requireOpen() {
+        if (closed) {
+            throw new ValidationException("Validator factory is closed");
+        }
     }
 
     /**
@@ -128,7 +169,15 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     }
 
     private DefaultValidatorConfiguration newValidatorConfiguration() {
-        DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
+        return copyConfiguration(configuration);
+    }
+
+    private static DefaultValidatorConfiguration copyConfiguration(
+            ValidatorConfiguration configuration) {
+        DefaultValidatorConfiguration newValidatorConfiguration =
+                new DefaultValidatorConfiguration();
+        newValidatorConfiguration.setStrictConstraintDefinitions(
+                configuration.isStrictConstraintDefinitions());
         newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
         newValidatorConfiguration.setMetadataProviders(configuration.getMetadataProviders());
         newValidatorConfiguration.setConstraintValidatorRegistry(configuration.getConstraintValidatorRegistry());
@@ -196,10 +245,11 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         }
 
         /**
-         * Registers a value extractor described in full, so that nothing has to be read from its class.
+         * Registers a value extractor described in full, so that nothing has to be read from its
+         * class.
          *
          * @param definition The extractor and what it extracts
-         * @param <T>        The container type
+         * @param <T> The container type
          * @return This context
          * @since 5.2
          */
@@ -211,7 +261,15 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
         @Override
         public jakarta.validation.Validator getValidator() {
-            return newValidator(validatorConfiguration);
+            synchronized (DefaultValidatorFactory.this) {
+                requireOpen();
+                jakarta.validation.Validator created =
+                        newValidator(copyConfiguration(validatorConfiguration));
+                if (created instanceof DefaultValidator defaultValidator) {
+                    ownedValidators.add(defaultValidator);
+                }
+                return created;
+            }
         }
     }
 }

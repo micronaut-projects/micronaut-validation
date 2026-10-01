@@ -1,0 +1,9 @@
+# kind,min,max,width,group,permission,operation,input
+# Deterministic regression cases are added here after each confirmed differential defect.
+SCALARS,1,4,1,false,false,0,1
+PRIVATE_FIELDS,1,4,1,false,false,0,0
+PRIVATE_FIELDS,1,4,1,false,true,0,0
+COMPOSITION,3,8,1,false,false,2,0
+EXECUTABLES,0,1,1,false,false,2,0
+
+INHERITANCE,3,6,1,true,false,0,7

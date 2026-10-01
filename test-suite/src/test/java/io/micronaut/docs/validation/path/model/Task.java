@@ -1,5 +1,7 @@
 package io.micronaut.docs.validation.path.model;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -14,11 +16,13 @@ abstract public class Task {
     @NotNull
     @NotBlank
     @Pattern(regexp = "[a-zA-Z0-9_-]+")
+    @ReflectiveAccess
     protected String id;
 
     @NotNull
     @NotBlank
     @Pattern(regexp = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*")
+    @ReflectiveAccess
     protected String type;
 
     private String description;
@@ -28,6 +32,7 @@ abstract public class Task {
     protected Boolean disabled = false;
 
     @Valid
+    @ReflectiveAccess
     private WorkerGroup workerGroup;
 
     public Task() {
@@ -106,10 +111,12 @@ abstract public class Task {
         private @NotNull
         @NotBlank
         @Pattern(regexp = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*") String type;
+        @ReflectiveAccess
         private String description;
         private Duration timeout;
         private Boolean disabled$value;
         private boolean disabled$set;
+        @ReflectiveAccess
         private @Valid WorkerGroup workerGroup;
 
         private static void $fillValuesFromInstanceIntoBuilder(Task instance, TaskBuilder<?, ?> b) {

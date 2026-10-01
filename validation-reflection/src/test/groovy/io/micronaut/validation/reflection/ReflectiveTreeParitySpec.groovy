@@ -22,7 +22,7 @@ class ReflectiveTreeParitySpec extends Specification {
 
     private static List<String> describe(AnnotationValue<?> composed) {
         return composed.getStereotypes().collect {
-            it.getAnnotationName() + it.getValues().findAll { k, v -> k.toString() != '$stereotypes' }
+            it.getAnnotationName() + it.getValues().findAll { k, v -> !k.toString().startsWith('$') }
         }
     }
 

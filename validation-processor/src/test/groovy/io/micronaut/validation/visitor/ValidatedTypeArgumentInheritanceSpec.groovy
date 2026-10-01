@@ -2,6 +2,10 @@ package io.micronaut.validation.visitor
 
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.validation.annotation.ValidatedElement
+import io.micronaut.core.type.Argument
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationProvider
+import io.micronaut.validation.validator.ExecutableHierarchy
 import jakarta.validation.constraints.NotBlank
 import jakarta.validation.constraints.NotNull
 import jakarta.validation.constraints.Pattern
@@ -35,18 +39,17 @@ interface TestBase {
 }
 ''')
         when:
-        def method = definition.getRequiredMethod("setList", List<List<String>>)
+        def executable = definition.getRequiredMethod("setList", List<List<String>>)
+        def method = hierarchy(definition, executable)
 
         then:
-        method.hasStereotype(VALIDATED_ANN)
+        executable.hasStereotype(VALIDATED_ANN)
         method.arguments.size() == 1
-        method.arguments[0].annotationMetadata.hasAnnotation(ValidatedElement)
         method.arguments[0].typeParameters.size() == 1
 
         def firstTypeParamAnnMetadataAnnMetadata = method.arguments[0].typeParameters[0].annotationMetadata
 
         firstTypeParamAnnMetadataAnnMetadata.hasAnnotation(NotNull)
-        firstTypeParamAnnMetadataAnnMetadata.hasAnnotation(ValidatedElement)
         method.arguments[0].typeParameters[0].typeParameters.size() == 1
 
         def secTypeParamAnnMetadata = method.arguments[0].typeParameters[0].typeParameters[0].annotationMetadata
@@ -83,19 +86,18 @@ interface TestBase {
 }
 ''')
         when:
-        def method = definition.getRequiredMethod("getList")
+        def executable = definition.getRequiredMethod("getList")
+        def method = hierarchy(definition, executable)
 
         then:
-        method.hasStereotype(VALIDATED_ANN)
-        method.returnType.annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
-        method.returnType.typeParameters.size() == 1
-        def firstTypeParamAnnMetadataAnnMetadata = method.returnType.typeParameters[0].annotationMetadata
+        executable.hasStereotype(VALIDATED_ANN)
+        method.returnArgument.typeParameters.size() == 1
+        def firstTypeParamAnnMetadataAnnMetadata = method.returnArgument.typeParameters[0].annotationMetadata
 
         firstTypeParamAnnMetadataAnnMetadata.hasAnnotation(NotNull)
-        firstTypeParamAnnMetadataAnnMetadata.hasAnnotation(ValidatedElement)
-        method.returnType.typeParameters[0].typeParameters.size() == 1
+        method.returnArgument.typeParameters[0].typeParameters.size() == 1
 
-        def secTypeParamAnnMetadata = method.returnType.typeParameters[0].typeParameters[0].annotationMetadata
+        def secTypeParamAnnMetadata = method.returnArgument.typeParameters[0].typeParameters[0].annotationMetadata
 
         secTypeParamAnnMetadata.hasAnnotation(NotNull)
         secTypeParamAnnMetadata.hasAnnotation(Size)
@@ -130,22 +132,18 @@ interface TestBase {
 }
 ''')
         when:
-        def method = definition.getRequiredMethod("map", Map<String, List<String>>)
+        def executable = definition.getRequiredMethod("map", Map<String, List<String>>)
+        def method = hierarchy(definition, executable)
 
         then:
-        method.hasStereotype(VALIDATED_ANN)
+        executable.hasStereotype(VALIDATED_ANN)
         method.arguments.size() == 1
-        method.arguments[0].annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
         method.arguments[0].typeParameters.size() == 2
         method.arguments[0].typeParameters[0].annotationMetadata.hasAnnotation(NotBlank)
-        method.arguments[0].typeParameters[0].annotationMetadata.hasAnnotation(ValidatedElement)
-        method.arguments[0].typeParameters[1].annotationMetadata.hasAnnotation(ValidatedElement)
         method.arguments[0].typeParameters[1].typeParameters.length == 1
-        method.arguments[0].typeParameters[1].typeParameters[0].annotationMetadata.hasAnnotation(ValidatedElement)
         method.arguments[0].typeParameters[1].typeParameters[0].annotationMetadata.hasAnnotation(NotNull)
 
         method.arguments[0].typeParameters[1].typeParameters[0].typeParameters.length == 1
-        method.arguments[0].typeParameters[1].typeParameters[0].typeParameters[0].annotationMetadata.hasAnnotation(ValidatedElement)
         method.arguments[0].typeParameters[1].typeParameters[0].typeParameters[0].annotationMetadata.hasAnnotation(Pattern)
         method.arguments[0].typeParameters[1].typeParameters[0].typeParameters[0].annotationMetadata.hasAnnotation(NotNull)
         method.arguments[0].typeParameters[1].typeParameters[0].typeParameters[0].annotationMetadata.hasAnnotation(Size)
@@ -174,16 +172,35 @@ abstract class AbstractTest {
 }
 ''')
         when:
-        def method = definition.getRequiredMethod("map", Map<String, List<String>>)
+        def executable = definition.getRequiredMethod("map", Map<String, List<String>>)
+        def method = hierarchy(definition, executable)
 
         then:
-        method.hasStereotype(VALIDATED_ANN)
+        executable.hasStereotype(VALIDATED_ANN)
         method.arguments.size() == 1
-        method.arguments[0].annotationMetadata.hasAnnotation("io.micronaut.validation.annotation.ValidatedElement")
         method.arguments[0].typeParameters.size() == 2
         var anns = method.arguments[0].typeParameters[1].annotationMetadata.getAnnotationValuesByType(Size)
         anns.size() == 1
         anns.get(0).intValue("min").get() == 2
+    }
+
+    private static ExecutableHierarchy.Resolved hierarchy(definition, executable) {
+        // The in-memory compiler harness does not expose generated service resources.
+        // Use the provider embedded in the definition and instantiate the generated parent
+        // provider directly; reflection here belongs to the test harness only.
+        GeneratedAnnotationProvider own = GeneratedAnnotationFactories.embedded(definition.annotationMetadata)
+        def types = own.typeMetadata(definition.beanType.name)
+        Class<?> parent = types.interfaces().isEmpty() ? types.superType() : types.interfaces().first()
+        GeneratedAnnotationProvider inherited = definition.beanType.classLoader
+            .loadClass(parent.name + '$ValidationAnnotations').getConstructor().newInstance()
+        Class<?>[] signature = Argument.toClassArray(executable.arguments)
+        def local = own.methodDeclaration(executable.methodName, signature)
+        def base = inherited.methodDeclaration(executable.methodName, signature)
+        return ExecutableHierarchy.merge(ExecutableHierarchy.Declaration.of(executable),
+            new ExecutableHierarchy.Declaration(local.declaringType(), local.metadata(),
+                local.parameters().toArray(Argument[]::new), local.argument(), true),
+            [new ExecutableHierarchy.Declaration(base.declaringType(), base.metadata(),
+                base.parameters().toArray(Argument[]::new), base.argument(), true)])
     }
 
 }

@@ -145,7 +145,9 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "cascadeValidateReturnValue.<return value>.prop: must not be null"
+        e.constraintViolations.size() == 2
+        e.constraintViolations*.propertyPath*.toString().every { it == "cascadeValidateReturnValue.<return value>.prop" }
+        e.constraintViolations*.message.every { it == "must not be null" }
 
         cleanup:
         beanContext.close()
@@ -161,7 +163,9 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "validateReturnList.<return value>[0].prop: must not be null"
+        e.constraintViolations.size() == 2
+        e.constraintViolations*.propertyPath*.toString().every { it == "validateReturnList.<return value>[0].prop" }
+        e.constraintViolations*.message.every { it == "must not be null" }
 
         cleanup:
         beanContext.close()
@@ -177,7 +181,9 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "validateMap.<return value>[barObj].prop: must not be null"
+        e.constraintViolations.size() == 2
+        e.constraintViolations*.propertyPath*.toString().every { it == "validateMap.<return value>[barObj].prop" }
+        e.constraintViolations*.message.every { it == "must not be null" }
 
         cleanup:
         beanContext.close()
@@ -787,6 +793,7 @@ class ValidatedSpec extends Specification {
         @NotNull
         @Min(1L)
         @Max(10L)
+        @io.micronaut.core.annotation.ReflectiveAccess
         Integer count = 0
 
     }
@@ -795,6 +802,7 @@ class ValidatedSpec extends Specification {
         @NotNull
         @Min(1L)
         @Max(10L)
+        @io.micronaut.core.annotation.ReflectiveAccess
         Integer count = 0
     }
 }

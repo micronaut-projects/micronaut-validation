@@ -1,5 +1,7 @@
 package io.micronaut.docs.validation.disable;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.context.annotation.Property;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.http.annotation.Controller;
@@ -31,7 +33,7 @@ public class Application {
     }
 
     @Introspected
-    public record MyBean(@ValidInternalId int internalId) {
+    public record MyBean(@ReflectiveAccess @ValidInternalId int internalId) {
     }
 
     @Documented

@@ -15,10 +15,18 @@ micronautBuild {
 // what; a class named there is a decision to make deliberately
 tasks.withType(JavaCompile).configureEach {
     // the main sources only, with the checks named here and by the NullAway convention and none of ErrorProne's own
-    options.errorprone.enabled = name == 'compileJava'
+    options.errorprone.enabled = name == 'compileJava' || name.startsWith('compileCompiler')
     options.errorprone.disableAllChecks = true
+    if (name == "compileJava" || name.startsWith("compileCompiler")) {
+        options.errorprone.error("NoReflection", "NullAway")
+    }
 }
 
 dependencies {
     testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+noReflection {
+    forbidAll()
+    severity "ERROR"
 }

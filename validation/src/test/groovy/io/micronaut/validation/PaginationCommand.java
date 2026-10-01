@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.Nullable;
 
@@ -28,18 +30,22 @@ public class PaginationCommand {
 
     @PositiveOrZero
     @Nullable
+    @ReflectiveAccess
     private Integer offset;
 
     @Positive
     @Nullable
+    @ReflectiveAccess
     private Integer max;
 
     @Nullable
     @Pattern(regexp = "name|href|title")
+    @ReflectiveAccess
     private String sort;
 
     @Nullable
     @Pattern(regexp = "asc|desc|ASC|DESC")
+    @ReflectiveAccess
     private String order;
 
     @Nullable

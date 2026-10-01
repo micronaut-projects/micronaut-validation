@@ -1,5 +1,7 @@
 package io.micronaut.validation.validator.messages;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.context.AbstractMessageSource;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.Factory;
@@ -95,8 +97,8 @@ class DefaultMessageInterpolatorTest {
     }
 
     @Introspected
-    public record Book(@NotBlank String name,
-                       @Nullable String isbn,
-                       @Nullable @Positive Integer pages) {
+    public record Book(@ReflectiveAccess @NotBlank String name,
+                       @ReflectiveAccess @Nullable String isbn,
+                       @ReflectiveAccess @Nullable @Positive Integer pages) {
     }
 }

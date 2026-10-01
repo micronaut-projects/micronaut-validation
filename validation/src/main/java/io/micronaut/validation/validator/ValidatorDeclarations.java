@@ -15,16 +15,21 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
+
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
-import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.core.type.Argument;
+import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.validation.validator.metadata.ValidationTypeMetadata;
+
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
@@ -35,8 +40,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * What the validator knows about the declarations it validates: the hierarchies of the executables, the
- * super types of the beans, and the declaration and definition rules checked once per declaration.
+ * What the validator knows about the declarations it validates: the hierarchies of the executables,
+ * the super types of the beans, and the declaration and definition rules checked once per
+ * declaration.
  *
  * @since 5.0.0
  */
@@ -59,16 +65,20 @@ final class ValidatorDeclarations {
         this.metadataProviders = metadataProviders;
     }
 
-    /**
-     * The hierarchy of a bean method, for the descriptors of a bean.
-     */
+    void clear() {
+        executableHierarchies.clear();
+        checkedConstraintDefinitions.clear();
+        checkedBeanDeclarations.clear();
+        superIntrospectionsCache.clear();
+        configuredExecutables.clear();
+    }
+
+    /** The hierarchy of a bean method, for the descriptors of a bean. */
     ExecutableHierarchy.Resolved resolveHierarchy(BeanMethod<?, ?> method) {
         return ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, false), method.getName());
     }
 
-    /**
-     * The argument of a property as the metadata providers configure it.
-     */
+    /** The argument of a property as the metadata providers configure it. */
     Argument<?> configuredPropertyArgument(Class<?> beanType, String propertyName, Argument<?> argument) {
         for (ValidationMetadataProvider provider : metadataProviders) {
             argument = provider.getPropertyArgument(beanType, propertyName, argument);
@@ -76,9 +86,7 @@ final class ValidatorDeclarations {
         return argument;
     }
 
-    /**
-     * A method with what it inherits and what the metadata providers configure for it.
-     */
+    /** A method with what it inherits and what the metadata providers configure for it. */
     ConfiguredExecutable configuredExecutable(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
         return configuredExecutables.computeIfAbsent(ExecutableHierarchy.Key.of(method), key -> new ConfiguredExecutable(
             configuredMethodMetadata(method, hierarchy.annotationMetadata()),
@@ -87,9 +95,7 @@ final class ValidatorDeclarations {
         ));
     }
 
-    /**
-     * A constructor as the metadata providers configure it, computed once per constructor.
-     */
+    /** A constructor as the metadata providers configure it, computed once per constructor. */
     ConfiguredExecutable configuredConstructor(Class<?> beanType, AnnotationMetadata annotationMetadata, Argument<?>[] arguments) {
         ExecutableHierarchy.Key key = new ExecutableHierarchy.Key(beanType, "<init>", List.of(Argument.toClassArray(arguments)));
         return configuredExecutables.computeIfAbsent(key, ignored -> {
@@ -102,9 +108,7 @@ final class ValidatorDeclarations {
         });
     }
 
-    /**
-     * The parameters of a method as the metadata providers configure them.
-     */
+    /** The parameters of a method as the metadata providers configure them. */
     private Argument<?>[] configuredParameterArguments(ExecutableMethod<?, ?> method, Argument<?>[] arguments) {
         for (ValidationMetadataProvider provider : metadataProviders) {
             arguments = provider.getMethodParameterArguments(method.getDeclaringType(), method.getMethodName(), arguments);
@@ -112,9 +116,7 @@ final class ValidatorDeclarations {
         return arguments;
     }
 
-    /**
-     * The annotations of a method as the metadata providers configure them.
-     */
+    /** The annotations of a method as the metadata providers configure them. */
     private AnnotationMetadata configuredMethodMetadata(ExecutableMethod<?, ?> method, AnnotationMetadata annotationMetadata) {
         Class<?>[] parameterTypes = Argument.toClassArray(method.getArguments());
         for (ValidationMetadataProvider provider : metadataProviders) {
@@ -123,9 +125,7 @@ final class ValidatorDeclarations {
         return annotationMetadata;
     }
 
-    /**
-     * The return value of a method as the metadata providers configure it.
-     */
+    /** The return value of a method as the metadata providers configure it. */
     private Argument<?> configuredReturnArgument(ExecutableMethod<?, ?> method, Argument<?> argument) {
         Class<?>[] parameterTypes = Argument.toClassArray(method.getArguments());
         for (ValidationMetadataProvider provider : metadataProviders) {
@@ -134,9 +134,7 @@ final class ValidatorDeclarations {
         return argument;
     }
 
-    /**
-     * The parameters of a constructor as the metadata providers configure them.
-     */
+    /** The parameters of a constructor as the metadata providers configure them. */
     private Argument<?>[] configuredConstructorArguments(Class<?> beanType, Argument<?>[] arguments) {
         for (ValidationMetadataProvider provider : metadataProviders) {
             arguments = provider.getConstructorParameterArguments(beanType, arguments);
@@ -144,9 +142,7 @@ final class ValidatorDeclarations {
         return arguments;
     }
 
-    /**
-     * The annotations of a constructor as the metadata providers configure them.
-     */
+    /** The annotations of a constructor as the metadata providers configure them. */
     private AnnotationMetadata configuredConstructorMetadata(Class<?> beanType, Argument<?>[] arguments, AnnotationMetadata annotationMetadata) {
         Class<?>[] parameterTypes = Argument.toClassArray(arguments);
         for (ValidationMetadataProvider provider : metadataProviders) {
@@ -155,9 +151,7 @@ final class ValidatorDeclarations {
         return annotationMetadata;
     }
 
-    /**
-     * The return value of a constructor as the metadata providers configure it.
-     */
+    /** The return value of a constructor as the metadata providers configure it. */
     private Argument<?> configuredConstructorReturnArgument(Class<?> beanType, Argument<?>[] arguments, Argument<?> argument) {
         Class<?>[] parameterTypes = Argument.toClassArray(arguments);
         for (ValidationMetadataProvider provider : metadataProviders) {
@@ -172,7 +166,8 @@ final class ValidatorDeclarations {
     }
 
     /**
-     * The group conversions of the properties of a bean are checked once, the first time the bean type is validated.
+     * The group conversions of the properties of a bean are checked once, the first time the bean
+     * type is validated.
      */
     void checkBeanDeclarations(BeanIntrospection<?> introspection) {
         if (checkedBeanDeclarations.add(introspection)) {
@@ -187,9 +182,7 @@ final class ValidatorDeclarations {
         }
     }
 
-    /**
-     * A constraint definition is checked once, the first time the constraint is found.
-     */
+    /** A constraint definition is checked once, the first time the constraint is found. */
     void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
         if (strictConstraintDefinitions && checkedConstraintDefinitions.add(constraintType)) {
             try {
@@ -202,31 +195,50 @@ final class ValidatorDeclarations {
     }
 
     /**
-     * The introspections of the super types of a bean: its super classes, then every interface it implements,
-     * the ones of the JDK and of the API left aside.
+     * The introspections of the super types of a bean: its super classes, then every interface it
+     * implements, the ones of the JDK and of the API left aside.
      */
     List<BeanIntrospection<?>> superIntrospections(BeanIntrospection<?> introspection) {
         return superIntrospectionsCache.computeIfAbsent(introspection, i -> {
             List<BeanIntrospection<?>> found = new ArrayList<>();
             Set<Class<?>> visited = new HashSet<>();
             Class<?> beanType = i.getBeanType();
-            for (Class<?> current = beanType.getSuperclass(); current != null && current != Object.class; current = current.getSuperclass()) {
+            for (Class<?> current = superType(beanType, i);
+                            current != null && current != Object.class;
+                            current = superType(current, i)) {
                 addSuperIntrospection(current, visited, found);
             }
-            for (Class<?> current = beanType; current != null && current != Object.class; current = current.getSuperclass()) {
-                addInterfaceIntrospections(current, visited, found);
+            for (Class<?> current = beanType; current != null && current != Object.class; current = superType(current, i)) {
+                        addInterfaceIntrospections(current, visited, found, i);
             }
             return List.copyOf(found);
         });
     }
 
-    private void addInterfaceIntrospections(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {
-        for (Class<?> anInterface : type.getInterfaces()) {
+    private void addInterfaceIntrospections(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found,
+            BeanIntrospection<?> root) {
+        for (Class<?> anInterface : interfaces(type, root)) {
             if (visited.add(anInterface)) {
                 addSuperIntrospection(anInterface, visited, found);
-                addInterfaceIntrospections(anInterface, visited, found);
+                addInterfaceIntrospections(anInterface, visited, found, root);
             }
         }
+    }
+
+    private static @Nullable ValidationTypeMetadata hierarchy(
+            Class<?> type, BeanIntrospection<?> root) {
+        var provider = GeneratedAnnotationFactories.embedded(root.getAnnotationMetadata());
+        return provider == null ? null : provider.typeMetadata(type.getName());
+    }
+
+    private static @Nullable Class<?> superType(Class<?> type, BeanIntrospection<?> root) {
+        var metadata = hierarchy(type, root);
+        return metadata == null ? ReflectionSupport.get().superType(type) : metadata.superType();
+    }
+
+    private static List<Class<?>> interfaces(Class<?> type, BeanIntrospection<?> root) {
+        var metadata = hierarchy(type, root);
+        return metadata == null ? ReflectionSupport.get().interfaces(type) : metadata.interfaces();
     }
 
     private void addSuperIntrospection(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {
@@ -239,8 +251,8 @@ final class ValidatorDeclarations {
     }
 
     /**
-     * Whether a type declares class-level constraints itself: the ones it inherits are validated at the level
-     * declaring them.
+     * Whether a type declares class-level constraints itself: the ones it inherits are validated at
+     * the level declaring them.
      */
     boolean declaresConstraints(AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
         Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
@@ -253,8 +265,8 @@ final class ValidatorDeclarations {
     }
 
     /**
-     * Whether every class-level constraint a type carries is declared by one of its super types: the type
-     * then declares none itself and the super types validate theirs.
+     * Whether every class-level constraint a type carries is declared by one of its super types:
+     * the type then declares none itself and the super types validate theirs.
      */
     boolean inheritsAllConstraints(AnnotationMetadata annotationMetadata, List<BeanIntrospection<?>> superIntrospections, ClassLoader classLoader) {
         List<String> names = ConstraintContainers.constraintNames(annotationMetadata, classLoader);
@@ -278,8 +290,8 @@ final class ValidatorDeclarations {
      * An executable as the metadata providers configure it, computed once per executable.
      *
      * @param annotationMetadata The executable annotations
-     * @param arguments          The parameters
-     * @param returnArgument     The return value
+     * @param arguments The parameters
+     * @param returnArgument The return value
      */
     record ConfiguredExecutable(AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument) {
     }

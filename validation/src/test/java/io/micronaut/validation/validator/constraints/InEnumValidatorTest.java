@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -44,15 +46,19 @@ class InEnumValidatorTest {
     @Introspected
     static class TestPojo {
         @InEnum(value = TestEnum.class)
+        @ReflectiveAccess
         private String field;
 
         @InEnum(value = TestEnum.class, caseSensitive = false)
+        @ReflectiveAccess
         private String caseInsensitiveField;
 
         @InEnum(value = TestEnum.class)
+        @ReflectiveAccess
         private TestEnum enumField;
 
         @InEnum(value = TestEnum.class)
+        @ReflectiveAccess
         private Integer intField;
 
         public TestPojo(String field, String caseInsensitiveField, TestEnum enumField, Integer intField) {
@@ -108,10 +114,10 @@ class InEnumValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@InEnum(value = TestEnum.class) String component,
-                      @InEnum(value = TestEnum.class, caseSensitive = false) String caseInsensitiveComponent,
-                      @InEnum(value = TestEnum.class) TestEnum enumComponent,
-                      @InEnum(value = TestEnum.class) Integer intComponent) {}
+    record TestRecord(@ReflectiveAccess @InEnum(value = TestEnum.class) String component,
+                      @ReflectiveAccess @InEnum(value = TestEnum.class, caseSensitive = false) String caseInsensitiveComponent,
+                      @ReflectiveAccess @InEnum(value = TestEnum.class) TestEnum enumComponent,
+                      @ReflectiveAccess @InEnum(value = TestEnum.class) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {

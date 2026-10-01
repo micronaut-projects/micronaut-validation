@@ -19,6 +19,7 @@ import io.micronaut.context.annotation.Executable;
 import io.micronaut.context.annotation.Prototype;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
@@ -68,7 +69,7 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
     }
 
     private void process(ClassElement element) {
-        if (element.getName().startsWith("org.hibernate.beanvalidation.tck.tests")) {
+        if ((element.getName().startsWith("org.hibernate.beanvalidation.tck.tests") || element.getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))) {
             if (element.isAssignable("jakarta.validation.ClockProvider")) {
                 element.annotate(Vetoed.class);
                 return;
@@ -100,7 +101,7 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
             }
 
             element.getMethods().forEach(ce -> {
-                if (ce.isStatic() || !ce.isAccessible()) {
+                if (ce.isStatic() || ce.isPrivate() || !ce.isAccessible()) {
                     ce.annotate(Vetoed.class);
                 } else if (isValidatedExecutable(element, ce)) {
                     ce.annotate(Executable.class);
@@ -118,7 +119,12 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
     }
 
     private void processField(FieldElement field) {
-        if (field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests")
+        if ((field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests") || field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))) {
+            // The restricted profile explicitly opts TCK model fields into the narrow field-only exception.
+            // ANY visibility and type-level annotations no longer authorize those reads.
+            field.annotate(ReflectiveAccess.class);
+        }
+        if ((field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests") || field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))
             && (field.hasAnnotation("jakarta.ejb.EJB")
                 || field.hasAnnotation("jakarta.annotation.Resource")
                 || field.getType().isAssignable(jakarta.validation.Validator.class)

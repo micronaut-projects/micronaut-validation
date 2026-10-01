@@ -26,5 +26,6 @@ import io.micronaut.core.annotation.Internal;
 public interface ValidationAnnotationUtil {
 
     String CONSTRAINT_VALIDATED_BY = "$validatedBy";
+    String CONSTRAINT_TYPE = "$constraintType";
 
 }

@@ -11,6 +11,7 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
 import io.micronaut.validation.annotation.ValidatedElement
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
+import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 
 import javax.annotation.processing.SupportedAnnotationTypes
@@ -58,6 +59,7 @@ import static java.lang.annotation.ElementType.*;
 
 @io.micronaut.core.annotation.Introspected
 public class Foo {
+    @io.micronaut.core.annotation.ReflectiveAccess
     private List<@Min(10) @SomeAnn Long> value;
 
     public List<Long> getValue() {
@@ -485,9 +487,11 @@ import java.net.URL;
 public class ValidatedConfig {
 
     @NotNull
+    @io.micronaut.core.annotation.ReflectiveAccess
     URL url;
 
     @NotBlank
+    @io.micronaut.core.annotation.ReflectiveAccess
     protected String name;
 
     public URL getUrl() {
@@ -530,9 +534,11 @@ import java.net.URL;
 public class ValidatedConfig {
 
     @NotNull
+    @io.micronaut.core.annotation.ReflectiveAccess
     URL url;
 
     @NotBlank
+    @io.micronaut.core.annotation.ReflectiveAccess
     protected String name;
 
     public URL readUrl() {
@@ -639,6 +645,7 @@ import java.util.Set;
 
 @Introspected
 public class Test {
+    @io.micronaut.core.annotation.ReflectiveAccess
     List<@Size(min=1, max=2) List<@NotEmpty List<@NotNull String>>> deepList;
     List<List<List<List<List<List<String>>>>>> deepList2;
 
@@ -676,6 +683,7 @@ class Address {
     @NotBlank(groups = GroupOne.class)
     @NotBlank(groups = GroupThree.class, message = "different message")
     @Size(min = 5, max = 20, groups = GroupTwo.class)
+    @io.micronaut.core.annotation.ReflectiveAccess
     private String street;
 
     public String getStreet() {
@@ -713,8 +721,10 @@ class Author {
 class Book {
 
     @Size(min=2)
+    @io.micronaut.core.annotation.ReflectiveAccess
     private String name;
 
+    @io.micronaut.core.annotation.ReflectiveAccess
     private List<@Valid Author> authors;
 
     public Book(String name) {
@@ -757,7 +767,7 @@ class Book {
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new ConfigurationReaderVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new ConfigurationReaderVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }

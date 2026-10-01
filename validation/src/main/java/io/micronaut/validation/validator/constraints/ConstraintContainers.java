@@ -20,9 +20,9 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
-import io.micronaut.core.reflect.ClassUtils;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
 import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
@@ -32,24 +32,23 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * The constraints of an annotation metadata, including the ones repeated inside a Bean Validation style
- * container: an annotation holding the constraints, typically the nested {@code List} predating {@code @Repeatable}.
- * The generated metadata stores such a container as an ordinary annotation, the contained constraints are
- * read from its {@code value}.
+ * The constraints of an annotation metadata, including the ones repeated inside a Bean Validation
+ * style container: an annotation holding the constraints, typically the nested {@code List}
+ * predating {@code @Repeatable}. The generated metadata stores such a container as an ordinary
+ * annotation, the contained constraints are read from its {@code value}.
  *
  * @since 5.0.0
  */
 @Internal
 public final class ConstraintContainers {
 
-    private ConstraintContainers() {
-    }
+    private ConstraintContainers() { }
 
     /**
      * Whether the metadata carries a constraint, by stereotype or inside a container.
      *
      * @param annotationMetadata The metadata
-     * @param classLoader        The loader of the constraint types
+     * @param classLoader The loader of the constraint types
      * @return Whether there is a constraint
      */
     public static boolean hasConstraints(@NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
@@ -65,7 +64,8 @@ public final class ConstraintContainers {
     }
 
     /**
-     * Whether the metadata carries a constraint, with the constraint types loaded by the context class loader.
+     * Whether the metadata carries a constraint, with the constraint types loaded by the context
+     * class loader.
      *
      * @param annotationMetadata The metadata
      * @return Whether there is a constraint
@@ -75,33 +75,39 @@ public final class ConstraintContainers {
     }
 
     /**
-     * The constraint types of the metadata: the ones found by stereotype and the ones inside containers.
+     * The constraint types of the metadata: the ones found by stereotype and the ones inside
+     * containers.
      *
      * @param annotationMetadata The metadata
-     * @param classLoader        The loader of the constraint types
+     * @param classLoader The loader of the constraint types
      * @return The constraint types
      */
     @NonNull
     @SuppressWarnings("unchecked")
     public static Set<Class<? extends Annotation>> constraintTypes(@NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
-        // the names are resolved one by one instead of by AnnotationMetadata#getAnnotationTypesByStereotype:
-        // the shared registry of the annotation types keeps the first class seen under a name, and a type
-        // deployed several times in different class loaders — the archives of a test suite — has to be the
+        // the names are resolved one by one instead of by
+        // AnnotationMetadata#getAnnotationTypesByStereotype:
+        // the shared registry of the annotation types keeps the first class seen under a name, and
+        // a type
+        // deployed several times in different class loaders — the archives of a test suite — has to
+        // be the
         // one of the loader asking
         Set<Class<? extends Annotation>> types = new LinkedHashSet<>();
         for (String name : constraintNames(annotationMetadata, classLoader)) {
-            ClassUtils.forName(name, classLoader)
-                .filter(Class::isAnnotation)
-                .ifPresent(type -> types.add((Class<? extends Annotation>) type));
+            var values = annotationMetadata.getAnnotationValuesByName(name);
+            AnnotationValue<?> occurrence =
+                    values.isEmpty() ? AnnotationValue.builder(name).build() : values.getFirst();
+            types.add(constraintType(occurrence, classLoader));
         }
         return types;
     }
 
     /**
-     * The constraint names of the metadata: the ones found by stereotype and the ones inside containers.
+     * The constraint names of the metadata: the ones found by stereotype and the ones inside
+     * containers.
      *
      * @param annotationMetadata The metadata
-     * @param classLoader        The loader of the constraint types
+     * @param classLoader The loader of the constraint types
      * @return The constraint names
      */
     @NonNull
@@ -117,10 +123,11 @@ public final class ConstraintContainers {
     }
 
     /**
-     * The values of a constraint: the repeated ones, else the declared ones, else the ones of its container.
+     * The values of a constraint: the repeated ones, else the declared ones, else the ones of its
+     * container.
      *
      * @param annotationMetadata The metadata
-     * @param constraintType     The constraint type
+     * @param constraintType The constraint type
      * @return The values, empty when the constraint is absent
      */
     @NonNull
@@ -146,12 +153,14 @@ public final class ConstraintContainers {
     }
 
     /**
-     * The processor records the validators of a constraint in its value; a constraint nested in a container
-     * or composing another is recorded as it is written, its validators are read from its definition.
+     * The processor records the validators of a constraint in its value; a constraint nested in a
+     * container or composing another is recorded as it is written, its validators are read from its
+     * definition.
      *
-     * @param value          The constraint value
+     * @param value The constraint value
      * @param constraintType The constraint type
-     * @return The value with the validators of the constraint definition, the given one when it has them
+     * @return The value with the validators of the constraint definition, the given one when it has
+     * them
      */
     @NonNull
     public static AnnotationValue<? extends Annotation> withValidators(@NonNull AnnotationValue<? extends Annotation> value,
@@ -163,8 +172,9 @@ public final class ConstraintContainers {
     }
 
     /**
-     * The constraint a container holds: an annotation whose {@code value} is a list of constraints of one type,
-     * whatever its name — {@code X.List} by convention, though a container is free to be named otherwise.
+     * The constraint a container holds: an annotation whose {@code value} is a list of constraints
+     * of one type, whatever its name — {@code X.List} by convention, though a container is free to
+     * be named otherwise.
      */
     @Nullable
     private static Class<? extends Annotation> containedConstraintType(AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
@@ -177,16 +187,47 @@ public final class ConstraintContainers {
             return null;
         }
         AnnotationValue<Annotation> first = contained.get(0);
-        return ClassUtils.forName(first.getAnnotationName(), classLoader)
-            .filter(type -> type.isAnnotation() && isConstraint(first, type))
-            .<Class<? extends Annotation>>map(type -> (Class<? extends Annotation>) type)
-            .orElse(null);
+        var generated = GeneratedAnnotationFactories.definition(first.getAnnotationName());
+        if (generated != null) {
+            return generated.type();
+        }
+        if (first.annotationClassValues(ValidationAnnotationUtil.CONSTRAINT_TYPE).length == 0
+                && !ReflectionSupport.get().isReflectionEnabled()) {
+            return null;
+        }
+        Class<? extends Annotation> type = constraintType(first, classLoader);
+        return isConstraint(first, type) ? type : null;
     }
 
     /**
-     * Whether an occurrence is one of a constraint: the contract is retained on it, which the annotation
-     * processor sees to, and only metadata described reflectively - which records no stereotypes - has the
-     * annotation type read for it.
+     * Resolves a constraint through a compile-time class reference or the optional provider.
+     *
+     * @param value The occurrence
+     * @param classLoader The application's loader
+     * @return Its annotation interface
+     */
+    @SuppressWarnings("unchecked")
+    public static Class<? extends Annotation> constraintType(
+            AnnotationValue<?> value, ClassLoader classLoader) {
+        for (var reference :
+                value.annotationClassValues(ValidationAnnotationUtil.CONSTRAINT_TYPE)) {
+            Class<?> type = reference.getType().orElse(null);
+            if (type != null) {
+                return (Class<? extends Annotation>) type;
+            }
+        }
+        var generated = GeneratedAnnotationFactories.definition(value.getAnnotationName());
+        if (generated != null) {
+            return generated.type();
+        }
+        return (Class<? extends Annotation>)
+                ReflectionSupport.get().classForName(value.getAnnotationName(), classLoader);
+    }
+
+    /**
+     * Whether an occurrence is one of a constraint: the contract is retained on it, which the
+     * annotation processor sees to, and only metadata described reflectively - which records no
+     * stereotypes - has the annotation type read for it.
      */
     private static boolean isConstraint(AnnotationValue<?> occurrence, Class<?> annotationType) {
         List<AnnotationValue<?>> stereotypes = occurrence.getStereotypes();

@@ -1,3 +1,4 @@
 io.micronaut.validation.visitor.ValidationVisitor
 io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 io.micronaut.validation.visitor.ConstraintValidatorTypesVisitor
+io.micronaut.validation.visitor.GeneratedAnnotationVisitor

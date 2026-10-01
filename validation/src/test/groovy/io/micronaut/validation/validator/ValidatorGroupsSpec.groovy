@@ -7,6 +7,7 @@ import io.micronaut.context.ApplicationContext
 import io.micronaut.core.annotation.Introspected
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
+import io.micronaut.validation.visitor.GeneratedAnnotationVisitor
 import io.micronaut.validation.visitor.ValidationVisitor
 import io.micronaut.validation.visitor.IntrospectedValidationIndexesVisitor
 import spock.lang.AutoCleanup
@@ -101,6 +102,7 @@ class Address {
     @NotBlank(groups = GroupOne.class)
     @NotBlank(groups = GroupThree.class, message = "different message")
     @Size(min = 5, max = 20, groups = GroupTwo.class)
+    @io.micronaut.core.annotation.ReflectiveAccess
     private String street;
 
     public String getStreet() {
@@ -131,7 +133,7 @@ interface GroupThree {}
     static class MyTypeElementVisitorProcessor extends TypeElementVisitorProcessor {
         @Override
         protected Collection<TypeElementVisitor> findTypeElementVisitors() {
-            return [new ValidationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
+            return [new ValidationVisitor(), new GeneratedAnnotationVisitor(), new IntrospectedValidationIndexesVisitor(), new IntrospectedTypeElementVisitor()]
         }
     }
 }
@@ -142,6 +144,7 @@ class Address {
     @NotBlank(groups = GroupThree, message = "different message")
     @NotBlank(message = "message for default")
     @Size(min = 5, max = 20, groups = GroupTwo)
+    @io.micronaut.core.annotation.ReflectiveAccess
     String street
 }
 
@@ -154,11 +157,14 @@ interface InheritedGroup extends Default, GroupTwo {}
 class AddressTwo {
 
     @NotEmpty(groups = GroupOne.class)
+    @io.micronaut.core.annotation.ReflectiveAccess
     String street
 
     @NotEmpty
+    @io.micronaut.core.annotation.ReflectiveAccess
     String city
 
     @NotEmpty(groups = [GroupOne.class, Default.class])
+    @io.micronaut.core.annotation.ReflectiveAccess
     String zipCode
 }

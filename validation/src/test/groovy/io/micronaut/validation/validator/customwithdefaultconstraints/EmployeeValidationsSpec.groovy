@@ -139,6 +139,7 @@ class Employee {
 
     @Valid
     @NotNull
+    @io.micronaut.core.annotation.ReflectiveAccess
     private Designation designation
 
     @EmployeeExperienceConstraint
@@ -180,6 +181,7 @@ class Employee {
 class Designation {
 
     @NotEmpty
+    @io.micronaut.core.annotation.ReflectiveAccess
     private String name
 
     String getName() {

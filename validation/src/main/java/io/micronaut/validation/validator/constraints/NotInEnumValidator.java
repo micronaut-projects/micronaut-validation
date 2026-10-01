@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.validation.validator.metadata.GeneratedAnnotationFactories;
+
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -23,9 +25,7 @@ import io.micronaut.validation.annotation.NotInEnum;
 import jakarta.inject.Singleton;
 
 
-/**
- * Validator for the {@link NotInEnum} constraint.
- */
+/** Validator for the {@link NotInEnum} constraint. */
 @Singleton
 @Introspected
 public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object> {
@@ -49,8 +49,8 @@ public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
 
-            Enum<?>[] constants = enumClass.getEnumConstants();
-            if (constants == null) {
+            var constants = GeneratedAnnotationFactories.enumConstants(enumClass);
+            if (constants.isEmpty()) {
                 return true; // Invalid enum class, pass validation
             }
             for (Enum<?> constant : constants) {

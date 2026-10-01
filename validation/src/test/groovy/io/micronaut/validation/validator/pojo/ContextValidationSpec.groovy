@@ -44,6 +44,7 @@ class FavoriteWebs2 {
     boolean touched = false
 
     @ValidURLs
+    @io.micronaut.core.annotation.ReflectiveAccess
     List<String> webs
 
 }

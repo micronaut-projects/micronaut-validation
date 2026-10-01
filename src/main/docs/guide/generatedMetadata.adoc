@@ -1,0 +1,45 @@
+Micronaut Validation 5.3 requires Micronaut core 5.3 or later. Development uses the matching core 5.3 snapshot; release builds use the corresponding release.
+
+The default runtime includes the internal `micronaut-validation-metadata` artifact, which generates concrete standard Jakarta constraint annotations and their defaults. Application processors generate custom constraints and model declarations.
+
+Validation keeps Micronaut `Argument` information through constraints, container extraction, and executable inheritance: annotations, nested generic arguments, raw types, wildcard bounds, and resolved type variables. Compile with `micronaut-validation-processor` to generate declaration-specific bean introspections, executable metadata, group hierarchies, constraint definitions, and concrete annotation implementations.
+
+== Field and Getter Access
+
+An accessible field uses generated field access. A getter uses generated invocation. If both declarations carry constraints, each declaration is validated against its own value. Distinct violations are retained even when their paths and messages are equal. A record component is validated as its field during bean validation; its accessor remains available for executable return-value validation.
+
+An inaccessible field can authorize its own reflective read by carrying `io.micronaut.core.annotation.ReflectiveAccess`. This narrow exception belongs to the field itself: annotating the bean type or setting `@Introspected(visibility = ANY)` does not authorize it. Native-image registration for an annotated field is generated during compilation.
+
+An inaccessible, unannotated field fails with a `ValidationException` describing the missing capability. Validation does not substitute its getter. Either authorize the field explicitly or add the optional provider:
+
+dependency:micronaut-validation-reflection[groupId="io.micronaut.validation"]
+
+The provider permits runtime discovery and invocation when generated metadata is unavailable. The system property `micronaut.validation.reflection.enabled=false` selects generated descriptions for the compatibility test profile; it does not remove modules from the classpath. To enforce absence of runtime reflection capabilities, exclude both `micronaut-validation-reflection` and core `micronaut-reflection` from the runtime classpath.
+
+== Jakarta Signatures and Optional Modules
+
+Jakarta operations accepting a caller-supplied `Method` or `Constructor` retain their signatures. Validation resolves their generated executable metadata. Operations that need to discover a runtime member require the reflection provider if metadata is unavailable. Ordinary Micronaut interception uses generated executable APIs.
+
+Bootstrap and XML modules do not automatically add the reflection provider. They use generated metadata and request missing reflective capabilities through the provider. The `micronaut-validation-jakarta` aggregate explicitly includes reflection for comprehensive Jakarta compatibility.
+
+The restricted TCK profile retains one measured exclusion: core constructor metadata for a non-static inner class omits its implicit enclosing-instance parameter. The full Jakarta stack passes that test through the optional provider.
+
+== Maintainer Verification
+
+Production compilation treats NoReflection and NullAway diagnostics as errors. Compiler fixtures also prove that generated Java cannot bypass these gates. A separate worker classpath verifies the default stack without either reflection module.
+
+The differential test suite uses Hibernate Validator 9.1.4.Final as a reference and Jakarta Validation 3.1 as the authority. It replays saved regressions and performs 2,000 generated comparisons during `check`. Run a larger campaign manually:
+
+[source,bash]
+----
+./gradlew :micronaut-tests:micronaut-validation-differential:fuzzCampaign -PfuzzSeed=631530 -PfuzzCount=50000
+----
+
+Campaigns have a 30-minute deadline, configurable with `-PfuzzLimitMinutes`. Interrupted or timed-out campaigns are incomplete. Reproductions and campaign status are written under `tests/validation-differential/build/differential`; no recurring campaign is scheduled.
+
+Run the native access smoke test with a GraalVM installation:
+
+[source,bash]
+----
+GRAALVM_HOME=/path/to/graalvm ./gradlew :micronaut-validation:nativeSmoke
+----

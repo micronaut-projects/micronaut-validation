@@ -9,6 +9,7 @@ import spock.lang.Specification
 class DisableDefaultConstraintViolationSpec extends Specification {
 
     @Inject
+    @io.micronaut.core.annotation.ReflectiveAccess
     Validator validator
 
     void "test disableDefaultConstraintViolation"() {

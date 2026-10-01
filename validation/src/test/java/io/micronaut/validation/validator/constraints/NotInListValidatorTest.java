@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -47,15 +49,19 @@ class NotInListValidatorTest {
     @Introspected
     static class TestPojo {
         @NotInList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private String field;
 
         @NotInList(value = {"ONE", "TWO"}, caseSensitive = false)
+        @ReflectiveAccess
         private String caseInsensitiveField;
 
         @NotInList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private TestEnum enumField;
 
         @NotInList(value = {"ONE", "TWO"})
+        @ReflectiveAccess
         private Integer intField;
 
         public TestPojo(String field, String caseInsensitiveField, TestEnum enumField, Integer intField) {
@@ -108,10 +114,10 @@ class NotInListValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@NotInList(value = {"ONE", "TWO"}) String component,
-                      @NotInList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
-                      @NotInList(value = {"ONE", "TWO"}) TestEnum enumComponent,
-                      @NotInList(value = {"ONE", "TWO"}) Integer intComponent) {}
+    record TestRecord(@ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) String component,
+                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}, caseSensitive = false) String caseInsensitiveComponent,
+                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) TestEnum enumComponent,
+                      @ReflectiveAccess @NotInList(value = {"ONE", "TWO"}) Integer intComponent) {}
 
     @Test
     void testRecordValidation() {

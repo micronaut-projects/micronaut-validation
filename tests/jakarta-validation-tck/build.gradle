@@ -79,7 +79,8 @@ def registerTckTask = { String taskName, String descriptionText, String suiteNam
         testClassesDirs = sourceSets.test.output.classesDirs
         classpath = sourceSets.test.runtimeClasspath + jakartaTckRuntimeClasspath + tckArchiveClasspath
         useTestNG {
-            suites file(suiteName)
+            suites file(taskName == 'jakartaTckIntrospection'
+                ? providers.gradleProperty('tckIntrospectionSuite').getOrElse(suiteName) : suiteName)
         }
         // set after useTestNG: assigning systemProperties inside that block replaces the whole map
         systemProperty 'validation.provider', 'io.micronaut.validation.bootstrap.MicronautValidationProvider'

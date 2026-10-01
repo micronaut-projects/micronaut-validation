@@ -27,9 +27,9 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 
 /**
- * An {@link ExecutableMethod} over the {@link BeanMethod} of a bean introspection, for the specification API
- * that names a method by its {@link Method}: the arguments and the metadata are the ones the introspection
- * carries, and the method itself is the one the caller gave.
+ * An {@link ExecutableMethod} over the {@link BeanMethod} of a bean introspection, for the
+ * specification API that names a method by its {@link Method}: the arguments and the metadata are
+ * the ones the introspection carries, and the method itself is the one the caller gave.
  *
  * @param <T> The declaring type
  * @param <R> The return type
@@ -72,6 +72,10 @@ final class IntrospectedExecutable<T, R> implements ExecutableMethod<T, R> {
     @Override
     public ReturnType<R> getReturnType() {
         return beanMethod.getReturnType();
+    }
+
+    Method suppliedMethod() {
+        return method;
     }
 
     @Override

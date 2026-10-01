@@ -43,6 +43,10 @@ final class BootstrapValidatorFactory extends DefaultValidatorFactory {
 
     @Override
     public void close() {
-        applicationContext.close();
+        try {
+            super.close();
+        } finally {
+            applicationContext.close();
+        }
     }
 }

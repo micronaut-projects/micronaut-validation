@@ -155,7 +155,7 @@ final class ReflectedConstraintDefinitions {
     private static Class<?> validatedType(Class<?> validator) {
         // the second type argument of ConstraintValidator through every level between: a base leaving it open and a
         // sub type binding it is read as the type the sub type binds
-        Argument<?> signature = ReflectionGenericArguments.resolveGenericToArgument(validator, jakarta.validation.ConstraintValidator.class);
+        Argument<?> signature = io.micronaut.reflection.ReflectionArguments.resolveGenericToArgument(validator, jakarta.validation.ConstraintValidator.class);
         Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
         return typeParameters.length == 2 ? typeParameters[1].getType() : Object.class;
     }

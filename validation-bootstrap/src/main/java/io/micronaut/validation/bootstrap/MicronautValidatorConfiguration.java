@@ -21,14 +21,12 @@ import io.micronaut.context.env.PropertySource;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.DefaultValidator;
-import io.micronaut.validation.reflection.ReflectiveValidation;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
+import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import io.micronaut.validation.validator.messages.DefaultMessages;
-import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Configuration;
@@ -53,24 +51,25 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
- * Internal Jakarta Validation {@link Configuration} implementation used by
- * {@link MicronautValidationProvider} during ServiceLoader bootstrap.
+ * Internal Jakarta Validation {@link Configuration} implementation used by {@link
+ * MicronautValidationProvider} during ServiceLoader bootstrap.
  *
  * @since 5.1
  */
 @Internal
-public final class MicronautValidatorConfiguration implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
+public final class MicronautValidatorConfiguration
+        implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
 
     /**
-     * The system property that turns the reflective description of the types without a generated bean
-     * introspection off. It is on by default; a deployment that wants generated metadata only — a native
-     * image, typically — sets it to {@code false} and validates what the annotation processor produced.
+     * The system property that turns the reflective description of the types without a generated
+     * bean introspection off. It is on by default; a deployment that wants generated metadata only
+     * — a native image, typically — sets it to {@code false} and validates what the annotation
+     * processor produced.
      */
-    public static final String REFLECTION_ENABLED = ReflectiveValidation.ENABLED;
+    public static final String REFLECTION_ENABLED = "micronaut.validation.reflection.enabled";
 
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
     private static final Set<String> BOOTSTRAP_PACKAGES = Set.of(
@@ -111,9 +110,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     private boolean parameterNameProviderConfigured;
     private boolean clockProviderConfigured;
 
-    /**
-     * Creates a configuration.
-     */
+    /** Creates a configuration. */
     public MicronautValidatorConfiguration() {
         this(null, true);
     }
@@ -127,9 +124,8 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         }
         this.classLoader = classLoader;
         defaults.setBeanIntrospector(BeanIntrospector.forClassLoader(classLoader));
-        bootstrapConfiguration = ServiceLoader.load(BootstrapConfigurationLoader.class, classLoader)
+        bootstrapConfiguration = BootstrapServiceDiscovery.services(BootstrapConfigurationLoader.class, classLoader)
             .stream()
-            .map(ServiceLoader.Provider::get)
             .map(loader -> loader.load(this.classLoader))
             .flatMap(Optional::stream)
             .findFirst()
@@ -266,12 +262,23 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         for (byte[] mappingStream : mappingStreams) {
             streams.add(new ByteArrayInputStream(mappingStream));
         }
-        if (!ignoreXmlConfiguration) {
+        try {
+            if (!ignoreXmlConfiguration) {
             for (String mappingPath : bootstrapConfiguration.getConstraintMappingResourcePaths()) {
                 streams.add(getConstraintMappingResource(mappingPath));
             }
         }
         return Set.copyOf(streams);
+        } catch (RuntimeException failure) {
+            for (InputStream stream : streams) {
+                try {
+                    stream.close();
+                } catch (IOException cleanup) {
+                    failure.addSuppressed(cleanup);
+                }
+            }
+            throw failure;
+        }
     }
 
     private InputStream getConstraintMappingResource(String mappingPath) {
@@ -359,8 +366,10 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         Map<String, Object> configurationProperties = new LinkedHashMap<>(configurationState.getProperties());
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
-        // the generated introspections of the application, supplemented by the reflection bridge of micronaut-core for
-        // the types without one: the validator reads them, the factory instantiates the constraint validators through them
+        // the generated introspections of the application, supplemented by the reflection bridge of
+        // micronaut-core for
+        // the types without one: the validator reads them, the factory instantiates the constraint
+        // validators through them
         BeanIntrospector beanIntrospector = supplemented(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
         validatorConfiguration.setBeanIntrospector(beanIntrospector);
         validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(beanIntrospector, applicationContext));
@@ -405,7 +414,7 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
     }
 
     private void applyValueExtractors(DefaultValidatorConfiguration validatorConfiguration) {
-        ServiceLoader.load(ValueExtractor.class, classLoader)
+        BootstrapServiceDiscovery.services(ValueExtractor.class, classLoader)
             .forEach(validatorConfiguration::addValueExtractor);
         if (!ignoreXmlConfiguration) {
             DefaultValidatorConfiguration xmlDuplicateCheck = new DefaultValidatorConfiguration();
@@ -492,35 +501,36 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
             return bootstrapState.getDefaultValidationProviderResolver().getValidationProviders();
         }
         List<jakarta.validation.spi.ValidationProvider<?>> providers = new ArrayList<>();
-        ServiceLoader.load(jakarta.validation.spi.ValidationProvider.class, classLoader)
+        BootstrapServiceDiscovery.services(jakarta.validation.spi.ValidationProvider.class, classLoader)
             .forEach(providers::add);
         return providers;
     }
 
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
         if (validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration
-            && !ReflectiveValidation.isSupplemented(defaultConfiguration.getBeanIntrospector())) {
+            && !ReflectionSupport.get()
+                        .isSupplemented(defaultConfiguration.getBeanIntrospector())) {
             defaultConfiguration.setBeanIntrospector(supplemented(defaultConfiguration.getBeanIntrospector()));
         }
         return new DefaultValidator(validatorConfiguration);
     }
 
     /**
-     * The generated introspections, supplemented by the reflection bridge of micronaut-core for the types
-     * without one, unless {@link #REFLECTION_ENABLED} says otherwise.
+     * The generated introspections, supplemented by the reflection bridge of micronaut-core for the
+     * types without one, unless {@link #REFLECTION_ENABLED} says otherwise.
      *
      * @param beanIntrospector The introspector of the generated introspections
      * @return The introspector the validator reads
      */
     public static BeanIntrospector supplemented(BeanIntrospector beanIntrospector) {
-        return ReflectiveValidation.supplemented(beanIntrospector);
+        return ReflectionSupport.get().supplemented(beanIntrospector);
     }
 
     /**
      * @return Whether the types without a generated introspection are described reflectively
      */
     public static boolean isReflectionEnabled() {
-        return ReflectiveValidation.isEnabled();
+        return ReflectionSupport.get().isReflectionEnabled();
     }
 
     static ApplicationContext createBootstrapContext(Map<String, Object> properties) {
@@ -557,55 +567,53 @@ public final class MicronautValidatorConfiguration implements Configuration<Micr
         return BOOTSTRAP_PACKAGES.stream().anyMatch(name::startsWith);
     }
 
-    private static boolean isPresent(String className) {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        if (classLoader == null) {
-            classLoader = MicronautValidatorConfiguration.class.getClassLoader();
-        }
-        try {
-            Class.forName(className, false, classLoader);
-            return true;
-        } catch (ClassNotFoundException e) {
-            return false;
-        }
-    }
-
     private static Optional<ValidationMetadataProvider> xmlMappingMetadataProvider(ClassLoader classLoader, Set<InputStream> mappingStreams) {
         if (mappingStreams.isEmpty()) {
             return Optional.empty();
         }
-        try {
-            Class<?> providerClass = Class.forName("io.micronaut.validation.xml.XmlValidationMetadataProvider", true, classLoader);
-            return Optional.of((ValidationMetadataProvider) providerClass
-                .getConstructor(ClassLoader.class, Set.class) // reflection: the XML module, present or not
-                .newInstance(classLoader, mappingStreams));
-        } catch (ClassNotFoundException e) {
-            return Optional.empty();
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize XML validation metadata provider", e);
+        MappingMetadataFactory factory =
+                BootstrapServiceDiscovery.mappingFactory(classLoader)
+                        .orElse(null);
+        if (factory == null) {
+            ValidationException failure =
+                    new ValidationException(
+                            "XML constraint mappings require micronaut-validation-xml");
+            for (InputStream stream : mappingStreams) {
+                try {
+                    stream.close();
+                } catch (IOException e) {
+                    failure.addSuppressed(e);
+                }
+            }
+            throw failure;
         }
+        return Optional.of(factory.create(classLoader, mappingStreams));
     }
 
     private Optional<MessageInterpolator> createElMessageInterpolator() {
-        try {
-            Class<?> interpolatorType = Class.forName("io.micronaut.validation.el.ElMessageInterpolator", true, classLoader);
-            return Optional.of((MessageInterpolator) interpolatorType
-                .getConstructor(io.micronaut.context.MessageSource.class, InterpolatorLocaleResolver.class) // reflection: the Jakarta EL interpolator, present or not
-                .newInstance(new DefaultMessages(), null));
-        } catch (ClassNotFoundException e) {
-            return Optional.empty();
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize Jakarta EL message interpolator", e);
-        }
+        return BootstrapServiceDiscovery.interpolators(classLoader)
+                .stream()
+                .map(provider -> provider.create(classLoader))
+                .flatMap(Optional::stream)
+                .findFirst();
     }
 
     private <T> T instantiate(String className, Class<T> type) {
-        try {
-            Class<?> loadedClass = Class.forName(className, true, classLoader);
-            return type.cast(loadedClass.getDeclaredConstructor().newInstance()); // reflection: a class validation.xml names
-        } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot instantiate validation bootstrap class: " + className, e);
+        var introspection =
+                BeanIntrospector.forClassLoader(classLoader)
+                        .findIntrospections(reference -> reference.getName().equals(className))
+                        .stream()
+                        .findFirst()
+                        .orElse(null);
+        Object instance =
+                introspection == null
+                        ? ReflectionSupport.get().instantiate(className, classLoader)
+                        : introspection.instantiate();
+        if (instance == null) {
+            throw new ValidationException(
+                    "No constructor is available for bootstrap class: " + className);
         }
+        return type.cast(instance);
     }
 
     private final class DefaultBootstrapState implements BootstrapState {

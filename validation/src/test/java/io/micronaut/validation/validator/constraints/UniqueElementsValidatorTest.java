@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation.validator.constraints;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import io.micronaut.validation.Validated;
@@ -44,15 +46,19 @@ class UniqueElementsValidatorTest {
     @Introspected
     static class TestPojo {
         @UniqueElements
+        @ReflectiveAccess
         private List<String> stringList;
 
         @UniqueElements
+        @ReflectiveAccess
         private String[] stringArray;
 
         @UniqueElements
+        @ReflectiveAccess
         private int[] intArray;
 
         @UniqueElements
+        @ReflectiveAccess
         private Integer nonCollection;
 
         public TestPojo(List<String> stringList, String[] stringArray, int[] intArray, Integer nonCollection) {
@@ -124,10 +130,10 @@ class UniqueElementsValidatorTest {
 
     // Test for record types
     @Introspected
-    record TestRecord(@UniqueElements List<String> stringList,
-                      @UniqueElements String[] stringArray,
-                      @UniqueElements int[] intArray,
-                      @UniqueElements Integer nonCollection) {}
+    record TestRecord(@ReflectiveAccess @UniqueElements List<String> stringList,
+                      @ReflectiveAccess @UniqueElements String[] stringArray,
+                      @ReflectiveAccess @UniqueElements int[] intArray,
+                      @ReflectiveAccess @UniqueElements Integer nonCollection) {}
 
     @Test
     void testRecordValidation() {

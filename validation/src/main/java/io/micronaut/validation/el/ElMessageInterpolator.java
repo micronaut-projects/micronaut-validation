@@ -32,9 +32,7 @@ import java.util.HashMap;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.Map;
-import java.util.MissingResourceException;
 import java.util.Optional;
-import java.util.ResourceBundle;
 
 /**
  * Internal Jakarta EL-backed message interpolator used only when the optional
@@ -155,15 +153,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     }
 
     private static Optional<String> findUserMessage(String variableName, Locale locale) {
-        try {
-            ResourceBundle bundle = ResourceBundle.getBundle("ValidationMessages", locale, Thread.currentThread().getContextClassLoader());
-            if (bundle.containsKey(variableName)) {
-                return Optional.of(bundle.getString(variableName));
-            }
-        } catch (MissingResourceException e) {
-            return Optional.empty();
-        }
-        return Optional.empty();
+        return ValidationMessageBundleLoader.find(variableName, locale);
     }
 
     private String evaluateExpression(String expression, Context context, Locale locale) {

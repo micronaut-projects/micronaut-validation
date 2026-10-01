@@ -75,6 +75,7 @@ class IntrospectionOnlySpec extends Specification {
     @Introspected(accessKind = [Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD], visibility = Introspected.Visibility.ANY)
     static class Base {
         @NotNull
+        @io.micronaut.core.annotation.ReflectiveAccess
         private String base
 
         String getBase() { base }

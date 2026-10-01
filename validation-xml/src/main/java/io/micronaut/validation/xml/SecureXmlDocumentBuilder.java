@@ -23,6 +23,7 @@ import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.FilterInputStream;
 
 /**
  * Internal secure DOM parser setup for Jakarta Validation XML documents.
@@ -52,7 +53,7 @@ final class SecureXmlDocumentBuilder {
      * parser settings
      */
     static Document parse(InputStream inputStream) throws ParserConfigurationException, IOException, SAXException {
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+        DocumentBuilderFactory factory = DocumentBuilderFactory.newDefaultInstance();
         factory.setNamespaceAware(true);
         factory.setXIncludeAware(false);
         factory.setExpandEntityReferences(false);
@@ -63,6 +64,11 @@ final class SecureXmlDocumentBuilder {
         factory.setFeature("http://apache.org/xml/features/nonvalidating/load-external-dtd", false);
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_DTD, "");
         factory.setAttribute(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
-        return factory.newDocumentBuilder().parse(inputStream);
+        return factory.newDocumentBuilder().parse(new FilterInputStream(inputStream) {
+            @Override
+            public void close() {
+                // The component that owns the resource closes it once, on success or failure.
+            }
+        });
     }
 }

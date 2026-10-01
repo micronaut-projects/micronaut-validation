@@ -17,6 +17,7 @@ import jakarta.validation.Valid
 @ServerWebSocket('/validated')
 class WebSocketValidationServerHandler {
     @Inject
+    @io.micronaut.core.annotation.ReflectiveAccess
     WebSocketClientValidationSpec.HolderBean holderBean
 
     @OnOpen

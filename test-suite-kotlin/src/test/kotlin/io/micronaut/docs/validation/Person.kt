@@ -17,12 +17,13 @@ package io.micronaut.docs.validation
 
 // tag::class[]
 import io.micronaut.core.annotation.Introspected
+import io.micronaut.core.annotation.ReflectiveAccess
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotBlank
 
 @Introspected
 data class Person(
-    @field:NotBlank var name: String,
-    @field:Min(18) var age: Int
+    @field:ReflectiveAccess @field:NotBlank var name: String,
+    @field:ReflectiveAccess @field:Min(18) var age: Int
 )
 // end::class[]

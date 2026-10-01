@@ -1,5 +1,7 @@
 package io.micronaut.validation.validator.introspection;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.constraints.Max;
@@ -13,9 +15,11 @@ import jakarta.validation.constraints.Size;
 public class Parent {
 
     @Max(value = 10, groups = Minimal.class)
+    @ReflectiveAccess
     private int size = 20;
 
     @Size(max = 3)
+    @ReflectiveAccess
     private String name = "too long";
 
     public int getSize() {

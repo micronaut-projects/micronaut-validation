@@ -1,5 +1,7 @@
 package io.micronaut.docs.validation.path.model;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -11,11 +13,13 @@ public final class Listener {
     private final String description;
 
     @Valid
+    @ReflectiveAccess
     private final
     List<Condition> conditions;
 
     @Valid
     @NotEmpty
+    @ReflectiveAccess
     private final
     List<Task> tasks;
 
@@ -47,6 +51,7 @@ public final class Listener {
 
     public static class ListenerBuilder {
         private String description;
+        @ReflectiveAccess
         private @Valid List<Condition> conditions;
         private @Valid
         @NotEmpty List<Task> tasks;

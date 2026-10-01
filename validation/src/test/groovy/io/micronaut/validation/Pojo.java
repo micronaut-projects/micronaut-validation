@@ -15,6 +15,8 @@
  */
 package io.micronaut.validation;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 
 import jakarta.validation.constraints.Email;
@@ -25,9 +27,11 @@ import jakarta.validation.constraints.NotBlank;
 public class Pojo {
 
     @Email(message = "Email should be valid")
+    @ReflectiveAccess
     private String email;
 
     @NotBlank
+    @ReflectiveAccess
     private String name;
 
     public String getEmail() {

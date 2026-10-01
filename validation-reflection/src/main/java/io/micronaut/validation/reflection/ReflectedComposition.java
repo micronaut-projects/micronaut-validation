@@ -124,7 +124,8 @@ final class ReflectedComposition {
         if (validationAppliesTo != ConstraintTarget.IMPLICIT && hasMember(annotationType, ATTRIBUTE_VALIDATION_APPLIES_TO)) {
             values.put(ATTRIBUTE_VALIDATION_APPLIES_TO, validationAppliesTo);
         }
-        values.put(ATTRIBUTE_GROUPS, parentAnnotationValue.classValues(ATTRIBUTE_GROUPS));
+        Class<?>[] parentGroups = parentAnnotationValue.classValues(ATTRIBUTE_GROUPS);
+        values.put(ATTRIBUTE_GROUPS, parentGroups.length == 0 ? new Class<?>[]{jakarta.validation.groups.Default.class} : parentGroups);
         values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
             new AnnotationValue<>(annotationType.getName(), values, ReflectionAnnotations.defaultValues(annotationType)),
@@ -181,9 +182,7 @@ final class ReflectedComposition {
         }
     }
 
-    /**
-     * An overriding member has the type of the member it overrides.
-     */
+    /** An overriding member has the type of the member it overrides. */
     private static void checkOverride(Method method, Object value, Class<? extends Annotation> composingType, String memberName) {
         Method member;
         try {
@@ -274,9 +273,7 @@ final class ReflectedComposition {
         return attributes;
     }
 
-    /**
-     * The constraints a repeatable container composes: the annotations the container holds that are constraints.
-     */
+    /** The constraints a repeatable container composes: the annotations the container holds that are constraints. */
     private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
         List<Annotation> constraints = new ArrayList<>();
         for (Annotation repeatedAnnotation : ReflectionAnnotations.contained(annotation)) {
