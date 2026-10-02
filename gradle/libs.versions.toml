@@ -19,7 +19,6 @@ micronaut-rxjava3 = "4.1.0"
 micronaut-kotlin = "5.1.0"
 
 jmh = "1.37"
-hibernate-validator = "9.1.4.Final"
 
 # gradle plugins
 micronaut-gradle-plugin = "5.0.2"
@@ -37,7 +36,6 @@ micronaut-rxjava3 = { module = 'io.micronaut.rxjava3:micronaut-rxjava3-bom', ver
 micronaut-kotlin = { module = 'io.micronaut.kotlin:micronaut-kotlin-bom', version.ref = "micronaut-kotlin" }
 
 # testing
-hibernate-validator = { module = "org.hibernate.validator:hibernate-validator", version.ref = "hibernate-validator" }
 
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 kotlin-kotest-junit5 = { module = "io.kotest:kotest-runner-junit5-jvm" }

@@ -30,16 +30,7 @@ The restricted TCK profile retains seven measured exclusions. Core processes onl
 
 == Maintainer Verification
 
-Production compilation treats NoReflection and NullAway diagnostics as errors. Compiler fixtures also prove that generated Java cannot bypass these gates. A separate worker classpath verifies the default stack without either reflection module.
-
-The differential test suite uses Hibernate Validator 9.1.4.Final as a reference and Jakarta Validation 3.1 as the authority. It replays saved regressions and performs 2,000 generated comparisons during `check`. Run a larger campaign manually:
-
-[source,bash]
-----
-./gradlew :micronaut-tests:micronaut-validation-differential:fuzzCampaign -PfuzzSeed=631530 -PfuzzCount=50000
-----
-
-Campaigns have a 30-minute deadline, configurable with `-PfuzzLimitMinutes`. Interrupted or timed-out campaigns are incomplete. Reproductions and campaign status are written under `tests/validation-differential/build/differential`; no recurring campaign is scheduled.
+Production compilation treats NoReflection and NullAway diagnostics as errors. Compiler fixtures also prove that generated Java cannot bypass these gates. Runtime classpath tests verify the default stack without either reflection module.
 
 Run the native access smoke test with a GraalVM installation:
 
