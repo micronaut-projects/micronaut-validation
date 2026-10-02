@@ -96,7 +96,6 @@ import java.util.List;
 public class MyConfig {
 
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     private List<Pojo> pojos;
 
     public List<Pojo> getPojos() {

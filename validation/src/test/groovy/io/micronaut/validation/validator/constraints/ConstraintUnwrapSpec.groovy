@@ -30,7 +30,6 @@ import java.util.Optional;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull(payload = Unwrapping.Skip.class)
-    @io.micronaut.core.annotation.ReflectiveAccess
     private Optional<String> field;
 
     public Optional<String> getField() {
@@ -65,7 +64,6 @@ import java.util.OptionalInt;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull(payload = Unwrapping.Skip.class)
-    @io.micronaut.core.annotation.ReflectiveAccess
     private OptionalInt field;
 
     public OptionalInt getField() {
@@ -100,7 +98,6 @@ import java.util.Optional;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     private Optional<String> field;
 
     public Optional<String> getField() {
@@ -135,7 +132,6 @@ import java.util.Optional;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     private Optional<String> field;
 
     public Optional<String> getField() {
@@ -169,7 +165,6 @@ import java.util.OptionalInt;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     private OptionalInt field;
 
     public OptionalInt getField() {
@@ -204,7 +199,6 @@ import java.util.OptionalInt;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull(payload = Unwrapping.Skip.class)
-    @io.micronaut.core.annotation.ReflectiveAccess
     private OptionalInt field;
 
     public OptionalInt getField() {
@@ -238,7 +232,6 @@ import java.util.OptionalInt;
 @io.micronaut.core.annotation.Introspected
 class Test {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     private OptionalInt field;
 
     public OptionalInt getField() {

@@ -147,7 +147,6 @@ class Search {
 @Introspected
 class SearchAny {
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     List<Search> searches
     SearchAny(Search... searches) {
         this.searches = searches

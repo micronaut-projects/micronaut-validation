@@ -1,7 +1,5 @@
 package io.micronaut.validation.repo;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.constraints.NotBlank;
 
@@ -9,7 +7,6 @@ import jakarta.validation.constraints.NotBlank;
 public class Book {
 
     @NotBlank
-    @ReflectiveAccess
     private String name;
 
     public Book(String name) {

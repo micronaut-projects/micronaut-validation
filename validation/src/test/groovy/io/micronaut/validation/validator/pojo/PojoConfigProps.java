@@ -9,7 +9,6 @@ import java.util.List;
 @ConfigurationProperties("test.valid")
 public class PojoConfigProps {
 
-    @io.micronaut.core.annotation.ReflectiveAccess
     private List<@Valid Pojo> pojos;
 
     public List<@Valid Pojo> getPojos() {

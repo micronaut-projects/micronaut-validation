@@ -1,7 +1,5 @@
 package io.micronaut.docs.validation.path.model;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
@@ -18,12 +16,10 @@ import java.util.Optional;
 public final class State {
     private static final Logger log = org.slf4j.LoggerFactory.getLogger(State.class);
     @NotNull
-    @ReflectiveAccess
     private final
     Type current;
 
     @Valid
-    @ReflectiveAccess
     private final
     List<History> histories;
 
@@ -174,12 +170,10 @@ public final class State {
 
     public static final class History {
         @NotNull
-        @ReflectiveAccess
         private final
         Type state;
 
         @NotNull
-        @ReflectiveAccess
         private final
         Instant date;
 

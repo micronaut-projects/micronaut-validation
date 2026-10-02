@@ -15,8 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import io.micronaut.validation.Validated;
@@ -46,19 +44,15 @@ class UniqueElementsValidatorTest {
     @Introspected
     static class TestPojo {
         @UniqueElements
-        @ReflectiveAccess
         private List<String> stringList;
 
         @UniqueElements
-        @ReflectiveAccess
         private String[] stringArray;
 
         @UniqueElements
-        @ReflectiveAccess
         private int[] intArray;
 
         @UniqueElements
-        @ReflectiveAccess
         private Integer nonCollection;
 
         public TestPojo(List<String> stringList, String[] stringArray, int[] intArray, Integer nonCollection) {

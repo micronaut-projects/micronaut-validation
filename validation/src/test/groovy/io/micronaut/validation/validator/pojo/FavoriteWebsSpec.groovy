@@ -48,7 +48,6 @@ class FavoriteWebs {
     @NotNull
     @NotEmpty
     @ValidURLs
-    @io.micronaut.core.annotation.ReflectiveAccess
     List<String> webs
 }
 

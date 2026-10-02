@@ -4,7 +4,6 @@ import io.micronaut.context.annotation.Property;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.core.annotation.ReflectiveAccess;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -62,7 +61,6 @@ class CustomerConstraintTest {
     @Introspected
     static class ExampleBean {
         @CollectionPattern(regexp = "[a-z]")
-        @ReflectiveAccess
         private List<String> list = new ArrayList<>();
 
         public List<String> getList() {

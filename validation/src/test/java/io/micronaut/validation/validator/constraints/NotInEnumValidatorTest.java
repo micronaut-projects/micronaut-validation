@@ -15,8 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -46,19 +44,15 @@ class NotInEnumValidatorTest {
     @Introspected
     static class TestPojo {
         @NotInEnum(value = TestEnum.class)
-        @ReflectiveAccess
         private String field;
 
         @NotInEnum(value = TestEnum.class, caseSensitive = false)
-        @ReflectiveAccess
         private String caseInsensitiveField;
 
         @NotInEnum(value = TestEnum.class)
-        @ReflectiveAccess
         private TestEnum enumField;
 
         @NotInEnum(value = TestEnum.class)
-        @ReflectiveAccess
         private Integer intField;
 
         public TestPojo(String field, String caseInsensitiveField, TestEnum enumField, Integer intField) {

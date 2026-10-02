@@ -15,8 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -49,19 +47,15 @@ class InListValidatorTest {
     @Introspected
     static class TestPojo {
         @InList(value = {"ONE", "TWO"})
-        @ReflectiveAccess
         private String field;
 
         @InList(value = {"ONE", "TWO"}, caseSensitive = false)
-        @ReflectiveAccess
         private String caseInsensitiveField;
 
         @InList(value = {"ONE", "TWO"})
-        @ReflectiveAccess
         private TestEnum enumField;
 
         @InList(value = {"ONE", "TWO"})
-        @ReflectiveAccess
         private Integer intField;
 
         public TestPojo(String field, String caseInsensitiveField, TestEnum enumField, Integer intField) {

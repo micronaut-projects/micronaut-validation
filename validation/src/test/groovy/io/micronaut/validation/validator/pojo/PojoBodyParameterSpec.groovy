@@ -195,7 +195,6 @@ class PojoBodyParameterSpec extends Specification {
     @JsonSubTypes.Type(value = ByNullableValue.class, name = "NULLABLE")])
 abstract class SearchBy {
     @NotEmpty
-    @io.micronaut.core.annotation.ReflectiveAccess
     String requiredVal
 
 }
@@ -203,21 +202,18 @@ abstract class SearchBy {
 @Introspected
 class ByName extends SearchBy {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     String name
 }
 
 @Introspected
 class ByAge extends SearchBy {
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer age
 }
 
 @Introspected
 class ByNullableValue extends SearchBy {
     @NotNull(groups = TestGroup)
-    @io.micronaut.core.annotation.ReflectiveAccess
     String nullableValue
 }
 

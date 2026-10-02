@@ -1,7 +1,5 @@
 package io.micronaut.validation.validator;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
@@ -24,7 +22,6 @@ public class ValidatorSpecClasses {
     @Introspected
     public static class ListOfNames {
         @NotNull
-        @ReflectiveAccess
         private List<@Size(min=2, max=8) String> names;
 
         public ListOfNames(List<String> names) {
@@ -39,7 +36,6 @@ public class ValidatorSpecClasses {
     // test validate property argument of map
     @Introspected
     public static class PhoneBook {
-        @ReflectiveAccess
         private Map<@NotBlank String, @Min(100) Integer> numbers;
 
         public PhoneBook(Map<String, Integer> numbers) {
@@ -55,10 +51,8 @@ public class ValidatorSpecClasses {
     @Introspected
     public static class Author {
         @NotBlank
-        @ReflectiveAccess
         private String name;
 
-        @ReflectiveAccess
         private List<@Valid Book> books;
 
         public Author(String name) {
@@ -83,10 +77,8 @@ public class ValidatorSpecClasses {
     @Introspected
     public static class Book {
         @Size(min=2)
-        @ReflectiveAccess
         private String name;
 
-        @ReflectiveAccess
         private List<@Valid Author> authors;
 
         public Book(String name) {
@@ -111,7 +103,6 @@ public class ValidatorSpecClasses {
     // test validate property argument cascade - nested
     @Introspected
     public static class Library {
-        @ReflectiveAccess
         final private Set<@Valid Book> books;
 
         public Library(Set<@Valid Book> books) {
@@ -126,7 +117,6 @@ public class ValidatorSpecClasses {
     // test validate property argument cascade
     @Introspected
     public static class Email {
-        @ReflectiveAccess
         private @Size(max=2) List<@NotBlank String> recoveryEmails;
 
         public Email(List<String> recoveryEmails) {
@@ -141,7 +131,6 @@ public class ValidatorSpecClasses {
     // test validate Optional property type argument
     @Introspected
     public static class ClassWithOptional {
-        @ReflectiveAccess
         final private Optional<@Min(100) Integer> number;
 
         public ClassWithOptional(Integer number) {
@@ -165,7 +154,6 @@ public class ValidatorSpecClasses {
     // test validate property argument cascade to non-introspected - map
     @Introspected
     public static class ApartmentBuilding {
-        @ReflectiveAccess
         private Map<Integer, @Valid Person> apartmentLivers;
 
         public ApartmentBuilding(Map<Integer, Person> apartmentLivers) {
@@ -180,7 +168,6 @@ public class ValidatorSpecClasses {
     //not-introspected
     public static class Person {
         @NotBlank
-        @ReflectiveAccess
         private final String name;
 
         public Person(String name) {
@@ -225,7 +212,6 @@ public class ValidatorSpecClasses {
     @Introspected
     public static class Client {
         @Size(min=3, max=10)
-        @ReflectiveAccess
         private final String name;
 
         public Client(String name) {

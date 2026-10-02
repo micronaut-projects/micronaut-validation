@@ -1,7 +1,5 @@
 package io.micronaut.docs.validation.path.model;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.slf4j.event.Level;
@@ -9,7 +7,6 @@ import org.slf4j.event.Level;
 public class Log extends Task {
     @NotNull
     @NotBlank
-    @ReflectiveAccess
     private Object message;
 
     private Level level = Level.INFO;

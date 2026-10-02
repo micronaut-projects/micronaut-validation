@@ -1,7 +1,5 @@
 package io.micronaut.validation.validator;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.Validated;
 import jakarta.validation.constraints.Size;
@@ -10,7 +8,6 @@ import jakarta.validation.constraints.Size;
 @Introspected
 class MyBook {
     @Size(max = 2, message = "Check path: {validatedPath} with value: {validatedValue}")
-    @ReflectiveAccess
     private String title;
 
     public String getTitle() {

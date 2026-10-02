@@ -101,7 +101,6 @@ class Address {
     @NotBlank(groups = GroupOne.class)
     @NotBlank(groups = GroupThree.class, message = "different message")
     @Size(min = 5, max = 20, groups = GroupTwo.class)
-    @io.micronaut.core.annotation.ReflectiveAccess
     private String street;
 
     public String getStreet() {
@@ -143,7 +142,6 @@ class Address {
     @NotBlank(groups = GroupThree, message = "different message")
     @NotBlank(message = "message for default")
     @Size(min = 5, max = 20, groups = GroupTwo)
-    @io.micronaut.core.annotation.ReflectiveAccess
     String street
 }
 
@@ -156,14 +154,11 @@ interface InheritedGroup extends Default, GroupTwo {}
 class AddressTwo {
 
     @NotEmpty(groups = GroupOne.class)
-    @io.micronaut.core.annotation.ReflectiveAccess
     String street
 
     @NotEmpty
-    @io.micronaut.core.annotation.ReflectiveAccess
     String city
 
     @NotEmpty(groups = [GroupOne.class, Default.class])
-    @io.micronaut.core.annotation.ReflectiveAccess
     String zipCode
 }

@@ -120,9 +120,12 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
 
     private void processField(FieldElement field) {
         if ((field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests") || field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))) {
-            // The restricted profile explicitly opts TCK model fields into the narrow field-only exception.
-            // ANY visibility and type-level annotations no longer authorize those reads.
-            field.annotate(ReflectiveAccess.class);
+            // Accessible fields and records use generated access. Only inaccessible instance fields
+            // need the restricted profile's field-specific reflection permission.
+            if (!field.isStatic() && !field.getDeclaringType().isRecord() && field.isReflectionRequired(
+                ClassElement.of(field.getDeclaringType().getName() + "$ValidationAccess"))) {
+                field.annotate(ReflectiveAccess.class);
+            }
         }
         if ((field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.tests") || field.getDeclaringType().getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))
             && (field.hasAnnotation("jakarta.ejb.EJB")

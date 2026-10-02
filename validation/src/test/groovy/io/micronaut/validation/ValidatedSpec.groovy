@@ -793,7 +793,6 @@ class ValidatedSpec extends Specification {
         @NotNull
         @Min(1L)
         @Max(10L)
-        @io.micronaut.core.annotation.ReflectiveAccess
         Integer count = 0
 
     }
@@ -802,7 +801,6 @@ class ValidatedSpec extends Specification {
         @NotNull
         @Min(1L)
         @Max(10L)
-        @io.micronaut.core.annotation.ReflectiveAccess
         Integer count = 0
     }
 }

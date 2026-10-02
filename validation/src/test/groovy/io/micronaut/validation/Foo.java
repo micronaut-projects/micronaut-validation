@@ -15,8 +15,6 @@
  */
 package io.micronaut.validation;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
 
@@ -67,7 +65,6 @@ public class Foo {
 class Bar {
 
     @NotNull
-    @ReflectiveAccess
     private String prop;
 
     @NotNull

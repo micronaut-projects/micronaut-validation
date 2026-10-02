@@ -225,11 +225,9 @@ class CustomConstraintsSpec extends Specification {
 @Introspected
 class TestInvalid {
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     InvalidInner invalidInner
 
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     InvalidOuter invalidOuter
 
     @Introspected
@@ -244,11 +242,9 @@ class InvalidOuter {}
 @Introspected
 class CustomTestInvalid {
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     CustomInvalidInner invalidInner
 
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     CustomInvalidOuter invalidOuter
 
     @Introspected
@@ -264,7 +260,6 @@ class CustomInvalidOuter {}
 @Introspected
 class InheritedBoundaryBean {
     @InheritedBoundary
-    @io.micronaut.core.annotation.ReflectiveAccess
     String value
 }
 

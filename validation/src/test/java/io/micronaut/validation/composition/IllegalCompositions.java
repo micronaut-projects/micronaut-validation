@@ -1,7 +1,5 @@
 package io.micronaut.validation.composition;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.Introspected;
 
@@ -16,7 +14,6 @@ public final class IllegalCompositions {
     @Introspected
     public static class WithInvalidOverride {
         @InvalidOverride
-        @ReflectiveAccess
         private String zip = "foobar";
 
         public String getZip() {
@@ -27,7 +24,6 @@ public final class IllegalCompositions {
     @Introspected
     public static class WithDirectAndContainer {
         @DirectAndContainer
-        @io.micronaut.core.annotation.ReflectiveAccess
         private String zip = "abc";
 
         public String getZip() {

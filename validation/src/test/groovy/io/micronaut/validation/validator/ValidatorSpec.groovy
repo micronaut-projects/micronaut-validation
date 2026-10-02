@@ -1015,7 +1015,6 @@ class A {
     @Max(20l)
     @NotNull
     @Value('${a.number}')
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer number
 }
 
@@ -1025,7 +1024,6 @@ class B {
     @Max(20l)
     @NotNull
     @Value('${a.number}')
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer number
     void updateNumber(@Max(20l)
                       @NotNull
@@ -1040,7 +1038,6 @@ class C {
     @Max(50l)
     @NotNull
     @Value('${a.number}')
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer number
     void updateNumber(@Max(50l)
                       @NotNull
@@ -1052,38 +1049,31 @@ class C {
 @Introspected
 class ObjectArray {
     @Size(min = 1, max = 2)
-    @io.micronaut.core.annotation.ReflectiveAccess
     String[] strings
 
     @Size(min = 1, max = 2)
-    @io.micronaut.core.annotation.ReflectiveAccess
     Long[] numbers
 }
 
 @Introspected
 class Book {
     @NotBlank
-    @io.micronaut.core.annotation.ReflectiveAccess
     String title
 
     @Min(100l)
-    @io.micronaut.core.annotation.ReflectiveAccess
     int pages
 
     @Valid
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     Author primaryAuthor
 
     @Size(min = 1, max = 10)
-    @io.micronaut.core.annotation.ReflectiveAccess
     List<@Valid Author> authors = []
 }
 
 @Introspected
 class PartiallyConstrainedBook {
     @NotBlank
-    @io.micronaut.core.annotation.ReflectiveAccess
     String title
 
     String subtitle
@@ -1092,14 +1082,11 @@ class PartiallyConstrainedBook {
 @Introspected
 class Author {
     @NotBlank
-    @io.micronaut.core.annotation.ReflectiveAccess
     String name
     @Max(100l)
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer age
 
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     Book favouriteBook
 }
 
@@ -1126,11 +1113,9 @@ class ArrayTest {
     @Valid
     @Max(20l)
     @NotNull
-    @io.micronaut.core.annotation.ReflectiveAccess
     Integer[] integers
 
     @Valid
-    @io.micronaut.core.annotation.ReflectiveAccess
     ArrayTest child
 
     @Executable

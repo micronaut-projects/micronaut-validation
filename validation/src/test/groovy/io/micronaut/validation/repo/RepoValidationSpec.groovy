@@ -27,10 +27,8 @@ import spock.lang.Specification
 class RepoValidationSpec extends Specification {
 
     @Inject
-    @io.micronaut.core.annotation.ReflectiveAccess
     BookRepository bookRepository
     @Inject
-    @io.micronaut.core.annotation.ReflectiveAccess
     BeanContext beanContext
 
     void "test repo entity validation"() {

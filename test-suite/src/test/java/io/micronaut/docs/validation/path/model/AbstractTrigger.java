@@ -1,7 +1,5 @@
 package io.micronaut.docs.validation.path.model;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -15,27 +13,22 @@ abstract public class AbstractTrigger {
     @NotNull
     @NotBlank
     @Pattern(regexp = "[a-zA-Z0-9_-]+")
-    @ReflectiveAccess
     protected String id;
 
     @NotNull
     @NotBlank
     @Pattern(regexp = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*")
-    @ReflectiveAccess
     protected String type;
 
     private String description;
 
     @Valid
-    @ReflectiveAccess
     private List<Condition> conditions;
 
     @NotNull
-    @ReflectiveAccess
     private boolean disabled = false;
 
     @Valid
-    @ReflectiveAccess
     private WorkerGroup workerGroup;
 
     public AbstractTrigger() {
@@ -89,13 +82,10 @@ abstract public class AbstractTrigger {
         private @NotNull
         @NotBlank
         @Pattern(regexp = "\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*") String type;
-        @ReflectiveAccess
         private String description;
-        @ReflectiveAccess
         private @Valid List<Condition> conditions;
         private @NotNull boolean disabled$value;
         private boolean disabled$set;
-        @ReflectiveAccess
         private @Valid WorkerGroup workerGroup;
 
         public B id(@NotNull @NotBlank @Pattern(regexp = "[a-zA-Z0-9_-]+") String id) {

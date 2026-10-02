@@ -39,7 +39,6 @@ class Test {
     @${annotation.name}(${
             attributes ? attributes.entrySet().collect { it.key + '=' + getValString(it) }.join(',') : ''
         })
-    @io.micronaut.core.annotation.ReflectiveAccess
     private ${type.name} field;
 
     public ${type.name} getField() {

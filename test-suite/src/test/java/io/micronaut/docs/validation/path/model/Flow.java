@@ -1,7 +1,5 @@
 package io.micronaut.docs.validation.path.model;
 
-import io.micronaut.core.annotation.ReflectiveAccess;
-
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.docs.validation.path.validations.FlowValidation;
 import jakarta.validation.Valid;
@@ -396,18 +394,14 @@ public class Flow implements DeletedInterface {
         @Pattern(regexp = "[a-zA-Z0-9._-]+") String id;
         private @NotNull
         @Pattern(regexp = "[a-z0-9._-]+") String namespace;
-        @ReflectiveAccess
         private @Min(value = 1) Integer revision;
         private String description;
         private List<Label> labels;
         private Map<String, Object> variables;
         private @Valid
         @NotEmpty List<Task> tasks;
-        @ReflectiveAccess
         private @Valid List<Task> errors;
-        @ReflectiveAccess
         private @Valid List<Listener> listeners;
-        @ReflectiveAccess
         private @Valid List<AbstractTrigger> triggers;
         private List<TaskDefault> taskDefaults;
         private @NotNull boolean disabled$value;
