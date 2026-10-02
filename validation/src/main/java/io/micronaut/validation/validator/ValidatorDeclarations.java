@@ -17,7 +17,6 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
-
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -26,9 +25,8 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -65,6 +63,10 @@ final class ValidatorDeclarations {
         this.beanIntrospector = beanIntrospector;
         this.strictConstraintDefinitions = strictConstraintDefinitions;
         this.metadataProviders = metadataProviders;
+    }
+
+    ReflectionSupport reflectionSupport() {
+        return reflectionSupport;
     }
 
     void clear() {
@@ -175,7 +177,7 @@ final class ValidatorDeclarations {
         if (checkedBeanDeclarations.add(introspection)) {
             try {
                 for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
-                    ExecutableHierarchy.checkGroupConversions(property.asArgument());
+                    ExecutableHierarchy.checkGroupConversions(reflectionSupport, property.asArgument());
                 }
             } catch (RuntimeException e) {
                 checkedBeanDeclarations.remove(introspection);
@@ -257,7 +259,7 @@ final class ValidatorDeclarations {
      */
     boolean declaresConstraints(AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
         Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
-        for (String name : ConstraintContainers.constraintNames(annotationMetadata, classLoader)) {
+        for (String name : ConstraintContainers.constraintNames(reflectionSupport, annotationMetadata, classLoader)) {
             if (ConstraintAnnotationKey.isDeclaredConstraint(declared, name)) {
                 return true;
             }
@@ -270,7 +272,7 @@ final class ValidatorDeclarations {
      * the type then declares none itself and the super types validate theirs.
      */
     boolean inheritsAllConstraints(AnnotationMetadata annotationMetadata, List<BeanIntrospection<?>> superIntrospections, ClassLoader classLoader) {
-        List<String> names = ConstraintContainers.constraintNames(annotationMetadata, classLoader);
+        List<String> names = ConstraintContainers.constraintNames(reflectionSupport, annotationMetadata, classLoader);
         if (names.isEmpty() || declaresConstraints(annotationMetadata, classLoader)) {
             return false;
         }
@@ -278,7 +280,7 @@ final class ValidatorDeclarations {
         for (BeanIntrospection<?> superIntrospection : superIntrospections) {
             AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
             Set<String> declared = superMetadata.getDeclaredAnnotationNames();
-            for (String name : ConstraintContainers.constraintNames(superMetadata, classLoader)) {
+            for (String name : ConstraintContainers.constraintNames(reflectionSupport, superMetadata, classLoader)) {
                 if (ConstraintAnnotationKey.isDeclaredConstraint(declared, name)) {
                     superDeclared.add(name);
                 }

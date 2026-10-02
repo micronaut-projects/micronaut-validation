@@ -23,7 +23,7 @@ import io.micronaut.validation.validator.ValidatorConfiguration;
 /**
  * Validator factory backed by a private bootstrap {@link ApplicationContext}.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 final class BootstrapValidatorFactory extends DefaultValidatorFactory {
 

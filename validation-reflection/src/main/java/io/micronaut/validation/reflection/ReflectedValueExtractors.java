@@ -36,7 +36,7 @@ import java.util.List;
  * The {@code ValueExtractor} signature a class declares, for an extractor the specification API hands over as
  * an instance. Nothing generated describes an instance registered at runtime, so its class is read.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class ReflectedValueExtractors {

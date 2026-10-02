@@ -17,11 +17,14 @@ package io.micronaut.validation.nativeimage;
 
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.ReflectiveAccess;
+import io.micronaut.validation.bootstrap.MicronautValidatorConfiguration;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
-
+import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotNull;
 import org.jspecify.annotations.Nullable;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 /**
@@ -44,7 +47,7 @@ public final class ValidationNativeSmoke {
             try {
                 validator.validate(new Annotated());
                 throw new AssertionError("Private field reflection must require the companion module");
-            } catch (jakarta.validation.ValidationException expected) {
+            } catch (ValidationException expected) {
                 // Native registration does not authorize reflection in the default module.
             }
             if (validator.validate(new Component(null)).size() != 1
@@ -53,7 +56,34 @@ public final class ValidationNativeSmoke {
                         "Generated accessor metadata was lost");
             }
         }
+        String xml = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+              <bean class="io.micronaut.validation.nativeimage.ValidationNativeSmoke$XmlBean" ignore-annotations="true">
+                <getter name="value">
+                  <constraint annotation="jakarta.validation.constraints.NotNull">
+                    <message>{smoke.message}</message>
+                  </constraint>
+                </getter>
+              </bean>
+            </constraint-mappings>
+            """;
+        try (var factory = new MicronautValidatorConfiguration().ignoreXmlConfiguration()
+            .addMapping(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))).buildValidatorFactory()) {
+            var violations = factory.getValidator().validate(new XmlBean());
+            if (violations.size() != 1 || !violations.iterator().next().getMessage().equals("generated-null")) {
+                throw new AssertionError("Bootstrap, XML, bundles and EL must work without reflection: " + violations);
+            }
+        }
         System.out.println("Native validation smoke passed");
+    }
+
+    /** Bean accessed through generated XML declaration metadata. */
+    @Introspected
+    public static final class XmlBean {
+        /** @return The value constrained in XML. */
+        public @Nullable String getValue() {
+            return null;
+        }
     }
 
     /** Declarations using generated access exclusively. */

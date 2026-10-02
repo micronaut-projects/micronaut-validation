@@ -102,7 +102,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null) {
+        if (classElement == null || element.isStatic()) {
             return;
         }
         if (!visited.add(element)) {

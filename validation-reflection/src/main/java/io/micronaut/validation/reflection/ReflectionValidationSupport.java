@@ -17,34 +17,41 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
-import io.micronaut.validation.annotation.ValidatedElement;
-import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.MethodReference;
+import io.micronaut.inject.annotation.AnnotationMetadataSupport;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.reflection.MethodHierarchy;
+import io.micronaut.reflection.ReflectionAnnotations;
+import io.micronaut.reflection.ReflectionArguments;
 import io.micronaut.reflection.ReflectionExecutables;
+import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
+import io.micronaut.validation.validator.metadata.ValidationField;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ReportAsSingleViolation;
+import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-
+import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-
+import java.lang.reflect.Array;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationTargetException;
@@ -52,8 +59,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 /**
@@ -61,14 +72,46 @@ import java.util.Set;
  * metadata does not describe is read from the class itself.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public final class ReflectionValidationSupport implements ReflectionSupport {
 
+    private final BeanIntrospector introspector;
+    private final ClassLoader classLoader;
+
     /** Creates the support; it is instantiated by the service loader. */
     public ReflectionValidationSupport() {
-        // the service loader needs a no-arg constructor and there is no state to set up
+        this(BeanIntrospector.forClassLoader(ReflectionValidationSupport.class.getClassLoader()));
+    }
+
+    private ReflectionValidationSupport(BeanIntrospector introspector) {
+        this(introspector, ReflectionValidationSupport.class.getClassLoader());
+    }
+
+    private ReflectionValidationSupport(BeanIntrospector introspector, ClassLoader classLoader) {
+        this.introspector = introspector;
+        this.classLoader = classLoader;
+    }
+
+    @Override
+    public ClassLoader classLoader() {
+        return classLoader;
+    }
+
+    @Override
+    public ReflectionSupport withClassLoader(ClassLoader loader) {
+        return new ReflectionValidationSupport(BeanIntrospector.forClassLoader(loader), loader);
+    }
+
+    @Override
+    public BeanIntrospector introspector() {
+        return introspector;
+    }
+
+    @Override
+    public ReflectionSupport withIntrospector(BeanIntrospector introspector) {
+        return new ReflectionValidationSupport(introspector, classLoader);
     }
 
     @Override
@@ -82,12 +125,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public java.util.ResourceBundle messageBundle(
-            String baseName, java.util.Locale locale, ClassLoader loader) {
+    public ResourceBundle messageBundle(
+            String baseName, Locale locale, ClassLoader loader) {
         if (!ReflectiveValidation.isEnabled()) {
             return ReflectionSupport.super.messageBundle(baseName, locale, loader);
         }
-        return java.util.ResourceBundle.getBundle(baseName, locale, loader);
+        return ResourceBundle.getBundle(baseName, locale, loader);
     }
 
     @Override
@@ -98,11 +141,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
         if (!ReflectiveValidation.isEnabled()
-            && !member.getAnnotationMetadata().hasAnnotation(io.micronaut.core.annotation.ReflectiveAccess.class)) {
+            && !member.getAnnotationMetadata().hasAnnotation(ReflectiveAccess.class)) {
             return ReflectionSupport.super.readMember(member, bean);
         }
         if (member.getAnnotationMetadata().booleanValue(
-                io.micronaut.validation.validator.metadata.ValidationField.class, "reflection").orElse(false)) {
+                ValidationField.class, "reflection").orElse(false)) {
             try {
                 var field = member.getDeclaringType().getDeclaredField(member.getName());
                 if (!field.trySetAccessible()) {
@@ -127,11 +170,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Object[] array(Class<?> type, int size) {
-        return (Object[]) java.lang.reflect.Array.newInstance(type, size);
+        return (Object[]) Array.newInstance(type, size);
     }
 
     @Override
-    public java.util.Map<String, AnnotationMember> annotationMembers(
+    public Map<String, AnnotationMember> annotationMembers(
             Class<? extends Annotation> type) {
         var result = new LinkedHashMap<String, AnnotationMember>();
         for (Method member : type.getDeclaredMethods()) {
@@ -139,7 +182,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                     member.getName(),
                     new AnnotationMember(member.getReturnType(), member.getDefaultValue() == null));
         }
-        return java.util.Map.copyOf(result);
+        return Map.copyOf(result);
     }
 
     @Override
@@ -147,7 +190,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             Class<?> type, String kind, String name, List<Class<?>> parameters) {
         var introspection = BeanIntrospector.forClassLoader(type.getClassLoader()).findIntrospection(type).orElse(null);
         if (introspection != null) {
-            var generated = ValidationDeclaration.generated(introspection, kind, name, parameters);
+            var generated = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
             if (generated != null) {
                 return generated;
             }
@@ -171,8 +214,8 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                         return new ValidationDeclaration(
                                 current,
                                 name,
-                                io.micronaut.reflection.ReflectionArguments.of(field, type),
-                                io.micronaut.reflection.ReflectionAnnotations.metadataOf(field),
+                                ReflectionArguments.of(field, type),
+                                ReflectionAnnotations.metadataOf(field),
                                 List.of(),
                                 bean -> {
                                     try {
@@ -212,12 +255,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                                                                     || method.getReturnType()
                                                                             == Boolean.class))
                                     : method.getName().equals(name)
-                                            && java.util.Arrays.asList(method.getParameterTypes())
+                                            && Arrays.asList(method.getParameterTypes())
                                                     .equals(parameters);
                     if (matches) {
                         method.trySetAccessible();
                         var value =
-                                io.micronaut.reflection.ReflectionArguments.of(
+                                ReflectionArguments.of(
                                         method.getAnnotatedReturnType());
                         var declaration = declaration(method, method.getName(), value);
                         return new ValidationDeclaration(
@@ -249,13 +292,13 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             Executable executable, String name, Argument<?> value) {
         var parameters = new ArrayList<Argument<?>>();
         for (Parameter parameter : executable.getParameters()) {
-            parameters.add(io.micronaut.reflection.ReflectionArguments.of(parameter));
+            parameters.add(ReflectionArguments.of(parameter));
         }
         return new ValidationDeclaration(
                 executable.getDeclaringClass(),
                 name,
                 value,
-                io.micronaut.reflection.ReflectionAnnotations.metadataOf(executable),
+                ReflectionAnnotations.metadataOf(executable),
                 parameters,
                 null);
     }
@@ -274,12 +317,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Argument<?> argumentOf(Type type) {
-        return io.micronaut.reflection.ReflectionArguments.of(type);
+        return ReflectionArguments.of(type);
     }
 
     @Override
     public <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
-        return io.micronaut.inject.annotation.AnnotationMetadataSupport.buildAnnotation(
+        return AnnotationMetadataSupport.buildAnnotation(
                 type, (AnnotationValue<T>) value);
     }
 
@@ -297,8 +340,8 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         Argument<?>[] parameters = argument.getTypeParameters();
         Argument<?>[] prepared = new Argument<?>[parameters.length];
         boolean validated = argument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class)
-            || argument.getAnnotationMetadata().hasStereotype(jakarta.validation.Constraint.class)
-            || argument.getAnnotationMetadata().hasAnnotation(jakarta.validation.Valid.class);
+            || argument.getAnnotationMetadata().hasStereotype(Constraint.class)
+            || argument.getAnnotationMetadata().hasAnnotation(Valid.class);
         for (int i = 0; i < parameters.length; i++) {
             prepared[i] = prepareArgument(parameters[i]);
             validated |= prepared[i].getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
@@ -306,14 +349,14 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         var metadata = argument.getAnnotationMetadata();
         if (validated && !metadata.hasAnnotation(ValidatedElement.class)) {
             var marker = new MutableAnnotationMetadata();
-            marker.addDeclaredAnnotation(ValidatedElement.class.getName(), java.util.Map.of());
+            marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             metadata = ConfiguredMetadata.merge(metadata, marker);
         }
         return ExecutableHierarchy.copyArgument(argument, metadata, prepared);
     }
 
     @Override
-    public java.util.Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
+    public Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
         var annotation = annotation(type, value);
         var attributes = new LinkedHashMap<String, Object>();
         for (var member : type.getDeclaredMethods()) {
@@ -345,7 +388,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public Method targetMethod(io.micronaut.inject.MethodReference<?, ?> executable) {
+    public Method targetMethod(MethodReference<?, ?> executable) {
         return executable.getTargetMethod();
     }
 
@@ -362,7 +405,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public ExecutableHierarchy.Resolved resolveHierarchy(BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name) {
         if (!ReflectiveValidation.isEnabled()) {
-            return ExecutableHierarchy.resolve(introspector, local, name);
+            return ExecutableHierarchy.resolve(this, introspector, local, name);
         }
         MethodHierarchy hierarchy = MethodHierarchy.resolve(introspector, toCore(local), name);
         // the levels are merged here rather than taken merged from core: a declaration of the
@@ -397,12 +440,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public List<ComposingConstraint> composingConstraints(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        return ReflectedComposition.composingConstraints(constraintType, parentAnnotationValue);
+        return ReflectedComposition.composingConstraints(this, constraintType, parentAnnotationValue);
     }
 
     @Override
     public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        ReflectedComposition.checkDeclaredComposition(constraintType, parentAnnotationValue);
+        ReflectedComposition.checkDeclaredComposition(this, constraintType, parentAnnotationValue);
     }
 
     @Override
@@ -440,7 +483,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> @Nullable Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
-        return io.micronaut.reflection.ReflectionArguments.resolveGenericToArgument(type, superType);
+        return ReflectionArguments.resolveGenericToArgument(type, superType);
     }
 
     @Override
@@ -488,13 +531,13 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
-        if (BeanIntrospector.SHARED.findIntrospection(extractorType).isPresent()) {
+        if (introspector.findIntrospection(extractorType).isPresent()) {
             var generated =
                     genericSuperArgument(
-                            extractorType, jakarta.validation.valueextraction.ValueExtractor.class);
+                            extractorType, ValueExtractor.class);
             if (generated != null) {
                 var metadata =
-                        BeanIntrospector.SHARED
+                        introspector
                                 .getIntrospection(extractorType)
                                 .getAnnotationMetadata();
                 return generated.withAnnotationMetadata(

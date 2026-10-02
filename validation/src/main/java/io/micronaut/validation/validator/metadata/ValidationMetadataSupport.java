@@ -17,17 +17,15 @@ package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationUtil;
-import io.micronaut.core.type.Argument;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ExecutableHierarchy;
-import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.ReflectionSupport;
-import org.jspecify.annotations.Nullable;
-
 import jakarta.validation.Constraint;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertFalse;
@@ -52,11 +50,12 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.Nullable;
+
+import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
-
-import java.lang.annotation.Annotation;
 import java.util.List;
 import java.util.Map;
 
@@ -234,7 +233,18 @@ public final class ValidationMetadataSupport {
      * @return Its optional runtime implementation
      */
     public static <T extends Annotation> T create(Class<T> type, AnnotationValue<?> value) {
-        return ReflectionSupport.get().annotation(type, value);
+        return create(ReflectionSupport.get(), type, value);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The annotation interface
+     * @param value The attributes
+     * @param <T> The annotation type
+     * @return Its optional runtime implementation
+     */
+    public static <T extends Annotation> T create(ReflectionSupport reflectionSupport, Class<T> type, AnnotationValue<?> value) {
+        return reflectionSupport.annotation(type, value);
     }
 
     /**
@@ -243,16 +253,26 @@ public final class ValidationMetadataSupport {
      * @return An introspected class or optional runtime lookup
      */
     public static Class<?> type(String name, ClassLoader loader) {
+        return type(ReflectionSupport.get(), name, loader);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param name The type name
+     * @param loader The application loader
+     * @return An introspected class or optional runtime lookup
+     */
+    public static Class<?> type(ReflectionSupport reflectionSupport, String name, ClassLoader loader) {
         var standard = standardConstraint(name);
         if (standard != null) {
             return standard;
         }
-        for (var reference : BeanIntrospector.forClassLoader(loader).findIntrospections(reference -> reference.getName().equals(name))) {
+        for (var reference : reflectionSupport.introspector().findIntrospections(reference -> reference.getName().equals(name))) {
             if (reference.getBeanType().getName().equals(name)) {
                 return reference.getBeanType();
             }
         }
-        return ReflectionSupport.get().classForName(name, loader);
+        return reflectionSupport.classForName(name, loader);
     }
 
     /**
@@ -260,8 +280,17 @@ public final class ValidationMetadataSupport {
      * @return Its optional member definitions
      */
     public static Map<String, AnnotationMember> annotationMembers(Class<? extends Annotation> type) {
+        return annotationMembers(ReflectionSupport.get(), type);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The annotation interface
+     * @return Its optional member definitions
+     */
+    public static Map<String, AnnotationMember> annotationMembers(ReflectionSupport reflectionSupport, Class<? extends Annotation> type) {
         if (standardConstraint(type.getName()) != type) {
-            return ReflectionSupport.get().annotationMembers(type);
+            return reflectionSupport.annotationMembers(type);
         }
         var members = new LinkedHashMap<String, AnnotationMember>();
         members.put("message", new AnnotationMember(String.class, false));
@@ -321,10 +350,19 @@ public final class ValidationMetadataSupport {
      * @return Its optional runtime constants
      */
     public static List<Enum<?>> enumConstants(Class<?> type) {
+        return enumConstants(ReflectionSupport.get(), type);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The enum type
+     * @return Its optional runtime constants
+     */
+    public static List<Enum<?>> enumConstants(ReflectionSupport reflectionSupport, Class<?> type) {
         if (type == Pattern.Flag.class) {
             return List.of(Pattern.Flag.values());
         }
-        return ReflectionSupport.get().enumConstants(type);
+        return reflectionSupport.enumConstants(type);
     }
 
     /**
@@ -333,9 +371,19 @@ public final class ValidationMetadataSupport {
      * @return Its optional typed array
      */
     public static Object[] typedArray(Class<?> type, int size) {
+        return typedArray(ReflectionSupport.get(), type, size);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The array component
+     * @param size The requested size
+     * @return Its optional typed array
+     */
+    public static Object[] typedArray(ReflectionSupport reflectionSupport, Class<?> type, int size) {
         if (type == Pattern.Flag.class) {
             return new Pattern.Flag[size];
         }
-        return ReflectionSupport.get().array(type, size);
+        return reflectionSupport.array(type, size);
     }
 }

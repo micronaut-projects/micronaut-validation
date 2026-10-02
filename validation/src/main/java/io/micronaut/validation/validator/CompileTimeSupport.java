@@ -19,7 +19,6 @@ import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -28,10 +27,11 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.metadata.ContainerMapping;
 import io.micronaut.validation.validator.metadata.ContainerMappings;
-
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-
+import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
@@ -41,11 +41,21 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.NavigableMap;
+import java.util.NavigableSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.SortedMap;
+import java.util.SortedSet;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 /**
  * The {@link ReflectionSupport} reading the generated metadata and nothing else: an executable a
@@ -54,11 +64,46 @@ import java.util.Set;
  * could read is not read.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 @NullMarked
 final class CompileTimeSupport implements ReflectionSupport {
+    private final BeanIntrospector introspector;
+    private final ClassLoader classLoader;
+
+    CompileTimeSupport() {
+        this(BeanIntrospector.forClassLoader(CompileTimeSupport.class.getClassLoader()));
+    }
+
+    CompileTimeSupport(BeanIntrospector introspector) {
+        this(introspector, CompileTimeSupport.class.getClassLoader());
+    }
+
+    private CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader) {
+        this.introspector = introspector;
+        this.classLoader = classLoader;
+    }
+
+    @Override
+    public ClassLoader classLoader() {
+        return classLoader;
+    }
+
+    @Override
+    public ReflectionSupport withClassLoader(ClassLoader loader) {
+        return new CompileTimeSupport(BeanIntrospector.forClassLoader(loader), loader);
+    }
+
+    @Override
+    public BeanIntrospector introspector() {
+        return introspector;
+    }
+
+    @Override
+    public ReflectionSupport withIntrospector(BeanIntrospector introspector) {
+        return new CompileTimeSupport(introspector, classLoader);
+    }
 
     @Override
     @SuppressWarnings("unchecked")
@@ -110,7 +155,7 @@ final class CompileTimeSupport implements ReflectionSupport {
         if (introspector.findIntrospection(local.declaringType()).isEmpty()) {
             return ExecutableHierarchy.merge(local, local, List.of());
         }
-        return ExecutableHierarchy.resolve(introspector, local, name);
+        return ExecutableHierarchy.resolve(this, introspector, local, name);
     }
 
     @Override
@@ -129,13 +174,13 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     /**
-     * A type argument bound in a super type the container does not restate is not in the generated
-     * metadata: the caller describes the extracted value from what the extractor declares instead.
+     * Reads inherited bindings from generated introspection type arguments, retaining their
+     * declaration-owned validation annotations.
      */
     @Override
     public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         BeanIntrospection<?> introspection =
-                BeanIntrospector.SHARED.findIntrospection(declaredType).orElse(null);
+                introspector.findIntrospection(declaredType).orElse(null);
         if (introspection == null) {
             return null;
         }
@@ -147,11 +192,9 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     /**
-     * A container that renames or reorders the type arguments of the type an extractor is written
-     * for says so only in its signature. Without it the argument is taken to be the one at the same
-     * position, which is what the reading of the signature itself falls back to, and which is right
-     * for every container that passes its type arguments through - a {@code List} read as an {@code
-     * Iterable}, and the rest.
+     * Uses the processor's variable mappings for renamed or reordered container arguments.
+     * Fixed JDK collection contracts preserve their known argument order. Other containers
+     * without generated mappings require the optional reflection provider.
      */
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(
@@ -160,7 +203,7 @@ final class CompileTimeSupport implements ReflectionSupport {
             return typeArgumentIndex;
         }
         BeanIntrospection<?> introspection =
-                BeanIntrospector.SHARED.findIntrospection(declaredType).orElse(null);
+                introspector.findIntrospection(declaredType).orElse(null);
         if (introspection != null) {
             AnnotationValue<ContainerMappings> mappings =
                     introspection.getAnnotationMetadata().getAnnotation(ContainerMappings.class);
@@ -180,20 +223,20 @@ final class CompileTimeSupport implements ReflectionSupport {
         }
         // These JDK contracts have a specified, unchanged variable order.
         if (declaredType == ArrayList.class
-                || declaredType == java.util.LinkedList.class
-                || declaredType == java.util.HashSet.class
-                || declaredType == java.util.LinkedHashSet.class
-                || declaredType == java.util.TreeSet.class
-                || declaredType == java.util.List.class
-                || declaredType == java.util.Set.class
-                || declaredType == java.util.Collection.class
+                || declaredType == LinkedList.class
+                || declaredType == HashSet.class
+                || declaredType == LinkedHashSet.class
+                || declaredType == TreeSet.class
+                || declaredType == List.class
+                || declaredType == Set.class
+                || declaredType == Collection.class
                 || declaredType == HashMap.class
                 || declaredType == LinkedHashMap.class
-                || declaredType == java.util.TreeMap.class
-                || declaredType == java.util.SortedMap.class
-                || declaredType == java.util.NavigableMap.class
-                || declaredType == java.util.SortedSet.class
-                || declaredType == java.util.NavigableSet.class) {
+                || declaredType == TreeMap.class
+                || declaredType == SortedMap.class
+                || declaredType == NavigableMap.class
+                || declaredType == SortedSet.class
+                || declaredType == NavigableSet.class) {
             return typeArgumentIndex;
         }
         throw missing(
@@ -217,7 +260,7 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
         BeanIntrospection<?> introspection =
-                BeanIntrospector.SHARED.findIntrospection(type).orElse(null);
+                introspector.findIntrospection(type).orElse(null);
         if (introspection != null) {
             List<Argument<?>> arguments =
                     ValidationMetadataSupport.typeArguments(introspection, superType);
@@ -276,8 +319,8 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public boolean isGroupSequence(Class<?> group) {
-        return BeanIntrospector.SHARED.findIntrospection(group)
-            .map(introspection -> introspection.hasAnnotation(jakarta.validation.GroupSequence.class)).orElse(false);
+        return introspector.findIntrospection(group)
+            .map(introspection -> introspection.hasAnnotation(GroupSequence.class)).orElse(false);
     }
 
     /**
@@ -292,7 +335,7 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     public List<String> parameterNames(Executable executable) {
         BeanIntrospection<?> introspection =
-                BeanIntrospector.SHARED
+                introspector
                         .findIntrospection(executable.getDeclaringClass())
                         .orElse(null);
         if (introspection != null) {
@@ -327,10 +370,10 @@ final class CompileTimeSupport implements ReflectionSupport {
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
         Argument<?> argument =
                 genericSuperArgument(
-                        extractorType, jakarta.validation.valueextraction.ValueExtractor.class);
+                        extractorType, ValueExtractor.class);
         if (argument != null) {
             AnnotationMetadata declared =
-                    BeanIntrospector.SHARED.getIntrospection(extractorType).getAnnotationMetadata();
+                    introspector.getIntrospection(extractorType).getAnnotationMetadata();
             return argument.withAnnotationMetadata(
                     ExecutableHierarchy.mergeMetadata(
                             List.of(argument.getAnnotationMetadata(), declared)));

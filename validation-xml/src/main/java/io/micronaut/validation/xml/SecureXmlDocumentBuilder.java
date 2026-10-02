@@ -15,15 +15,15 @@
  */
 package io.micronaut.validation.xml;
 
-import org.w3c.dom.Document;
-import org.xml.sax.SAXException;
-
 import javax.xml.XMLConstants;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import org.w3c.dom.Document;
+import org.xml.sax.SAXException;
+
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.FilterInputStream;
 
 /**
  * Internal secure DOM parser setup for Jakarta Validation XML documents.
@@ -32,7 +32,7 @@ import java.io.FilterInputStream;
  * this helper so validation configuration and constraint mappings share the
  * same XXE, DTD, schema access, and XInclude protections.</p>
  *
- * @since 5.1
+ * @since 5.3.0
  */
 final class SecureXmlDocumentBuilder {
 

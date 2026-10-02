@@ -37,7 +37,7 @@ import java.util.Map;
  * the metadata was built.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public final class ConstraintAnnotationCustomizer implements ReflectionAnnotationCustomizer {

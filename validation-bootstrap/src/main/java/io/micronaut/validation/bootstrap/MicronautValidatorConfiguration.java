@@ -39,6 +39,7 @@ import jakarta.validation.ValidationProviderResolver;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.spi.BootstrapState;
 import jakarta.validation.spi.ConfigurationState;
+import jakarta.validation.spi.ValidationProvider;
 import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
@@ -57,7 +58,7 @@ import java.util.Set;
  * Internal Jakarta Validation {@link Configuration} implementation used by {@link
  * MicronautValidationProvider} during ServiceLoader bootstrap.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class MicronautValidatorConfiguration
@@ -364,15 +365,19 @@ public final class MicronautValidatorConfiguration
 
     private static ValidatorFactory buildValidatorFactoryInternal(ConfigurationState configurationState) {
         Map<String, Object> configurationProperties = new LinkedHashMap<>(configurationState.getProperties());
-        ApplicationContext applicationContext = createBootstrapContext(configurationProperties);
+        ClassLoader loader = configurationState instanceof MicronautValidatorConfiguration configuration
+            ? configuration.classLoader : ReflectionSupport.get().classLoader();
+        ApplicationContext applicationContext = createBootstrapContext(configurationProperties, loader);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
         // the generated introspections of the application, supplemented by the reflection bridge of
         // micronaut-core for
         // the types without one: the validator reads them, the factory instantiates the constraint
         // validators through them
-        BeanIntrospector beanIntrospector = supplemented(BeanIntrospector.forClassLoader(applicationContext.getClassLoader()));
+        validatorConfiguration.setReflectionSupport(ReflectionSupport.forClassLoader(loader));
+        BeanIntrospector beanIntrospector = validatorConfiguration.getReflectionSupport()
+            .supplemented(BeanIntrospector.forClassLoader(loader));
         validatorConfiguration.setBeanIntrospector(beanIntrospector);
-        validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(beanIntrospector, applicationContext));
+        validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(beanIntrospector, applicationContext, validatorConfiguration.getReflectionSupport()));
         xmlMappingMetadataProvider(applicationContext.getClassLoader(), configurationState.getMappingStreams())
             .ifPresent(provider -> {
                 List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
@@ -484,7 +489,7 @@ public final class MicronautValidatorConfiguration
         if (defaultProviderClassName == null || MicronautValidationProvider.class.getName().equals(defaultProviderClassName)) {
             return Optional.empty();
         }
-        for (jakarta.validation.spi.ValidationProvider<?> provider : validationProviders()) {
+        for (ValidationProvider<?> provider : validationProviders()) {
             if (provider.getClass().getName().equals(defaultProviderClassName)) {
                 return Optional.of(provider.createGenericConfiguration(new DefaultBootstrapState())
                     .buildValidatorFactory());
@@ -493,24 +498,24 @@ public final class MicronautValidatorConfiguration
         throw new ValidationException("Configured validation provider is not available: " + defaultProviderClassName);
     }
 
-    private List<jakarta.validation.spi.ValidationProvider<?>> validationProviders() {
+    private List<ValidationProvider<?>> validationProviders() {
         if (bootstrapState != null && bootstrapState.getValidationProviderResolver() != null) {
             return bootstrapState.getValidationProviderResolver().getValidationProviders();
         }
         if (bootstrapState != null && bootstrapState.getDefaultValidationProviderResolver() != null) {
             return bootstrapState.getDefaultValidationProviderResolver().getValidationProviders();
         }
-        List<jakarta.validation.spi.ValidationProvider<?>> providers = new ArrayList<>();
-        BootstrapServiceDiscovery.services(jakarta.validation.spi.ValidationProvider.class, classLoader)
+        List<ValidationProvider<?>> providers = new ArrayList<>();
+        BootstrapServiceDiscovery.services(ValidationProvider.class, classLoader)
             .forEach(providers::add);
         return providers;
     }
 
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
         if (validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration
-            && !ReflectionSupport.get()
+            && !validatorConfiguration.getReflectionSupport()
                         .isSupplemented(defaultConfiguration.getBeanIntrospector())) {
-            defaultConfiguration.setBeanIntrospector(supplemented(defaultConfiguration.getBeanIntrospector()));
+            defaultConfiguration.setBeanIntrospector(validatorConfiguration.getReflectionSupport().supplemented(defaultConfiguration.getBeanIntrospector()));
         }
         return new DefaultValidator(validatorConfiguration);
     }
@@ -538,6 +543,10 @@ public final class MicronautValidatorConfiguration
         if (classLoader == null) {
             classLoader = MicronautValidatorConfiguration.class.getClassLoader();
         }
+        return createBootstrapContext(properties, classLoader);
+    }
+
+    private static ApplicationContext createBootstrapContext(Map<String, Object> properties, ClassLoader classLoader) {
         ApplicationContextBuilder builder = ApplicationContext.builder()
             .classLoader(classLoader)
             .beansPredicate(beanType -> isBootstrapPackage(beanType.getBeanType().getName()))
@@ -607,7 +616,7 @@ public final class MicronautValidatorConfiguration
                         .orElse(null);
         Object instance =
                 introspection == null
-                        ? ReflectionSupport.get().instantiate(className, classLoader)
+                        ? defaults.getReflectionSupport().instantiate(className, classLoader)
                         : introspection.instantiate();
         if (instance == null) {
             throw new ValidationException(

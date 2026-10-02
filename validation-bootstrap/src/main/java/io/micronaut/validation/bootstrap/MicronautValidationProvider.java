@@ -26,7 +26,7 @@ import jakarta.validation.spi.ValidationProvider;
  * Internal Jakarta Validation {@link ValidationProvider} entry point exposed
  * through ServiceLoader by the optional bootstrap module.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class MicronautValidationProvider implements ValidationProvider<MicronautValidatorConfiguration> {

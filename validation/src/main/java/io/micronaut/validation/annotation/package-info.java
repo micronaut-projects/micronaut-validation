@@ -16,7 +16,7 @@
 /**
  * The constraint annotations Micronaut Validation adds to the ones of Jakarta Validation.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @NullMarked
 package io.micronaut.validation.annotation;

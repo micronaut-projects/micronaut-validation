@@ -19,20 +19,17 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
-import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationEnumValues;
-
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.UnexpectedTypeException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -48,7 +45,7 @@ import java.util.Set;
  * parsing. Keep that logic here so fixes stay consistent without widening the user-facing
  * validation API.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class ConstraintValidatorTargetResolver {
@@ -63,13 +60,24 @@ public final class ConstraintValidatorTargetResolver {
      * @return The target type, or {@link Object} when it cannot be resolved
      */
     public static Class<?> getTargetType(Class<?> validatorType) {
-        Class<?> recorded = BeanIntrospector.SHARED.findIntrospection(validatorType)
+        return getTargetType(ReflectionSupport.get(), validatorType);
+    }
+
+    /**
+     * Resolves the target type declared by a constraint validator.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param validatorType The validator type
+     * @return The target type, or {@link Object} when it cannot be resolved
+     */
+    public static Class<?> getTargetType(ReflectionSupport reflectionSupport, Class<?> validatorType) {
+        Class<?> recorded = reflectionSupport.introspector().findIntrospection(validatorType)
             .map(ConstraintValidatorTargetResolver::recordedTargetType)
             .orElse(null);
         if (recorded != null) {
             return recorded;
         }
-        Class<?> targetType = findTargetType(validatorType);
+        Class<?> targetType = findTargetType(reflectionSupport, validatorType);
         return targetType == null ? Object.class : targetType;
     }
 
@@ -82,8 +90,21 @@ public final class ConstraintValidatorTargetResolver {
      * @return The validated type, {@link Object} when unknown
      */
     public static Class<?> getTargetType(BeanIntrospection<?> introspection) {
+        return getTargetType(ReflectionSupport.get(), introspection);
+    }
+
+    /**
+     * The type a validator validates: the second type argument its introspection records for {@link
+     * ConstraintValidator}, or the generic signature of the class where the archive holds no
+     * introspection of it.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param introspection The introspection of the validator
+     * @return The validated type, {@link Object} when unknown
+     */
+    public static Class<?> getTargetType(ReflectionSupport reflectionSupport, BeanIntrospection<?> introspection) {
         Class<?> recorded = recordedTargetType(introspection);
-        return recorded != null ? recorded : getTargetType(introspection.getBeanType());
+        return recorded != null ? recorded : getTargetType(reflectionSupport, introspection.getBeanType());
     }
 
     @Nullable
@@ -109,15 +130,20 @@ public final class ConstraintValidatorTargetResolver {
      * @return Supported validation targets
      */
     public static Set<ValidationTarget> validationTargets(AnnotationMetadata annotationMetadata) {
-        return ValidationEnumValues.targets(annotationMetadata);
+        return validationTargets(ReflectionSupport.get(), annotationMetadata);
     }
 
     /**
-     * Reads validation target metadata from the validator class.
+     * Reads validation target metadata from annotation metadata.
      *
-     * @param validatorType The validator type
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The annotation metadata
      * @return Supported validation targets
      */
+    public static Set<ValidationTarget> validationTargets(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata) {
+        return ValidationEnumValues.targets(annotationMetadata);
+    }
+
     /**
      * The validation targets a constraint type supports: the union of what its validators declare,
      * a validator declaring nothing validating the annotated element, and both targets for a
@@ -127,7 +153,20 @@ public final class ConstraintValidatorTargetResolver {
      * @return The targets
      */
     public static Set<ValidationTarget> constraintTargets(Class<? extends Annotation> annotationType) {
-        return constraintTargets(ReflectionSupport.get().declaredValidators(annotationType));
+        return constraintTargets(ReflectionSupport.get(), annotationType);
+    }
+
+    /**
+     * The validation targets a constraint type supports: the union of what its validators declare,
+     * a validator declaring nothing validating the annotated element, and both targets for a
+     * constraint declaring no validator, which is validated by what its composition declares.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationType The constraint annotation type
+     * @return The targets
+     */
+    public static Set<ValidationTarget> constraintTargets(ReflectionSupport reflectionSupport, Class<? extends Annotation> annotationType) {
+        return constraintTargets(reflectionSupport, reflectionSupport.declaredValidators(annotationType));
     }
 
     /**
@@ -140,27 +179,41 @@ public final class ConstraintValidatorTargetResolver {
      */
     public static Set<ValidationTarget> constraintTargets(AnnotationValue<?> annotationValue,
                                                           Class<? extends Annotation> annotationType) {
+        return constraintTargets(ReflectionSupport.get(), annotationValue, annotationType);
+    }
+
+    /**
+     * The validation targets a constraint supports, for an occurrence that records the validators
+     * it declares.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationValue The occurrence
+     * @param annotationType The constraint annotation type
+     * @return The targets
+     */
+    public static Set<ValidationTarget> constraintTargets(ReflectionSupport reflectionSupport, AnnotationValue<?> annotationValue,
+                                                          Class<? extends Annotation> annotationType) {
         if (annotationValue.contains("$validationTargets")) {
             Set<ValidationTarget> targets = new LinkedHashSet<>();
             for (String target : annotationValue.stringValues("$validationTargets")) {
                 switch (target) {
                     case "PARAMETERS" -> targets.add(ValidationTarget.PARAMETERS);
                     case "ANNOTATED_ELEMENT" -> targets.add(ValidationTarget.ANNOTATED_ELEMENT);
-                    default -> throw new jakarta.validation.ConstraintDefinitionException("Unknown validation target: " + target);
+                    default -> throw new ConstraintDefinitionException("Unknown validation target: " + target);
                 }
             }
             return targets;
         }
-        return constraintTargets(declaredValidators(annotationValue, annotationType));
+        return constraintTargets(reflectionSupport, declaredValidators(reflectionSupport, annotationValue, annotationType));
     }
 
-    private static Set<ValidationTarget> constraintTargets(List<Class<?>> declaredValidators) {
+    private static Set<ValidationTarget> constraintTargets(ReflectionSupport reflectionSupport, List<Class<?>> declaredValidators) {
         if (declaredValidators.isEmpty()) {
             return Set.of(ValidationTarget.ANNOTATED_ELEMENT, ValidationTarget.PARAMETERS);
         }
         Set<ValidationTarget> targets = new LinkedHashSet<>();
         for (Class<?> validator : declaredValidators) {
-            Set<ValidationTarget> supported = validationTargets(validator);
+            Set<ValidationTarget> supported = validationTargets(reflectionSupport, validator);
             if (supported.isEmpty()) {
                 // a validator declaring no target validates the annotated element
                 targets.add(ValidationTarget.ANNOTATED_ELEMENT);
@@ -175,18 +228,34 @@ public final class ConstraintValidatorTargetResolver {
      * The validators a constraint declares: the ones its occurrence carries, which the annotation
      * processor records, and where it carries none the ones its annotation type declares.
      */
-    private static List<Class<?>> declaredValidators(AnnotationValue<?> annotationValue,
+    private static List<Class<?>> declaredValidators(ReflectionSupport reflectionSupport, AnnotationValue<?> annotationValue,
                                                      Class<? extends Annotation> annotationType) {
         Class<?>[] recorded = annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY);
-        return recorded.length > 0 ? List.of(recorded) : ReflectionSupport.get().declaredValidators(annotationType);
+        return recorded.length > 0 ? List.of(recorded) : reflectionSupport.declaredValidators(annotationType);
     }
 
+    /**
+     * Reads validation target metadata from the validator class.
+     *
+     * @param validatorType The validator type
+     * @return Supported validation targets
+     */
     public static Set<ValidationTarget> validationTargets(Class<?> validatorType) {
+        return validationTargets(ReflectionSupport.get(), validatorType);
+    }
+
+    /**
+     * Reads a validator's targets from generated metadata or the optional access provider.
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param validatorType The validator type
+     * @return Supported validation targets
+     */
+    public static Set<ValidationTarget> validationTargets(ReflectionSupport reflectionSupport, Class<?> validatorType) {
         // the introspection of a validator records what it declares; a validator without one is
         // read
-        return BeanIntrospector.SHARED.findIntrospection(validatorType)
-            .map(introspection -> validationTargets(introspection.getAnnotationMetadata()))
-            .orElseGet(() -> ReflectionSupport.get().supportedValidationTargets(validatorType));
+        return reflectionSupport.introspector().findIntrospection(validatorType)
+            .map(introspection -> validationTargets(reflectionSupport, introspection.getAnnotationMetadata()))
+            .orElseGet(() -> reflectionSupport.supportedValidationTargets(validatorType));
     }
 
     /**
@@ -209,7 +278,7 @@ public final class ConstraintValidatorTargetResolver {
     /**
      * The type a validator validates: the second type argument of {@link ConstraintValidator},
      * resolved through the hierarchy of the validator type by {@link
-     * ReflectionArguments#resolveGenericToArgument}, the same resolution the value extractors and
+     * ReflectionSupport#genericSuperArgument(Class, Class)}, the same resolution the value extractors and
      * the generic bean arguments use.
      */
     /**
@@ -237,6 +306,35 @@ public final class ConstraintValidatorTargetResolver {
                                               boolean onExecutable,
                                               boolean hasParameters,
                                               boolean hasReturnValue) {
+        checkTargetDeclaration(ReflectionSupport.get(), constraintType, validatorTypes, validationAppliesTo, onExecutable, hasParameters, hasReturnValue);
+    }
+
+    /**
+     * Checks that the {@code validationAppliesTo} of a constraint is one the element it is declared
+     * on allows, as the sections 3.1.1.4 and 4.5.2.1 of the specification require: a target may
+     * only be declared on an executable, {@code PARAMETERS} needs parameters, {@code RETURN_VALUE}
+     * needs a return value, a constraint whose validators validate both the parameters and the
+     * return value of an executable with both must declare which, and a constraint targeting the
+     * parameters needs a validator that validates them.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param constraintType The constraint type
+     * @param validatorTypes The validator types
+     * @param validationAppliesTo The declared target, {@code null} when the member is absent
+     * @param onExecutable Whether the constraint is declared on an executable
+     * @param hasParameters Whether the executable has parameters
+     * @param hasReturnValue Whether the executable has a return value
+     * @throws ConstraintDeclarationException When the target is not allowed where the constraint is
+     * declared
+     * @throws ConstraintDefinitionException When the constraint targets the parameters with no
+     * validator for them
+     */
+    public static void checkTargetDeclaration(ReflectionSupport reflectionSupport, Class<?> constraintType,
+                                              List<? extends Class<?>> validatorTypes,
+                                              @Nullable ConstraintTarget validationAppliesTo,
+                                              boolean onExecutable,
+                                              boolean hasParameters,
+                                              boolean hasReturnValue) {
         ConstraintTarget declared = validationAppliesTo == null ? ConstraintTarget.IMPLICIT : validationAppliesTo;
         if (!onExecutable) {
             if (declared != ConstraintTarget.IMPLICIT) {
@@ -248,7 +346,7 @@ public final class ConstraintValidatorTargetResolver {
         boolean parameters = false;
         boolean annotatedElement = false;
         for (Class<?> validatorType : validatorTypes) {
-            Set<ValidationTarget> targets = validationTargets(validatorType);
+            Set<ValidationTarget> targets = validationTargets(reflectionSupport, validatorType);
             parameters |= targets.contains(ValidationTarget.PARAMETERS);
             annotatedElement |= targets.isEmpty() || targets.contains(ValidationTarget.ANNOTATED_ELEMENT);
         }
@@ -287,8 +385,22 @@ public final class ConstraintValidatorTargetResolver {
      * @return Whether a validator supports the target
      */
     public static boolean supportsTarget(List<? extends Class<?>> validatorTypes, ConstraintTarget constraintTarget) {
+        return supportsTarget(ReflectionSupport.get(), validatorTypes, constraintTarget);
+    }
+
+    /**
+     * Whether at least one of the validators supports the given target: the cross-parameter phase
+     * of an executable only runs the validators supporting {@link ValidationTarget#PARAMETERS}, the
+     * other phases the ones supporting {@link ValidationTarget#ANNOTATED_ELEMENT}.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param validatorTypes The validator types
+     * @param constraintTarget The target
+     * @return Whether a validator supports the target
+     */
+    public static boolean supportsTarget(ReflectionSupport reflectionSupport, List<? extends Class<?>> validatorTypes, ConstraintTarget constraintTarget) {
         for (Class<?> validatorType : validatorTypes) {
-            if (allowsConstraintTarget(validationTargets(validatorType), constraintTarget)) {
+            if (allowsConstraintTarget(validationTargets(reflectionSupport, validatorType), constraintTarget)) {
                 return true;
             }
         }
@@ -312,6 +424,26 @@ public final class ConstraintValidatorTargetResolver {
                                    List<? extends Class<?>> validatorTypes,
                                    Class<?> valueType,
                                    ConstraintTarget constraintTarget) {
+        return resolve(ReflectionSupport.get(), constraintType, validatorTypes, valueType, constraintTarget);
+    }
+
+    /**
+     * Selects the validator of a constraint for a value type, as the section 4.6.4 of the
+     * specification resolves it: among the validators supporting the target and accepting the type,
+     * the one whose validated type is the most specific; two equally specific ones are an error.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param constraintType The constraint type
+     * @param validatorTypes The validator types declared by the constraint
+     * @param valueType The type of the validated value
+     * @param constraintTarget The target
+     * @return The validator, or {@code null} when none accepts the type
+     * @throws UnexpectedTypeException When several validators are equally specific
+     */
+    public static @Nullable Class<?> resolve(ReflectionSupport reflectionSupport, Class<?> constraintType,
+                                   List<? extends Class<?>> validatorTypes,
+                                   Class<?> valueType,
+                                   ConstraintTarget constraintTarget) {
         Class<?> resolvedValueType = resolveTargetType(valueType);
         List<Class<?>> candidates = new ArrayList<>(validatorTypes.size());
         List<Class<?>> candidateTargets = new ArrayList<>(validatorTypes.size());
@@ -319,8 +451,8 @@ public final class ConstraintValidatorTargetResolver {
             if (candidates.contains(validatorType)) {
                 continue;
             }
-            Class<?> targetType = resolveTargetType(getTargetType(validatorType));
-            if (allowsConstraintTarget(validationTargets(validatorType), constraintTarget) && targetType.isAssignableFrom(resolvedValueType)) {
+            Class<?> targetType = resolveTargetType(getTargetType(reflectionSupport, validatorType));
+            if (allowsConstraintTarget(validationTargets(reflectionSupport, validatorType), constraintTarget) && targetType.isAssignableFrom(resolvedValueType)) {
                 candidates.add(validatorType);
                 candidateTargets.add(targetType);
             }
@@ -353,8 +485,8 @@ public final class ConstraintValidatorTargetResolver {
     }
 
     @Nullable
-    private static Class<?> findTargetType(Class<?> type) {
-        Argument<ConstraintValidator> validator = ReflectionSupport.get().genericSuperArgument(type, ConstraintValidator.class);
+    private static Class<?> findTargetType(ReflectionSupport reflectionSupport, Class<?> type) {
+        Argument<ConstraintValidator> validator = reflectionSupport.genericSuperArgument(type, ConstraintValidator.class);
         if (validator == null) {
             return null;
         }

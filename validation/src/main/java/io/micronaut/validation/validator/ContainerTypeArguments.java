@@ -17,12 +17,13 @@ package io.micronaut.validation.validator;
 
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
-import io.micronaut.core.annotation.Nullable;
-import io.micronaut.core.type.Argument;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanIntrospector;
-import io.micronaut.validation.validator.metadata.ContainerMappings;
+import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.metadata.ContainerMapping;
+import io.micronaut.validation.validator.metadata.ContainerMappings;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+
 import java.util.List;
 
 /**
@@ -48,6 +49,16 @@ final class ContainerTypeArguments {
      */
     @Nullable
     static Argument<?> resolveBoundTypeArgument(BeanIntrospector introspector, Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        return resolveBoundTypeArgument(ReflectionSupport.get(), introspector, declaredType, containerType, typeArgumentIndex);
+    }
+
+    /**
+     * The type a type binds the type argument of a generic super type to, with the annotations declared on it
+     * and its own type arguments.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    static @Nullable Argument<?> resolveBoundTypeArgument(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         if (declaredType == containerType || !containerType.isAssignableFrom(declaredType)) {
             return null;
         }
@@ -58,12 +69,21 @@ final class ContainerTypeArguments {
                 return arguments.get(typeArgumentIndex);
             }
         }
-        return ReflectionSupport.get().boundTypeArgument(declaredType, containerType, typeArgumentIndex);
+        return reflectionSupport.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
     }
 
     /** Which of a type's own type arguments carries the one an extractor extracts. */
     @Nullable
     static Integer resolveExtractedTypeArgumentIndex(BeanIntrospector introspector, Class<?> declaredType,
+                                                     Class<?> extractorContainerType,
+                                                     @Nullable Integer extractorTypeArgumentIndex) {
+        return resolveExtractedTypeArgumentIndex(ReflectionSupport.get(), introspector, declaredType, extractorContainerType, extractorTypeArgumentIndex);
+    }
+
+    /** Which of a type's own type arguments carries the one an extractor extracts.
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    static @Nullable Integer resolveExtractedTypeArgumentIndex(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Class<?> declaredType,
                                                      Class<?> extractorContainerType,
                                                      @Nullable Integer extractorTypeArgumentIndex) {
         if (extractorTypeArgumentIndex == null || declaredType == extractorContainerType) {
@@ -80,6 +100,6 @@ final class ContainerTypeArguments {
                 }
             }
         }
-        return ReflectionSupport.get().extractedTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+        return reflectionSupport.extractedTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
     }
 }

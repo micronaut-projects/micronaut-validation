@@ -30,7 +30,6 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
-
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
@@ -66,6 +65,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     private final BeanValidationContext validationContext;
     private final DefaultValidator defaultValidator;
+    private final ReflectionSupport reflectionSupport;
     private final @Nullable BeanIntrospection<R> beanIntrospection;
     private final @Nullable R rootBean;
     @Nullable
@@ -104,6 +104,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         defaultValidator.checkOpen();
         this.validationContext = validationContext;
         this.defaultValidator = defaultValidator;
+        this.reflectionSupport = defaultValidator.reflectionSupport();
         this.beanIntrospection = beanIntrospection;
         this.rootBean = rootBean;
         this.rootClass = beanIntrospection == null ? (rootBean == null ? null : (Class<R>) rootBean.getClass()) : beanIntrospection.getBeanType();
@@ -124,11 +125,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return validationContext;
     }
 
+    /** @return The access provider captured by this validation context. */
+    public ReflectionSupport reflectionSupport() {
+        return reflectionSupport;
+    }
+
     DefaultValidator defaultValidator() {
         return defaultValidator;
     }
 
-    private static List<Class<?>> processGroups(List<Class<?>> definedGroups) {
+    private List<Class<?>> processGroups(List<Class<?>> definedGroups) {
         if (CollectionUtils.isEmpty(definedGroups)) {
             return DEFAULT_GROUPS;
         }
@@ -140,11 +146,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return List.copyOf(groups);
     }
 
-    private static void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
+    private void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
         if (!groups.contains(group)) {
             groups.add(group);
-            if (ReflectionSupport.get().canResolveHierarchy(group)) {
-                for (Class<?> inherited : ReflectionSupport.get().interfaces(group)) {
+            if (reflectionSupport.canResolveHierarchy(group)) {
+                for (Class<?> inherited : reflectionSupport.interfaces(group)) {
                     addInheritedGroups(inherited, groups);
                 }
             }
@@ -312,7 +318,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         );
         for (Class<?> group : prevGroups) {
             if (newConvertGroups.keySet().stream().anyMatch(source -> source != group && source.isAssignableFrom(group))
-                && !ReflectionSupport.get().canResolveHierarchy(group)) {
+                && !reflectionSupport.canResolveHierarchy(group)) {
                 throw new ValidationException("No generated group hierarchy for " + group.getName()
                     + ": add micronaut-validation-reflection for inherited group conversion");
             }

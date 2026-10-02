@@ -23,11 +23,13 @@ import io.micronaut.reflection.ReflectionAnnotations;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
+import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.OverridesAttribute;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.groups.Default;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -47,7 +49,7 @@ import java.util.Set;
  * through {@link OverridesAttribute}, its groups and payload, and the validators of each resolved.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class ReflectedComposition {
@@ -76,15 +78,15 @@ final class ReflectedComposition {
      * @param constraintType        The composed constraint type
      * @param parentAnnotationValue The occurrence of the composed constraint
      */
-    static void checkDeclaredComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        composingConstraints(constraintType, parentAnnotationValue);
+    static void checkDeclaredComposition(ReflectionSupport reflectionSupport, Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
+        composingConstraints(reflectionSupport, constraintType, parentAnnotationValue);
     }
 
-    static List<ReflectionSupport.ComposingConstraint> composingConstraints(
+    static List<ReflectionSupport.ComposingConstraint> composingConstraints(ReflectionSupport reflectionSupport,
         Class<? extends Annotation> constraintType,
         AnnotationValue<? extends Annotation> parentAnnotationValue) {
         List<ComposingAnnotation> composingAnnotations = composingAnnotations(constraintType);
-        checkCompositionTargets(constraintType, composingAnnotations);
+        checkCompositionTargets(reflectionSupport, constraintType, composingAnnotations);
         List<ReflectionSupport.ComposingConstraint> composingConstraints = new ArrayList<>();
         for (ComposingAnnotation annotation : composingAnnotations) {
             composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, composingAnnotations));
@@ -96,13 +98,13 @@ final class ReflectedComposition {
      * A composed constraint and the constraints composing it share a validation target: generic, cross-parameter
      * or both.
      */
-    private static void checkCompositionTargets(Class<? extends Annotation> parentType, List<ComposingAnnotation> composingAnnotations) {
+    private static void checkCompositionTargets(ReflectionSupport reflectionSupport, Class<? extends Annotation> parentType, List<ComposingAnnotation> composingAnnotations) {
         if (composingAnnotations.isEmpty()) {
             return;
         }
-        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(parentType));
+        Set<ValidationTarget> common = EnumSet.copyOf(ConstraintValidatorTargetResolver.constraintTargets(reflectionSupport, parentType));
         for (ComposingAnnotation composingAnnotation : composingAnnotations) {
-            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(composingAnnotation.annotation().annotationType()));
+            common.retainAll(ConstraintValidatorTargetResolver.constraintTargets(reflectionSupport, composingAnnotation.annotation().annotationType()));
             if (common.isEmpty()) {
                 throw new ConstraintDefinitionException("Composing constraints must share a validation target with the composed constraint: " + parentType.getName());
             }
@@ -125,7 +127,7 @@ final class ReflectedComposition {
             values.put(ATTRIBUTE_VALIDATION_APPLIES_TO, validationAppliesTo);
         }
         Class<?>[] parentGroups = parentAnnotationValue.classValues(ATTRIBUTE_GROUPS);
-        values.put(ATTRIBUTE_GROUPS, parentGroups.length == 0 ? new Class<?>[]{jakarta.validation.groups.Default.class} : parentGroups);
+        values.put(ATTRIBUTE_GROUPS, parentGroups.length == 0 ? new Class<?>[]{Default.class} : parentGroups);
         values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
             new AnnotationValue<>(annotationType.getName(), values, ReflectionAnnotations.defaultValues(annotationType)),
@@ -241,7 +243,7 @@ final class ReflectedComposition {
         Set<Class<? extends Annotation>> contained = new LinkedHashSet<>();
         for (Annotation annotation : constraintType.getDeclaredAnnotations()) {
             Class<? extends Annotation> annotationType = annotation.annotationType();
-            if (annotationType.isAnnotationPresent(jakarta.validation.Constraint.class)) {
+            if (annotationType.isAnnotationPresent(Constraint.class)) {
                 if (contained.contains(annotationType)) {
                     throw new ConstraintDeclarationException("A constraint composes " + annotationType.getName() + " both directly and in a container: " + constraintType.getName());
                 }
@@ -277,7 +279,7 @@ final class ReflectedComposition {
     private static List<Annotation> repeatedConstraintAnnotations(Annotation annotation) {
         List<Annotation> constraints = new ArrayList<>();
         for (Annotation repeatedAnnotation : ReflectionAnnotations.contained(annotation)) {
-            if (repeatedAnnotation.annotationType().isAnnotationPresent(jakarta.validation.Constraint.class)) {
+            if (repeatedAnnotation.annotationType().isAnnotationPresent(Constraint.class)) {
                 constraints.add(repeatedAnnotation);
             }
         }

@@ -19,9 +19,9 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationMetadataProvider;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.ReflectionSupport;
-
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
@@ -71,6 +71,17 @@ public record ValidationDeclaration(
             String kind,
             String name,
             List<Class<?>> parameterTypes) {
+        return generated(ReflectionSupport.get(), introspection, kind, name, parameterTypes);
+    }
+
+    /** Finds exactly the declaration requested, without substituting another property member.
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    public static @Nullable ValidationDeclaration generated(ReflectionSupport reflectionSupport,
+            BeanIntrospection<?> introspection,
+            String kind,
+            String name,
+            List<Class<?>> parameterTypes) {
         if (kind.equals("field") || kind.equals("getter")) {
             var property = introspection.getProperty(name).orElse(null);
             if (property == null) {
@@ -88,9 +99,9 @@ public record ValidationDeclaration(
                             member.getAnnotationMetadata(),
                             List.of(),
                             bean ->
-                                    ReflectionSupport.get()
+                                    reflectionSupport
                                             .readMember(
-                                                    (io.micronaut.core.beans.BeanPropertyMember)
+                                                    (BeanPropertyMember)
                                                             member,
                                                     bean));
                 }

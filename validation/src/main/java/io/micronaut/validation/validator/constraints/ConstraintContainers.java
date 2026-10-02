@@ -21,8 +21,8 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.ReflectionSupport;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
 
 import java.lang.annotation.Annotation;
@@ -52,11 +52,23 @@ public final class ConstraintContainers {
      * @return Whether there is a constraint
      */
     public static boolean hasConstraints(@NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
+        return hasConstraints(ReflectionSupport.get(), annotationMetadata, classLoader);
+    }
+
+    /**
+     * Whether the metadata carries a constraint, by stereotype or inside a container.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The metadata
+     * @param classLoader The loader of the constraint types
+     * @return Whether there is a constraint
+     */
+    public static boolean hasConstraints(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
         if (annotationMetadata.hasStereotype(Constraint.class)) {
             return true;
         }
         for (String name : annotationMetadata.getAnnotationNames()) {
-            if (containedConstraintType(annotationMetadata, name, classLoader) != null) {
+            if (containedConstraintType(reflectionSupport, annotationMetadata, name, classLoader) != null) {
                 return true;
             }
         }
@@ -71,7 +83,19 @@ public final class ConstraintContainers {
      * @return Whether there is a constraint
      */
     public static boolean hasConstraints(@NonNull AnnotationMetadata annotationMetadata) {
-        return hasConstraints(annotationMetadata, contextClassLoader());
+        return hasConstraints(ReflectionSupport.get(), annotationMetadata);
+    }
+
+    /**
+     * Whether the metadata carries a constraint, with the constraint types loaded by the context
+     * class loader.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The metadata
+     * @return Whether there is a constraint
+     */
+    public static boolean hasConstraints(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata) {
+        return hasConstraints(reflectionSupport, annotationMetadata, reflectionSupport.classLoader());
     }
 
     /**
@@ -85,6 +109,19 @@ public final class ConstraintContainers {
     @NonNull
     @SuppressWarnings("unchecked")
     public static Set<Class<? extends Annotation>> constraintTypes(@NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
+        return constraintTypes(ReflectionSupport.get(), annotationMetadata, classLoader);
+    }
+
+    /**
+     * The constraint types of the metadata: the ones found by stereotype and the ones inside
+     * containers.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The metadata
+     * @param classLoader The loader of the constraint types
+     * @return The constraint types
+     */
+    public static Set<Class<? extends Annotation>> constraintTypes(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
         // the names are resolved one by one instead of by
         // AnnotationMetadata#getAnnotationTypesByStereotype:
         // the shared registry of the annotation types keeps the first class seen under a name, and
@@ -93,7 +130,7 @@ public final class ConstraintContainers {
         // be the
         // one of the loader asking
         Set<Class<? extends Annotation>> types = new LinkedHashSet<>();
-        var names = constraintNames(annotationMetadata, classLoader);
+        var names = constraintNames(reflectionSupport, annotationMetadata, classLoader);
         var declared = annotationMetadata.getDeclaredAnnotationNames();
         boolean hasDeclared = names.stream().anyMatch(name -> declared.contains(name) || declared.contains(name + "$List"));
         for (String name : names) {
@@ -109,7 +146,7 @@ public final class ConstraintContainers {
             }
             AnnotationValue<?> occurrence =
                     values.isEmpty() ? AnnotationValue.builder(name).build() : values.getFirst();
-            types.add(constraintType(occurrence, classLoader));
+            types.add(constraintType(reflectionSupport, occurrence, classLoader));
         }
         return types;
     }
@@ -124,9 +161,22 @@ public final class ConstraintContainers {
      */
     @NonNull
     public static List<String> constraintNames(@NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
+        return constraintNames(ReflectionSupport.get(), annotationMetadata, classLoader);
+    }
+
+    /**
+     * The constraint names of the metadata: the ones found by stereotype and the ones inside
+     * containers.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The metadata
+     * @param classLoader The loader of the constraint types
+     * @return The constraint names
+     */
+    public static List<String> constraintNames(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
         List<String> names = new ArrayList<>(annotationMetadata.getAnnotationNamesByStereotype(Constraint.class));
         for (String name : annotationMetadata.getAnnotationNames()) {
-            Class<? extends Annotation> contained = containedConstraintType(annotationMetadata, name, classLoader);
+            Class<? extends Annotation> contained = containedConstraintType(reflectionSupport, annotationMetadata, name, classLoader);
             if (contained != null && !names.contains(contained.getName())) {
                 names.add(contained.getName());
             }
@@ -145,6 +195,20 @@ public final class ConstraintContainers {
     @NonNull
     public static List<? extends AnnotationValue<? extends Annotation>> values(@NonNull AnnotationMetadata annotationMetadata,
                                                                               @NonNull Class<? extends Annotation> constraintType) {
+        return values(ReflectionSupport.get(), annotationMetadata, constraintType);
+    }
+
+    /**
+     * The values of a constraint: the repeated ones, else the declared ones, else the ones of its
+     * container.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The metadata
+     * @param constraintType The constraint type
+     * @return The values, empty when the constraint is absent
+     */
+    public static List<? extends AnnotationValue<? extends Annotation>> values(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata,
+                                                                              @NonNull Class<? extends Annotation> constraintType) {
         List<? extends AnnotationValue<? extends Annotation>> values = annotationMetadata.getAnnotationValuesByType(constraintType);
         if (values.isEmpty()) {
             values = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
@@ -161,7 +225,7 @@ public final class ConstraintContainers {
                 }
             }
         }
-        return values.stream().map(value -> withValidators(value, constraintType)).toList();
+        return values.stream().map(value -> withValidators(reflectionSupport, value, constraintType)).toList();
     }
 
     /**
@@ -177,10 +241,26 @@ public final class ConstraintContainers {
     @NonNull
     public static AnnotationValue<? extends Annotation> withValidators(@NonNull AnnotationValue<? extends Annotation> value,
                                                                       @NonNull Class<? extends Annotation> constraintType) {
+        return withValidators(ReflectionSupport.get(), value, constraintType);
+    }
+
+    /**
+     * The processor records the validators of a constraint in its value; a constraint nested in a
+     * container or composing another is recorded as it is written, its validators are read from its
+     * definition.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param value The constraint value
+     * @param constraintType The constraint type
+     * @return The value with the validators of the constraint definition, the given one when it has
+     * them
+     */
+    public static AnnotationValue<? extends Annotation> withValidators(ReflectionSupport reflectionSupport, @NonNull AnnotationValue<? extends Annotation> value,
+                                                                      @NonNull Class<? extends Annotation> constraintType) {
         if (value.contains(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)) {
             return value;
         }
-        return ReflectionSupport.get().withDeclaredValidators(value, constraintType);
+        return reflectionSupport.withDeclaredValidators(value, constraintType);
     }
 
     /**
@@ -189,7 +269,7 @@ public final class ConstraintContainers {
      * be named otherwise.
      */
     @Nullable
-    private static Class<? extends Annotation> containedConstraintType(AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
+    private static Class<? extends Annotation> containedConstraintType(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
         AnnotationValue<?> container = annotationMetadata.getAnnotation(containerName);
         if (container == null) {
             return null;
@@ -200,11 +280,11 @@ public final class ConstraintContainers {
         }
         AnnotationValue<Annotation> first = contained.get(0);
         if (first.annotationClassValues(ValidationAnnotationUtil.CONSTRAINT_TYPE).length == 0
-                && !ReflectionSupport.get().isReflectionEnabled()) {
+                && !reflectionSupport.isReflectionEnabled()) {
             return null;
         }
-        Class<? extends Annotation> type = constraintType(first, classLoader);
-        return isConstraint(first, type) ? type : null;
+        Class<? extends Annotation> type = constraintType(reflectionSupport, first, classLoader);
+        return isConstraint(reflectionSupport, first, type) ? type : null;
     }
 
     /**
@@ -217,6 +297,19 @@ public final class ConstraintContainers {
     @SuppressWarnings("unchecked")
     public static Class<? extends Annotation> constraintType(
             AnnotationValue<?> value, ClassLoader classLoader) {
+        return constraintType(ReflectionSupport.get(), value, classLoader);
+    }
+
+    /**
+     * Resolves a constraint through a compile-time class reference or the optional provider.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param value The occurrence
+     * @param classLoader The application's loader
+     * @return Its annotation interface
+     */
+    public static Class<? extends Annotation> constraintType(ReflectionSupport reflectionSupport,
+            AnnotationValue<?> value, ClassLoader classLoader) {
         for (var reference :
                 value.annotationClassValues(ValidationAnnotationUtil.CONSTRAINT_TYPE)) {
             Class<?> type = reference.getType().orElse(null);
@@ -226,7 +319,7 @@ public final class ConstraintContainers {
         }
         var standard = ValidationMetadataSupport.standardConstraint(value.getAnnotationName());
         return standard != null ? standard : (Class<? extends Annotation>)
-            ReflectionSupport.get().classForName(value.getAnnotationName(), classLoader);
+            reflectionSupport.classForName(value.getAnnotationName(), classLoader);
     }
 
     /**
@@ -234,7 +327,7 @@ public final class ConstraintContainers {
      * annotation processor sees to, and only metadata described reflectively - which records no
      * stereotypes - has the annotation type read for it.
      */
-    private static boolean isConstraint(AnnotationValue<?> occurrence, Class<?> annotationType) {
+    private static boolean isConstraint(ReflectionSupport reflectionSupport, AnnotationValue<?> occurrence, Class<?> annotationType) {
         List<AnnotationValue<?>> stereotypes = occurrence.getStereotypes();
         if (stereotypes != null) {
             for (AnnotationValue<?> stereotype : stereotypes) {
@@ -244,11 +337,7 @@ public final class ConstraintContainers {
             }
         }
         return ValidationMetadataSupport.standardConstraint(occurrence.getAnnotationName()) != null
-            || ReflectionSupport.get().isConstraintAnnotation(annotationType);
+            || reflectionSupport.isConstraintAnnotation(annotationType);
     }
 
-    private static ClassLoader contextClassLoader() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        return classLoader == null ? ConstraintContainers.class.getClassLoader() : classLoader;
-    }
 }

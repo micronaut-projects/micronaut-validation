@@ -25,11 +25,14 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.MethodReference;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationField;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.groups.Default;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -38,7 +41,9 @@ import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.lang.reflect.Type;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.ResourceBundle;
 import java.util.Set;
 
 /**
@@ -54,7 +59,7 @@ import java.util.Set;
  * metadata and nothing else.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public interface ReflectionSupport {
@@ -66,7 +71,45 @@ public interface ReflectionSupport {
      * @return The support
      */
     static ReflectionSupport get() {
-        return ReflectionSupportServiceDiscovery.get();
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        return forClassLoader(loader == null ? ReflectionSupport.class.getClassLoader() : loader);
+    }
+
+    /**
+     * Resolves the access provider once for an application loader.
+     * @param loader The application loader
+     * @return The access provider
+     */
+    static ReflectionSupport forClassLoader(ClassLoader loader) {
+        return ReflectionSupportServiceDiscovery.get(loader);
+    }
+
+    /** @return The application loader captured during provider discovery. */
+    default ClassLoader classLoader() {
+        return ReflectionSupport.class.getClassLoader();
+    }
+
+    /**
+     * Binds a discovered provider to its application loader.
+     * @param loader The application loader
+     * @return The bound provider
+     */
+    default ReflectionSupport withClassLoader(ClassLoader loader) {
+        return withIntrospector(BeanIntrospector.forClassLoader(loader));
+    }
+
+    /** @return The generated introspector associated with this provider. */
+    default BeanIntrospector introspector() {
+        return BeanIntrospector.forClassLoader(classLoader());
+    }
+
+    /**
+     * Binds a provider to the factory's generated metadata.
+     * @param introspector The configured introspector
+     * @return The bound provider
+     */
+    default ReflectionSupport withIntrospector(BeanIntrospector introspector) {
+        return this;
     }
 
     /**
@@ -120,7 +163,7 @@ public interface ReflectionSupport {
         if (member.getAnnotationMetadata()
                 .booleanValue(ValidationField.class, "reflection")
                 .orElse(false)) {
-            throw new jakarta.validation.ValidationException("Cannot read field " + member.getDeclaringType().getName()
+            throw new ValidationException("Cannot read field " + member.getDeclaringType().getName()
                 + "." + member.getName() + ": direct field access requires micronaut-validation-reflection");
         }
         return member.read(bean);
@@ -151,9 +194,9 @@ public interface ReflectionSupport {
      * @param loader The application's loader
      * @return The class-based resource bundle
      */
-    default java.util.ResourceBundle messageBundle(
-            String baseName, java.util.Locale locale, ClassLoader loader) {
-        throw new jakarta.validation.ValidationException(
+    default ResourceBundle messageBundle(
+            String baseName, Locale locale, ClassLoader loader) {
+        throw new ValidationException(
                 "Class-based validation message bundles require generated constructors or"
                         + " micronaut-validation-reflection: "
                         + baseName);
@@ -166,7 +209,7 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     default Class<?> classForName(String name, ClassLoader loader) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated class reference for "
                         + name
                         + ": add"
@@ -184,16 +227,16 @@ public interface ReflectionSupport {
      */
     default @Nullable ValidationDeclaration declaration(
             Class<?> type, String kind, String name, List<Class<?>> parameters) {
-        var introspection = BeanIntrospector.forClassLoader(type.getClassLoader()).findIntrospection(type).orElse(null);
+        var introspection = introspector().findIntrospection(type).orElse(null);
         if (introspection == null) {
-            throw new jakarta.validation.ValidationException(
+            throw new ValidationException(
                     "No generated declaration for "
                             + type.getName()
                             + "."
                             + name
                             + ": add micronaut-validation-reflection");
         }
-        var declaration = ValidationDeclaration.generated(introspection, kind, name, parameters);
+        var declaration = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
         return declaration;
     }
 
@@ -203,7 +246,7 @@ public interface ReflectionSupport {
      * @return An optional reflective array
      */
     default Object[] array(Class<?> type, int size) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated array factory for "
                         + type.getName()
                         + ": add micronaut-validation-reflection");
@@ -214,9 +257,9 @@ public interface ReflectionSupport {
      * @return Its members when the optional provider permits
      * discovery
      */
-    default java.util.Map<String, AnnotationMember> annotationMembers(
+    default Map<String, AnnotationMember> annotationMembers(
             Class<? extends Annotation> type) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated annotation member metadata for "
                         + type.getName()
                         + ": add micronaut-validation-reflection");
@@ -228,7 +271,7 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     default List<Enum<?>> enumConstants(Class<?> type) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated enum constants for "
                         + type.getName()
                         + ": add"
@@ -246,7 +289,7 @@ public interface ReflectionSupport {
         if (type instanceof Class<?> clazz) {
             return Argument.of(clazz);
         }
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "Generic signature conversion requires micronaut-validation-reflection: " + type);
     }
 
@@ -269,7 +312,7 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     default <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated annotation implementation for "
                         + type.getName()
                         + ": add"
@@ -285,7 +328,7 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     default @Nullable Object instantiate(String name, ClassLoader classLoader) {
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "No generated constructor for "
                         + name
                         + ": compile with introspection metadata or add"
@@ -298,12 +341,13 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     default List<Class<?>> interfaces(Class<?> type) {
-        if (type == Object.class || type == jakarta.validation.groups.Default.class) {
+        if (type == Object.class || type == Default.class) {
             return List.of();
         }
-        var metadata = ValidationMetadataSupport.hierarchy(type);
+        var metadata = introspector().findIntrospection(type)
+            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
         if (metadata == null) {
-            throw new jakarta.validation.ValidationException(
+            throw new ValidationException(
                     "No generated hierarchy for "
                             + type.getName()
                             + ": add micronaut-validation-reflection or compile the type with"
@@ -317,7 +361,8 @@ public interface ReflectionSupport {
      * @return Whether generated metadata or the optional provider can describe it
      */
     default boolean canResolveHierarchy(Class<?> type) {
-        return ValidationMetadataSupport.hierarchy(type) != null;
+        return introspector().findIntrospection(type)
+            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null) != null;
     }
 
     /**
@@ -329,9 +374,10 @@ public interface ReflectionSupport {
         if (type == Object.class) {
             return null;
         }
-        var metadata = ValidationMetadataSupport.hierarchy(type);
+        var metadata = introspector().findIntrospection(type)
+            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
         if (metadata == null) {
-            throw new jakarta.validation.ValidationException(
+            throw new ValidationException(
                     "No generated hierarchy for "
                             + type.getName()
                             + ": add micronaut-validation-reflection or compile the type with"
@@ -347,14 +393,14 @@ public interface ReflectionSupport {
      * @return The Jakarta signature
      * @since 5.3.0
      */
-    default Method targetMethod(io.micronaut.inject.MethodReference<?, ?> executable) {
+    default Method targetMethod(MethodReference<?, ?> executable) {
         if (executable instanceof CallerSuppliedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();
         }
         if (executable instanceof IntrospectedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();
         }
-        throw new jakarta.validation.ValidationException(
+        throw new ValidationException(
                 "Runtime method lookup requires micronaut-validation-reflection: "
                         + executable.getDeclaringType().getName()
                         + "."
@@ -448,7 +494,7 @@ public interface ReflectionSupport {
      * @param typeArgumentIndex The index of the type argument of that super type
      * @return The argument, {@code null} when the type binds no such argument
      * @throws jakarta.validation.ValidationException When nothing can read it
-     * @since 5.2
+     * @since 5.3.0
      */
     @Nullable
     Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
@@ -464,7 +510,7 @@ public interface ReflectionSupport {
      * @param typeArgumentIndex The index of the type argument the extractor extracts
      * @return The index among the type arguments of the declared type
      * @throws jakarta.validation.ValidationException When nothing can read it
-     * @since 5.2
+     * @since 5.3.0
      */
     @Nullable
     Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
@@ -480,7 +526,7 @@ public interface ReflectionSupport {
      * @param <T> The super type
      * @return The argument, {@code null} when the type does not extend or implement the super type
      * @throws jakarta.validation.ValidationException When nothing can read it
-     * @since 5.2
+     * @since 5.3.0
      */
     @Nullable
     <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType);
@@ -494,7 +540,7 @@ public interface ReflectionSupport {
      * @param constraintType The constraint annotation type
      * @throws jakarta.validation.ConstraintDefinitionException When the type breaks a rule
      * @throws jakarta.validation.ValidationException When nothing can read the type
-     * @since 5.2
+     * @since 5.3.0
      */
     void checkConstraintDefinition(Class<? extends Annotation> constraintType);
 
@@ -508,7 +554,7 @@ public interface ReflectionSupport {
      * @return The instance, {@code null} when the type declares no such constructor
      * @throws jakarta.validation.ValidationException When the constructor fails, or nothing can
      * call it
-     * @since 5.2
+     * @since 5.3.0
      */
     @Nullable <T> T instantiate(Class<T> type);
 
@@ -522,7 +568,7 @@ public interface ReflectionSupport {
      * @return The argument
      * @throws jakarta.validation.ValidationException When the class declares no single extractor
      * signature, or nothing can read it
-     * @since 5.2
+     * @since 5.3.0
      */
     Argument<?> valueExtractorArgument(Class<?> extractorType);
 
@@ -534,7 +580,7 @@ public interface ReflectionSupport {
      * @param executable The executable
      * @return The names, one per parameter
      * @throws jakarta.validation.ValidationException When nothing can read them
-     * @since 5.2
+     * @since 5.3.0
      */
     List<String> parameterNames(Executable executable);
 
@@ -547,7 +593,7 @@ public interface ReflectionSupport {
      * @param value The occurrence
      * @param constraintType The constraint annotation type
      * @return The occurrence, with the declared validators where the type declares any
-     * @since 5.2
+     * @since 5.3.0
      */
     AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
                                                                  Class<? extends Annotation> constraintType);
@@ -559,7 +605,7 @@ public interface ReflectionSupport {
      *
      * @param constraintType The constraint annotation type
      * @return Whether the type is marked
-     * @since 5.2
+     * @since 5.3.0
      */
     boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType);
 
@@ -570,7 +616,7 @@ public interface ReflectionSupport {
      *
      * @param constraintType The constraint annotation type
      * @return The validator classes, empty where the type declares none
-     * @since 5.2
+     * @since 5.3.0
      */
     List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType);
 
@@ -581,7 +627,7 @@ public interface ReflectionSupport {
      *
      * @param validatorType The validator class
      * @return The targets, empty where the class declares none
-     * @since 5.2
+     * @since 5.3.0
      */
     Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType);
 
@@ -591,7 +637,7 @@ public interface ReflectionSupport {
      *
      * @param group The group
      * @return Whether the group declares {@link jakarta.validation.GroupSequence}
-     * @since 5.2
+     * @since 5.3.0
      */
     boolean isGroupSequence(Class<?> group);
 
@@ -602,7 +648,7 @@ public interface ReflectionSupport {
      *
      * @param annotationType The annotation type
      * @return Whether the type declares {@link jakarta.validation.Constraint}
-     * @since 5.2
+     * @since 5.3.0
      */
     boolean isConstraintAnnotation(Class<?> annotationType);
 

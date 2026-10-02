@@ -16,7 +16,7 @@
 /**
  * The annotation transformers and remappers the validation annotation processor applies at compile time.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @NullMarked
 package io.micronaut.validation.transformer;

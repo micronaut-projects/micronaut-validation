@@ -74,6 +74,24 @@ class Test {
         definition.findMethod("setName", String).get().hasStereotype(VALIDATED_ANN)
     }
 
+    void "static constraints do not become executable validation methods"() {
+        given:
+        def introspection = buildBeanIntrospection('test.Test', '''
+package test;
+
+@io.micronaut.core.annotation.Introspected
+class Test {
+    @jakarta.validation.constraints.NotNull
+    static Object getStaticProperty() {
+        return null;
+    }
+}
+''')
+
+        expect:
+        introspection.beanMethods.every { it.name != 'getStaticProperty' }
+    }
+
     /**
      * Stands in for a visitor that vetoes a method, the way the Jakarta Validation TCK harness does for a
      * method {@code @ValidateOnExecution} turns off.

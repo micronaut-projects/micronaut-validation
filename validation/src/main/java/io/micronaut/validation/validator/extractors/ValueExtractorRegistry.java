@@ -15,8 +15,8 @@
  */
 package io.micronaut.validation.validator.extractors;
 
-import org.jspecify.annotations.NonNull;
 import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.NonNull;
 
 import java.util.List;
 
@@ -35,7 +35,7 @@ public interface ValueExtractorRegistry {
      *
      * @param valueExtractorDefinition The value extractor definition
      * @param <T> The container type
-     * @since 5.1
+     * @since 5.3.0
      */
     default <T> void replaceValueExtractor(ValueExtractorDefinition<T> valueExtractorDefinition) {
         addValueExtractor(valueExtractorDefinition);

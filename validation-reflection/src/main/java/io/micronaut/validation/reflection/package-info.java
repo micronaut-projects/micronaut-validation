@@ -20,7 +20,7 @@
  * validator reads the generated metadata and nothing else.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Configuration
 @NullMarked

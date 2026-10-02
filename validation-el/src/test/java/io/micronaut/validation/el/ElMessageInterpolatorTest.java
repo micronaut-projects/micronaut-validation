@@ -15,16 +15,24 @@
  */
 package io.micronaut.validation.el;
 
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.el.CompiledExpressionFactory;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -33,6 +41,40 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ElMessageInterpolatorTest {
+
+    @Test
+    void evaluatesCompiledMessagesAlongsideRuntimeMessages() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        assertEquals("ABC", interpolator.interpolate("${validatedValue.toUpperCase()}", new TestContext("abc", Map.of())));
+        assertEquals("runtime 7", interpolator.interpolate("runtime ${3 + 4}", new TestContext("abc", Map.of())));
+        // A factory without an interpreter proves this expression was compiled and discovered.
+        var factory = new CompiledExpressionFactory(ElExpressionSources.load(getClass().getClassLoader()));
+        var context = new ValidationELContext(BeanIntrospector.forClassLoader(getClass().getClassLoader()));
+        context.getVariableMapper().setVariable("validatedValue", factory.createValueExpression("abc", String.class));
+        assertEquals("ABC", factory.createValueExpression(context, "${validatedValue.toUpperCase()}", Object.class).getValue(context));
+    }
+
+    @Test
+    void usesTheApplicationLoaderAfterTheThreadLoaderChanges() {
+        var loader = new ClassLoader(getClass().getClassLoader()) {
+            @Override public InputStream getResourceAsStream(String name) {
+                if (name.equals("ValidationMessages.properties")) {
+                    return new ByteArrayInputStream("review.loader=application-loader".getBytes(StandardCharsets.UTF_8));
+                }
+                return super.getResourceAsStream(name);
+            }
+        };
+        var interpolator = new ElMessageInterpolatorProvider().create(loader).orElseThrow();
+        var thread = Thread.currentThread();
+        var previous = thread.getContextClassLoader();
+        try {
+            thread.setContextClassLoader(new ClassLoader(null) { });
+            assertEquals("application-loader", interpolator.interpolate("{review.loader}", new TestContext("abc", Map.of()), Locale.ROOT));
+            assertEquals("generated", interpolator.interpolate("${validatedValue.label}", new TestContext(new GeneratedBean(), Map.of()), Locale.ROOT));
+        } finally {
+            thread.setContextClassLoader(previous);
+        }
+    }
 
     @Test
     void interpolatesJakartaElExpressionsAndConstraintAttributes() {
@@ -143,6 +185,7 @@ class ElMessageInterpolatorTest {
         var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
         assertEquals("generated", interpolator.interpolate("${validatedValue.label}", new TestContext(new GeneratedBean(), Map.of())));
         assertEquals("${validatedValue.label}", interpolator.interpolate("${validatedValue.label}", new TestContext(new PlainBean(), Map.of())));
+        assertEquals("${validatedValue.getLabel()}", interpolator.interpolate("${validatedValue.getLabel()}", new TestContext(new PlainBean(), Map.of())));
         assertEquals(0, PlainBean.reads);
     }
 
@@ -154,13 +197,18 @@ class ElMessageInterpolatorTest {
 
     @Test
     void reflectionCompanionsAreAbsent() {
-        org.junit.jupiter.api.Assertions.assertThrows(ClassNotFoundException.class,
+        if (Boolean.getBoolean("validation.test.el.reflectionCompanion")) {
+            Assertions.assertDoesNotThrow(() ->
+                Class.forName("io.micronaut.el.interpreter.reflection.ReflectiveELMethodExecutor"));
+            return;
+        }
+        Assertions.assertThrows(ClassNotFoundException.class,
             () -> Class.forName("io.micronaut.validation.reflection.ReflectionValidationSupport"));
-        org.junit.jupiter.api.Assertions.assertThrows(ClassNotFoundException.class,
+        Assertions.assertThrows(ClassNotFoundException.class,
             () -> Class.forName("io.micronaut.el.interpreter.reflection.ReflectiveELMethodExecutor"));
     }
 
-    @io.micronaut.core.annotation.Introspected
+    @Introspected
     public static final class GeneratedBean {
         public String getLabel() {
             return "generated";
@@ -257,7 +305,7 @@ class ElMessageInterpolatorTest {
         }
 
         @Override
-        public List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> getConstraintValidatorClasses() {
+        public List<Class<? extends ConstraintValidator<Annotation, ?>>> getConstraintValidatorClasses() {
             return List.of();
         }
 

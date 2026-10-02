@@ -12,6 +12,9 @@ configurations {
 dependencies {
     nativeSmokeAnnotationProcessor projects.micronautValidationProcessor
     nativeSmokeAnnotationProcessor mn.micronaut.inject.java
+    nativeSmokeImplementation projects.micronautValidationBootstrap
+    nativeSmokeImplementation projects.micronautValidationXml
+    nativeSmokeImplementation projects.micronautValidationEl
 }
 def image = layout.buildDirectory.file('native-smoke/validation-smoke')
 def graalHome = providers.environmentVariable('GRAALVM_HOME')
@@ -25,6 +28,7 @@ tasks.register('nativeSmokeBuild', Exec) {
         if (!graalHome.isPresent()) { throw new GradleException('Set GRAALVM_HOME to a GraalVM JDK with native-image to run nativeSmoke.') }
         image.get().asFile.parentFile.mkdirs()
         commandLine "${graalHome.get()}/bin/native-image", '-J-Xmx4g', '--parallelism=2', '--no-fallback',
+            '-H:IncludeResources=ValidationMessages.*\\.properties',
             '-cp', sourceSets.nativeSmoke.runtimeClasspath.asPath, '-o', image.get().asFile.absolutePath,
             'io.micronaut.validation.nativeimage.ValidationNativeSmoke'
     }
@@ -35,3 +39,18 @@ tasks.register('nativeSmoke', Exec) {
     dependsOn tasks.named('nativeSmokeBuild')
     doFirst { commandLine image.get().asFile.absolutePath }
 }
+
+tasks.register('nativeSmokeJvm', JavaExec) {
+    group = 'verification'
+    description = 'Runs the complete reflection-free smoke scenario on the JVM.'
+    classpath = sourceSets.nativeSmoke.runtimeClasspath
+    mainClass = 'io.micronaut.validation.nativeimage.ValidationNativeSmoke'
+    doFirst {
+        def forbidden = classpath.files.findAll { it.name.contains('reflection') }
+        if (!forbidden.empty) {
+            throw new GradleException("Reflection modules must be absent from the smoke classpath: ${forbidden}")
+        }
+    }
+}
+tasks.named('nativeSmokeBuild') { dependsOn 'nativeSmokeJvm' }
+tasks.named('check') { dependsOn 'nativeSmokeJvm' }

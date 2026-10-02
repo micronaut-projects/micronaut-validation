@@ -17,9 +17,11 @@ package io.micronaut.validation.reflection;
 
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.type.Argument;
+import io.micronaut.reflection.ReflectionArguments;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
@@ -34,7 +36,7 @@ import java.util.List;
  * what its validators support, and what its {@code validationAppliesTo} may say. Reading an annotation type
  * is what this module is for, so the checks live here and the validator asks for them through the seam.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class ReflectedConstraintDefinitions {
@@ -121,11 +123,11 @@ final class ReflectedConstraintDefinitions {
     }
 
     private static ValidatorTargets validatorTargets(Class<? extends Annotation> annotationType,
-                                                     List<Class<? extends jakarta.validation.ConstraintValidator<?, ?>>> validators) {
+                                                     List<Class<? extends ConstraintValidator<?, ?>>> validators) {
         boolean generic = false;
         boolean crossParameter = false;
         int crossParameterValidators = 0;
-        for (Class<? extends jakarta.validation.ConstraintValidator<?, ?>> validator : validators) {
+        for (Class<? extends ConstraintValidator<?, ?>> validator : validators) {
             List<ValidationTarget> targets = validationTargets(validator);
             if (targets.contains(ValidationTarget.ANNOTATED_ELEMENT)) {
                 generic = true;
@@ -155,7 +157,7 @@ final class ReflectedConstraintDefinitions {
     private static Class<?> validatedType(Class<?> validator) {
         // the second type argument of ConstraintValidator through every level between: a base leaving it open and a
         // sub type binding it is read as the type the sub type binds
-        Argument<?> signature = io.micronaut.reflection.ReflectionArguments.resolveGenericToArgument(validator, jakarta.validation.ConstraintValidator.class);
+        Argument<?> signature = ReflectionArguments.resolveGenericToArgument(validator, ConstraintValidator.class);
         Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
         return typeParameters.length == 2 ? typeParameters[1].getType() : Object.class;
     }

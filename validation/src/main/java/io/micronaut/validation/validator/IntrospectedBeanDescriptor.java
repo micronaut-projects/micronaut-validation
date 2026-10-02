@@ -15,44 +15,46 @@
  */
 package io.micronaut.validation.validator;
 
-
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
-import io.micronaut.core.beans.BeanIntrospection;
-import io.micronaut.core.type.Argument;
-import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import jakarta.validation.GroupSequence;
+import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
+import jakarta.validation.GroupSequence;
+import jakarta.validation.Payload;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
-import jakarta.validation.metadata.ParameterDescriptor;
-import jakarta.validation.metadata.ExecutableDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
 import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.ExecutableDescriptor;
 import jakarta.validation.metadata.GroupConversionDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.ParameterDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.metadata.Scope;
+import jakarta.validation.metadata.ValidateUnwrappedValue;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -72,6 +74,7 @@ import java.util.stream.Collectors;
 public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
     private final BeanIntrospection<?> beanIntrospection;
+    private final ReflectionSupport reflectionSupport;
     private final AnnotationMetadata beanAnnotationMetadata;
     private final Map<String, AnnotationMetadata> propertyAnnotationMetadata;
     private final List<ValidationMetadataProvider> metadataProviders;
@@ -117,12 +120,34 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                                Map<String, AnnotationMetadata> propertyAnnotationMetadata,
                                List<ValidationMetadataProvider> metadataProviders,
                                @Nullable ValidatorDeclarations declarations) {
+        this(declarations == null ? ReflectionSupport.get() : declarations.reflectionSupport(),
+            beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, metadataProviders, declarations);
+    }
+
+    /**
+     * Creates a descriptor with the application's captured access provider.
+     * @param reflectionSupport The access provider
+     * @param beanIntrospection The bean introspection
+     * @param beanAnnotationMetadata The bean annotations
+     * @param propertyAnnotationMetadata The property annotations
+     * @param metadataProviders The metadata providers
+     */
+    public IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
+            AnnotationMetadata beanAnnotationMetadata, Map<String, AnnotationMetadata> propertyAnnotationMetadata,
+            List<ValidationMetadataProvider> metadataProviders) {
+        this(reflectionSupport, beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, metadataProviders, null);
+    }
+
+    private IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
+            AnnotationMetadata beanAnnotationMetadata, Map<String, AnnotationMetadata> propertyAnnotationMetadata,
+            List<ValidationMetadataProvider> metadataProviders, @Nullable ValidatorDeclarations declarations) {
         ArgumentUtils.requireNonNull("beanIntrospection", beanIntrospection);
         this.beanIntrospection = beanIntrospection;
+        this.reflectionSupport = reflectionSupport;
         this.beanAnnotationMetadata = beanAnnotationMetadata;
         this.propertyAnnotationMetadata = new LinkedHashMap<>(propertyAnnotationMetadata);
         this.metadataProviders = List.copyOf(metadataProviders);
-        this.executables = new IntrospectedExecutableDescriptors(this::constraintDescriptors, declarations);
+        this.executables = new IntrospectedExecutableDescriptors(this::constraintDescriptors, declarations, reflectionSupport);
         this.declarations = declarations;
     }
 
@@ -241,7 +266,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-        Set<MethodType> requested = new HashSet<>(java.util.Arrays.asList(methodTypes));
+        Set<MethodType> requested = new HashSet<>(Arrays.asList(methodTypes));
         requested.add(methodType);
         Map<String, MethodDescriptor> methods = new LinkedHashMap<>();
         for (BeanMethod<?, ?> method : beanIntrospection.getBeanMethods()) {
@@ -334,7 +359,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public boolean hasConstraints() {
-        return ConstraintContainers.hasConstraints(beanAnnotationMetadata, currentClassLoader());
+        return ConstraintContainers.hasConstraints(reflectionSupport, beanAnnotationMetadata, currentClassLoader());
     }
 
     @Override
@@ -387,7 +412,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type)) {
                 continue;
             }
-            for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(annotationMetadata, type)) {
+            for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(reflectionSupport, annotationMetadata, type)) {
                 descriptors.putIfAbsent(
                     ConstraintAnnotationKey.of(type, annotationValue),
                     constraintDescriptor(type, annotationValue, annotationMetadata)
@@ -398,8 +423,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     }
 
     /** The constraint types of a metadata, loaded by the context class loader. */
-    private static List<Class<? extends Annotation>> constraintTypes(AnnotationMetadata annotationMetadata) {
-        return List.copyOf(ConstraintContainers.constraintTypes(annotationMetadata, currentClassLoader()));
+    private List<Class<? extends Annotation>> constraintTypes(AnnotationMetadata annotationMetadata) {
+        return List.copyOf(ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, currentClassLoader()));
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -411,14 +436,14 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             (AnnotationValue<Annotation>) annotationValue
         );
         return validatorClasses
-            .map(classes -> new DefaultConstraintDescriptor(
+            .map(classes -> new DefaultConstraintDescriptor(reflectionSupport,
                 type,
                 annotationValue,
                 annotationMetadata,
                 classes,
                 true
             ))
-            .orElseGet(() -> new DefaultConstraintDescriptor(
+            .orElseGet(() -> new DefaultConstraintDescriptor(reflectionSupport,
                 type,
                 annotationValue,
                 annotationMetadata
@@ -442,9 +467,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         return configuredClasses;
     }
 
-    private static ClassLoader currentClassLoader() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        return classLoader == null ? IntrospectedBeanDescriptor.class.getClassLoader() : classLoader;
+    private ClassLoader currentClassLoader() {
+        return reflectionSupport.classLoader();
     }
 
     /** Internal implementation of {@link PropertyDescriptor}. */
@@ -549,16 +573,16 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
         @Override
         public boolean hasConstraints() {
-            if (ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader())) {
+            if (ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())) {
                 return true;
             }
             for (BeanProperty<?, ?> superProperty : superProperties()) {
-                if (ConstraintContainers.hasConstraints(superProperty.getAnnotationMetadata().getDeclaredMetadata(), currentClassLoader())) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, superProperty.getAnnotationMetadata().getDeclaredMetadata(), currentClassLoader())) {
                     return true;
                 }
             }
             for (BeanPropertyMember<?, ?> member : members()) {
-                if (ConstraintContainers.hasConstraints(member.getAnnotationMetadata(), currentClassLoader())) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, member.getAnnotationMetadata(), currentClassLoader())) {
                     return true;
                 }
             }
@@ -575,7 +599,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
          * own introspections instead, see {@link #superProperties()}.
          */
         private List<? extends BeanPropertyMember<?, ?>> members() {
-            return ReflectionSupport.get().separatesDeclarations(beanIntrospection)
+            return reflectionSupport.separatesDeclarations(beanIntrospection)
                 ? beanProperty.getMembers()
                 : List.of();
         }
@@ -591,7 +615,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
          * members already or when there is nothing to read the super types from
          */
         private List<BeanProperty<?, ?>> superProperties() {
-            if (declarations == null || ReflectionSupport.get().separatesDeclarations(beanIntrospection)) {
+            if (declarations == null || reflectionSupport.separatesDeclarations(beanIntrospection)) {
                 return List.of();
             }
             List<BeanProperty<?, ?>> properties = new ArrayList<>();
@@ -742,12 +766,12 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         }
 
         @Override
-        public Set<Class<? extends jakarta.validation.Payload>> getPayload() {
+        public Set<Class<? extends Payload>> getPayload() {
             return delegate.getPayload();
         }
 
         @Override
-        public jakarta.validation.ConstraintTarget getValidationAppliesTo() {
+        public ConstraintTarget getValidationAppliesTo() {
             return delegate.getValidationAppliesTo();
         }
 
@@ -772,7 +796,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         }
 
         @Override
-        public jakarta.validation.metadata.ValidateUnwrappedValue getValueUnwrapping() {
+        public ValidateUnwrappedValue getValueUnwrapping() {
             return delegate.getValueUnwrapping();
         }
 

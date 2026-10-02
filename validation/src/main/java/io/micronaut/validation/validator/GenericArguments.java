@@ -27,7 +27,7 @@ import java.lang.reflect.Type;
  * {@link ReflectionSupport} decides and the reflection module does.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public final class GenericArguments {
@@ -43,6 +43,18 @@ public final class GenericArguments {
      * @return The argument
      */
     public static Argument<?> of(Type type) {
-        return ReflectionSupport.get().argumentOf(type);
+        return of(ReflectionSupport.get(), type);
+    }
+
+    /**
+     * The argument of a type: the class it erases to, with the type arguments it binds, an unbound variable
+     * standing for its erasure.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The type
+     * @return The argument
+     */
+    public static Argument<?> of(ReflectionSupport reflectionSupport, Type type) {
+        return reflectionSupport.argumentOf(type);
     }
 }

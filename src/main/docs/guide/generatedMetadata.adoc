@@ -34,9 +34,15 @@ The restricted TCK profile retains seven measured exclusions. Core processes onl
 
 Production compilation treats NoReflection and NullAway diagnostics as errors. Compiler fixtures also prove that generated Java cannot bypass these gates. Runtime classpath tests verify the default stack without either reflection module.
 
-Run the native access smoke test with a GraalVM installation:
+The `nativeSmokeJvm` task exercises generated member access, bootstrap, XML mappings, resource bundles, and EL on a classpath without validation, core, or EL reflection companions. It runs as part of `check`. Run the same scenario as a native executable with a GraalVM installation:
 
 [source,bash]
 ----
 GRAALVM_HOME=/path/to/graalvm ./gradlew :micronaut-validation:nativeSmoke
 ----
+
+A validator factory captures its access provider and generated introspector during configuration. Derived validator contexts, constraint descriptors, group processing, and executable traversal keep those capabilities when the calling thread changes its context class loader.
+
+Constraint validators registered as Micronaut beans are created through the bean context, including validators with a no-argument constructor. This preserves member injection, interceptors, and lifecycle callbacks. Unmanaged validators use their generated constructor when available.
+
+Standard constraint descriptors expose typed Jakarta enum attributes, including `Pattern.Flag[]`, without reflective enum lookup. Class-valued attributes use generated class references, and returned arrays are copied defensively. Concrete annotation instances and custom annotation-member discovery still require the optional reflection provider; this change does not generate annotation implementations.

@@ -19,7 +19,6 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.annotation.ValidatedElement;
-
 import jakarta.validation.Valid;
 
 /** Queries declaration and nested type annotations without erasing argument structure. */
@@ -33,12 +32,35 @@ final class ArgumentValidationMetadata {
      * constraint or the cascade itself.
      */
     static <E> boolean isValidated(Argument<E> containerArgument) {
-        return ReflectionSupport.get().prepareArgument(containerArgument).getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
+        return isValidated(ReflectionSupport.get(), containerArgument);
+    }
+
+    /**
+     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
+     * it carries a constraint or a cascade, and an argument read reflectively carries the
+     * constraint or the cascade itself.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    static <E> boolean isValidated(ReflectionSupport reflectionSupport, Argument<E> containerArgument) {
+        return reflectionSupport.prepareArgument(containerArgument).getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
     }
 
     static boolean hasValidatedTypeArgument(Argument<?> argument) {
-        for (Argument<?> typeParameter : ReflectionSupport.get().prepareArgument(argument).getTypeParameters()) {
-            if (isValidated(typeParameter)) {
+        return hasValidatedTypeArgument(ReflectionSupport.get(), argument);
+    }
+
+    /**
+     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
+     * it carries a constraint or a cascade, and an argument read reflectively carries the
+     * constraint or the cascade itself.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    static boolean hasValidatedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {
+            if (isValidated(reflectionSupport, typeParameter)) {
                 return true;
             }
         }
@@ -46,14 +68,27 @@ final class ArgumentValidationMetadata {
     }
 
     static boolean hasCascadedTypeArgument(Argument<?> argument) {
-        for (Argument<?> typeParameter : ReflectionSupport.get().prepareArgument(argument).getTypeParameters()) {
-            if (!isValidated(typeParameter)) {
+        return hasCascadedTypeArgument(ReflectionSupport.get(), argument);
+    }
+
+    /**
+     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
+     * it carries a constraint or a cascade, and an argument read reflectively carries the
+     * constraint or the cascade itself.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param reflectionSupport The access provider captured by the validator factory
+     */
+    static boolean hasCascadedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {
+            if (!isValidated(reflectionSupport, typeParameter)) {
                 continue;
             }
             AnnotationMetadata annotationMetadata = typeParameter.getAnnotationMetadata();
             if (annotationMetadata.hasAnnotation(Valid.class)
                     || annotationMetadata.hasStereotype(Valid.class)
-                    || hasCascadedTypeArgument(typeParameter)) {
+                    || hasCascadedTypeArgument(reflectionSupport, typeParameter)) {
                 return true;
             }
         }

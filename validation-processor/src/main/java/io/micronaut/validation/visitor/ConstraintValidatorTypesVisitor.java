@@ -15,13 +15,13 @@
  */
 package io.micronaut.validation.visitor;
 
-import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
+import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
-import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
@@ -33,7 +33,7 @@ import java.util.Set;
  * the validator reads them from the generated metadata rather than from the generic signature of the class.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor<Object, Object> {

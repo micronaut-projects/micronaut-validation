@@ -17,8 +17,8 @@ package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.beans.BeanIntrospection;
-import io.micronaut.core.type.Argument;
 import io.micronaut.core.order.Ordered;
+import io.micronaut.core.type.Argument;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.metadata.BeanDescriptor;
 
@@ -36,7 +36,7 @@ import java.util.Optional;
  * contract because {@link io.micronaut.validation.validator.ValidatorConfiguration}
  * exposes configured providers.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 public interface ValidationMetadataProvider extends Ordered {
 
@@ -59,7 +59,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param <T>      The bean type
      * @return The description, empty when this provider configures nothing for the type or the type is
      *         described by an introspection of its own
-     * @since 5.2
+     * @since 5.3.0
      */
     default <T> Optional<BeanIntrospection<T>> getBeanIntrospection(Class<T> beanType) {
         return Optional.empty();
@@ -68,7 +68,7 @@ public interface ValidationMetadataProvider extends Ordered {
     /**
      * @param beanType The bean type
      * @return Additional class-level annotation metadata for validation
-     * @since 5.1
+     * @since 5.3.0
      */
     default AnnotationMetadata getBeanAnnotationMetadata(Class<?> beanType) {
         return AnnotationMetadata.EMPTY_METADATA;
@@ -77,7 +77,7 @@ public interface ValidationMetadataProvider extends Ordered {
     /**
      * @param beanType The bean type
      * @return Whether regular class annotations should be ignored
-     * @since 5.1
+     * @since 5.3.0
      */
     default boolean isBeanAnnotationMetadataIgnored(Class<?> beanType) {
         return false;
@@ -87,7 +87,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param beanType The bean type
      * @param propertyName The property name
      * @return Additional property-level annotation metadata for validation
-     * @since 5.1
+     * @since 5.3.0
      */
     default AnnotationMetadata getPropertyAnnotationMetadata(Class<?> beanType, String propertyName) {
         return AnnotationMetadata.EMPTY_METADATA;
@@ -97,7 +97,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param beanType The bean type
      * @param propertyName The property name
      * @return Whether regular property annotations should be ignored
-     * @since 5.1
+     * @since 5.3.0
      */
     default boolean isPropertyAnnotationMetadataIgnored(Class<?> beanType, String propertyName) {
         return false;
@@ -198,7 +198,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param parameterTypes The method parameter types
      * @param parameterIndex The parameter index
      * @return Whether regular method parameter annotations should be ignored
-     * @since 5.1
+     * @since 5.3.0
      */
     default boolean isMethodParameterAnnotationMetadataIgnored(Class<?> beanType,
                                                               String methodName,
@@ -212,7 +212,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param methodName The method name
      * @param parameterTypes The method parameter types
      * @return Whether regular method return value annotations should be ignored
-     * @since 5.1
+     * @since 5.3.0
      */
     default boolean isMethodReturnValueAnnotationMetadataIgnored(Class<?> beanType,
                                                                 String methodName,
@@ -225,7 +225,7 @@ public interface ValidationMetadataProvider extends Ordered {
      * @param existingValidatorClasses The existing validator classes declared by the constraint annotation
      * @param <A> The constraint annotation type
      * @return The replacement validator classes, or empty if this provider does not override them
-     * @since 5.1
+     * @since 5.3.0
      */
     default <A extends Annotation> Optional<List<Class<? extends ConstraintValidator<A, ?>>>> getConstraintValidatorClasses(
         Class<A> constraintType,

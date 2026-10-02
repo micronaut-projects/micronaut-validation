@@ -27,8 +27,8 @@ final class ConstraintValidatorServiceDiscovery {
     private ConstraintValidatorServiceDiscovery() { }
 
     @SuppressWarnings({"rawtypes", "unchecked"})
-    static List<ConstraintValidator<?, ?>> load() {
-        return SoftServiceLoader.<ConstraintValidator<?, ?>>load((Class) ConstraintValidator.class)
+    static List<ConstraintValidator<?, ?>> load(ClassLoader loader) {
+        return SoftServiceLoader.<ConstraintValidator<?, ?>>load((Class) ConstraintValidator.class, loader)
                 .collectAll();
     }
 }

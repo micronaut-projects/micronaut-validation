@@ -31,7 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * generated metadata. Reading it is what this module is for, and the answers are cached here rather
  * than in the validator, which reads no class.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class ReflectionContainerTypeArguments {

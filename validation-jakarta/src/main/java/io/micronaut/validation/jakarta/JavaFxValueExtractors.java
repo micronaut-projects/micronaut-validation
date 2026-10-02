@@ -29,10 +29,12 @@ import javafx.collections.ObservableMap;
 import javafx.collections.ObservableSet;
 import org.jspecify.annotations.Nullable;
 
+import java.util.Map;
+
 /**
  * JavaFX value extractors for the opt-in Jakarta compliance aggregate.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 final class JavaFxValueExtractors {
 
@@ -128,7 +130,7 @@ final class JavaFxValueExtractors {
             if (originalValue == null) {
                 return;
             }
-            for (java.util.Map.Entry<?, ?> entry : originalValue.entrySet()) {
+            for (Map.Entry<?, ?> entry : originalValue.entrySet()) {
                 receiver.keyedValue(MAP_KEY_NODE_NAME, entry.getKey(), entry.getKey());
             }
         }
@@ -143,7 +145,7 @@ final class JavaFxValueExtractors {
             if (originalValue == null) {
                 return;
             }
-            for (java.util.Map.Entry<?, ?> entry : originalValue.entrySet()) {
+            for (Map.Entry<?, ?> entry : originalValue.entrySet()) {
                 receiver.keyedValue(MAP_VALUE_NODE_NAME, entry.getKey(), entry.getValue());
             }
         }

@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-/**
- * Aggregate Jakarta Validation compliance module.
- *
- * @since 5.3.0
- */
-@NullMarked
-package io.micronaut.validation.jakarta;
+package io.micronaut.validation.el;
 
-import org.jspecify.annotations.NullMarked;
+import io.micronaut.core.io.service.SoftServiceLoader;
+import io.micronaut.el.ELExpressionSource;
+
+import java.util.List;
+
+/** Loads compiled expressions without discovering interpreter method executors. */
+final class ElExpressionSources {
+    private ElExpressionSources() { }
+
+    static List<ELExpressionSource> load(ClassLoader loader) {
+        return SoftServiceLoader.load(ELExpressionSource.class, loader).collectAll();
+    }
+}

@@ -19,13 +19,14 @@ import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintTarget;
 import jakarta.validation.MessageInterpolator;
-import jakarta.validation.ConstraintValidatorContext;
 import jakarta.validation.ValidationException;
+import jakarta.validation.Validator;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
@@ -33,8 +34,11 @@ import jakarta.validation.valueextraction.ExtractedValue;
 import jakarta.validation.valueextraction.ValueExtractor;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Proxy;
+
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -48,12 +52,19 @@ class DefaultValidatorFactoryTest {
     @Test
     void factoryContextsKeepTheirSelectedMetadataSupport() {
         var configuration = new DefaultValidatorConfiguration();
-        var reads = new java.util.concurrent.atomic.AtomicInteger();
-        ReflectionSupport support = (ReflectionSupport) java.lang.reflect.Proxy.newProxyInstance(
+        var reads = new AtomicInteger();
+        var attributeReads = new AtomicInteger();
+        ReflectionSupport support = (ReflectionSupport) Proxy.newProxyInstance(
             ReflectionSupport.class.getClassLoader(), new Class<?>[]{ReflectionSupport.class},
             (proxy, method, arguments) -> {
+                if (method.getName().equals("withIntrospector") || method.getName().equals("withClassLoader")) {
+                    return proxy;
+                }
                 if (method.getName().equals("readMember")) {
                     reads.incrementAndGet();
+                }
+                if (method.getName().equals("annotationAttributes")) {
+                    attributeReads.incrementAndGet();
                 }
                 return method.invoke(new CompileTimeSupport(), arguments);
             });
@@ -61,10 +72,15 @@ class DefaultValidatorFactoryTest {
         Thread thread = Thread.currentThread();
         ClassLoader previous = thread.getContextClassLoader();
         try (var factory = new DefaultValidatorFactory(configuration)) {
-            thread.setContextClassLoader(new ClassLoader(previous) { });
+            thread.setContextClassLoader(new ClassLoader(null) { });
             assertEquals(1, factory.getValidator().validate(new ProviderBean()).size());
             assertEquals(1, factory.usingContext().getValidator().validate(new ProviderBean()).size());
             assertEquals(2, reads.get());
+            factory.getValidator().getConstraintsForClass(ProviderBean.class).getConstraintsForProperty("value")
+                .getConstraintDescriptors().iterator().next().getAttributes();
+            factory.usingContext().getValidator().getConstraintsForClass(ProviderBean.class).getConstraintsForProperty("value")
+                .getConstraintDescriptors().iterator().next().getAttributes();
+            assertTrue(attributeReads.get() >= 2);
         } finally {
             thread.setContextClassLoader(previous);
         }
@@ -81,7 +97,7 @@ class DefaultValidatorFactoryTest {
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
         MessageInterpolator defaultInterpolator = factory.getMessageInterpolator();
 
-        jakarta.validation.Validator validator = factory.usingContext()
+        Validator validator = factory.usingContext()
             .messageInterpolator(new TestMessageInterpolator())
             .getValidator();
 
@@ -121,7 +137,7 @@ class DefaultValidatorFactoryTest {
         configuration.addValueExtractor(definitionOf(factoryExtractor));
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);
 
-        jakarta.validation.Validator validator = factory.usingContext()
+        Validator validator = factory.usingContext()
             .addValueExtractor(definitionOf(contextExtractor))
             .getValidator();
 
@@ -137,7 +153,7 @@ class DefaultValidatorFactoryTest {
 
     @Test
     void delegatedConstraintValidatorFactoryHonorsTargetCompatibility() {
-        InternalConstraintValidatorFactory factory = DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(new TestConstraintValidatorFactory());
+        InternalConstraintValidatorFactory factory = DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(new TestConstraintValidatorFactory(), ReflectionSupport.get());
 
         assertNull(factory.getInstance(StringConstraintValidator.class, Integer.class, ConstraintTarget.IMPLICIT));
         assertNull(factory.getInstance(ParametersConstraintValidator.class, Object[].class, ConstraintTarget.RETURN_VALUE));
@@ -147,7 +163,7 @@ class DefaultValidatorFactoryTest {
 
     @Test
     void delegatedConstraintValidatorFactoryThrowsWhenDelegateReturnsNullForCompatibleValidator() {
-        InternalConstraintValidatorFactory factory = DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(new NullConstraintValidatorFactory());
+        InternalConstraintValidatorFactory factory = DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(new NullConstraintValidatorFactory(), ReflectionSupport.get());
 
         assertNull(factory.getInstance(StringConstraintValidator.class, Integer.class, ConstraintTarget.IMPLICIT));
         assertThrows(

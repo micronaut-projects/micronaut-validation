@@ -16,6 +16,7 @@
 package io.micronaut.validation.el;
 
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.el.resolver.CommonELResolver;
 import io.micronaut.el.resolver.ELResolverChain;
 import io.micronaut.el.resolver.IntrospectionELResolver;
@@ -33,15 +34,19 @@ import org.jspecify.annotations.Nullable;
 /** EL context whose property access uses generated metadata and container resolvers only. */
 @Introspected(classes = Class.class, includes = {"name", "simpleName"})
 final class ValidationELContext extends ELContext {
-    private final ELResolver resolver = new ELResolverChain(
-        new IntrospectionELResolver(true),
-        new CommonELResolver(),
-        new StreamELResolver(),
-        new MapELResolver(true),
-        new ResourceBundleELResolver(),
-        new ListELResolver(true)
-    );
+    private final ELResolver resolver;
     private final VariableMapper variables = new MapVariableMapper();
+
+    ValidationELContext(BeanIntrospector introspector) {
+        resolver = new ELResolverChain(
+            new IntrospectionELResolver(introspector, true),
+            new CommonELResolver(),
+            new StreamELResolver(),
+            new MapELResolver(true),
+            new ResourceBundleELResolver(),
+            new ListELResolver(true)
+        );
+    }
 
     @Override
     public ELResolver getELResolver() {

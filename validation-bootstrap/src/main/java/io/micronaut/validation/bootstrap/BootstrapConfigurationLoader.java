@@ -23,7 +23,7 @@ import java.util.Optional;
 /**
  * Internal optional bootstrap configuration loader used by add-on modules.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public interface BootstrapConfigurationLoader {

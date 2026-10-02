@@ -19,8 +19,6 @@ import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.inject.BeanDefinition;
@@ -29,6 +27,8 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.valueextraction.ValueExtractor;
 import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -66,7 +66,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
      * registry with the same extractor definitions as the factory configuration.
      *
      * @param source The source registry
-     * @since 5.1
+     * @since 5.3.0
      */
     public DefaultValueExtractors(DefaultValueExtractors source) {
         copyValueExtractors(source.internalValueExtractors, internalValueExtractors);

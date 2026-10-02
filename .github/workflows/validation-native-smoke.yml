@@ -1,0 +1,23 @@
+name: Reflection-free validation native smoke
+on:
+  pull_request:
+    branches: ['[0-9]+.[0-9]+.x']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+      - uses: graalvm/setup-graalvm@bef4b0e916c7dd079bf60fb95d49139f67e32c5f # v1
+        with:
+          distribution: graalvm
+          java-version: '25'
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6
+      - name: Verify bootstrap, XML, EL and generated access without reflection companions
+        run: ./gradlew :micronaut-validation:nativeSmoke --no-daemon

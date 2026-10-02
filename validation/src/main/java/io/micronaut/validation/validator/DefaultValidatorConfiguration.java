@@ -37,9 +37,6 @@ import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
-
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintTarget;
@@ -53,6 +50,8 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
 import java.util.Collection;
@@ -110,10 +109,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     private ConversionService conversionService = ConversionService.SHARED;
 
-    private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
-    private List<ValidationMetadataProvider> metadataProviders = List.of();
-
     private ReflectionSupport reflectionSupport = ReflectionSupport.get();
+    private BeanIntrospector beanIntrospector = reflectionSupport.introspector();
+    private List<ValidationMetadataProvider> metadataProviders = List.of();
 
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
@@ -154,7 +152,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     final InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
-            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null, reflectionSupport);
         }
         return constraintValidatorFactory;
     }
@@ -397,7 +395,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      *
      * @param executionHandleLocator The execution handle locator
      * @return this configuration
-     * @since 5.1
+     * @since 5.3.0
      */
     @Internal
     public DefaultValidatorConfiguration setExecutionHandleLocator(ExecutionHandleLocator executionHandleLocator) {
@@ -457,15 +455,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
         this.configuredConstraintValidatorFactory = factory;
-        this.constraintValidatorFactory = toInternalConstraintValidatorFactory(factory);
+        this.constraintValidatorFactory = toInternalConstraintValidatorFactory(factory, reflectionSupport);
         return this;
     }
 
-    static InternalConstraintValidatorFactory toInternalConstraintValidatorFactory(ConstraintValidatorFactory factory) {
+    static InternalConstraintValidatorFactory toInternalConstraintValidatorFactory(ConstraintValidatorFactory factory, ReflectionSupport reflectionSupport) {
         if (factory instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
             return internalConstraintValidatorFactory;
         }
-        return new DelegatingInternalConstraintValidatorFactory(factory);
+        return new DelegatingInternalConstraintValidatorFactory(factory, reflectionSupport);
     }
 
     @Override
@@ -497,7 +495,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      * @param definition The extractor and what it extracts
      * @param <T>        The container type
      * @return This context
-     * @since 5.2
+     * @since 5.3.0
      */
     @Override
     public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {
@@ -509,7 +507,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      * Replaces a value extractor for the same container type and type argument if present.
      *
      * @param extractor The extractor
-     * @since 5.1
+     * @since 5.3.0
      */
     public void replaceValueExtractor(ValueExtractor<?> extractor) {
         addValueExtractor(extractor, true);
@@ -520,7 +518,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      *
      * @param definition The extractor and what it extracts
      * @param <T>        The container type
-     * @since 5.2
+     * @since 5.3.0
      */
     public <T> void replaceValueExtractor(ValueExtractorDefinition<T> definition) {
         getValueExtractorRegistry().replaceValueExtractor(definition);
@@ -554,8 +552,10 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
         this.beanIntrospector = beanIntrospector;
+        this.reflectionSupport = reflectionSupport.withIntrospector(beanIntrospector);
+        this.defaultParameterNameProvider = null;
         if (constraintValidatorFactory == null || constraintValidatorFactory instanceof DefaultInternalConstraintValidatorFactory) {
-            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null, reflectionSupport);
         }
     }
 
@@ -585,26 +585,33 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return reflectionSupport;
     }
 
-    final void setReflectionSupport(ReflectionSupport reflectionSupport) {
+    /**
+     * Sets the access provider used by this factory and its derived contexts.
+     * Configure it before constructing validators or their constraint validator factory.
+     * @param reflectionSupport The application access provider
+     */
+    @Internal
+    public final void setReflectionSupport(ReflectionSupport reflectionSupport) {
         this.reflectionSupport = reflectionSupport;
+        this.defaultParameterNameProvider = null;
     }
 
     private record DelegatingInternalConstraintValidatorFactory(
-        ConstraintValidatorFactory delegate
+        ConstraintValidatorFactory delegate, ReflectionSupport reflectionSupport
     ) implements InternalConstraintValidatorFactory {
 
         @Override
-        public <T extends jakarta.validation.ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
             return getRequiredInstance(key);
         }
 
         @Override
-        public void releaseInstance(jakarta.validation.ConstraintValidator<?, ?> instance) {
+        public void releaseInstance(ConstraintValidator<?, ?> instance) {
             delegate.releaseInstance(instance);
         }
 
         @Override
-        public <T extends jakarta.validation.ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> validatorType,
+        public <T extends ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> validatorType,
                                                                                       Class<?> targetType,
                                                                                       ConstraintTarget constraintTarget) {
             if (!isCompatible(validatorType, targetType, constraintTarget)) {
@@ -613,7 +620,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             return getRequiredInstance(validatorType);
         }
 
-        private <T extends jakarta.validation.ConstraintValidator<?, ?>> T getRequiredInstance(Class<T> validatorType) {
+        private <T extends ConstraintValidator<?, ?>> T getRequiredInstance(Class<T> validatorType) {
             T validator = delegate.getInstance(validatorType);
             if (validator == null) {
                 throw new ValidationException("ConstraintValidatorFactory returned null for " + validatorType.getName());
@@ -621,12 +628,12 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             return validator;
         }
 
-        private static boolean isCompatible(Class<? extends ConstraintValidator<?, ?>> validatorType,
+        private boolean isCompatible(Class<? extends ConstraintValidator<?, ?>> validatorType,
                                             Class<?> targetType,
                                             ConstraintTarget constraintTarget) {
-            Class<?> validatorTargetType = ConstraintValidatorTargetResolver.getTargetType(validatorType);
+            Class<?> validatorTargetType = ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, validatorType);
             Class<?> resolvedTargetType = ConstraintValidatorTargetResolver.resolveTargetType(targetType);
-            return ConstraintValidatorTargetResolver.allowsConstraintTarget(ConstraintValidatorTargetResolver.validationTargets(validatorType), constraintTarget)
+            return ConstraintValidatorTargetResolver.allowsConstraintTarget(ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, validatorType), constraintTarget)
                 && validatorTargetType.isAssignableFrom(resolvedTargetType);
         }
     }

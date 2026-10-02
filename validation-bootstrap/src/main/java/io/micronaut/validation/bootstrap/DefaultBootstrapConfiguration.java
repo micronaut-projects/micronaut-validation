@@ -38,7 +38,7 @@ import java.util.Set;
  * @param executableValidationEnabled Whether executable validation is enabled
  * @param defaultValidatedExecutableTypes The default executable types
  * @param properties The bootstrap properties
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public record DefaultBootstrapConfiguration(

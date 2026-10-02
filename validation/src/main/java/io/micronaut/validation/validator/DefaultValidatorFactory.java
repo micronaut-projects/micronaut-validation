@@ -22,7 +22,6 @@ import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
@@ -31,6 +30,7 @@ import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorContext;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.valueextraction.ValueExtractor;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -124,14 +124,14 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public void close() {
-        java.util.List<DefaultValidator> closing;
+        List<DefaultValidator> closing;
         synchronized (this) {
             if (closed) {
                 return;
             }
             ownedValidators.forEach(DefaultValidator::checkCloseAllowed);
             closed = true;
-            closing = java.util.List.copyOf(ownedValidators);
+            closing = List.copyOf(ownedValidators);
             ownedValidators.clear();
         }
         RuntimeException failure = null;
@@ -162,7 +162,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
      *
      * @param configuration The validator configuration
      * @return The validator
-     * @since 5.1
+     * @since 5.3.0
      */
     protected jakarta.validation.Validator newValidator(ValidatorConfiguration configuration) {
         return new DefaultValidator(configuration);
@@ -240,7 +240,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         }
 
         @Override
-        public ValidatorContext addValueExtractor(jakarta.validation.valueextraction.ValueExtractor<?> extractor) {
+        public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
             validatorConfiguration.addValueExtractor(extractor);
             return this;
         }
@@ -252,7 +252,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
          * @param definition The extractor and what it extracts
          * @param <T> The container type
          * @return This context
-         * @since 5.2
+         * @since 5.3.0
          */
         @Override
         public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {

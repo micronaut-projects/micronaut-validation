@@ -15,13 +15,6 @@
  */
 package io.micronaut.validation.validator;
 
-import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
-import static io.micronaut.validation.validator.ArgumentValidationMetadata.hasCascadedTypeArgument;
-import static io.micronaut.validation.validator.ArgumentValidationMetadata.hasValidatedTypeArgument;
-import static io.micronaut.validation.validator.ArgumentValidationMetadata.isValidated;
-import static io.micronaut.validation.validator.ValidationChecks.requireNonEmpty;
-import static io.micronaut.validation.validator.ValidationChecks.requireNonNull;
-
 import io.micronaut.aop.Intercepted;
 import io.micronaut.context.BeanResolutionContext;
 import io.micronaut.context.ExecutionHandleLocator;
@@ -66,6 +59,7 @@ import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorCont
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintDeclarationException;
@@ -107,6 +101,10 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
+import static io.micronaut.validation.validator.ValidationChecks.requireNonEmpty;
+import static io.micronaut.validation.validator.ValidationChecks.requireNonNull;
+
 /**
  * Default implementation of the {@link Validator} interface.
  *
@@ -135,6 +133,7 @@ public class DefaultValidator
     final ConcurrentMap<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> findGroupSequencesCache = CopyOnWriteMap.create(16 * 1024);
 
     private final ReflectionSupport reflectionSupport;
+
     private final ConstraintValidatorRegistry constraintValidatorRegistry;
     private final ClockProvider clockProvider;
     private final ValueExtractorRegistry valueExtractorRegistry;
@@ -185,7 +184,7 @@ public class DefaultValidator
      * @since 5.3.0
      */
     @Override
-    @jakarta.annotation.PreDestroy
+    @PreDestroy
     public void close() {
         checkCloseAllowed();
         try {
@@ -202,12 +201,16 @@ public class DefaultValidator
         validatorInstances.checkCloseAllowed();
     }
 
+    final ReflectionSupport reflectionSupport() {
+        return reflectionSupport;
+    }
+
     private static InternalConstraintValidatorFactory internalConstraintValidatorFactory(ValidatorConfiguration configuration) {
         if (configuration instanceof DefaultValidatorConfiguration defaultConfiguration) {
             return defaultConfiguration.getInternalConstraintValidatorFactory();
         }
         ConstraintValidatorFactory factory = configuration.getConstraintValidatorFactory();
-        return DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(factory);
+        return DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(factory, configuration.getReflectionSupport());
     }
 
     /**
@@ -372,7 +375,7 @@ public class DefaultValidator
     @Override
     public Set<String> validatedAnnotatedElement(@NonNull AnnotatedElement element, @Nullable Object value) {
         requireNonNull("element", element);
-        if (!ConstraintContainers.hasConstraints(element.getAnnotationMetadata(), currentClassLoader())) {
+        if (!ConstraintContainers.hasConstraints(reflectionSupport, element.getAnnotationMetadata(), currentClassLoader())) {
             return Collections.emptySet();
         }
 
@@ -469,7 +472,7 @@ public class DefaultValidator
         requireNonNull("method", method);
         final BeanValidationContext beanValidationContext = requireNonNull("context", validationContext);
         final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
-        ExecutableHierarchy.checkParameterDeclarations(hierarchy);
+        ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
         final int argLen = arguments.length;
@@ -499,7 +502,7 @@ public class DefaultValidator
         requireNonNull("groups", groups);
 
         final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
-        ExecutableHierarchy.checkParameterDeclarations(hierarchy);
+        ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy);
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredExecutable(method, hierarchy);
         final Argument<?>[] arguments = configured.arguments();
         final int argLen = arguments.length;
@@ -562,7 +565,7 @@ public class DefaultValidator
     @Override
     public <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, @Nullable Object returnValue, @Nullable BeanValidationContext validationContext) {
         final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        ExecutableHierarchy.checkReturnValueDeclarations(hierarchy);
+        ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, hierarchy);
         final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
         final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(this, null, bean, requireNonNull("validationContext", validationContext));
 
@@ -664,7 +667,7 @@ public class DefaultValidator
             throw new IllegalArgumentException("Expected exactly [" + argLength + "] constructor arguments");
         }
         for (Argument<?> constructorArgument : constructorArguments) {
-            ExecutableHierarchy.checkGroupConversions(constructorArgument);
+            ExecutableHierarchy.checkGroupConversions(reflectionSupport, constructorArgument);
         }
         DefaultConstraintValidatorContext<T> context = introspection == null
             ? (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, beanType, validationContext)
@@ -695,7 +698,7 @@ public class DefaultValidator
             : (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext(this, introspection, null, BeanValidationContext.fromGroups(groups));
         final ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredConstructor(declaringClass, beanConstructor.getAnnotationMetadata(), beanConstructor.getArguments());
         final AnnotationMetadata constructorMetadata = configured.annotationMetadata();
-        ExecutableHierarchy.checkGroupConversions(constructorMetadata, constructorMetadata.hasStereotype(Valid.class));
+        ExecutableHierarchy.checkGroupConversions(reflectionSupport, constructorMetadata, constructorMetadata.hasStereotype(Valid.class));
         final Argument<T> returnArgument = (Argument<T>) configured.returnArgument();
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(createdObject)) {
             try (ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addConstructorNode(simpleName(declaringClass), declaringClass, beanConstructor.getArguments())) {
@@ -752,7 +755,7 @@ public class DefaultValidator
                                          @Nullable T value) throws BeanInstantiationException {
         final AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
         final boolean hasValid = annotationMetadata.hasStereotype(Valid.class);
-        final boolean hasConstraint = ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader());
+        final boolean hasConstraint = ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader());
 
         if (!hasConstraint && !hasValid) {
             return;
@@ -811,7 +814,7 @@ public class DefaultValidator
             try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(constructorName, beanType)) {
                 for (ExecutableMethod<T, ?> executableMethod : executableMethods) {
                     if (executableMethod.hasAnnotation(Property.class)) {
-                        final boolean hasConstraint = ConstraintContainers.hasConstraints(executableMethod.getAnnotationMetadata(), currentClassLoader());
+                        final boolean hasConstraint = ConstraintContainers.hasConstraints(reflectionSupport, executableMethod.getAnnotationMetadata(), currentClassLoader());
                         final boolean isValid = executableMethod.hasStereotype(Valid.class);
                         if (hasConstraint || isValid) {
                             final Object value = executableMethod.invoke(bean);
@@ -924,7 +927,7 @@ public class DefaultValidator
         for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : groupSequences) {
             try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
 
-                if (ConstraintContainers.hasConstraints(methodAnnotationMetadata, currentClassLoader())) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, methodAnnotationMetadata, currentClassLoader())) {
                     try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addCrossParameterNode()) {
                         validateConstrains(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters, true);
                     }
@@ -932,7 +935,7 @@ public class DefaultValidator
 
                 for (int parameterIndex = 0; parameterIndex < argLen; parameterIndex++) {
                     Argument<Object> argument = (Argument<Object>) arguments[parameterIndex];
-                    if (!isValidated(argument) && !hasValidatedTypeArgument(argument)) {
+                    if (!ArgumentValidationMetadata.isValidated(reflectionSupport, argument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, argument)) {
                         continue;
                     }
                     try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addParameterNode(parameterName(argument, parameterNames, parameterIndex), parameterIndex)) {
@@ -1229,7 +1232,7 @@ public class DefaultValidator
     }
 
     private boolean isCascadedMember(Class<?> beanType, BeanPropertyMember<?, ?> member) {
-        return member.getAnnotationMetadata().hasStereotype(Valid.class) || hasCascadedTypeArgument(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
+        return member.getAnnotationMetadata().hasStereotype(Valid.class) || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
     }
 
     /**
@@ -1241,9 +1244,9 @@ public class DefaultValidator
         if (annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)) {
             return false;
         }
-        return ConstraintContainers.hasConstraints(annotationMetadata, currentClassLoader())
+        return ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())
             || annotationMetadata.hasStereotype(Valid.class)
-            || hasValidatedTypeArgument(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()))
+            || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()))
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 
@@ -1411,7 +1414,7 @@ public class DefaultValidator
                                           @Nullable E containerValue,
                                           List<DefaultConstraintDescriptor<Annotation>> constraints,
                                           boolean canCascade) {
-        if (!isValidated(containerArgument) && !hasValidatedTypeArgument(containerArgument)) {
+        if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)) {
             return false;
         }
         boolean isLegacyValid = annotationMetadata.hasAnnotation(Valid.class)
@@ -1429,7 +1432,7 @@ public class DefaultValidator
 
         Class<E> extractorLookupType = containerArgument.getType();
         if (containerValue != null
-            && hasCascadedTypeArgument(containerArgument)
+            && ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, containerArgument)
             && !hasConstrainedTypeArgument(context, containerArgument)) {
             extractorLookupType = (Class<E>) containerValue.getClass();
         }
@@ -1445,7 +1448,7 @@ public class DefaultValidator
                 if (anyExplicitUnwrapping) {
                     throw new ConstraintDeclarationException("Cannot unwrap the constraint no extractors are present!");
                 }
-                if (hasValidatedTypeArgument(containerArgument)) {
+                if (ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)) {
                     throw new ConstraintDeclarationException(
                             "Cannot validate container element constraints without a value"
                                 + " extractor for "
@@ -1511,7 +1514,7 @@ public class DefaultValidator
             }
 
             Integer typeArgumentIndex = valueExtractorDefinition.typeArgumentIndex();
-            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(
+            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport,
                 beanIntrospector,
                 containerArgument.getType(),
                 valueExtractorDefinition.containerType(),
@@ -1525,7 +1528,7 @@ public class DefaultValidator
             } else {
                 // a container without type arguments of its own binds the extracted one in a generic super type
                 Argument<?> bound = typeArgumentIndex == null ? null
-                    : ContainerTypeArguments.resolveBoundTypeArgument(beanIntrospector, containerArgument.getType(), valueExtractorDefinition.containerType(), typeArgumentIndex);
+                    : ContainerTypeArguments.resolveBoundTypeArgument(reflectionSupport, beanIntrospector, containerArgument.getType(), valueExtractorDefinition.containerType(), typeArgumentIndex);
                 unwrapping = typeArgumentIndex == null;
                 if (bound != null) {
                     containerValueArgument = (Argument<Object>) bound;
@@ -1537,7 +1540,7 @@ public class DefaultValidator
                 }
                 declaredTypeArgumentIndex = null;
             }
-            if (!isValidated(containerValueArgument) && !hasValidatedTypeArgument(containerValueArgument)
+            if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerValueArgument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerValueArgument)
                 && containerElementConstraints.isEmpty() && !isLegacyValid) {
                 // nothing to validate at this level nor deeper: a generated metadata marks the levels, a reflective one does not
                 continue;
@@ -1641,7 +1644,7 @@ public class DefaultValidator
                                                 List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions) {
         Argument<?>[] typeParameters = containerArgument.getTypeParameters();
         for (int i = 0; i < typeParameters.length; i++) {
-            if (isValidated(typeParameters[i]) && !hasValueExtractorForTypeArgument(containerArgument.getType(), valueExtractorDefinitions, i)) {
+            if (ArgumentValidationMetadata.isValidated(reflectionSupport, typeParameters[i]) && !hasValueExtractorForTypeArgument(containerArgument.getType(), valueExtractorDefinitions, i)) {
                 throw new ConstraintDeclarationException(
                         "Cannot validate container element constraints without a value extractor"
                             + " for type argument "
@@ -1654,7 +1657,7 @@ public class DefaultValidator
                                                      List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions,
                                                      int typeArgumentIndex) {
         for (ValueExtractorDefinition<?> valueExtractorDefinition : valueExtractorDefinitions) {
-            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(
+            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport,
                 beanIntrospector,
                 declaredType,
                 valueExtractorDefinition.containerType(),
@@ -1727,7 +1730,7 @@ public class DefaultValidator
             if (constraint.hasDefinedConstraintValidatorClasses() || validationAppliesTo != null) {
                 boolean onExecutable = executableNode != null
                     && (constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE);
-                ConstraintValidatorTargetResolver.checkTargetDeclaration(
+                ConstraintValidatorTargetResolver.checkTargetDeclaration(reflectionSupport,
                     constraint.getType(),
                     constraint.getConstraintValidatorClasses(),
                     validationAppliesTo,
@@ -1745,11 +1748,11 @@ public class DefaultValidator
             ConstraintValidator<Annotation, E> validator = null;
             if (constraint.hasDefinedConstraintValidatorClasses()) {
                 if ((constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE)
-                    && !ConstraintValidatorTargetResolver.supportsTarget(validatorClasses, constraintTarget)) {
+                    && !ConstraintValidatorTargetResolver.supportsTarget(reflectionSupport, validatorClasses, constraintTarget)) {
                     // a constraint declared on an executable whose validators do not validate this phase
                     continue;
                 }
-                Class<?> validatedBy = ConstraintValidatorTargetResolver.resolve(constraintType, validatorClasses, elementArgument.getType(), constraintTarget);
+                Class<?> validatedBy = ConstraintValidatorTargetResolver.resolve(reflectionSupport, constraintType, validatorClasses, elementArgument.getType(), constraintTarget);
                 if (validatedBy != null) {
                     Class<jakarta.validation.ConstraintValidator<Annotation, E>> validatedByConstraint = (Class<jakarta.validation.ConstraintValidator<Annotation, E>>) validatedBy;
                     jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = validatorInstances.get(validatedByConstraint, elementArgument.getType(), constraintTarget, constraint);
@@ -1885,14 +1888,14 @@ public class DefaultValidator
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
         Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
-        Set<Class<? extends Annotation>> constraintTypes = ConstraintContainers.constraintTypes(annotationMetadata, currentClassLoader());
+        Set<Class<? extends Annotation>> constraintTypes = ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, currentClassLoader());
         boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type));
         for (Class<? extends Annotation> constraintType : constraintTypes) {
             if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, constraintType)) {
                 continue;
             }
             declarations.checkConstraintDefinition(constraintType);
-            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = ConstraintContainers.values(annotationMetadata, constraintType);
+            List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = ConstraintContainers.values(reflectionSupport, annotationMetadata, constraintType);
             Map<String, AnnotationValue<? extends Annotation>> uniqueAnnotationValues = new LinkedHashMap<>();
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
                 uniqueAnnotationValues.putIfAbsent(ConstraintAnnotationKey.of(constraintType, annotationValue), annotationValue);
@@ -1903,14 +1906,14 @@ public class DefaultValidator
                     (AnnotationValue<Annotation>) annotationValue
                 );
                 DefaultConstraintDescriptor<Annotation> descriptor = validatorClasses
-                    .map(classes -> new DefaultConstraintDescriptor<>(
+                    .map(classes -> new DefaultConstraintDescriptor<>(reflectionSupport,
                         (Class<Annotation>) constraintType,
                         (AnnotationValue<Annotation>) annotationValue,
                         annotationMetadata,
                         classes,
                         true
                     ))
-                    .orElseGet(() -> new DefaultConstraintDescriptor<>(
+                    .orElseGet(() -> new DefaultConstraintDescriptor<>(reflectionSupport,
                         (Class<Annotation>) constraintType,
                         (AnnotationValue<Annotation>) annotationValue,
                         annotationMetadata
@@ -1940,9 +1943,8 @@ public class DefaultValidator
         return configuredClasses;
     }
 
-    private static ClassLoader currentClassLoader() {
-        ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
-        return classLoader == null ? DefaultValidator.class.getClassLoader() : classLoader;
+    private ClassLoader currentClassLoader() {
+        return reflectionSupport.classLoader();
     }
 
     private <R> String buildMessageTemplate(DefaultConstraintValidatorContext<R> context,
@@ -1982,8 +1984,8 @@ public class DefaultValidator
         return null;
     }
 
-    private static <E> ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
-        return new NotIntrospectedConstraintDescriptor<>(notIntrospectedArgument, elementValue);
+    private <E> ConstraintDescriptor<Annotation> notIntrospectedConstraint(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
+        return new NotIntrospectedConstraintDescriptor<>(reflectionSupport, notIntrospectedArgument, elementValue);
     }
 
     final void checkOpen() {

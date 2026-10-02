@@ -18,13 +18,14 @@ package io.micronaut.validation.el;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.ReflectionSupport;
-
 import jakarta.validation.ValidationException;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
@@ -35,26 +36,30 @@ import java.util.ResourceBundle;
  */
 @Internal
 final class ValidationMessageBundleLoader {
-    private ValidationMessageBundleLoader() { }
-
-    static Optional<String> find(String key, Locale locale) {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null) {
-            loader = ValidationMessageBundleLoader.class.getClassLoader();
+    private static final int CACHE_SIZE = 64;
+    private final ClassLoader loader;
+    private final ReflectionSupport reflectionSupport;
+    private final Map<Locale, BundleCandidates> cache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Locale, BundleCandidates> eldest) {
+            return size() > CACHE_SIZE;
         }
-        var control = ResourceBundle.Control.getControl(ResourceBundle.Control.FORMAT_PROPERTIES);
-        var candidates = control.getCandidateLocales("ValidationMessages", locale);
-        var bundles = loadCandidates(candidates, control, loader);
+    };
+
+    ValidationMessageBundleLoader(ClassLoader loader) {
+        this.loader = loader;
+        this.reflectionSupport = ReflectionSupport.forClassLoader(loader);
+    }
+
+    Optional<String> find(String key, Locale locale) {
+        var bundles = candidates(locale);
         // As with ResourceBundle, use the default locale only when the requested locale
         // has no bundle other than root. A missing key does not select a different locale.
         if (!locale.equals(Locale.ROOT)
                 && !bundles.localized()
                 && !locale.equals(Locale.getDefault())) {
             var fallback =
-                    loadCandidates(
-                            control.getCandidateLocales("ValidationMessages", Locale.getDefault()),
-                            control,
-                            loader);
+                    candidates(Locale.getDefault());
             if (fallback.localized()) {
                 bundles = fallback;
             }
@@ -67,8 +72,14 @@ final class ValidationMessageBundleLoader {
         return Optional.empty();
     }
 
-    private static BundleCandidates loadCandidates(
-            List<Locale> candidates, ResourceBundle.Control control, ClassLoader loader) {
+    private synchronized BundleCandidates candidates(Locale locale) {
+        return cache.computeIfAbsent(locale, key -> {
+            var control = ResourceBundle.Control.getControl(ResourceBundle.Control.FORMAT_PROPERTIES);
+            return loadCandidates(control.getCandidateLocales("ValidationMessages", key), control);
+        });
+    }
+
+    private BundleCandidates loadCandidates(List<Locale> candidates, ResourceBundle.Control control) {
         var bundles = new ArrayList<ResourceBundle>();
         boolean localized = false;
         for (Locale candidate : candidates) {
@@ -80,7 +91,7 @@ final class ValidationMessageBundleLoader {
                                         reference -> reference.getName().equals(bundleName));
                 ResourceBundle bundle =
                         introspections.isEmpty()
-                                ? ReflectionSupport.get()
+                                ? reflectionSupport
                                         .messageBundle("ValidationMessages", candidate, loader)
                                 : (ResourceBundle) introspections.iterator().next().instantiate();
                 bundles.add(bundle);

@@ -34,7 +34,7 @@ import java.util.Arrays;
  * @param <T> The declaring type
  * @param <R> The return type
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class IntrospectedExecutable<T, R> implements ExecutableMethod<T, R> {

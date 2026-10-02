@@ -18,12 +18,12 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.Valid;
@@ -35,6 +35,7 @@ import jakarta.validation.metadata.ConstructorDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
 import jakarta.validation.metadata.CrossParameterDescriptor;
 import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.ExecutableDescriptor;
 import jakarta.validation.metadata.GroupConversionDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.ParameterDescriptor;
@@ -63,12 +64,13 @@ import java.util.function.Function;
  * when it validates, so that the metadata and the validation agree.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class IntrospectedExecutableDescriptors {
 
     private final Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints;
+    private final ReflectionSupport reflectionSupport;
     @Nullable
     private final ValidatorDeclarations declarations;
 
@@ -80,7 +82,13 @@ final class IntrospectedExecutableDescriptors {
     }
 
     IntrospectedExecutableDescriptors(Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints, @Nullable ValidatorDeclarations declarations) {
+        this(constraints, declarations, declarations == null ? ReflectionSupport.get() : declarations.reflectionSupport());
+    }
+
+    IntrospectedExecutableDescriptors(Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints,
+            @Nullable ValidatorDeclarations declarations, ReflectionSupport reflectionSupport) {
         this.constraints = constraints;
+        this.reflectionSupport = reflectionSupport;
         this.declarations = declarations;
     }
 
@@ -105,7 +113,7 @@ final class IntrospectedExecutableDescriptors {
      * @return Whether the executable has a constrained parameter, cross-parameter constraints or a
      * constrained return value
      */
-    static boolean isConstrained(jakarta.validation.metadata.ExecutableDescriptor descriptor) {
+    static boolean isConstrained(ExecutableDescriptor descriptor) {
         return descriptor.hasConstrainedParameters() || descriptor.hasConstrainedReturnValue();
     }
 
@@ -164,14 +172,14 @@ final class IntrospectedExecutableDescriptors {
         return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
     }
 
-    private static boolean targets(ConstraintDescriptor<?> descriptor, ConstraintTarget target) {
+    private boolean targets(ConstraintDescriptor<?> descriptor, ConstraintTarget target) {
         ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
         if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT) {
             return validationAppliesTo == target;
         }
         Set<ValidationTarget> supported = new LinkedHashSet<>();
         for (Class<?> validatorClass : descriptor.getConstraintValidatorClasses()) {
-            Set<ValidationTarget> validatorTargets = ConstraintValidatorTargetResolver.validationTargets(validatorClass);
+            Set<ValidationTarget> validatorTargets = ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, validatorClass);
             if (validatorTargets.isEmpty()) {
                 supported.add(ValidationTarget.ANNOTATED_ELEMENT);
             } else {
@@ -487,7 +495,7 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /** The part shared by the methods and the constructors. */
-    private abstract class IntrospectedExecutableDescriptor implements jakarta.validation.metadata.ExecutableDescriptor, ElementDescriptor.ConstraintFinder {
+    private abstract class IntrospectedExecutableDescriptor implements ExecutableDescriptor, ElementDescriptor.ConstraintFinder {
 
         private final String name;
         private final AnnotationMetadata annotationMetadata;

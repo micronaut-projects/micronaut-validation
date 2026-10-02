@@ -18,7 +18,6 @@ package io.micronaut.validation.el;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import io.micronaut.validation.validator.metadata.MessageInterpolatorProvider;
-
 import jakarta.validation.MessageInterpolator;
 
 import java.util.Optional;
@@ -35,6 +34,6 @@ public final class ElMessageInterpolatorProvider implements MessageInterpolatorP
 
     @Override
     public Optional<MessageInterpolator> create(ClassLoader classLoader) {
-        return Optional.of(new ElMessageInterpolator(new DefaultMessages(), null));
+        return Optional.of(new ElMessageInterpolator(new DefaultMessages(), null, classLoader));
     }
 }

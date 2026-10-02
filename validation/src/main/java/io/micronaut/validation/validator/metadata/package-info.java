@@ -16,7 +16,7 @@
 /**
  * Validation metadata provider SPI used by optional Jakarta compliance modules.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @NullMarked
 package io.micronaut.validation.validator.metadata;

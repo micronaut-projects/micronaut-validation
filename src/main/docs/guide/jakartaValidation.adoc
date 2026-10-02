@@ -50,6 +50,16 @@ This module uses Micronaut Jakarta EL `1.1.1-SNAPSHOT`, including the interprete
 
 Annotate application beans with `@Introspected` for property expressions. Annotate methods with `@Executable` when expressions call them. The Jakarta `formatter.format(...)` variable is dispatched directly and supports the requested locale and variable arguments.
 
-The default EL sandbox remains enabled. Group and payload variables retain their `Class` values. Only `name` and `simpleName` are exposed through a generated class introspection; reflective properties such as `classLoader` remain unavailable. An unresolved or disallowed expression is left unchanged. The integration intentionally omits reflective property resolvers even if another dependency adds the EL reflection companion; that companion may enable additional method execution subject to the sandbox.
+The default EL sandbox remains enabled. Group and payload variables retain their `Class` values. Only `name` and `simpleName` are exposed through a generated class introspection; reflective properties such as `classLoader` remain unavailable. An unresolved or disallowed expression is left unchanged. Validation uses an explicit set of generated and container resolvers and method executors. Installing the EL reflection companion elsewhere in the application does not enable reflective property access or method invocation during validation. Generated `@Executable` methods and the locale-aware formatter remain available.
 
 Message interpolation expands user bundles recursively, applies provider messages, substitutes constraint attributes once, and evaluates EL expressions. Escaped text and substituted attribute values are never reinterpreted. Bundle cycles remain unresolved; nesting beyond 64 levels reports a validation error.
+
+The interpolator retains its application class loader for expression discovery, generated introspections, and message bundles. Validation can therefore run on worker threads with a different context class loader. Each interpolator caches up to 64 locale bundle sets, including missing resources. The cache belongs to the interpolator and is released with it; resources are treated as immutable for that interpolator's lifetime.
+
+=== Compiled Message Expressions
+
+Known expression fragments can be declared with Micronaut Jakarta EL's `@ELExpression` and typed with `@ELEnvironment` / `@ELVariable`. Add `io.micronaut.el:micronaut-jakarta-el-processor` to the annotation processor path, using the same version as the EL runtime. The validation interpolator discovers the resulting expression sources and tries them before the runtime interpreter.
+
+For example, declare `${validatedValue.toUpperCase()}` with a `String` variable named `validatedValue`. Use that exact fragment in the constraint's message. Compilation applies to the EL fragment, after bundle expansion and attribute substitution, rather than the complete validation message template. All occurrences of the compiled fragment must agree on variable types. Runtime bundle messages and undeclared expressions continue through the interpreter.
+
+Compiling validation annotation messages automatically is intentionally not enabled: localized bundles and runtime attribute substitution can change the final expression and its variable types. The `CompiledMessages` integration fixture verifies explicit compilation and runtime fallback together.

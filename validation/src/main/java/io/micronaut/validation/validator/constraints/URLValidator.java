@@ -16,21 +16,22 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import io.micronaut.core.util.StringUtils;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.annotation.URL;
 import jakarta.inject.Singleton;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.regex.Pattern;
 
 /**
  * Validator for the {@link URL} constraint.
  *
- * @since 5.1.0
+ * @since 5.3.0
  */
 @Singleton
 @Introspected
@@ -51,7 +52,7 @@ public class URLValidator extends AbstractPatternValidator<URL> {
         }
         java.net.URL url;
         try {
-            url = new java.net.URI(value.toString()).toURL();
+            url = new URI(value.toString()).toURL();
         } catch (MalformedURLException | URISyntaxException | IllegalArgumentException e) {
             return false;
         }

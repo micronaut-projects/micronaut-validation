@@ -15,14 +15,15 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
-import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintTarget;
-import jakarta.validation.ValidationException;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Payload;
+import jakarta.validation.ValidationException;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import org.jspecify.annotations.Nullable;
@@ -39,15 +40,21 @@ import java.util.Set;
  *
  * @param <E> The element type
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintDescriptor<Annotation> {
 
+    private final ReflectionSupport reflectionSupport;
     private final Argument<E> notIntrospectedArgument;
     private final @Nullable E elementValue;
 
     NotIntrospectedConstraintDescriptor(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
+        this(ReflectionSupport.get(), notIntrospectedArgument, elementValue);
+    }
+
+    NotIntrospectedConstraintDescriptor(ReflectionSupport reflectionSupport, Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
+        this.reflectionSupport = reflectionSupport;
         this.notIntrospectedArgument = notIntrospectedArgument;
         this.elementValue = elementValue;
     }
@@ -55,7 +62,7 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     @Override
     public Annotation getAnnotation() {
         // the violation reports a type that is not introspected: the annotation it stands for
-        return ValidationMetadataSupport.create(Introspected.class, new AnnotationValue<>(Introspected.class.getName()));
+        return ValidationMetadataSupport.create(reflectionSupport, Introspected.class, new AnnotationValue<>(Introspected.class.getName()));
     }
 
     @Override
@@ -79,7 +86,7 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     }
 
     @Override
-    public List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> getConstraintValidatorClasses() {
+    public List<Class<? extends ConstraintValidator<Annotation, ?>>> getConstraintValidatorClasses() {
         return List.of();
     }
 

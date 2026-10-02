@@ -18,13 +18,13 @@ package io.micronaut.validation.xml;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
-import io.micronaut.validation.validator.ExecutableHierarchy;
-import io.micronaut.validation.validator.ReflectionSupport;
-import io.micronaut.validation.validator.IntrospectedBeanDescriptor;
-import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.annotation.ValidatedElement;
+import io.micronaut.validation.validator.ExecutableHierarchy;
+import io.micronaut.validation.validator.IntrospectedBeanDescriptor;
+import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
@@ -36,6 +36,7 @@ import java.io.InputStream;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,12 +57,13 @@ import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
  * Internal metadata provider that overlays Jakarta Validation constraint mapping XML on top of
  * Micronaut's generated validation metadata.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class XmlValidationMetadataProvider implements ValidationMetadataProvider {
 
     private final ClassLoader classLoader;
+    private final ReflectionSupport reflectionSupport;
     private final Map<Class<?>, BeanMapping> beanMappings;
     private final Map<String, ConstraintDefinition> constraintDefinitions;
 
@@ -72,15 +74,16 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
      */
     public XmlValidationMetadataProvider(ClassLoader classLoader, Set<InputStream> mappingStreams) {
         this.classLoader = classLoader;
+        this.reflectionSupport = ReflectionSupport.forClassLoader(classLoader);
         var parser = new XmlMappingParser(classLoader, mappingStreams);
-        beanMappings = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(parser.beanMappings));
-        constraintDefinitions = java.util.Collections.unmodifiableMap(new LinkedHashMap<>(parser.constraintDefinitions));
+        beanMappings = Collections.unmodifiableMap(new LinkedHashMap<>(parser.beanMappings));
+        constraintDefinitions = Collections.unmodifiableMap(new LinkedHashMap<>(parser.constraintDefinitions));
     }
 
     @Override
     public Optional<BeanDescriptor> getConstraintsForClass(Class<?> beanType) {
         return getBeanIntrospection(beanType).map(introspection ->
-            new IntrospectedBeanDescriptor(introspection, introspection.getAnnotationMetadata(), Map.of(), List.of()));
+            new IntrospectedBeanDescriptor(reflectionSupport, introspection, introspection.getAnnotationMetadata(), Map.of(), List.of()));
     }
 
     @Override
@@ -89,7 +92,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
         if (mapping == null) {
             return Optional.empty();
         }
-        var original = ReflectionSupport.get().supplemented(BeanIntrospector.forClassLoader(classLoader))
+        var original = reflectionSupport.supplemented(BeanIntrospector.forClassLoader(classLoader))
             .findIntrospection(beanType).orElse(null);
         Map<String, ValidationDeclaration> properties = new LinkedHashMap<>();
         Map<ExecutableKey, ValidationDeclaration> methods = new LinkedHashMap<>();
@@ -360,7 +363,7 @@ public final class XmlValidationMetadataProvider implements ValidationMetadataPr
             validatorClasses.addAll(existingValidatorClasses);
             if (validatorClasses.isEmpty()) {
                 validatorClasses.addAll(
-                        (List) ReflectionSupport.get().declaredValidators(constraintType));
+                        (List) reflectionSupport.declaredValidators(constraintType));
             }
         }
         validatorClasses.addAll((List) constraintDefinition.validatorClasses());

@@ -16,14 +16,15 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
+import jakarta.validation.ValidationException;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
@@ -48,6 +49,7 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
 
     /** Local constraint validator lookup using service loader. */
     private static final class LocalConstraintValidators extends DefaultConstraintValidators {
+        private final ReflectionSupport reflectionSupport = ReflectionSupport.get();
 
         private @Nullable Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap;
 
@@ -76,15 +78,15 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
 
         private Map<ValidatorKey, ConstraintValidator<?, ?>> initializeValidatorMap() {
             Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap = new LinkedHashMap<>();
-            for (ConstraintValidator<?, ?> validator : ConstraintValidatorServiceDiscovery.load()) {
+            for (ConstraintValidator<?, ?> validator : ConstraintValidatorServiceDiscovery.load(reflectionSupport.classLoader())) {
                 try {
-                    final Argument<ConstraintValidator> validatorArgument = ReflectionSupport.get().genericSuperArgument(validator.getClass(), ConstraintValidator.class);
+                    final Argument<ConstraintValidator> validatorArgument = reflectionSupport.genericSuperArgument(validator.getClass(), ConstraintValidator.class);
                     final Class<?>[] typeArgs = validatorArgument == null ? null : Argument.toClassArray(validatorArgument.getTypeParameters());
                     if (ArrayUtils.isNotEmpty(typeArgs) && typeArgs.length == 2) {
                         validatorMap.put(new ValidatorKey(typeArgs[0], typeArgs[1]), validator);
                     }
                 } catch (Exception e) {
-                    throw new jakarta.validation.ValidationException("Cannot resolve generated validator arguments for " + validator.getClass().getName(), e);
+                    throw new ValidationException("Cannot resolve generated validator arguments for " + validator.getClass().getName(), e);
                 }
             }
 

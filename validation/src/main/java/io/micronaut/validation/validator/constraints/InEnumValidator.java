@@ -15,14 +15,17 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
-
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.InEnum;
+import io.micronaut.validation.validator.DefaultConstraintValidatorContext;
+import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.inject.Singleton;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
+
+import java.util.List;
 
 /** Validator for the {@link InEnum} constraint. */
 @Singleton
@@ -52,8 +55,9 @@ public class InEnumValidator implements ConstraintValidator<InEnum, Object> {
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
             var constants = annotationMetadata.contains("$enumValues")
-                ? java.util.List.of(annotationMetadata.stringValues("$enumValues"))
-                : ValidationMetadataSupport.enumConstants(enumClass).stream().map(Enum::name).toList();
+                ? List.of(annotationMetadata.stringValues("$enumValues"))
+                : ValidationMetadataSupport.enumConstants(context instanceof DefaultConstraintValidatorContext<?> validationContext
+                    ? validationContext.reflectionSupport() : ReflectionSupport.get(), enumClass).stream().map(Enum::name).toList();
             if (constants.isEmpty()) {
                 return true; // Invalid enum class, pass validation
             }

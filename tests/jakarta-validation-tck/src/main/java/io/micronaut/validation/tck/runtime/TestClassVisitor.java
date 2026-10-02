@@ -96,7 +96,7 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
                 // every declared constructor, the way the metadata API describes them
                 builder.member("constructors", true);
             });
-            if (!element.isRecord()) {
+            if (!element.isRecord() && !element.isEnum()) {
                 element.annotate(Prototype.class);
             }
 

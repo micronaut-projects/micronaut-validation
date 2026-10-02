@@ -16,7 +16,7 @@
 /**
  * Jakarta EL message interpolation support.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @NullMarked
 package io.micronaut.validation.el;

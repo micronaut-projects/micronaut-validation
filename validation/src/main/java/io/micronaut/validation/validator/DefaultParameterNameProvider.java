@@ -23,11 +23,11 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 /**
- * The parameter names the specification asks for by {@link Constructor} or {@link Method}: only the class
- * file carries them, so {@link ReflectionSupport} decides who reads it.
+ * Resolves a caller-supplied {@link Constructor} or {@link Method} against generated parameter
+ * metadata. The captured {@link ReflectionSupport} supplies an optional reflective fallback.
  *
  * @author graemerocher
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class DefaultParameterNameProvider implements ParameterNameProvider {

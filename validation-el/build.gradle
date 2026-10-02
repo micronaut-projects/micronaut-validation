@@ -6,9 +6,10 @@ dependencies {
     annotationProcessor mn.micronaut.inject.java
     api projects.micronautValidation
     implementation libs.micronaut.expression.language
-    runtimeOnly libs.micronaut.expression.language.interpreter
+    implementation libs.micronaut.expression.language.interpreter
 
     testAnnotationProcessor mn.micronaut.inject.java
+    testAnnotationProcessor libs.micronaut.expression.language.processor
     testImplementation mnTest.micronaut.test.junit5
     testRuntimeOnly mnTest.junit.jupiter.engine
 }
@@ -18,3 +19,24 @@ micronautBuild {
         enabledAfter("5.3.0")
     }
 }
+
+noReflection {
+    allowIn("io.micronaut.validation.el.ElExpressionSources", "SERVICE_LOADING")
+}
+
+configurations {
+    reflectionCompanionRuntime
+}
+dependencies {
+    reflectionCompanionRuntime libs.micronaut.expression.language.reflection
+}
+tasks.register('reflectionCompanionTest', Test) {
+    group = 'verification'
+    description = 'Verifies validation EL isolation when the optional EL reflection companion is installed.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath + configurations.reflectionCompanionRuntime
+    useJUnitPlatform()
+    systemProperty 'validation.test.el.reflectionCompanion', 'true'
+    shouldRunAfter tasks.named('test')
+}
+tasks.named('check') { dependsOn 'reflectionCompanionTest' }

@@ -27,7 +27,7 @@ import jakarta.validation.ValidatorContext;
  * {@code micronaut-validation-reflection}. Describing the extractor instead needs nothing to be read.</p>
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 public interface MicronautValidatorContext extends ValidatorContext {
 

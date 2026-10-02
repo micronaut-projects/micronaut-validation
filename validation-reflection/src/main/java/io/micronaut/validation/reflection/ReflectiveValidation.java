@@ -28,7 +28,7 @@ import java.util.Set;
  * application that never ran the annotation processors.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 public final class ReflectiveValidation {
 

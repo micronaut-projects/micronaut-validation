@@ -21,13 +21,13 @@ import io.micronaut.validation.bootstrap.DefaultBootstrapConfiguration;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ValidationException;
 import jakarta.validation.executable.ExecutableType;
+import javax.xml.parsers.ParserConfigurationException;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
-import javax.xml.parsers.ParserConfigurationException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -43,7 +43,7 @@ import java.util.Set;
  * Internal ServiceLoader entry that loads {@code META-INF/validation.xml} using
  * secure JDK XML APIs when the optional XML module is present.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 public final class ValidationXmlBootstrapConfigurationLoader implements BootstrapConfigurationLoader {

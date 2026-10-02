@@ -27,15 +27,10 @@ import java.util.List;
 @NullMarked
 final class ReflectionSupportServiceDiscovery {
     private static volatile List<Provider> providers = List.of();
-    private static final ReflectionSupport GENERATED = new CompileTimeSupport();
 
     private ReflectionSupportServiceDiscovery() { }
 
-    static ReflectionSupport get() {
-        ClassLoader loader = Thread.currentThread().getContextClassLoader();
-        if (loader == null) {
-            loader = ReflectionSupport.class.getClassLoader();
-        }
+    static ReflectionSupport get(ClassLoader loader) {
         ReflectionSupport cached = find(loader);
         return cached == null ? load(loader) : cached;
     }
@@ -55,7 +50,8 @@ final class ReflectionSupportServiceDiscovery {
             return cached;
         }
         ReflectionSupport support = SoftServiceLoader.load(ReflectionSupport.class, loader)
-            .firstAvailable().orElse(GENERATED);
+            .firstAvailable().orElseGet(CompileTimeSupport::new)
+            .withClassLoader(loader);
         List<Provider> live = new ArrayList<>();
         for (Provider provider : providers) {
             if (provider.loader().get() != null && provider.support().get() != null) {

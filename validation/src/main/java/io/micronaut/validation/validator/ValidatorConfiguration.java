@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
@@ -105,7 +106,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
 
     /**
      * @return The parameter name provider
-     * @since 5.1
+     * @since 5.3.0
      */
     @NonNull
     default ParameterNameProvider getParameterNameProvider() {
@@ -114,7 +115,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
 
     /**
      * @return The default parameter name provider
-     * @since 5.1
+     * @since 5.3.0
      */
     @NonNull
     default ParameterNameProvider getDefaultParameterNameProvider() {
@@ -160,7 +161,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
 
     /**
      * @return Optional validation metadata providers
-     * @since 5.1
+     * @since 5.3.0
      */
     @NonNull
     default List<ValidationMetadataProvider> getMetadataProviders() {
@@ -171,7 +172,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * @return The metadata access support selected for this configuration
      * @since 5.3.0
      */
-    @io.micronaut.core.annotation.Internal
+    @Internal
     default ReflectionSupport getReflectionSupport() {
         return ReflectionSupport.get();
     }

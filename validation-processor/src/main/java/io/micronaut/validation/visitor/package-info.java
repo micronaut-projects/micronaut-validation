@@ -16,7 +16,7 @@
 /**
  * The type element visitors of the validation annotation processor, which mark what the validator validates.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @NullMarked
 package io.micronaut.validation.visitor;

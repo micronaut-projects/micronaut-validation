@@ -8,7 +8,7 @@ module and which therefore runs on `CompileTimeSupport` alone.
 
 The default module rejects inaccessible field reads even when the field carries `@ReflectiveAccess`. Field reflection belongs to `micronaut-validation-reflection`; the annotation still supplies native registration. The default native smoke test verifies this rejection alongside generated property, record and container access.
 
-EL interpolation lives in `micronaut-validation-el`. It uses the Micronaut Jakarta EL interpreter with an explicit generated/container resolver chain and direct formatter dispatch. Neither `StandardELContext` nor Jakarta EL's reflective bean resolver is part of that chain. Regression tests assert that an ungenerated getter is never called, alongside tests with both reflection companions absent.
+EL interpolation lives in `micronaut-validation-el`. It uses the Micronaut Jakarta EL interpreter with an explicit generated/container resolver chain and direct formatter dispatch. Neither `StandardELContext` nor Jakarta EL's reflective bean resolver is part of that chain. Regression tests assert that an ungenerated getter or method is never called, both with the reflection companions absent and with the EL reflection companion installed. Method executors are selected explicitly. The application loader is captured at construction, and bundle caching is bounded to the interpolator lifetime.
 
 The generated-description compatibility profile still allows explicitly registered field access inside the installed reflection companion. It is separate from the strict classpath tests, which have no reflection provider.
 

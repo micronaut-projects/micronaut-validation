@@ -20,29 +20,35 @@ import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.el.CompiledExpressionFactory;
+import io.micronaut.el.interpreter.InterpretingELExpressionParser;
+import io.micronaut.el.resolver.CommonELResolver;
+import io.micronaut.el.resolver.IntrospectionELResolver;
+import io.micronaut.el.resolver.StreamELResolver;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.el.ExpressionFactory;
-import io.micronaut.el.CompiledExpressionFactory;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ValidationException;
 import org.jspecify.annotations.Nullable;
 
-import java.util.HashMap;
 import java.util.ArrayList;
+import java.util.Formatter;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
-import java.util.Formatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Internal Jakarta EL-backed message interpolator used only when the optional
  * EL module is present.
  *
- * @since 5.1
+ * @since 5.3.0
  */
 @Internal
 @Singleton
@@ -59,6 +65,8 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private final MessageSource messageSource;
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
     private final ExpressionFactory expressionFactory;
+    private final ValidationMessageBundleLoader bundles;
+    private final BeanIntrospector introspector;
 
     /**
      * Creates an EL-backed message interpolator.
@@ -68,9 +76,26 @@ public final class ElMessageInterpolator implements MessageInterpolator {
      */
     public ElMessageInterpolator(MessageSource messageSource,
                                  @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver) {
+        this(messageSource, interpolatorLocaleResolver, applicationClassLoader());
+    }
+
+    ElMessageInterpolator(MessageSource messageSource,
+                          @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver,
+                          ClassLoader classLoader) {
         this.messageSource = messageSource;
         this.interpolatorLocaleResolver = interpolatorLocaleResolver == null ? OptionalLocaleResolver.INSTANCE : interpolatorLocaleResolver;
-        this.expressionFactory = new CompiledExpressionFactory();
+        this.bundles = new ValidationMessageBundleLoader(classLoader);
+        this.introspector = BeanIntrospector.forClassLoader(classLoader);
+        this.expressionFactory = new CompiledExpressionFactory(
+            ElExpressionSources.load(classLoader),
+            new InterpretingELExpressionParser(List.of(
+                new IntrospectionELResolver(introspector, true), new CommonELResolver(),
+                new StreamELResolver(), new ValidationFormatterExecutor())));
+    }
+
+    private static ClassLoader applicationClassLoader() {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        return loader == null ? ElMessageInterpolator.class.getClassLoader() : loader;
     }
 
     @Override
@@ -121,7 +146,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
         return result.toString();
     }
 
-    private static List<Token> expandUserBundles(List<Token> tokens, Locale locale, Set<String> expanding) {
+    private List<Token> expandUserBundles(List<Token> tokens, Locale locale, Set<String> expanding) {
         List<Token> result = new ArrayList<>();
         for (Token token : tokens) {
             if (token.kind() == Kind.TEXT || !expanding.add(token.value())) {
@@ -129,12 +154,12 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                 continue;
             }
             try {
-                Optional<String> message = ValidationMessageBundleLoader.find(token.value(), locale);
+                Optional<String> message = bundles.find(token.value(), locale);
                 if (message.isEmpty()) {
                     result.add(token);
                 } else {
                     if (expanding.size() > 64) {
-                        throw new jakarta.validation.ValidationException("Validation message bundle nesting exceeds 64 levels");
+                        throw new ValidationException("Validation message bundle nesting exceeds 64 levels");
                     }
                     result.addAll(expandUserBundles(replacement(token, message.get()), locale, expanding));
                 }
@@ -185,7 +210,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     }
 
     private String evaluateExpression(String expression, Context context, Locale locale) {
-        ValidationELContext elContext = new ValidationELContext();
+        ValidationELContext elContext = new ValidationELContext(introspector);
         for (Map.Entry<String, Object> entry : context.getConstraintDescriptor().getAttributes().entrySet()) {
             elContext.getVariableMapper().setVariable(
                 entry.getKey(),
@@ -245,7 +270,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
      * Locale-aware formatter exposed to Jakarta EL expressions as {@code formatter}.
      *
      * @param locale The locale
-     * @since 5.1
+     * @since 5.3.0
      */
     @Internal
     public record LocaleFormatter(Locale locale) {

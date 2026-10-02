@@ -29,7 +29,7 @@ import java.util.List;
  * What a constraint annotation type declares about itself, for a constraint the annotation processor never
  * compiled and whose occurrences therefore carry none of it.
  *
- * @since 5.2
+ * @since 5.3.0
  */
 @Internal
 final class ReflectedConstraints {

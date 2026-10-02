@@ -52,6 +52,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     private final Map<ConstraintValidator<?, ?>, ConstraintValidatorEntry> validators =
             Collections.synchronizedMap(new IdentityHashMap<>());
     private final BeanIntrospector beanIntrospector;
+    private final ReflectionSupport reflectionSupport;
     @Nullable
     private final BeanContext beanContext;
 
@@ -61,8 +62,20 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
      * @param beanContext The optional context owning validator dependencies
      */
     public DefaultInternalConstraintValidatorFactory(BeanIntrospector beanIntrospector, @Nullable BeanContext beanContext) {
+        this(beanIntrospector, beanContext, ReflectionSupport.get());
+    }
+
+    /**
+     * Creates a factory with application-scoped access capabilities.
+     * @param beanIntrospector The configured introspector
+     * @param beanContext The optional bean context
+     * @param reflectionSupport The configured access provider
+     */
+    public DefaultInternalConstraintValidatorFactory(BeanIntrospector beanIntrospector,
+            @Nullable BeanContext beanContext, ReflectionSupport reflectionSupport) {
         this.beanIntrospector = beanIntrospector;
         this.beanContext = beanContext;
+        this.reflectionSupport = reflectionSupport.withIntrospector(beanIntrospector);
     }
 
     /**
@@ -71,8 +84,8 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
      */
     @Inject
     public DefaultInternalConstraintValidatorFactory(BeanContext beanContext) {
-        this.beanIntrospector = BeanIntrospector.SHARED;
-        this.beanContext = beanContext;
+        this(BeanIntrospector.forClassLoader(beanContext.getClassLoader()), beanContext,
+            ReflectionSupport.forClassLoader(beanContext.getClassLoader()));
     }
 
     @Override
@@ -112,13 +125,13 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry findConstraintValidator(Class<T> type) {
         ConstraintValidatorEntry entry;
         try {
-            // a validator the introspection can build itself is built from it; one that takes its
-            // dependencies through its constructor is the container's to build, so it falls to the
-            // bean registration, which supplies them
-            entry = beanIntrospector.findIntrospection(type)
+            // Managed construction also supplies member injection, interceptors and lifecycle callbacks.
+            entry = beanContext != null && beanContext.findBeanDefinition(type).isPresent()
+                ? instantiateConstraintValidatorEntryOfBeanRegistration(type)
+                : beanIntrospector.findIntrospection(type)
                     .filter(introspection -> introspection.getConstructorArguments().length == 0)
                     .map(this::instantiateConstraintValidatorEntry)
-                    .orElseGet(() -> instantiateConstraintValidatorEntryOfBeanRegistration(type));
+                    .orElseGet(() -> instantiateConstraintValidatorEntryOfDeclaredConstructor(type));
         } catch (ValidationException e) {
             throw e;
         } catch (Exception e) {
@@ -132,22 +145,22 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
 
     @Nullable
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntryOfDeclaredConstructor(Class<T> type) {
-        T constraintValidator = ReflectionSupport.get().instantiate(type);
+        T constraintValidator = reflectionSupport.instantiate(type);
         if (constraintValidator == null) {
             return null;
         }
         return new ConstraintValidatorEntry(
             constraintValidator,
-            ConstraintValidatorTargetResolver.getTargetType(type),
-            ConstraintValidatorTargetResolver.validationTargets(type),
+            ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, type),
+            ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, type),
             null);
     }
 
     private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection) {
         return new ConstraintValidatorEntry(
             beanIntrospection.instantiate(),
-            ConstraintValidatorTargetResolver.getTargetType(beanIntrospection),
-            ConstraintValidatorTargetResolver.validationTargets(beanIntrospection),
+            ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, beanIntrospection),
+            ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, beanIntrospection),
             null);
     }
 
@@ -166,7 +179,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         return new ConstraintValidatorEntry(
                 instance,
                 arguments.size() == 2 ? arguments.get(1).getType() : Object.class,
-                ConstraintValidatorTargetResolver.validationTargets(
+                ConstraintValidatorTargetResolver.validationTargets(reflectionSupport,
                         definition.getAnnotationMetadata()),
                 registration);
     }

@@ -3,8 +3,11 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.ApplicationContext;
 import io.micronaut.context.annotation.Prototype;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.validation.annotation.InList;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -16,6 +19,31 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class InternalConstraintValidatorOwnershipTest {
+    @Test
+    void noArgumentBeansReceiveMemberInjectionAndLifecycleCallbacks() {
+        try (var context = ApplicationContext.run(Map.of("spec.name", "InternalConstraintValidatorOwnershipTest"))) {
+            var factory = new DefaultInternalConstraintValidatorFactory(context);
+            var validator = factory.getInstance(MemberInjectedValidator.class);
+            assertNotNull(validator);
+            assertNotNull(validator.counters);
+            assertTrue(validator.started);
+            factory.releaseInstance(validator);
+            assertTrue(validator.stopped);
+        }
+    }
+
+    @Singleton
+    @Requires(property = "spec.name", value = "InternalConstraintValidatorOwnershipTest")
+    public static class MemberInjectedValidator implements ConstraintValidator<InList, Integer> {
+        @Inject Counters counters;
+        boolean started;
+        boolean stopped;
+        public MemberInjectedValidator() { }
+        @PostConstruct void start() { started = true; }
+        @PreDestroy void stop() { stopped = true; }
+        @Override public boolean isValid(Integer value, ConstraintValidatorContext context) { return true; }
+    }
+
     @Test
     void ownedSingletonValidatorInstancesAreDistinctAndDoNotReleaseTheApplicationSingleton() {
         Counters counters;
@@ -91,7 +119,7 @@ class InternalConstraintValidatorOwnershipTest {
         @PreDestroy void destroy() { counters.dependenciesDestroyed.incrementAndGet(); }
     }
 
-    abstract static class OwnedValidator implements ConstraintValidator<io.micronaut.validation.annotation.InList, Integer> {
+    abstract static class OwnedValidator implements ConstraintValidator<InList, Integer> {
         private final Counters counters;
         OwnedValidator(Counters counters) {
             this.counters = counters;

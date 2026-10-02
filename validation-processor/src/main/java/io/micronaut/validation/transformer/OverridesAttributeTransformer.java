@@ -32,7 +32,7 @@ import java.util.List;
  * is left at its default.
  *
  * @author Denis Stepanov
- * @since 5.2
+ * @since 5.3.0
  */
 public final class OverridesAttributeTransformer implements NamedAnnotationTransformer {
 

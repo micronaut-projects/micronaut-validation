@@ -15,24 +15,23 @@
  */
 package io.micronaut.validation;
 
-import io.micronaut.validation.validator.ReflectionSupport;
-
 import io.micronaut.aop.InterceptPhase;
 import io.micronaut.aop.InterceptedMethod;
 import io.micronaut.aop.MethodInterceptor;
 import io.micronaut.aop.MethodInvocationContext;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
+import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableValidator;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.reflect.Method;
 import java.util.Set;
@@ -48,10 +47,10 @@ import static io.micronaut.validation.ConstraintViolationExceptionUtil.createCon
  */
 @Singleton
 public class ValidatingInterceptor implements MethodInterceptor<Object, Object> {
-
     /** The position of the interceptor. See {@link io.micronaut.core.order.Ordered} */
     public static final int POSITION = InterceptPhase.VALIDATE.getPosition();
 
+    private final ReflectionSupport reflectionSupport;
     private final @Nullable ExecutableValidator executableValidator;
     private final @Nullable ExecutableMethodValidator micronautValidator;
     private final ConversionService conversionService;
@@ -70,6 +69,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                  ConversionService conversionService,
                                  ValidatorConfiguration validatorConfiguration) {
         this.conversionService = conversionService;
+        this.reflectionSupport = validatorConfiguration.getReflectionSupport();
         isPrependPropertyPath = validatorConfiguration.isPrependPropertyPath();
 
         if (validatorFactory != null) {
@@ -99,7 +99,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     @Override
     public Object intercept(MethodInvocationContext<Object, Object> context) {
         if (executableValidator != null) {
-            Method targetMethod = ReflectionSupport.get().targetMethod(context.getExecutableMethod());
+            Method targetMethod = reflectionSupport.targetMethod(context.getExecutableMethod());
             if (context.getArguments().length != 0) {
                 Set<ConstraintViolation<Object>> constraintViolations = executableValidator
                         .validateParameters(

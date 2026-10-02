@@ -19,18 +19,19 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
-import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import javax.xml.parsers.ParserConfigurationException;
 import org.jspecify.annotations.Nullable;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -47,8 +48,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import javax.xml.parsers.ParserConfigurationException;
 
 import static io.micronaut.validation.xml.XmlMapping.BeanMapping;
 import static io.micronaut.validation.xml.XmlMapping.ConstraintDefinition;
@@ -88,9 +87,11 @@ final class XmlMappingParser {
     final Map<Class<?>, BeanMapping> beanMappings = new LinkedHashMap<>();
     final Map<String, ConstraintDefinition> constraintDefinitions = new LinkedHashMap<>();
     private final ClassLoader classLoader;
+    private final ReflectionSupport reflectionSupport;
 
     XmlMappingParser(ClassLoader classLoader, Set<InputStream> mappingStreams) {
         this.classLoader = classLoader;
+        this.reflectionSupport = ReflectionSupport.forClassLoader(classLoader);
         RuntimeException failure = null;
         try {
             for (InputStream mappingStream : mappingStreams) {
@@ -262,7 +263,7 @@ final class XmlMappingParser {
         ));
     }
 
-    private static void validatePropertyConfiguredOnce(Class<?> beanType,
+    private void validatePropertyConfiguredOnce(Class<?> beanType,
                                                        String elementName,
                                                        String propertyName,
                                                        Map<ExecutableKey, ExecutableMapping> methods,
@@ -277,7 +278,7 @@ final class XmlMappingParser {
         }
     }
 
-    private static void validateGetterConfiguredOnce(Class<?> beanType,
+    private void validateGetterConfiguredOnce(Class<?> beanType,
                                                      String propertyName,
                                                      Map<ExecutableKey, ExecutableMapping> methods,
                                                      Set<String> configuredGetters,
@@ -337,27 +338,26 @@ final class XmlMappingParser {
     }
 
     @Nullable
-    private static ValidationDeclaration findPropertySource(
+    private ValidationDeclaration findPropertySource(
             Class<?> beanType, String elementName, String propertyName) {
-        return ReflectionSupport.get().declaration(beanType, elementName, propertyName, List.of());
+        return reflectionSupport.declaration(beanType, elementName, propertyName, List.of());
     }
 
-    private static Set<String> getterMethodNames(Class<?> beanType, String propertyName) {
+    private Set<String> getterMethodNames(Class<?> beanType, String propertyName) {
         ValidationDeclaration getter = findPropertySource(beanType, ELEMENT_GETTER, propertyName);
         return getter == null ? Set.of() : Set.of(getter.name());
     }
 
     @Nullable
-    private static ValidationDeclaration findConstructor(
+    private ValidationDeclaration findConstructor(
             Class<?> beanType, List<Class<?>> parameters) {
-        return ReflectionSupport.get()
-                .declaration(beanType, "constructor", simpleName(beanType), parameters);
+        return reflectionSupport.declaration(beanType, "constructor", simpleName(beanType), parameters);
     }
 
     @Nullable
-    private static ValidationDeclaration findMethod(
+    private ValidationDeclaration findMethod(
             Class<?> beanType, String name, List<Class<?>> parameters) {
-        return ReflectionSupport.get().declaration(beanType, "method", name, parameters);
+        return reflectionSupport.declaration(beanType, "method", name, parameters);
     }
 
     private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage, boolean beanAnnotationsIgnored) {
@@ -525,7 +525,7 @@ final class XmlMappingParser {
 
     private void validateMandatoryAnnotationMembers(
             Class<? extends Annotation> type, Map<CharSequence, Object> values) {
-        ValidationMetadataSupport.annotationMembers(type)
+        ValidationMetadataSupport.annotationMembers(reflectionSupport, type)
                 .forEach(
                         (name, member) -> {
                             if (member.required()
@@ -576,7 +576,7 @@ final class XmlMappingParser {
                                          Element element,
                                          String defaultPackage) {
         AnnotationMember member =
-                ValidationMetadataSupport.annotationMembers(annotationType).get(name);
+                ValidationMetadataSupport.annotationMembers(reflectionSupport, annotationType).get(name);
         if (member == null) {
             throw new ValidationException(
                     "Unknown annotation member " + annotationType.getName() + "." + name);
@@ -598,7 +598,7 @@ final class XmlMappingParser {
                 return loadClass(resolveClassName(value, defaultPackage));
             }
             if (targetType.isEnum()) {
-                return ValidationMetadataSupport.enumConstants(targetType).stream()
+                return ValidationMetadataSupport.enumConstants(reflectionSupport, targetType).stream()
                         .filter(constant -> constant.name().equals(value))
                         .findFirst()
                         .orElseThrow(
@@ -626,7 +626,7 @@ final class XmlMappingParser {
     }
 
     @Nullable
-    private static Object scalarValue(Class<?> targetType, String value) {
+    private Object scalarValue(Class<?> targetType, String value) {
         if (targetType == String.class) {
             return value;
         }
@@ -695,7 +695,7 @@ final class XmlMappingParser {
         return array;
     }
 
-    private static Object newArray(Class<?> componentType, int size) {
+    private Object newArray(Class<?> componentType, int size) {
         if (componentType == byte.class) {
             return new byte[size];
         }
@@ -726,7 +726,7 @@ final class XmlMappingParser {
         if (componentType == Class.class) {
             return new Class<?>[size];
         }
-        return ValidationMetadataSupport.typedArray(componentType, size);
+        return ValidationMetadataSupport.typedArray(reflectionSupport, componentType, size);
     }
 
     private AnnotationValue<?> annotationValue(Class<? extends Annotation> annotationType,
@@ -782,7 +782,7 @@ final class XmlMappingParser {
             case "double" -> double.class;
             case "java.lang.String" -> String.class;
             case "java.lang.Object" -> Object.class;
-            default -> ValidationMetadataSupport.type(className, classLoader);
+            default -> ValidationMetadataSupport.type(reflectionSupport, className, classLoader);
         };
     }
 
