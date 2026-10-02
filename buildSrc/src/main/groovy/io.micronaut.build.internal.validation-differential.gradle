@@ -1,0 +1,62 @@
+plugins {
+    id 'io.micronaut.build.internal.validation-base'
+    id 'java'
+}
+
+sourceSets { worker }
+configurations {
+    defaultStack { canBeConsumed = false; canBeResolved = true }
+    jakartaStack { canBeConsumed = false; canBeResolved = true }
+    referenceStack { canBeConsumed = false; canBeResolved = true }
+    modelProcessors { canBeConsumed = false; canBeResolved = true }
+}
+
+dependencies {
+    workerImplementation libs.managed.validation
+    workerCompileOnly projects.micronautValidation
+    defaultStack projects.micronautValidation
+    jakartaStack projects.micronautValidationJakarta
+    referenceStack libs.hibernate.validator
+    referenceStack libs.micronaut.expression.language
+    referenceStack libs.micronaut.expression.language.interpreter
+    modelProcessors projects.micronautValidationProcessor
+    modelProcessors mn.micronaut.inject.java
+    testImplementation libs.managed.validation
+    testImplementation mnTest.junit.jupiter.api
+    testRuntimeOnly mnTest.junit.jupiter.engine
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+def configureCampaign = { Test task, String count ->
+    task.dependsOn tasks.named('workerClasses'), configurations.defaultStack, configurations.jakartaStack,
+        configurations.referenceStack, configurations.modelProcessors
+    task.useJUnitPlatform()
+    task.maxHeapSize = '1g'
+    task.inputs.property('seed', providers.gradleProperty('fuzzSeed').orElse('631530'))
+    task.inputs.property('limitMinutes', providers.gradleProperty('fuzzLimitMinutes').orElse('30'))
+    task.inputs.property('count', providers.gradleProperty('fuzzCount').orElse(count))
+    task.inputs.files(sourceSets.worker.output, configurations.workerRuntimeClasspath,
+        configurations.defaultStack, configurations.jakartaStack, configurations.referenceStack,
+        configurations.modelProcessors).withPropertyName('differentialClasspaths').withNormalizer(ClasspathNormalizer)
+    task.doFirst {
+        task.systemProperty 'fuzz.seed', providers.gradleProperty('fuzzSeed').orElse('631530').get()
+        task.systemProperty 'fuzz.count', providers.gradleProperty('fuzzCount').orElse(count).get()
+        task.systemProperty 'fuzz.limitMinutes', providers.gradleProperty('fuzzLimitMinutes').orElse('30').get()
+        task.systemProperty 'fuzz.output', layout.buildDirectory.dir('differential').get().asFile.absolutePath
+        task.systemProperty 'fuzz.processors', configurations.modelProcessors.asPath
+        ['default', 'jakarta', 'reference'].each { profile ->
+            task.systemProperty "fuzz.${profile}Classpath", (sourceSets.worker.output + configurations.workerRuntimeClasspath
+                + configurations.getByName("${profile}Stack")).asPath
+        }
+    }
+}
+
+tasks.named('test', Test) { configureCampaign(it, '2000') }
+tasks.register('fuzzCampaign', Test) {
+    group = 'verification'
+    description = 'Manual differential campaign: 50,000 comparisons, deterministic seed, 30-minute deadline.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    outputs.upToDateWhen { false }
+    configureCampaign(it, '50000')
+}
