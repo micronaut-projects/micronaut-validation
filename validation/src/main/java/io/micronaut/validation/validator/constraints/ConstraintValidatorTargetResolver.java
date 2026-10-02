@@ -193,9 +193,9 @@ public final class ConstraintValidatorTargetResolver {
      */
     public static Set<ValidationTarget> constraintTargets(ReflectionSupport reflectionSupport, AnnotationValue<?> annotationValue,
                                                           Class<? extends Annotation> annotationType) {
-        if (annotationValue.contains("$validationTargets")) {
+        if (annotationValue.contains(ValidationAnnotationUtil.VALIDATION_TARGETS)) {
             Set<ValidationTarget> targets = new LinkedHashSet<>();
-            for (String target : annotationValue.stringValues("$validationTargets")) {
+            for (String target : annotationValue.stringValues(ValidationAnnotationUtil.VALIDATION_TARGETS)) {
                 switch (target) {
                     case "PARAMETERS" -> targets.add(ValidationTarget.PARAMETERS);
                     case "ANNOTATED_ELEMENT" -> targets.add(ValidationTarget.ANNOTATED_ELEMENT);
@@ -231,7 +231,8 @@ public final class ConstraintValidatorTargetResolver {
     private static List<Class<?>> declaredValidators(ReflectionSupport reflectionSupport, AnnotationValue<?> annotationValue,
                                                      Class<? extends Annotation> annotationType) {
         Class<?>[] recorded = annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY);
-        return recorded.length > 0 ? List.of(recorded) : reflectionSupport.declaredValidators(annotationType);
+        return annotationValue.contains(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)
+            ? List.of(recorded) : reflectionSupport.declaredValidators(annotationType);
     }
 
     /**
@@ -275,12 +276,6 @@ public final class ConstraintValidatorTargetResolver {
             || validationTargets.contains(ValidationTarget.ANNOTATED_ELEMENT);
     }
 
-    /**
-     * The type a validator validates: the second type argument of {@link ConstraintValidator},
-     * resolved through the hierarchy of the validator type by {@link
-     * ReflectionSupport#genericSuperArgument(Class, Class)}, the same resolution the value extractors and
-     * the generic bean arguments use.
-     */
     /**
      * Checks that the {@code validationAppliesTo} of a constraint is one the element it is declared
      * on allows, as the sections 3.1.1.4 and 4.5.2.1 of the specification require: a target may

@@ -79,7 +79,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     public void visitClass(ClassElement element, VisitorContext context) {
         visited.clear();
         classElement = element;
-        if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
+        if (classElement.isInterface() && (classElement.hasAnnotation("jakarta.validation.GroupSequence")
+            || classElement.isAssignable("jakarta.validation.groups.Default"))) {
             classElement.annotate(Introspected.class);
         }
     }

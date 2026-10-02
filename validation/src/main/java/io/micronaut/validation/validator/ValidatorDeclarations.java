@@ -174,26 +174,25 @@ final class ValidatorDeclarations {
      * type is validated.
      */
     void checkBeanDeclarations(BeanIntrospection<?> introspection) {
-        if (checkedBeanDeclarations.add(introspection)) {
-            try {
+        synchronized (checkedBeanDeclarations) {
+            if (!checkedBeanDeclarations.contains(introspection)) {
                 for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
                     ExecutableHierarchy.checkGroupConversions(reflectionSupport, property.asArgument());
                 }
-            } catch (RuntimeException e) {
-                checkedBeanDeclarations.remove(introspection);
-                throw e;
+                // Publish success only after every check completes. Concurrent callers must wait.
+                checkedBeanDeclarations.add(introspection);
             }
         }
     }
 
-    /** A constraint definition is checked once, the first time the constraint is found. */
-    void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
-        if (strictConstraintDefinitions && checkedConstraintDefinitions.add(constraintType)) {
-            try {
-                reflectionSupport.checkConstraintDefinition(constraintType);
-            } catch (RuntimeException e) {
-                checkedConstraintDefinitions.remove(constraintType);
-                throw e;
+    /** A constraint definition is checked once after a successful check, never while in progress. */
+    void checkConstraintDefinition(Class<? extends Annotation> constraintType, AnnotationValue<?> occurrence) {
+        if (strictConstraintDefinitions) {
+            synchronized (checkedConstraintDefinitions) {
+                if (!checkedConstraintDefinitions.contains(constraintType)) {
+                    reflectionSupport.checkConstraintDefinition(constraintType, occurrence);
+                    checkedConstraintDefinitions.add(constraintType);
+                }
             }
         }
     }

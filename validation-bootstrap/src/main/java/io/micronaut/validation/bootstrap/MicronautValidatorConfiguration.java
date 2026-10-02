@@ -614,10 +614,16 @@ public final class MicronautValidatorConfiguration
                         .stream()
                         .findFirst()
                         .orElse(null);
-        Object instance =
-                introspection == null
-                        ? defaults.getReflectionSupport().instantiate(className, classLoader)
-                        : introspection.instantiate();
+        Object instance;
+        try {
+            instance = introspection == null
+                    ? defaults.getReflectionSupport().instantiate(className, classLoader)
+                    : introspection.instantiate();
+        } catch (ValidationException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            throw new ValidationException("Cannot instantiate bootstrap class: " + className, e);
+        }
         if (instance == null) {
             throw new ValidationException(
                     "No constructor is available for bootstrap class: " + className);

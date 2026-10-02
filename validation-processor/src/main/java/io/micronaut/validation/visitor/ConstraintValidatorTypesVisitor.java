@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
+ * Retains validator and value-extractor signatures in generated introspections.
  * Records the types an introspected {@link jakarta.validation.ConstraintValidator} implementation binds -
  * the constraint and the validated type - in its introspection, so that
  * the validator reads them from the generated metadata rather than from the generic signature of the class.
@@ -46,7 +47,7 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
     @Override
     public int getOrder() {
         // before the introspection visitor, so that the annotation is part of the introspection
-        return IntrospectedTypeElementVisitor.POSITION + 10;
+        return IntrospectedTypeElementVisitor.POSITION + 20;
     }
 
     @Override
@@ -62,6 +63,11 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
+        if (!element.isAbstract() && !element.isInterface() && element.isAssignable("jakarta.validation.valueextraction.ValueExtractor")) {
+            // Registration hands over an instance; its generated signature still describes @ExtractedValue.
+            element.annotate(Introspected.class);
+            return;
+        }
         if (element.isAbstract() || element.isInterface() || !element.isAssignable(CONSTRAINT_VALIDATOR)) {
             return;
         }

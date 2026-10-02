@@ -54,6 +54,7 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
+import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -594,6 +595,18 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     public final void setReflectionSupport(ReflectionSupport reflectionSupport) {
         this.reflectionSupport = reflectionSupport;
         this.defaultParameterNameProvider = null;
+    }
+
+    /**
+     * Erases a caller-supplied generic signature. Non-class signatures require the reflection companion.
+     *
+     * @param type The signature
+     * @return The raw class, retaining the historical Object[] erasure for generic arrays
+     * @deprecated Use {@link Argument#getType()} on a generated argument instead.
+     */
+    @Deprecated(since = "5.3.0", forRemoval = true)
+    public static Class<?> getClassFromType(Type type) {
+        return ReflectionSupport.get().rawType(type);
     }
 
     private record DelegatingInternalConstraintValidatorFactory(

@@ -27,5 +27,15 @@ public interface ValidationAnnotationUtil {
 
     String CONSTRAINT_VALIDATED_BY = "$validatedBy";
     String CONSTRAINT_TYPE = "$constraintType";
+    String VALIDATION_TARGETS = "$validationTargets";
+    String REPORT_AS_SINGLE_VIOLATION = "$reportAsSingleViolation";
+    String COMPOSITION_ERROR = "$compositionError";
+    String DIRECT_COMPOSING_CONSTRAINTS = "$directComposingConstraints";
+    String COMPOSITION_DEFINITION_ERROR = "$compositionDefinitionError";
+    String DEFINITION_CHECKED = "$definitionChecked";
+    String DEFINITION_ERROR = "$definitionError";
+    String PATTERN_FLAGS = "$patternFlags";
+    String PATTERN_FLAG_ARRAYS = "$patternFlagArrays";
+    String RUNTIME_ATTRIBUTES = "$runtimeAttributes";
 
 }

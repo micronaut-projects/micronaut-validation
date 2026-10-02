@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
@@ -59,9 +60,10 @@ class DefaultValidationCapabilitiesTest {
         try (var factory = new DefaultValidatorFactory()) {
             var validator = factory.getValidator();
             assertEquals(1, validator.validate(new Child(null), Inherited.class, Inherited.class).size());
-            var failure = assertThrows(ValidationException.class,
-                () -> validator.validate(new Parent(new Child(null)), Inherited.class));
-            assertTrue(failure.getMessage().contains("micronaut-validation-reflection"));
+            assertEquals(0, validator.validate(new Parent(new Child(null)), Inherited.class).size());
+            assertTrue(BeanIntrospector.SHARED.findIntrospection(Inherited.class).isPresent());
+            assertEquals(0, validator.validate(new Parent(new Child(null)), GeneratedDefaultGroup.class).size());
+            assertTrue(BeanIntrospector.SHARED.findIntrospection(GeneratedDefaultGroup.class).isPresent());
         }
     }
 
@@ -98,6 +100,7 @@ class DefaultValidationCapabilitiesTest {
         }
     }
 
+    @Introspected
     interface Inherited extends Default { }
     interface Converted { }
 

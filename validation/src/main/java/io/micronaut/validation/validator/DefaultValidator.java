@@ -1894,13 +1894,13 @@ public class DefaultValidator
             if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, constraintType)) {
                 continue;
             }
-            declarations.checkConstraintDefinition(constraintType);
             List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = ConstraintContainers.values(reflectionSupport, annotationMetadata, constraintType);
             Map<String, AnnotationValue<? extends Annotation>> uniqueAnnotationValues = new LinkedHashMap<>();
             for (AnnotationValue<? extends Annotation> annotationValue : annotationValuesByType) {
                 uniqueAnnotationValues.putIfAbsent(ConstraintAnnotationKey.of(constraintType, annotationValue), annotationValue);
             }
             for (AnnotationValue<? extends Annotation> annotationValue : uniqueAnnotationValues.values()) {
+                declarations.checkConstraintDefinition(constraintType, annotationValue);
                 Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
                     (Class<Annotation>) constraintType,
                     (AnnotationValue<Annotation>) annotationValue

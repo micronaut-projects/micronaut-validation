@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.util.CollectionUtils;
+import io.micronaut.validation.annotation.URL;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.metadata.ValidationEnumValues;
@@ -216,8 +217,11 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this.validationAppliesTo = validationAppliesTo;
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
-        annotationValue.stringValue("$compositionError").ifPresent(error -> {
+        annotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_ERROR).ifPresent(error -> {
             throw new ConstraintDeclarationException(error);
+        });
+        annotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR).ifPresent(error -> {
+            throw new ConstraintDefinitionException(error);
         });
         this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
         // the marker is a stereotype of the constraint where the metadata retains it, and read from
@@ -232,6 +236,10 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
      * read from the annotation type only where it does not.
      */
     private boolean isReportedAsSingleViolation(AnnotationValue<?> annotationValue, Class<?> type) {
+        var retained = annotationValue.booleanValue(ValidationAnnotationUtil.REPORT_AS_SINGLE_VIOLATION);
+        if (retained.isPresent()) {
+            return retained.get();
+        }
         List<AnnotationValue<?>> stereotypes = annotationValue.getStereotypes();
         if (stereotypes != null) {
             for (AnnotationValue<?> stereotype : stereotypes) {
@@ -326,17 +334,33 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         ValidationMetadataSupport.standardDefaults(type).forEach((name, value) -> variables.putIfAbsent(name.toString(), value));
         variables.put("groups", getGroups().contains(Default.class) && groups.isEmpty() ? new Class<?>[0] : groups.toArray(Class<?>[]::new));
         variables.put("payload", payload.toArray(Class<?>[]::new));
-        if (type == Pattern.class || type == Email.class) {
-            variables.put("flags", Arrays.stream(annotationValue.stringValues("flags"))
-                .map(name -> Arrays.stream(Pattern.Flag.values()).filter(flag -> flag.name().equals(name))
-                    .findFirst().orElseThrow(() -> new ConstraintDefinitionException("Unknown pattern flag: " + name)))
-                .toArray(Pattern.Flag[]::new));
+        if (type == Pattern.class || type == Email.class || type == URL.class) {
+            variables.put("flags", patternFlags("flags"));
+        }
+        for (String name : annotationValue.stringValues(ValidationAnnotationUtil.PATTERN_FLAG_ARRAYS)) {
+            variables.put(name, patternFlags(name));
+        }
+        for (String name : annotationValue.stringValues(ValidationAnnotationUtil.PATTERN_FLAGS)) {
+            String flag = annotationValue.stringValue(name).orElseThrow(() ->
+                new ConstraintDefinitionException("Missing pattern flag for " + type.getName() + "." + name));
+            variables.put(name, patternFlag(flag));
         }
         if (validationAppliesTo != null) {
             variables.put(ATTRIBUTE_VALIDATION_APPLIES_TO, validationAppliesTo);
         }
         variables.replaceAll((name, value) -> copyAttribute(value));
         return Collections.unmodifiableMap(variables);
+    }
+
+    private Pattern.Flag[] patternFlags(String member) {
+        return Arrays.stream(annotationValue.stringValues(member))
+            .map(DefaultConstraintDescriptor::patternFlag)
+            .toArray(Pattern.Flag[]::new);
+    }
+
+    private static Pattern.Flag patternFlag(String name) {
+        return Arrays.stream(Pattern.Flag.values()).filter(flag -> flag.name().equals(name))
+            .findFirst().orElseThrow(() -> new ConstraintDefinitionException("Unknown pattern flag: " + name));
     }
 
     private static Object copyAttribute(Object value) {
@@ -432,8 +456,10 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         List<RetainedComposing> composing = new ArrayList<>();
+        boolean directKnown = parentAnnotationValue.contains(ValidationAnnotationUtil.DIRECT_COMPOSING_CONSTRAINTS);
+        List<String> direct = List.of(parentAnnotationValue.stringValues(ValidationAnnotationUtil.DIRECT_COMPOSING_CONSTRAINTS));
         for (AnnotationValue<?> stereotype : retained) {
-            if (isRetainedConstraint(stereotype)) {
+            if (isRetainedConstraint(stereotype) && (!directKnown || direct.contains(stereotype.getAnnotationName()))) {
                 composing.add(new RetainedComposing(
                                 ConstraintContainers.constraintType(reflectionSupport,
                                         stereotype, constraintType.getClassLoader()), stereotype));
@@ -574,7 +600,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
                         : parentGroups);
         values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(reflectionSupport,
-            new AnnotationValue<>(name, values, defaultValues),
+            new AnnotationValue<>(name, values, defaultValues, composing.getRetentionPolicy(), composing.getStereotypes()),
             annotationType
         );
         List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));

@@ -7,6 +7,8 @@ This section documents breaking changes between Micronaut Validation versions:
 * Bootstrap no longer adds the reflection provider transitively. Applications relying on reflection fallback must add `micronaut-validation-reflection` or use `micronaut-validation-jakarta`.
 * When both field and method access are selected, field and getter constraints are evaluated against their own values. Separate declarations can produce violations with identical paths and messages; these violations retain their multiplicity.
 * The default module no longer synthesizes annotation instances. Code using `ConstraintDescriptor.getAnnotation()` or a Jakarta `ConstraintValidator` that requires annotation initialization must add `micronaut-validation-reflection`. Micronaut validators continue to use `AnnotationValue` and the generated metadata directly.
+* The deprecated `DefaultValidatorConfiguration.getClassFromType(Type)` is retained. Non-class runtime signatures require `micronaut-validation-reflection`; use `Argument.getType()` for generated metadata.
+* Enum attributes without generated value support, and nested-annotation constraint attributes, require the reflection companion when concrete values are requested. Missing support fails explicitly instead of returning incorrectly typed attributes.
 * Inherited group conversion needs a generated hierarchy for the requested group or the optional reflection provider. Missing capabilities produce a clear error.
 
 === Micronaut Validation 5.0.0

@@ -32,9 +32,9 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * The constraint definition rules that only the annotation type itself can answer: the members it declares,
- * what its validators support, and what its {@code validationAppliesTo} may say. Reading an annotation type
- * is what this module is for, so the checks live here and the validator asks for them through the seam.
+ * Constraint definition checks for annotation types without retained processor diagnostics: their declared
+ * members, validator targets, and {@code validationAppliesTo}. Compiled occurrences use generated diagnostics;
+ * these checks supply the optional runtime fallback.
  *
  * @since 5.3.0
  */

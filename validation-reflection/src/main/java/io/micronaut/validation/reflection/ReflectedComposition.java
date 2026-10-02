@@ -62,15 +62,6 @@ final class ReflectedComposition {
     }
 
     /**
-     * The constraints a constraint composes, read off the annotation type. A constraint the processors never saw
-     * carries no retained tree - the type of a library, and every type the Jakarta Validation TCK declares - and
-     * reading the class back is the only way to describe what it composes.
-     *
-     * @param constraintType        The composed constraint type
-     * @param parentAnnotationValue The occurrence of the composed constraint
-     * @return The composing constraints, in declaration order
-     */
-    /**
      * Checks the rules only the declared form of a constraint type answers, by reading the composition the
      * way a constraint without a retained tree is read: composing a constraint both directly and inside its
      * container, and an override naming a member or an occurrence the composing constraint does not have.

@@ -29,6 +29,7 @@ import io.micronaut.validation.validator.metadata.ContainerMapping;
 import io.micronaut.validation.validator.metadata.ContainerMappings;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.GroupSequence;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.valueextraction.ValueExtractor;
@@ -80,7 +81,7 @@ final class CompileTimeSupport implements ReflectionSupport {
         this(introspector, CompileTimeSupport.class.getClassLoader());
     }
 
-    private CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader) {
+    CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader) {
         this.introspector = introspector;
         this.classLoader = classLoader;
     }
@@ -170,7 +171,9 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        // the declared form of the annotation type is not read: the rules the retained tree cannot answer are not checked
+        parentAnnotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR).ifPresent(error -> {
+            throw new ConstraintDefinitionException(error);
+        });
     }
 
     /**

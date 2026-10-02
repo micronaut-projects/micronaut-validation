@@ -35,19 +35,21 @@ import io.micronaut.reflection.ReflectionExecutables;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.validator.metadata.ValidationEnumValues;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -56,6 +58,9 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.WildcardType;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -79,6 +84,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
+    private final ReflectionSupport generated;
 
     /** Creates the support; it is instantiated by the service loader. */
     public ReflectionValidationSupport() {
@@ -92,6 +98,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     private ReflectionValidationSupport(BeanIntrospector introspector, ClassLoader classLoader) {
         this.introspector = introspector;
         this.classLoader = classLoader;
+        this.generated = ReflectionSupport.generated(introspector, classLoader);
     }
 
     @Override
@@ -356,7 +363,12 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
+    public @Nullable Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
+        if (ValidationMetadataSupport.standardConstraint(type.getName()) == type
+            || (value.booleanValue(ValidationAnnotationUtil.DEFINITION_CHECKED).orElse(false)
+                && value.stringValues(ValidationAnnotationUtil.RUNTIME_ATTRIBUTES).length == 0)) {
+            return null;
+        }
         var annotation = annotation(type, value);
         var attributes = new LinkedHashMap<String, Object>();
         for (var member : type.getDeclaredMethods()) {
@@ -394,17 +406,25 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
-        return ReflectionExecutables.executableMethod(locator, introspector, method);
+        try {
+            return generated.executableMethod(locator, introspector, method);
+        } catch (ValidationException missing) {
+            return ReflectionExecutables.executableMethod(locator, introspector, method);
+        }
     }
 
     @Override
     public <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
-        return ReflectionExecutables.beanConstructor(introspection, constructor);
+        try {
+            return generated.beanConstructor(introspection, constructor);
+        } catch (ValidationException missing) {
+            return ReflectionExecutables.beanConstructor(introspection, constructor);
+        }
     }
 
     @Override
     public ExecutableHierarchy.Resolved resolveHierarchy(BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name) {
-        if (!ReflectiveValidation.isEnabled()) {
+        if (!ReflectiveValidation.isEnabled() || hasGeneratedHierarchy(local.declaringType())) {
             return ExecutableHierarchy.resolve(this, introspector, local, name);
         }
         MethodHierarchy hierarchy = MethodHierarchy.resolve(introspector, toCore(local), name);
@@ -415,6 +435,16 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         return ExecutableHierarchy.merge(local,
             fromCore(hierarchy.declared()),
             hierarchy.inherited().stream().map(ReflectionValidationSupport::fromCore).toList());
+    }
+
+    private boolean hasGeneratedHierarchy(Class<?> type) {
+        var metadata = introspector.findIntrospection(type).map(BeanIntrospection::getAnnotationMetadata).orElse(null);
+        var hierarchy = metadata == null ? null : metadata.getAnnotation(ValidationMetadataSupport.HIERARCHY);
+        return hierarchy != null && hierarchy.getAnnotations("types").stream().allMatch(entry -> {
+            Class<?> declared = entry.classValue("type").orElse(null);
+            return declared != null && (declared.getName().startsWith("java.")
+                || declared.getName().startsWith("jakarta.") || introspector.findIntrospection(declared).isPresent());
+        });
     }
 
     private static MethodHierarchy.Declaration toCore(ExecutableHierarchy.Declaration declaration) {
@@ -445,17 +475,30 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
-        ReflectedComposition.checkDeclaredComposition(this, constraintType, parentAnnotationValue);
+        if (parentAnnotationValue.booleanValue(ValidationAnnotationUtil.DEFINITION_CHECKED).orElse(false)) {
+            parentAnnotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR).ifPresent(error -> {
+                throw new ConstraintDefinitionException(error);
+            });
+        } else {
+            ReflectedComposition.checkDeclaredComposition(this, constraintType, parentAnnotationValue);
+        }
     }
 
     @Override
     public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        return ReflectionContainerTypeArguments.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
+        var argument = generated.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
+        return argument == null
+            ? ReflectionContainerTypeArguments.boundTypeArgument(declaredType, containerType, typeArgumentIndex)
+            : argument;
     }
 
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        try {
+            return generated.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        } catch (ValidationException missing) {
+            return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        }
     }
 
     @Override
@@ -483,13 +526,18 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> @Nullable Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
-        return ReflectionArguments.resolveGenericToArgument(type, superType);
+        try {
+            return generated.genericSuperArgument(type, superType);
+        } catch (ValidationException missing) {
+            return ReflectionArguments.resolveGenericToArgument(type, superType);
+        }
     }
 
     @Override
     public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
                                                                         Class<? extends Annotation> constraintType) {
-        return ReflectedConstraints.withDeclaredValidators(value, constraintType);
+        return value.booleanValue(ValidationAnnotationUtil.DEFINITION_CHECKED).orElse(false)
+            ? value : ReflectedConstraints.withDeclaredValidators(value, constraintType);
     }
 
     @Override
@@ -509,17 +557,27 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public boolean isGroupSequence(Class<?> group) {
-        return group.isAnnotationPresent(GroupSequence.class);
+        return introspector.findIntrospection(group).map(value -> value.hasAnnotation(GroupSequence.class))
+            .orElseGet(() -> group.isAnnotationPresent(GroupSequence.class));
     }
 
     @Override
     public Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType) {
+        var introspection = introspector.findIntrospection(validatorType).orElse(null);
+        if (introspection != null) {
+            return ValidationEnumValues.targets(introspection.getAnnotationMetadata());
+        }
         SupportedValidationTarget supported = validatorType.getAnnotation(SupportedValidationTarget.class);
         return supported == null ? Set.of() : Set.of(supported.value());
     }
 
     @Override
     public List<String> parameterNames(Executable executable) {
+        try {
+            return generated.parameterNames(executable);
+        } catch (ValidationException missing) {
+            // Only signatures absent from generated executable metadata need class-file names.
+        }
         Parameter[] parameters = executable.getParameters();
         List<String> names = new ArrayList<>(parameters.length);
         for (int i = 0; i < parameters.length; i++) {
@@ -531,20 +589,27 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
-        if (introspector.findIntrospection(extractorType).isPresent()) {
-            var generated =
-                    genericSuperArgument(
-                            extractorType, ValueExtractor.class);
-            if (generated != null) {
-                var metadata =
-                        introspector
-                                .getIntrospection(extractorType)
-                                .getAnnotationMetadata();
-                return generated.withAnnotationMetadata(
-                        ExecutableHierarchy.mergeMetadata(
-                                List.of(generated.getAnnotationMetadata(), metadata)));
-            }
+        try {
+            return generated.valueExtractorArgument(extractorType);
+        } catch (ValidationException missing) {
+            return ReflectedValueExtractors.argumentOf(extractorType);
         }
-        return ReflectedValueExtractors.argumentOf(extractorType);
+    }
+
+    @Override
+    public Class<?> rawType(Type type) {
+        if (type instanceof Class<?> clazz) {
+            return clazz;
+        }
+        if (type instanceof ParameterizedType parameterized) {
+            return rawType(parameterized.getRawType());
+        }
+        if (type instanceof GenericArrayType) {
+            return Object[].class;
+        }
+        if (type instanceof WildcardType wildcard) {
+            return rawType(wildcard.getUpperBounds()[0]);
+        }
+        throw new IllegalArgumentException("Unknown type: " + type);
     }
 }

@@ -26,11 +26,11 @@ import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
-import io.micronaut.validation.validator.metadata.AnnotationMember;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ValidationException;
+import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.Default;
 import org.jspecify.annotations.Nullable;
@@ -39,11 +39,7 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.ResourceBundle;
 import java.util.Set;
 
 /**
@@ -62,7 +58,17 @@ import java.util.Set;
  * @since 5.3.0
  */
 @Internal
-public interface ReflectionSupport {
+public interface ReflectionSupport extends RuntimeValidationAccess {
+
+    /**
+     * Creates access to generated metadata without runtime discovery.
+     * @param introspector The generated introspector
+     * @param loader The application loader
+     * @return The generated metadata provider
+     */
+    static ReflectionSupport generated(BeanIntrospector introspector, ClassLoader loader) {
+        return new CompileTimeSupport(introspector, loader);
+    }
 
     /**
      * The support in force: the first one registered as a service, else the one reading the
@@ -189,34 +195,6 @@ public interface ReflectionSupport {
     }
 
     /**
-     * @param baseName The bundle name
-     * @param locale The requested locale
-     * @param loader The application's loader
-     * @return The class-based resource bundle
-     */
-    default ResourceBundle messageBundle(
-            String baseName, Locale locale, ClassLoader loader) {
-        throw new ValidationException(
-                "Class-based validation message bundles require generated constructors or"
-                        + " micronaut-validation-reflection: "
-                        + baseName);
-    }
-
-    /**
-     * @param name The class name
-     * @param loader The application's loader
-     * @return The optional reflective class lookup
-     * @since 5.3.0
-     */
-    default Class<?> classForName(String name, ClassLoader loader) {
-        throw new ValidationException(
-                "No generated class reference for "
-                        + name
-                        + ": add"
-                        + " micronaut-validation-reflection");
-    }
-
-    /**
      * Resolves metadata named by XML without granting runtime lookup to XML itself.
      *
      * @param type The bean type
@@ -238,101 +216,6 @@ public interface ReflectionSupport {
         }
         var declaration = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
         return declaration;
-    }
-
-    /**
-     * @param type The array component
-     * @param size The size
-     * @return An optional reflective array
-     */
-    default Object[] array(Class<?> type, int size) {
-        throw new ValidationException(
-                "No generated array factory for "
-                        + type.getName()
-                        + ": add micronaut-validation-reflection");
-    }
-
-    /**
-     * @param type The annotation type
-     * @return Its members when the optional provider permits
-     * discovery
-     */
-    default Map<String, AnnotationMember> annotationMembers(
-            Class<? extends Annotation> type) {
-        throw new ValidationException(
-                "No generated annotation member metadata for "
-                        + type.getName()
-                        + ": add micronaut-validation-reflection");
-    }
-
-    /**
-     * @param type The enum type
-     * @return Optional reflective enum constants
-     * @since 5.3.0
-     */
-    default List<Enum<?>> enumConstants(Class<?> type) {
-        throw new ValidationException(
-                "No generated enum constants for "
-                        + type.getName()
-                        + ": add"
-                        + " micronaut-validation-reflection");
-    }
-
-    /**
-     * Converts a caller-supplied generic signature when this provider has that capability.
-     *
-     * @param type The supplied type
-     * @return The argument
-     * @since 5.3.0
-     */
-    default Argument<?> argumentOf(Type type) {
-        if (type instanceof Class<?> clazz) {
-            return Argument.of(clazz);
-        }
-        throw new ValidationException(
-                "Generic signature conversion requires micronaut-validation-reflection: " + type);
-    }
-
-    /**
-     * @param type The annotation interface
-     * @param value The occurrence
-     * @return Typed runtime attributes, or null when using ordinary metadata
-     */
-    default @Nullable Map<String, Object> annotationAttributes(Class<? extends Annotation> type, AnnotationValue<?> value) {
-        return null;
-    }
-
-    /**
-     * Optional fallback for an annotation not described by generated providers.
-     *
-     * @param type The annotation interface
-     * @param value The attributes
-     * @param <T> The annotation type
-     * @return The annotation implementation
-     * @since 5.3.0
-     */
-    default <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
-        throw new ValidationException(
-                "No generated annotation implementation for "
-                        + type.getName()
-                        + ": add"
-                        + " micronaut-validation-reflection");
-    }
-
-    /**
-     * Optional construction of a bootstrap class missing generated metadata.
-     *
-     * @param name The class name
-     * @param classLoader The application loader
-     * @return The instance
-     * @since 5.3.0
-     */
-    default @Nullable Object instantiate(String name, ClassLoader classLoader) {
-        throw new ValidationException(
-                "No generated constructor for "
-                        + name
-                        + ": compile with introspection metadata or add"
-                        + " micronaut-validation-reflection");
     }
 
     /**
@@ -448,8 +331,8 @@ public interface ReflectionSupport {
     /**
      * Whether an introspection tells the declarations of a type apart from the ones it inherits:
      * which annotations a method declares itself, and the field and the getters of a property by
-     * the type declaring each. A generated introspection merges what the super types declare into
-     * its own, so it does not.
+     * the type declaring each. Core declaration metadata separates these owners when the introspection exposes members;
+     * older or incomplete descriptions may still merge them.
      *
      * @param introspection The introspection
      * @return Whether the declarations are separated
@@ -486,8 +369,8 @@ public interface ReflectionSupport {
     /**
      * The type a type binds a generic super type's type argument to, with the annotations declared
      * on it: the {@code String} of a {@code class Names implements Iterable<@NotBlank String>} read
-     * as an {@code Iterable}. The generated metadata describes what a type declares, not what it
-     * binds in a super type it does not restate, so this is read from the class itself.
+     * as an {@code Iterable}. Generated introspection type arguments describe these bindings, with retained type-use
+     * annotations. The optional companion resolves types without generated metadata.
      *
      * @param declaredType The type as declared
      * @param containerType The generic super type it is read as
@@ -518,8 +401,8 @@ public interface ReflectionSupport {
     /**
      * The argument of a super type as a type binds it: {@code ConstraintValidator<Size,
      * CharSequence>} for a validator declaring {@code implements ConstraintValidator<Size,
-     * CharSequence>}. What a type binds in a super type it does not restate is not in the generated
-     * metadata, so this is read from the class itself.
+     * CharSequence>}. Generated introspections retain these bindings, including intermediate super types.
+     * The optional companion resolves signatures for types without an introspection.
      *
      * @param type The type
      * @param superType The super class or interface to resolve
@@ -534,8 +417,8 @@ public interface ReflectionSupport {
     /**
      * Checks a constraint annotation type against the constraint definition rules of the
      * specification: the names and the types of the members it declares, and what its validators
-     * support. Only the annotation type itself answers those, so a validator configured to check
-     * them strictly needs this read.
+     * support. The processor retains definition results on compiled occurrences. This type-only operation
+     * supplies the optional fallback for constraints without those results.
      *
      * @param constraintType The constraint annotation type
      * @throws jakarta.validation.ConstraintDefinitionException When the type breaks a rule
@@ -543,6 +426,21 @@ public interface ReflectionSupport {
      * @since 5.3.0
      */
     void checkConstraintDefinition(Class<? extends Annotation> constraintType);
+
+    /**
+     * Checks a definition retained by the processor, with runtime discovery only for missing metadata.
+     * @param constraintType The constraint annotation
+     * @param occurrence The compiled occurrence
+     */
+    default void checkConstraintDefinition(Class<? extends Annotation> constraintType, AnnotationValue<?> occurrence) {
+        if (occurrence.booleanValue(ValidationAnnotationUtil.DEFINITION_CHECKED).orElse(false)) {
+            occurrence.stringValue(ValidationAnnotationUtil.DEFINITION_ERROR).ifPresent(error -> {
+                throw new ConstraintDefinitionException(error);
+            });
+        } else {
+            checkConstraintDefinition(constraintType);
+        }
+    }
 
     /**
      * Instantiates a type the container does not build, through the no-argument constructor it
@@ -561,8 +459,8 @@ public interface ReflectionSupport {
     /**
      * The argument describing a value extractor the specification API hands over as an instance:
      * the {@code ValueExtractor} signature its class declares, with the annotations of that
-     * signature and of the class. Nothing generated describes an instance registered at runtime, so
-     * its class is read.
+     * signature and of the class. An introspected implementation supplies the signature even when its instance is
+     * registered at runtime; other implementations require the optional companion.
      *
      * @param extractorType The class of the extractor instance
      * @return The argument
@@ -574,8 +472,8 @@ public interface ReflectionSupport {
 
     /**
      * The names of the parameters of an executable the specification API names by its {@link
-     * java.lang.reflect.Executable}. Only the class file carries them, and only when it was
-     * compiled to, so a caller that asks by reflection is answered by reflection.
+     * java.lang.reflect.Executable}. Generated executable metadata supplies the names; the optional companion reads
+     * class-file parameter information when generated metadata is unavailable.
      *
      * @param executable The executable
      * @return The names, one per parameter
