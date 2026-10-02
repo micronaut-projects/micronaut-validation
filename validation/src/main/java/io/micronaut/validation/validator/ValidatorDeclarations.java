@@ -49,6 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Internal
 final class ValidatorDeclarations {
 
+    private final ReflectionSupport reflectionSupport;
     private final BeanIntrospector beanIntrospector;
     private final boolean strictConstraintDefinitions;
     private final Map<ExecutableHierarchy.Key, ExecutableHierarchy.Resolved> executableHierarchies = new ConcurrentHashMap<>();
@@ -59,7 +60,8 @@ final class ValidatorDeclarations {
 
     private final List<ValidationMetadataProvider> metadataProviders;
 
-    ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, List<ValidationMetadataProvider> metadataProviders) {
+    ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, List<ValidationMetadataProvider> metadataProviders, ReflectionSupport reflectionSupport) {
+        this.reflectionSupport = reflectionSupport;
         this.beanIntrospector = beanIntrospector;
         this.strictConstraintDefinitions = strictConstraintDefinitions;
         this.metadataProviders = metadataProviders;
@@ -75,7 +77,7 @@ final class ValidatorDeclarations {
 
     /** The hierarchy of a bean method, for the descriptors of a bean. */
     ExecutableHierarchy.Resolved resolveHierarchy(BeanMethod<?, ?> method) {
-        return ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
+        return reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
     }
 
     /** The argument of a property as the metadata providers configure it. */
@@ -162,7 +164,7 @@ final class ValidatorDeclarations {
 
     ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {
         return executableHierarchies.computeIfAbsent(ExecutableHierarchy.Key.of(method),
-            key -> ReflectionSupport.get().resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method), method.getMethodName()));
+            key -> reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method), method.getMethodName()));
     }
 
     /**
@@ -186,7 +188,7 @@ final class ValidatorDeclarations {
     void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
         if (strictConstraintDefinitions && checkedConstraintDefinitions.add(constraintType)) {
             try {
-                ReflectionSupport.get().checkConstraintDefinition(constraintType);
+                reflectionSupport.checkConstraintDefinition(constraintType);
             } catch (RuntimeException e) {
                 checkedConstraintDefinitions.remove(constraintType);
                 throw e;
@@ -230,14 +232,14 @@ final class ValidatorDeclarations {
         return ValidationMetadataSupport.hierarchy(root.getAnnotationMetadata(), type);
     }
 
-    private static @Nullable Class<?> superType(Class<?> type, BeanIntrospection<?> root) {
+    private @Nullable Class<?> superType(Class<?> type, BeanIntrospection<?> root) {
         var metadata = hierarchy(type, root);
-        return metadata == null ? ReflectionSupport.get().superType(type) : metadata.classValue("superType").orElse(null);
+        return metadata == null ? reflectionSupport.superType(type) : metadata.classValue("superType").orElse(null);
     }
 
-    private static List<Class<?>> interfaces(Class<?> type, BeanIntrospection<?> root) {
+    private List<Class<?>> interfaces(Class<?> type, BeanIntrospection<?> root) {
         var metadata = hierarchy(type, root);
-        return metadata == null ? ReflectionSupport.get().interfaces(type) : List.of(metadata.classValues("interfaces"));
+        return metadata == null ? reflectionSupport.interfaces(type) : List.of(metadata.classValues("interfaces"));
     }
 
     private void addSuperIntrospection(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {

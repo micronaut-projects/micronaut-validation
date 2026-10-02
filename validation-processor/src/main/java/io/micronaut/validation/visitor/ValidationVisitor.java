@@ -163,8 +163,10 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
     }
 
-    private static boolean requiresValidation(MethodElement method) {
+    static boolean requiresValidation(MethodElement method) {
         if (method.hasStereotype(ANN_CONSTRAINT) || method.hasStereotype(ANN_VALID)
+            || method.hasStereotype("jakarta.validation.groups.ConvertGroup")
+            || method.hasAnnotation("jakarta.validation.groups.ConvertGroup$List")
             || hasValidation(method.getGenericReturnType(), new HashSet<>())) {
             return true;
         }
@@ -178,7 +180,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private static boolean hasValidation(TypedElement element, Set<Object> visited) {
         AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
-        if (metadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(metadata) || metadata.hasStereotype(ANN_VALID)) {
+        if (metadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(metadata) || metadata.hasStereotype(ANN_VALID)
+            || metadata.hasStereotype("jakarta.validation.groups.ConvertGroup")
+            || metadata.hasAnnotation("jakarta.validation.groups.ConvertGroup$List")) {
             return true;
         }
         if (element instanceof ClassElement type && type.isPrimitive() || !visited.add(element.getNativeType())) {

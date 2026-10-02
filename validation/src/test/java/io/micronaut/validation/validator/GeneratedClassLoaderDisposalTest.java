@@ -32,7 +32,7 @@ class GeneratedClassLoaderDisposalTest {
         // Core's service index holds its most recently used loader. Refresh that independent,
         // bounded cache before testing whether validation metadata and closed owners retain it.
         BeanIntrospector.forClassLoader(getClass().getClassLoader())
-            .getIntrospection(GeneratedDeclarationAccessTest.Authorized.class);
+            .getIntrospection(GeneratedDeclarationAccessTest.StandardBean.class);
         for (int attempt = 0; attempt < 100 && reference.get() != null; attempt++) {
             System.gc();
             Thread.sleep(25);
@@ -64,7 +64,7 @@ class GeneratedClassLoaderDisposalTest {
         var configuration = new DefaultValidatorConfiguration();
         configuration.setBeanIntrospector(BeanIntrospector.forClassLoader(loader));
         try (loader; var factory = new DefaultValidatorFactory(configuration)) {
-            Class<?> type = loader.loadClass("io.micronaut.validation.validator.GeneratedDeclarationAccessTest$Authorized");
+            Class<?> type = loader.loadClass("io.micronaut.validation.validator.GeneratedDeclarationAccessTest$StandardBean");
             Object bean = BeanIntrospector.forClassLoader(loader).getIntrospection(type).instantiate();
             assertEquals(1, factory.getValidator().validate(bean).size());
         } finally {

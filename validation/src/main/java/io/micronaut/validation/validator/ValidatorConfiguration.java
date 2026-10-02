@@ -166,4 +166,13 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     default List<ValidationMetadataProvider> getMetadataProviders() {
         return List.of();
     }
+
+    /**
+     * @return The metadata access support selected for this configuration
+     * @since 5.3.0
+     */
+    @io.micronaut.core.annotation.Internal
+    default ReflectionSupport getReflectionSupport() {
+        return ReflectionSupport.get();
+    }
 }

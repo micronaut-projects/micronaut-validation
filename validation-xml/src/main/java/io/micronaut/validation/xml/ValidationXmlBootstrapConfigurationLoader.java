@@ -96,8 +96,8 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         try {
             Document document = SecureXmlDocumentBuilder.parse(inputStream);
             Element root = document.getDocumentElement();
-            XmlValidationMetadataProvider.validateVersion(root, SUPPORTED_CONFIGURATION_VERSIONS, "validation.xml");
-            XmlValidationMetadataProvider.validateRootElements(root, ROOT_ELEMENT_NAMES, "validation.xml");
+            XmlMappingSupport.validateVersion(root, SUPPORTED_CONFIGURATION_VERSIONS, "validation.xml");
+            XmlMappingSupport.validateRootElements(root, ROOT_ELEMENT_NAMES, "validation.xml");
             Map<String, String> properties = new LinkedHashMap<>();
             Set<String> valueExtractors = new LinkedHashSet<>();
             Set<String> constraintMappings = new LinkedHashSet<>();

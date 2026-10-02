@@ -31,7 +31,7 @@ tasks.register('nativeSmokeBuild', Exec) {
 }
 tasks.register('nativeSmoke', Exec) {
     group = 'verification'
-    description = 'Runs the native smoke test for generated access and field-specific reflection registration.'
+    description = 'Runs the native smoke test for generated access and rejection of private-field reflection.'
     dependsOn tasks.named('nativeSmokeBuild')
     doFirst { commandLine image.get().asFile.absolutePath }
 }

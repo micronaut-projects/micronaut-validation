@@ -113,6 +113,8 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
     private List<ValidationMetadataProvider> metadataProviders = List.of();
 
+    private ReflectionSupport reflectionSupport = ReflectionSupport.get();
+
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
     private boolean strictConstraintDefinitions = false;
@@ -334,7 +336,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
         if (defaultMessageInterpolator == null) {
-            defaultMessageInterpolator = new DefaultMessageInterpolator(new DefaultMessages());
+            defaultMessageInterpolator = new DefaultMessageInterpolator(new DefaultMessages(), null);
         }
         return defaultMessageInterpolator;
     }
@@ -364,7 +366,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Override
     public ParameterNameProvider getDefaultParameterNameProvider() {
         if (defaultParameterNameProvider == null) {
-            defaultParameterNameProvider = new DefaultParameterNameProvider();
+            defaultParameterNameProvider = new DefaultParameterNameProvider(reflectionSupport);
         }
         return defaultParameterNameProvider;
     }
@@ -527,7 +529,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private void addValueExtractor(ValueExtractor<?> extractor, boolean replace) {
         ValueExtractorRegistry valueExtractorRegistry1 = getValueExtractorRegistry();
         Argument<ValueExtractor<Object>> argument =
-            (Argument<ValueExtractor<Object>>) ReflectionSupport.get().valueExtractorArgument(extractor.getClass());
+            (Argument<ValueExtractor<Object>>) reflectionSupport.valueExtractorArgument(extractor.getClass());
         ValueExtractorDefinition<Object> definition = new ValueExtractorDefinition<>(
             argument,
             (ValueExtractor<Object>) extractor
@@ -576,6 +578,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
                 .sorted(Comparator.comparingInt(ValidationMetadataProvider::getOrder))
                 .toList();
         }
+    }
+
+    @Override
+    public ReflectionSupport getReflectionSupport() {
+        return reflectionSupport;
+    }
+
+    final void setReflectionSupport(ReflectionSupport reflectionSupport) {
+        this.reflectionSupport = reflectionSupport;
     }
 
     private record DelegatingInternalConstraintValidatorFactory(

@@ -19,7 +19,6 @@ import io.micronaut.context.annotation.Executable;
 
 
 import io.micronaut.core.annotation.AnnotationClassValue;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
@@ -86,181 +85,137 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
-        if (element.hasStereotype(Introspected.class)) {
-            var hierarchy = new LinkedHashMap<String, AnnotationValue<?>>();
-            hierarchy(element, hierarchy);
-            var arguments = element.getAllTypeArguments().entrySet().stream()
-                .map(entry -> AnnotationValue.builder("io.micronaut.validation.internal.TypeArguments")
-                    .member("type", entry.getKey())
-                    .member("arguments", entry.getValue().values().stream()
-                        .map(type -> typeUse(type, new HashSet<>())).toArray(AnnotationValue<?>[]::new)).build())
-                .toArray(AnnotationValue<?>[]::new);
-            element.annotate(ValidationMetadataSupport.HIERARCHY,
-                builder -> builder.member("types", hierarchy.values().toArray(AnnotationValue<?>[]::new))
-                    .member("arguments", arguments)
-                    .member("methods", element.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).stream()
-                        .map(method -> AnnotationValue.builder("io.micronaut.validation.internal.Method")
-                            .member("name", method.getName())
-                            .member("parameters", Stream.of(method.getParameters())
-                                .map(parameter -> new AnnotationClassValue<>(parameter.getType().getName()))
-                                .toArray(AnnotationClassValue<?>[]::new)).build())
-                        .toArray(AnnotationValue<?>[]::new)));
-            element.getFields().forEach(field -> field.annotate(ValidationMetadataSupport.TYPE_USE,
-                builder -> builder.members(typeUse(field.getGenericType(), new HashSet<>()).getValues())));
-            element.getMethods().stream().filter(method -> method.getParameters().length == 0)
-                .forEach(method -> method.annotate(ValidationMetadataSupport.TYPE_USE,
-                    builder -> builder.members(typeUse(method.getGenericReturnType(), new HashSet<>()).getValues())));
-            List<? extends GenericPlaceholderElement> own =
-                    element.getDeclaredGenericPlaceholders();
-            AnnotationValue<?>[] mappings =
-                    element.getAllTypeArguments().entrySet().stream()
-                            .map(
-                                    entry ->
-                                            AnnotationValue.builder(ContainerMapping.class)
-                                                    .member("type", entry.getKey())
-                                                    .member(
-                                                            "indexes",
-                                                            entry.getValue().values().stream()
-                                                                    .mapToInt(
-                                                                            type ->
-                                                                                    variableIndex(
-                                                                                            type,
-                                                                                            own))
-                                                                    .toArray())
-                                                    .build())
-                            .toArray(AnnotationValue<?>[]::new);
-            element.annotate(ContainerMappings.class, builder -> builder.member("value", mappings));
-            boolean propertyAccess = element.isRecord() || Stream.of(element.getAnnotationMetadata()
-                .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class))
-                .noneMatch(kind -> kind == Introspected.AccessKind.FIELD);
-            Set<String> propertyFields = propertyAccess ? element.getBeanProperties().stream()
-                .filter(property -> property.getReadMethod().filter(method -> !method.isReflectionRequired(
-                    ClassElement.of(element.getName() + "$ValidationAccess"))).isPresent())
-                .flatMap(property -> property.getField().stream())
-                .map(field -> field.getDeclaringType().getName() + "." + field.getName())
-                .collect(Collectors.toSet()) : Set.of();
-            element.getFields()
-                    .forEach(
-                            field ->
-                                    field.annotate(
-                                            ValidationField.class,
-                                            builder ->
-                                                    builder.member(
-                                                                    "property", propertyFields.contains(
-                                                                        field.getDeclaringType().getName() + "." + field.getName()))
-                                                            .member(
-                                                                    "reflection",
-                                                                    field.isReflectionRequired(
-                                                                            ClassElement.of(
-                                                                                    element
-                                                                                                    .getName()
-                                                                                            + "$ValidationAccess")))
-                                                            .member(
-                                                                    "authorized",
-                                                                    field.getAnnotationMetadata()
-                                                                            .hasDeclaredAnnotation(
-                                                                                    ReflectiveAccess
-                                                                                            .class))));
-            registerAnnotatedFields(element, context);
-            element.getMethods().stream()
-                    .filter(
-                            method ->
-                                    !method.isStatic()
-                                            && !method.isPrivate()
-                                            && method.isAccessible()
-                                            && !method.getDeclaringType()
-                                                    .getName()
-                                                    .equals(Object.class.getName()))
-                    .forEach(method -> method.annotate(Executable.class));
-            if (element.isRecord()) {
-                element.getBeanProperties()
-                        .forEach(
-                                property ->
-                                        property.getReadMethod()
-                                                .filter(
-                                                        method ->
-                                                                method.getName()
-                                                                        .equals(property.getName()))
-                                                .ifPresent(
-                                                        method ->
-                                                                method.annotate(
-                                                                        ValidationRecordAccessor
-                                                                                .class)));
-            }
-            AnnotationMetadata annotationMetadata = element.getAnnotationMetadata();
-            AnnotationValue<Introspected> introspectedAnnotation = annotationMetadata.getAnnotation(Introspected.class);
-            List<AnnotationValue<Introspected.IndexedAnnotation>> declaredIndexed = introspectedAnnotation == null
-                ? List.of()
-                : introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class);
-            element.removeAnnotation(Introspected.class);
-            element.annotate(
-                    Introspected.class,
-                    builder -> {
-                        if (introspectedAnnotation != null) {
-                            builder.members(
-                                    new LinkedHashMap<>(introspectedAnnotation.getValues()));
-                        }
-                        if (context.getLanguage() == VisitorContext.Language.KOTLIN) {
-                            // KSP exposes backing fields through native properties. Members still
-                            // read each field itself.
-                            builder.member(
-                                    "accessKind",
-                                    new Introspected.AccessKind[] {
-                                        Introspected.AccessKind.FIELD,
-                                        Introspected.AccessKind.METHOD
-                                    });
-                        }
-                        AnnotationValue<?>[] indexed = Stream.concat(
-                    declaredIndexed.stream(),
-                    Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID)
-                ).toArray(AnnotationValue<?>[]::new);
-                builder.member("indexed", indexed);
-                        builder.member("members", true);
-                        builder.member("constructors", true);
-                    });
+        if (!element.hasStereotype(Introspected.class)) {
+            return;
         }
+        recordHierarchy(element);
+        recordContainerMappings(element);
+        recordFields(element);
+        registerAnnotatedFields(element, context);
+        element.getMethods().stream()
+            .filter(method -> !method.isStatic() && !method.isPrivate() && method.isAccessible())
+            .filter(method -> ValidationVisitor.requiresValidation(method)
+                || method.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation))
+            .forEach(method -> method.annotate(Executable.class));
+        if (element.isRecord()) {
+            element.getBeanProperties().forEach(property -> property.getReadMethod()
+                .filter(method -> method.getName().equals(property.getName()))
+                .ifPresent(method -> method.annotate(ValidationRecordAccessor.class)));
+        }
+        configureIntrospection(element, context);
+    }
+
+    private static void recordHierarchy(ClassElement element) {
+        var hierarchy = new LinkedHashMap<String, AnnotationValue<?>>();
+        hierarchy(element, hierarchy);
+        var arguments = element.getAllTypeArguments().entrySet().stream()
+            .map(entry -> AnnotationValue.builder("io.micronaut.validation.internal.TypeArguments")
+                .member("type", entry.getKey())
+                .member("arguments", entry.getValue().values().stream()
+                    .map(type -> typeUse(type, new HashSet<>())).toArray(AnnotationValue<?>[]::new)).build())
+            .toArray(AnnotationValue<?>[]::new);
+        element.annotate(ValidationMetadataSupport.HIERARCHY,
+            builder -> builder.member("types", hierarchy.values().toArray(AnnotationValue<?>[]::new))
+                .member("arguments", arguments)
+                .member("methods", element.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).stream()
+                    .map(method -> AnnotationValue.builder("io.micronaut.validation.internal.Method")
+                        .member("name", method.getName())
+                        .member("unconstrained", !method.isStatic() && !method.isPrivate() && method.isAccessible()
+                            && !ValidationVisitor.requiresValidation(method)
+                            && method.getOverriddenMethods().stream().noneMatch(ValidationVisitor::requiresValidation))
+                        .member("returnType", new AnnotationClassValue<>(method.getReturnType().getName()))
+                        .member("parameters", Stream.of(method.getParameters())
+                            .map(parameter -> new AnnotationClassValue<>(parameter.getType().getName()))
+                            .toArray(AnnotationClassValue<?>[]::new)).build())
+                    .toArray(AnnotationValue<?>[]::new)));
+        element.getFields().forEach(field -> field.annotate(ValidationMetadataSupport.TYPE_USE,
+            builder -> builder.members(typeUse(field.getGenericType(), new HashSet<>()).getValues())));
+        element.getMethods().stream().filter(method -> method.getParameters().length == 0)
+            .forEach(method -> method.annotate(ValidationMetadataSupport.TYPE_USE,
+                builder -> builder.members(typeUse(method.getGenericReturnType(), new HashSet<>()).getValues())));
+    }
+
+    private static void recordContainerMappings(ClassElement element) {
+        List<? extends GenericPlaceholderElement> own = element.getDeclaredGenericPlaceholders();
+        AnnotationValue<?>[] mappings = element.getAllTypeArguments().entrySet().stream()
+            .map(entry -> AnnotationValue.builder(ContainerMapping.class)
+                .member("type", entry.getKey())
+                .member("indexes", entry.getValue().values().stream()
+                    .mapToInt(type -> variableIndex(type, own)).toArray())
+                .build())
+            .toArray(AnnotationValue<?>[]::new);
+        element.annotate(ContainerMappings.class, builder -> builder.member("value", mappings));
+    }
+
+    private static void recordFields(ClassElement element) {
+        ClassElement accessType = ClassElement.of(element.getName() + "$ValidationAccess");
+        boolean propertyAccess = element.isRecord() || Stream.of(element.getAnnotationMetadata()
+            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class))
+            .noneMatch(kind -> kind == Introspected.AccessKind.FIELD);
+        Set<String> propertyFields = propertyAccess ? element.getBeanProperties().stream()
+            .filter(property -> property.getReadMethod()
+                .filter(method -> !method.isReflectionRequired(accessType)).isPresent())
+            .flatMap(property -> property.getField().stream())
+            .map(field -> field.getDeclaringType().getName() + "." + field.getName())
+            .collect(Collectors.toSet()) : Set.of();
+        element.getFields().forEach(field -> field.annotate(ValidationField.class, builder -> builder
+            .member("property", propertyFields.contains(field.getDeclaringType().getName() + "." + field.getName()))
+            .member("reflection", field.isReflectionRequired(accessType))));
+    }
+
+    private static void configureIntrospection(ClassElement element, VisitorContext context) {
+        AnnotationValue<Introspected> introspected = element.getAnnotationMetadata().getAnnotation(Introspected.class);
+        List<AnnotationValue<Introspected.IndexedAnnotation>> indexes = introspected == null
+            ? List.of() : introspected.getAnnotations("indexed", Introspected.IndexedAnnotation.class);
+        boolean constrainedConstructors = element.getEnclosedElements(ElementQuery.CONSTRUCTORS).stream()
+            .anyMatch(ValidationVisitor::requiresValidation);
+        element.removeAnnotation(Introspected.class);
+        element.annotate(Introspected.class, builder -> {
+            if (introspected != null) {
+                builder.members(new LinkedHashMap<>(introspected.getValues()));
+            }
+            if (context.getLanguage() == VisitorContext.Language.KOTLIN) {
+                // KSP exposes backing fields through native properties.
+                builder.member("accessKind", new Introspected.AccessKind[]{
+                    Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD
+                });
+            }
+            builder.member("indexed", Stream.concat(indexes.stream(),
+                Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID))
+                .toArray(AnnotationValue<?>[]::new));
+            builder.member("members", true);
+            if (constrainedConstructors) {
+                builder.member("constructors", true);
+            }
+        });
     }
 
     private static void registerAnnotatedFields(ClassElement element, VisitorContext context) {
-        var byType = new LinkedHashMap<String, java.util.List<String>>();
+        var byType = new LinkedHashMap<String, List<String>>();
+        ClassElement accessType = ClassElement.of(element.getName() + "$ValidationAccess");
         for (var field : element.getFields()) {
             if (field.getAnnotationMetadata().hasDeclaredAnnotation(ReflectiveAccess.class)
-                    && field.isReflectionRequired(
-                            ClassElement.of(element.getName() + "$ValidationAccess"))) {
-                byType.computeIfAbsent(
-                                field.getDeclaringType().getName(), ignored -> new ArrayList<>())
-                        .add(field.getName());
+                && field.isReflectionRequired(accessType)) {
+                byType.computeIfAbsent(field.getDeclaringType().getName(), ignored -> new ArrayList<>())
+                    .add(field.getName());
             }
         }
         if (byType.isEmpty()) {
             return;
         }
-        String json =
-                byType.entrySet().stream()
-                        .map(
-                                entry ->
-                                        "{\"name\":\""
-                                                + entry.getKey()
-                                                + "\",\"fields\":["
-                                                + entry.getValue().stream()
-                                                        .distinct()
-                                                        .map(name -> "{\"name\":\"" + name + "\"}")
-                                                        .collect(Collectors.joining(","))
-                                                + "]}")
-                        .collect(Collectors.joining(",", "[", "]"));
-        var resource =
-                context.visitMetaInfFile(
-                        "native-image/io.micronaut.validation/"
-                                + element.getName()
-                                + "/reflect-config.json",
-                        element);
+        String json = byType.entrySet().stream()
+            .map(entry -> "{\"name\":\"" + entry.getKey() + "\",\"fields\":["
+                + entry.getValue().stream().distinct().map(name -> "{\"name\":\"" + name + "\"}")
+                    .collect(Collectors.joining(",")) + "]}")
+            .collect(Collectors.joining(",", "[", "]"));
+        var resource = context.visitMetaInfFile(
+            "native-image/io.micronaut.validation/" + element.getName() + "/reflect-config.json", element);
         try {
             if (resource.isPresent()) {
                 resource.get().write(writer -> writer.write(json));
             }
         } catch (IOException e) {
-            throw new ProcessingException(
-                    element, "Cannot register annotated validation fields", e);
+            throw new ProcessingException(element, "Cannot register annotated validation fields", e);
         }
     }
 

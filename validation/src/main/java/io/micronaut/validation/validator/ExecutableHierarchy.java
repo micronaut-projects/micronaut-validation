@@ -157,8 +157,25 @@ public final class ExecutableHierarchy {
                 .filter(method -> method.getName().equals(name)
                     && method.getDeclaringType() == type
                     && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes))
-                .findFirst())
-            .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
+                .findFirst()
+                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()))
+                .or(() -> unconstrainedDeclaration(introspection, name, parameterTypes)));
+    }
+
+    private static Optional<Declaration> unconstrainedDeclaration(BeanIntrospection<?> introspection,
+                                                                  String name, Class<?>[] parameterTypes) {
+        var hierarchy = introspection.getAnnotationMetadata().getAnnotation(ValidationMetadataSupport.HIERARCHY);
+        if (hierarchy == null) {
+            return Optional.empty();
+        }
+        return hierarchy.getAnnotations("methods").stream()
+            .filter(method -> method.booleanValue("unconstrained").orElse(false)
+                && method.stringValue("name").orElse("").equals(name)
+                && Arrays.equals(method.classValues("parameters"), parameterTypes))
+            .findFirst()
+            .map(method -> new Declaration(introspection.getBeanType(), AnnotationMetadata.EMPTY_METADATA,
+                Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
+                Argument.of(method.classValue("returnType").orElse(Object.class)), true));
     }
 
     /**

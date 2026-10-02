@@ -108,7 +108,7 @@ public interface ReflectionSupport {
     }
 
     /**
-     * Reads a declaration through generated access or an explicitly authorized field accessor.
+     * Reads a declaration through generated access. Inaccessible fields require the reflection provider.
      *
      * @param member The declaration
      * @param bean The instance
@@ -120,7 +120,8 @@ public interface ReflectionSupport {
         if (member.getAnnotationMetadata()
                 .booleanValue(ValidationField.class, "reflection")
                 .orElse(false)) {
-            return AnnotatedFieldAccessor.read(member, bean);
+            throw new jakarta.validation.ValidationException("Cannot read field " + member.getDeclaringType().getName()
+                + "." + member.getName() + ": direct field access requires micronaut-validation-reflection");
         }
         return member.read(bean);
     }

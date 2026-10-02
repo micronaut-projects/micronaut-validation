@@ -22,8 +22,7 @@ dependencies {
     api projects.micronautValidationBootstrap
     api projects.micronautValidationXml
     compileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())
-    runtimeOnly libs.micronaut.expression.language
-    runtimeOnly libs.micronaut.expression.language.interpreter
+    api projects.micronautValidationEl
 
     testImplementation mnTest.micronaut.test.junit5
     testCompileOnly(group: "org.openjfx", name: "javafx-base", version: libs.versions.javafx.get(), classifier: javaFxClassifier())

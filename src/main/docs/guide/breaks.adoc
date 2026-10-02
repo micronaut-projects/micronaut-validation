@@ -3,7 +3,7 @@ This section documents breaking changes between Micronaut Validation versions:
 === Micronaut Validation 5.3.0
 
 * Micronaut core 5.3 is the minimum supported core version.
-* Default validation no longer discovers or invokes arbitrary runtime members. Ordinary properties and records retain generated getter/accessor reads. An inaccessible field requiring direct field access needs field-specific `@ReflectiveAccess` or `micronaut-validation-reflection`. Type-level annotations and `visibility = ANY` do not grant the field exception.
+* Default validation no longer discovers or invokes arbitrary runtime members. Ordinary properties and records retain generated getter/accessor reads. An inaccessible field requiring direct field access needs `micronaut-validation-reflection`. `@ReflectiveAccess` provides native registration but no longer authorizes reflection in the default module.
 * Bootstrap no longer adds the reflection provider transitively. Applications relying on reflection fallback must add `micronaut-validation-reflection` or use `micronaut-validation-jakarta`.
 * When both field and method access are selected, field and getter constraints are evaluated against their own values. Separate declarations can produce violations with identical paths and messages; these violations retain their multiplicity.
 * The default module no longer synthesizes annotation instances. Code using `ConstraintDescriptor.getAnnotation()` or a Jakarta `ConstraintValidator` that requires annotation initialization must add `micronaut-validation-reflection`. Micronaut validators continue to use `AnnotationValue` and the generated metadata directly.
@@ -14,3 +14,5 @@ This section documents breaking changes between Micronaut Validation versions:
 - The api:validation.validator.DefaultValidator[] methods `requireNonNull(String, T)` and `requireNonEmpty(String, String)` deprecated previously and are no longer exposed as part of the public API.
 
 - The api:validation.validator.constraints.ConstraintValidator[] method `getMessageTemplate())` and `requireNonEmpty(String, String)` deprecated previously is removed. It was unused and has no replacement.
+
+* Jakarta EL interpolation now requires `micronaut-validation-el` (also included by `micronaut-validation-jakarta`). Adding an EL API or implementation alone no longer replaces the basic interpolator.

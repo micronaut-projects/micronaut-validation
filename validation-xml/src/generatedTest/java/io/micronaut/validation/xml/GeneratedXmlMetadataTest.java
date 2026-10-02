@@ -16,7 +16,6 @@
 package io.micronaut.validation.xml;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,24 +71,17 @@ class GeneratedXmlMetadataTest {
     }
 
     @Test
-    void annotatedPrivateFieldsRetainTheNarrowPermissionAndOtherFieldsFailClearly() {
+    void annotatedPrivateFieldsStillRequireTheReflectionModule() {
         var provider = mapping(PrivateBean.class, "value");
-        assertNull(
-                provider.getBeanIntrospection(PrivateBean.class)
-                        .orElseThrow()
-                        .getRequiredProperty("value", String.class)
-                        .get(new PrivateBean()));
+        var annotatedFailure = assertThrows(ValidationException.class, () -> provider
+            .getBeanIntrospection(PrivateBean.class).orElseThrow()
+            .getRequiredProperty("value", String.class).get(new PrivateBean()));
+        assertTrue(annotatedFailure.getMessage().contains("micronaut-validation-reflection"));
         var forbidden = mapping(ForbiddenBean.class, "value");
-        var failure =
-                assertThrows(
-                        ValidationException.class,
-                        () ->
-                                forbidden
-                                        .getBeanIntrospection(ForbiddenBean.class)
-                                        .orElseThrow()
-                                        .getRequiredProperty("value", String.class)
-                                        .get(new ForbiddenBean()));
-        assertTrue(failure.getMessage().contains("@ReflectiveAccess"));
+        var failure = assertThrows(ValidationException.class, () -> forbidden
+            .getBeanIntrospection(ForbiddenBean.class).orElseThrow()
+            .getRequiredProperty("value", String.class).get(new ForbiddenBean()));
+        assertTrue(failure.getMessage().contains("micronaut-validation-reflection"));
     }
 
     @Test

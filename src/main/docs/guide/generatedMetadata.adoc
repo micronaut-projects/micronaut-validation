@@ -10,13 +10,15 @@ By default, `@Introspected` selects method access. Constraints on a backing fiel
 
 Selecting `accessKind = FIELD` requests direct field access. An accessible field then uses generated field access. When both `FIELD` and `METHOD` access are selected, each constrained declaration is validated against its own value. Distinct violations are retained even when their paths and messages are equal. Record component constraints are validated once during bean validation; their accessors remain available for executable return-value validation.
 
-An inaccessible field requiring direct field access can authorize its own reflective read by carrying `io.micronaut.core.annotation.ReflectiveAccess`. This narrow exception belongs to the field itself: annotating the bean type or setting `@Introspected(visibility = ANY)` does not authorize it. Native-image registration for an annotated field is generated during compilation.
-
-An inaccessible, unannotated field requiring direct access fails with a `ValidationException` describing the missing capability. Explicit field access does not substitute its getter. A getter with a different argument type also cannot supply a field declaration's value. Either authorize the field explicitly or add the optional provider:
+An inaccessible field requiring direct field access always requires the optional provider, including fields annotated with `io.micronaut.core.annotation.ReflectiveAccess`:
 
 dependency:micronaut-validation-reflection[groupId="io.micronaut.validation"]
 
-The provider permits runtime discovery and invocation when generated metadata is unavailable. The system property `micronaut.validation.reflection.enabled=false` selects generated descriptions for the compatibility test profile; it does not remove modules from the classpath. To enforce absence of runtime reflection capabilities, exclude both `micronaut-validation-reflection` and core `micronaut-reflection` from the runtime classpath.
+`@ReflectiveAccess` registers an annotated field for native images; it does not enable reflection in the default validator. Without the provider, direct access to an inaccessible field fails with a `ValidationException`. A differently typed getter cannot substitute the field's value.
+
+The provider permits runtime discovery and invocation when generated metadata is unavailable. The system property `micronaut.validation.reflection.enabled=false` selects generated descriptions for the compatibility test profile; it does not remove modules from the classpath. The installed companion can still read fields explicitly annotated with `@ReflectiveAccess`; only a classpath without the companion proves the strict boundary. To enforce absence of runtime reflection capabilities, exclude both `micronaut-validation-reflection` and core `micronaut-reflection` from the runtime classpath.
+
+The processor generates executable methods for constrained declarations and their overrides. Explicit `@Executable` declarations remain available. For XML mappings of otherwise unconstrained methods, annotate those methods with `@Executable`; use `@Introspected(constructors = true)` when XML or programmatic validation needs additional unconstrained constructors.
 
 == Jakarta Signatures and Optional Modules
 

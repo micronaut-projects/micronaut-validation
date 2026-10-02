@@ -16,35 +16,56 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.io.service.SoftServiceLoader;
-
 import org.jspecify.annotations.NullMarked;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.ref.WeakReference;
-import java.util.WeakHashMap;
+import java.util.ArrayList;
+import java.util.List;
 
 /** Optional provider discovery without retaining an application class loader. */
 @NullMarked
 final class ReflectionSupportServiceDiscovery {
-    private static final WeakHashMap<ClassLoader, WeakReference<ReflectionSupport>> PROVIDERS =
-            new WeakHashMap<>();
+    private static volatile List<Provider> providers = List.of();
     private static final ReflectionSupport GENERATED = new CompileTimeSupport();
 
     private ReflectionSupportServiceDiscovery() { }
 
-    static synchronized ReflectionSupport get() {
+    static ReflectionSupport get() {
         ClassLoader loader = Thread.currentThread().getContextClassLoader();
         if (loader == null) {
             loader = ReflectionSupport.class.getClassLoader();
         }
-        WeakReference<ReflectionSupport> cached = PROVIDERS.get(loader);
-        ReflectionSupport support = cached == null ? null : cached.get();
-        if (support == null) {
-            support =
-                    SoftServiceLoader.load(ReflectionSupport.class, loader)
-                            .firstAvailable()
-                            .orElse(GENERATED);
-            PROVIDERS.put(loader, new WeakReference<>(support));
+        ReflectionSupport cached = find(loader);
+        return cached == null ? load(loader) : cached;
+    }
+
+    private static @Nullable ReflectionSupport find(ClassLoader loader) {
+        for (Provider provider : providers) {
+            if (provider.loader().get() == loader) {
+                return provider.support().get();
+            }
         }
+        return null;
+    }
+
+    private static synchronized ReflectionSupport load(ClassLoader loader) {
+        ReflectionSupport cached = find(loader);
+        if (cached != null) {
+            return cached;
+        }
+        ReflectionSupport support = SoftServiceLoader.load(ReflectionSupport.class, loader)
+            .firstAvailable().orElse(GENERATED);
+        List<Provider> live = new ArrayList<>();
+        for (Provider provider : providers) {
+            if (provider.loader().get() != null && provider.support().get() != null) {
+                live.add(provider);
+            }
+        }
+        live.add(new Provider(new WeakReference<>(loader), new WeakReference<>(support)));
+        providers = List.copyOf(live);
         return support;
     }
+
+    private record Provider(WeakReference<ClassLoader> loader, WeakReference<ReflectionSupport> support) { }
 }

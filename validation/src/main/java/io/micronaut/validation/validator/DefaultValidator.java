@@ -134,6 +134,7 @@ public class DefaultValidator
     final MessageInterpolator messageInterpolator;
     final ConcurrentMap<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> findGroupSequencesCache = CopyOnWriteMap.create(16 * 1024);
 
+    private final ReflectionSupport reflectionSupport;
     private final ConstraintValidatorRegistry constraintValidatorRegistry;
     private final ClockProvider clockProvider;
     private final ValueExtractorRegistry valueExtractorRegistry;
@@ -161,6 +162,7 @@ public class DefaultValidator
      */
     public DefaultValidator(@NonNull ValidatorConfiguration configuration) {
         requireNonNull("configuration", configuration);
+        this.reflectionSupport = configuration.getReflectionSupport();
         this.constraintValidatorRegistry = configuration.getConstraintValidatorRegistry();
         this.clockProvider = configuration.getClockProvider();
         this.valueExtractorRegistry = configuration.getValueExtractorRegistry();
@@ -174,7 +176,7 @@ public class DefaultValidator
         this.validatorInstances = new ConstraintValidatorInstances(constraintValidatorFactory);
         this.parameterNameProvider = configuration.getParameterNameProvider();
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
-        this.declarations = new ValidatorDeclarations(beanIntrospector, configuration.isStrictConstraintDefinitions(), metadataProviders);
+        this.declarations = new ValidatorDeclarations(beanIntrospector, configuration.isStrictConstraintDefinitions(), metadataProviders, reflectionSupport);
     }
 
     /**
@@ -526,7 +528,7 @@ public class DefaultValidator
         requireNonNull("method", method);
         requireNonNull("groups", groups);
 
-        return validateParameters(object, ReflectionSupport.get().executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
+        return validateParameters(object, reflectionSupport.executableMethod(executionHandleLocator, beanIntrospector, method), parameterValues, groups);
     }
 
     @NonNull
@@ -539,7 +541,7 @@ public class DefaultValidator
         requireNonNull("object", object);
         requireNonNull("groups", groups);
 
-        return validateReturnValue(object, ReflectionSupport.get().executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
+        return validateReturnValue(object, reflectionSupport.executableMethod(executionHandleLocator, beanIntrospector, method), returnValue, groups);
     }
 
     @Override
@@ -597,7 +599,7 @@ public class DefaultValidator
 
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectionSupport.get().beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = reflectionSupport.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         return validateConstructorParameters(
             declaringClass,
             introspection,
@@ -686,7 +688,7 @@ public class DefaultValidator
         requireNonNull("groups", groups);
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
         final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
-        final BeanConstructor<? extends T> beanConstructor = ReflectionSupport.get().beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
+        final BeanConstructor<? extends T> beanConstructor = reflectionSupport.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         // the constraints of a constructor apply to the object it creates: the root bean is null, like for its parameters
         final DefaultConstraintValidatorContext<T> context = introspection == null
             ? (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext<>(this, null, declaringClass, BeanValidationContext.fromGroups(groups))
@@ -979,7 +981,7 @@ public class DefaultValidator
         if (parameterNameProvider instanceof DefaultParameterNameProvider) {
             return null;
         }
-        return parameterNameProvider.getParameterNames(ReflectionSupport.get().targetMethod(method));
+        return parameterNameProvider.getParameterNames(reflectionSupport.targetMethod(method));
     }
 
     final String parameterName(MethodReference<?, ?> method, int index) {
@@ -1144,7 +1146,7 @@ public class DefaultValidator
         }
         String propertyName = property.getName();
         Class<?> beanType = object.getClass();
-        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && ReflectionSupport.get().separatesDeclarations(introspection)) {
+        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && reflectionSupport.separatesDeclarations(introspection)) {
             // the members declaring constraints are validated one by one, each against the value it holds. A
             // generated introspection reports its members only where the type asked for them, and merges what
             // they declare into the property, so walking them is what a description separating the declarations
@@ -1215,7 +1217,7 @@ public class DefaultValidator
                 try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(memberMetadata)) {
                     Object value;
                     try {
-                        value = ReflectionSupport.get().readMember(member, property, object);
+                        value = reflectionSupport.readMember(member, property, object);
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }

@@ -97,8 +97,21 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
-        if (!ReflectiveValidation.isEnabled()) {
+        if (!ReflectiveValidation.isEnabled()
+            && !member.getAnnotationMetadata().hasAnnotation(io.micronaut.core.annotation.ReflectiveAccess.class)) {
             return ReflectionSupport.super.readMember(member, bean);
+        }
+        if (member.getAnnotationMetadata().booleanValue(
+                io.micronaut.validation.validator.metadata.ValidationField.class, "reflection").orElse(false)) {
+            try {
+                var field = member.getDeclaringType().getDeclaredField(member.getName());
+                if (!field.trySetAccessible()) {
+                    throw new ValidationException("Cannot access field " + member.getDeclaringType().getName() + "." + member.getName());
+                }
+                return field.get(bean);
+            } catch (ReflectiveOperationException | SecurityException e) {
+                throw new ValidationException("Cannot read field " + member.getDeclaringType().getName() + "." + member.getName(), e);
+            }
         }
         return member.read(bean);
     }

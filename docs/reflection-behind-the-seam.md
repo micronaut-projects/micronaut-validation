@@ -4,6 +4,16 @@ Where `micronaut-validation` reads a class, and where it stopped. Every number h
 path throw and counting the failures of `:micronaut-validation:test`, whose classpath carries no reflection
 module and which therefore runs on `CompileTimeSupport` alone.
 
+## Current module boundary
+
+The default module rejects inaccessible field reads even when the field carries `@ReflectiveAccess`. Field reflection belongs to `micronaut-validation-reflection`; the annotation still supplies native registration. The default native smoke test verifies this rejection alongside generated property, record and container access.
+
+EL interpolation lives in `micronaut-validation-el`. It uses the Micronaut Jakarta EL interpreter with an explicit generated/container resolver chain and direct formatter dispatch. Neither `StandardELContext` nor Jakarta EL's reflective bean resolver is part of that chain. Regression tests assert that an ungenerated getter is never called, alongside tests with both reflection companions absent.
+
+The generated-description compatibility profile still allows explicitly registered field access inside the installed reflection companion. It is separate from the strict classpath tests, which have no reflection provider.
+
+The measurements below describe earlier stages of the branch and are not current verification results.
+
 ## What moved
 
 | Read | Sites | Answered instead by |

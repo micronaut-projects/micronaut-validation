@@ -25,8 +25,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.List;
 
 /**
- * Exercises generated access, generic containers, and annotated-field native
- * registration.
+ * Exercises generated access, generic containers, and rejection of private-field reflection.
  */
 public final class ValidationNativeSmoke {
     private ValidationNativeSmoke() { }
@@ -42,11 +41,16 @@ public final class ValidationNativeSmoke {
             if (validator.validate(new Generated()).size() != 2) {
                 throw new AssertionError("Generated declarations were lost");
             }
-            var violations = validator.validate(new Annotated());
-            if (violations.size() != 1 || validator.validate(new Component(null)).size() != 1
+            try {
+                validator.validate(new Annotated());
+                throw new AssertionError("Private field reflection must require the companion module");
+            } catch (jakarta.validation.ValidationException expected) {
+                // Native registration does not authorize reflection in the default module.
+            }
+            if (validator.validate(new Component(null)).size() != 1
                 || validator.validate(new Property()).size() != 1) {
                 throw new AssertionError(
-                        "Field-specific registration or generated accessor metadata was lost");
+                        "Generated accessor metadata was lost");
             }
         }
         System.out.println("Native validation smoke passed");

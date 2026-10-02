@@ -160,14 +160,12 @@ class ValidatorSpec extends Specification {
     void "test validate bean property with Optional getter"() {
         given:
         OptionalGetters g = new OptionalGetters(alpha: "non alpha with space");
-        def violations = validator.validateProperty(g, "alpha")
+        when:
+        validator.validateProperty(g, "alpha")
 
-        expect:
-        violations.size() == 1
-        violations[0].invalidValue == 'non alpha with space'
-        violations[0].propertyPath.iterator().next().name == 'alpha'
-        violations[0].constraintDescriptor.type == Pattern
-        violations[0].message == 'must match "[a-z]+"'
+        then:
+        def error = thrown(jakarta.validation.ValidationException)
+        error.cause.message.contains('micronaut-validation-reflection')
     }
 
     void "test validate value"() {

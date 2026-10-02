@@ -28,6 +28,21 @@ class GeneratedDeclarationAccessTest {
     private final Validator validator = Validator.getInstance();
 
     @Test
+    void unrelatedMethodsAreNotMadeExecutable() {
+        var methods = BeanIntrospector.SHARED.getIntrospection(SelectiveExecutables.class).getBeanMethods();
+        assertTrue(methods.stream().anyMatch(method -> method.getName().equals("constrained")));
+        assertTrue(methods.stream().anyMatch(method -> method.getName().equals("explicit")));
+        assertFalse(methods.stream().anyMatch(method -> method.getName().equals("unrelated")));
+    }
+
+    @Introspected
+    static class SelectiveExecutables {
+        @NotNull public String constrained() { return "valid"; }
+        @io.micronaut.context.annotation.Executable public String explicit() { return "valid"; }
+        public String unrelated() { return "valid"; }
+    }
+
+    @Test
     void defaultPropertyAccessUsesTheGetterWithoutReflectivePermission() {
         var bean = new StandardBean();
         assertEquals(1, validator.validate(bean).size());
@@ -57,14 +72,15 @@ class GeneratedDeclarationAccessTest {
     }
 
     @Test
-    void annotatedPrivateFieldUsesOnlyItsOwnPermission() {
-        assertEquals(1, validator.validate(new Authorized()).size());
+    void annotatedPrivateFieldStillRequiresTheReflectionModule() {
+        var error = assertThrows(ValidationException.class, () -> validator.validate(new Authorized()));
+        assertTrue(error.getCause().getMessage().contains("micronaut-validation-reflection"));
     }
 
     @Test
     void privateFieldWithoutPermissionFailsEvenWithAnyVisibilityAndTypeAnnotation() {
         ValidationException error = assertThrows(ValidationException.class, () -> validator.validate(new Unauthorized()));
-        assertTrue(error.getCause().getMessage().contains("@ReflectiveAccess"));
+        assertTrue(error.getCause().getMessage().contains("micronaut-validation-reflection"));
     }
 
     @Test

@@ -46,6 +46,36 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class DefaultValidatorFactoryTest {
 
     @Test
+    void factoryContextsKeepTheirSelectedMetadataSupport() {
+        var configuration = new DefaultValidatorConfiguration();
+        var reads = new java.util.concurrent.atomic.AtomicInteger();
+        ReflectionSupport support = (ReflectionSupport) java.lang.reflect.Proxy.newProxyInstance(
+            ReflectionSupport.class.getClassLoader(), new Class<?>[]{ReflectionSupport.class},
+            (proxy, method, arguments) -> {
+                if (method.getName().equals("readMember")) {
+                    reads.incrementAndGet();
+                }
+                return method.invoke(new CompileTimeSupport(), arguments);
+            });
+        configuration.setReflectionSupport(support);
+        Thread thread = Thread.currentThread();
+        ClassLoader previous = thread.getContextClassLoader();
+        try (var factory = new DefaultValidatorFactory(configuration)) {
+            thread.setContextClassLoader(new ClassLoader(previous) { });
+            assertEquals(1, factory.getValidator().validate(new ProviderBean()).size());
+            assertEquals(1, factory.usingContext().getValidator().validate(new ProviderBean()).size());
+            assertEquals(2, reads.get());
+        } finally {
+            thread.setContextClassLoader(previous);
+        }
+    }
+
+    @Introspected(accessKind = Introspected.AccessKind.FIELD)
+    static final class ProviderBean {
+        @NotNull public String value;
+    }
+
+    @Test
     void usingContextDoesNotMutateFactoryConfiguration() {
         DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
         DefaultValidatorFactory factory = new DefaultValidatorFactory(configuration);

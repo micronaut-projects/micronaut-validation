@@ -23,12 +23,16 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.el.ExpressionFactory;
-import jakarta.el.StandardELContext;
+import io.micronaut.el.CompiledExpressionFactory;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 import java.util.Formatter;
 import java.util.Locale;
 import java.util.Map;
@@ -44,14 +48,13 @@ import java.util.Optional;
 @Singleton
 @Primary
 @Replaces(DefaultMessageInterpolator.class)
-@Requires(classes = ExpressionFactory.class)
+@Requires(classes = CompiledExpressionFactory.class)
 public final class ElMessageInterpolator implements MessageInterpolator {
 
     private static final char ESCAPE = '\\';
     private static final char LEFT_BRACE = '{';
     private static final char RIGHT_BRACE = '}';
     private static final char DOLLAR = '$';
-    private static final int MAX_RECURSION = 10;
 
     private final MessageSource messageSource;
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
@@ -67,7 +70,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                                  @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver) {
         this.messageSource = messageSource;
         this.interpolatorLocaleResolver = interpolatorLocaleResolver == null ? OptionalLocaleResolver.INSTANCE : interpolatorLocaleResolver;
-        this.expressionFactory = ExpressionFactory.newInstance();
+        this.expressionFactory = new CompiledExpressionFactory();
     }
 
     @Override
@@ -84,80 +87,105 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext) {
         Locale locale = messageContext.getLocale();
-        String resolvedTemplate = template;
-        for (int i = 0; i < MAX_RECURSION; i++) {
-            String resolved = interpolateParameters(resolvedTemplate, messageContext);
-            if (resolved.equals(resolvedTemplate)) {
-                break;
+        List<Token> tokens = expandUserBundles(tokenize(template), locale, new HashSet<>());
+        List<Token> provider = new ArrayList<>();
+        for (Token token : tokens) {
+            Optional<String> replacement = token.kind() == Kind.TEXT ? Optional.empty()
+                : messageSource.getRawMessage(token.value(), messageContext);
+            if (replacement.isPresent()) {
+                provider.addAll(replacement(token, replacement.get()));
+            } else {
+                provider.add(token);
             }
-            resolvedTemplate = resolved;
         }
-        return interpolateExpressions(resolvedTemplate, interpolationContext, locale);
-    }
-
-    private String interpolateParameters(String template, MessageSource.MessageContext messageContext) {
-        Locale locale = messageContext.getLocale();
+        tokens = expandUserBundles(provider, locale, new HashSet<>());
         StringBuilder result = new StringBuilder();
-        for (int i = 0; i < template.length(); i++) {
-            char current = template.charAt(i);
-            if (current == ESCAPE && i + 1 < template.length()) {
-                result.append(template.charAt(++i));
+        for (Token token : tokens) {
+            if (token.kind() == Kind.TEXT) {
+                result.append(token.value());
                 continue;
             }
-            if (current == LEFT_BRACE) {
-                int end = findExpressionEnd(template, i + 1);
-                if (end > -1) {
-                    String variableName = template.substring(i + 1, end);
-                    result.append(resolveParameter(variableName, messageContext, locale)
-                        .orElse(LEFT_BRACE + variableName + String.valueOf(RIGHT_BRACE)));
-                    i = end;
-                    continue;
+            Object attribute = messageContext.getVariables().get(token.value());
+            if (attribute != null) {
+                // Attribute values are final text, never input for another interpolation pass.
+                if (token.kind() == Kind.EXPRESSION) {
+                    result.append(DOLLAR);
                 }
+                result.append(attribute);
+            } else if (token.kind() == Kind.EXPRESSION) {
+                result.append(evaluateExpression(token.value(), interpolationContext, locale));
+            } else {
+                result.append(LEFT_BRACE).append(token.value()).append(RIGHT_BRACE);
             }
-            result.append(current);
         }
         return result.toString();
     }
 
-    private String interpolateExpressions(String template, Context interpolationContext, Locale locale) {
-        StringBuilder result = new StringBuilder();
+    private static List<Token> expandUserBundles(List<Token> tokens, Locale locale, Set<String> expanding) {
+        List<Token> result = new ArrayList<>();
+        for (Token token : tokens) {
+            if (token.kind() == Kind.TEXT || !expanding.add(token.value())) {
+                result.add(token);
+                continue;
+            }
+            try {
+                Optional<String> message = ValidationMessageBundleLoader.find(token.value(), locale);
+                if (message.isEmpty()) {
+                    result.add(token);
+                } else {
+                    if (expanding.size() > 64) {
+                        throw new jakarta.validation.ValidationException("Validation message bundle nesting exceeds 64 levels");
+                    }
+                    result.addAll(expandUserBundles(replacement(token, message.get()), locale, expanding));
+                }
+            } finally {
+                expanding.remove(token.value());
+            }
+        }
+        return result;
+    }
+
+    private static List<Token> replacement(Token token, String value) {
+        return tokenize(token.kind() == Kind.EXPRESSION ? "$" + value : value);
+    }
+
+    private static List<Token> tokenize(String template) {
+        List<Token> tokens = new ArrayList<>();
+        StringBuilder text = new StringBuilder();
         for (int i = 0; i < template.length(); i++) {
             char current = template.charAt(i);
             if (current == ESCAPE && i + 1 < template.length()) {
-                result.append(template.charAt(++i));
-                continue;
+                char next = template.charAt(i + 1);
+                if (next == ESCAPE || next == LEFT_BRACE || next == RIGHT_BRACE || next == DOLLAR) {
+                    text.append(next);
+                    i++;
+                    continue;
+                }
             }
-            if (current == DOLLAR && i + 1 < template.length() && template.charAt(i + 1) == LEFT_BRACE) {
-                int end = findExpressionEnd(template, i + 2);
-                if (end > -1) {
-                    result.append(evaluateExpression(template.substring(i + 2, end), interpolationContext, locale));
+            boolean expression = current == DOLLAR && i + 1 < template.length() && template.charAt(i + 1) == LEFT_BRACE;
+            if (expression || current == LEFT_BRACE) {
+                int start = i + (expression ? 2 : 1);
+                int end = findExpressionEnd(template, start);
+                if (end >= 0) {
+                    if (!text.isEmpty()) {
+                        tokens.add(new Token(Kind.TEXT, text.toString()));
+                        text.setLength(0);
+                    }
+                    tokens.add(new Token(expression ? Kind.EXPRESSION : Kind.PARAMETER, template.substring(start, end)));
                     i = end;
                     continue;
                 }
             }
-            result.append(current);
+            text.append(current);
         }
-        return result.toString();
-    }
-
-    private Optional<Object> resolveParameter(String variableName, MessageSource.MessageContext messageContext, Locale locale) {
-        Optional<String> userMessage = findUserMessage(variableName, locale);
-        if (userMessage.isPresent()) {
-            return Optional.of(userMessage.get());
+        if (!text.isEmpty()) {
+            tokens.add(new Token(Kind.TEXT, text.toString()));
         }
-        Optional<String> providerMessage = messageSource.getMessage(variableName, messageContext);
-        if (providerMessage.isPresent()) {
-            return Optional.of(providerMessage.get());
-        }
-        return Optional.ofNullable(messageContext.getVariables().get(variableName));
-    }
-
-    private static Optional<String> findUserMessage(String variableName, Locale locale) {
-        return ValidationMessageBundleLoader.find(variableName, locale);
+        return tokens;
     }
 
     private String evaluateExpression(String expression, Context context, Locale locale) {
-        StandardELContext elContext = new StandardELContext(expressionFactory);
+        ValidationELContext elContext = new ValidationELContext();
         for (Map.Entry<String, Object> entry : context.getConstraintDescriptor().getAttributes().entrySet()) {
             elContext.getVariableMapper().setVariable(
                 entry.getKey(),
@@ -189,14 +217,25 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     }
 
     private static int findExpressionEnd(String template, int offset) {
+        int nested = 0;
+        char quote = 0;
         for (int i = offset; i < template.length(); i++) {
             char current = template.charAt(i);
             if (current == ESCAPE && i + 1 < template.length()) {
                 i++;
-                continue;
-            }
-            if (current == RIGHT_BRACE) {
-                return i;
+            } else if (quote != 0) {
+                if (current == quote) {
+                    quote = 0;
+                }
+            } else if (current == '\'' || current == '"') {
+                quote = current;
+            } else if (current == LEFT_BRACE) {
+                nested++;
+            } else if (current == RIGHT_BRACE) {
+                if (nested == 0) {
+                    return i;
+                }
+                nested--;
             }
         }
         return -1;
@@ -224,6 +263,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             }
         }
     }
+
+    private enum Kind { TEXT, PARAMETER, EXPRESSION }
+
+    private record Token(Kind kind, String value) { }
 
     private enum OptionalLocaleResolver implements InterpolatorLocaleResolver {
         INSTANCE;

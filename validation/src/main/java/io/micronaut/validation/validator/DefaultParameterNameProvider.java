@@ -32,13 +32,24 @@ import java.util.List;
 @Internal
 public final class DefaultParameterNameProvider implements ParameterNameProvider {
 
+    private final ReflectionSupport reflectionSupport;
+
+    /** Creates a provider using the current application's metadata support. */
+    public DefaultParameterNameProvider() {
+        this(ReflectionSupport.get());
+    }
+
+    DefaultParameterNameProvider(ReflectionSupport reflectionSupport) {
+        this.reflectionSupport = reflectionSupport;
+    }
+
     @Override
     public List<String> getParameterNames(Constructor<?> constructor) {
-        return ReflectionSupport.get().parameterNames(constructor);
+        return reflectionSupport.parameterNames(constructor);
     }
 
     @Override
     public List<String> getParameterNames(Method method) {
-        return ReflectionSupport.get().parameterNames(method);
+        return reflectionSupport.parameterNames(method);
     }
 }

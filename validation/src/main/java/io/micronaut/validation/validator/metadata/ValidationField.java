@@ -32,18 +32,11 @@ import java.lang.annotation.ElementType;
 @Target(ElementType.FIELD)
 public @interface ValidationField {
     /**
-     * Identifies fields requiring the narrow reflective accessor.
+     * Identifies fields whose direct access requires the reflection companion.
      *
      * @return Whether generated access requires reflection
      */
     boolean reflection();
-    /**
-     * Identifies fields explicitly authorizing reflective reads.
-     *
-     * @return Whether the field itself authorizes reflective access
-     */
-    boolean authorized();
-
     /**
      * Identifies fields whose constraints use the configured generated property accessor.
      *

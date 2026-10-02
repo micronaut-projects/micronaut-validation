@@ -176,6 +176,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
             ValidatorConfiguration configuration) {
         DefaultValidatorConfiguration newValidatorConfiguration =
                 new DefaultValidatorConfiguration();
+        newValidatorConfiguration.setReflectionSupport(configuration.getReflectionSupport());
         newValidatorConfiguration.setStrictConstraintDefinitions(
                 configuration.isStrictConstraintDefinitions());
         newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());

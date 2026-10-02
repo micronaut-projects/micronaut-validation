@@ -120,6 +120,77 @@ class ElMessageInterpolatorTest {
         assertEquals("${validatedValue}", interpolator.interpolate("${validatedValue}", new TestContext(new ThrowingToString(), Map.of())));
     }
 
+    @Test
+    void preservesEscapesAndDoesNotInterpolateAttributeValuesAgain() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        var context = new TestContext("abc", Map.of("min", 3, "value", "{min} ${validatedValue}"));
+        assertEquals("{min}", interpolator.interpolate("\\{min}", context));
+        assertEquals("${validatedValue}", interpolator.interpolate("\\${validatedValue}", context));
+        assertEquals("{min} ${validatedValue}", interpolator.interpolate("{value}", context));
+        assertEquals("\\3", interpolator.interpolate("\\\\{min}", context));
+        assertEquals("\\q", interpolator.interpolate("\\q", context));
+    }
+
+    @Test
+    void supportsQuotedBracesAndCollectionLiterals() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        assertEquals("}", interpolator.interpolate("${'}'}", new TestContext("abc", Map.of())));
+        assertEquals("2", interpolator.interpolate("${{'a': 2}['a']}", new TestContext("abc", Map.of())));
+    }
+
+    @Test
+    void readsGeneratedPropertiesButNeverInvokesAnUnintrospectedGetter() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        assertEquals("generated", interpolator.interpolate("${validatedValue.label}", new TestContext(new GeneratedBean(), Map.of())));
+        assertEquals("${validatedValue.label}", interpolator.interpolate("${validatedValue.label}", new TestContext(new PlainBean(), Map.of())));
+        assertEquals(0, PlainBean.reads);
+    }
+
+    @Test
+    void preservesSandboxForClassProperties() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        assertEquals("${validatedValue.classLoader}", interpolator.interpolate("${validatedValue.classLoader}", new TestContext(TestGroup.class, Map.of())));
+    }
+
+    @Test
+    void reflectionCompanionsAreAbsent() {
+        org.junit.jupiter.api.Assertions.assertThrows(ClassNotFoundException.class,
+            () -> Class.forName("io.micronaut.validation.reflection.ReflectionValidationSupport"));
+        org.junit.jupiter.api.Assertions.assertThrows(ClassNotFoundException.class,
+            () -> Class.forName("io.micronaut.el.interpreter.reflection.ReflectiveELMethodExecutor"));
+    }
+
+    @io.micronaut.core.annotation.Introspected
+    public static final class GeneratedBean {
+        public String getLabel() {
+            return "generated";
+        }
+    }
+
+    public static final class PlainBean {
+        static int reads;
+        public String getLabel() {
+            reads++;
+            throw new AssertionError("An ungenerated getter must never be invoked");
+        }
+    }
+
+    @Test
+    void formatterHandlesSeveralArgumentsAndAnExplicitArray() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        assertEquals("a:2", interpolator.interpolate("${formatter.format('%s:%d', 'a', 2)}", new TestContext("ignored", Map.of())));
+        assertEquals("a:2", interpolator.interpolate("${formatter.format('%s:%d', validatedValue)}", new TestContext(new Object[]{"a", 2}, Map.of())));
+    }
+
+    @Test
+    void bundleCyclesTerminateAndEscapesSurviveExpansion() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        var context = new TestContext("abc", Map.of("min", 3));
+        assertEquals("{review.cycle}", interpolator.interpolate("{review.cycle}", context));
+        assertEquals("{min}", interpolator.interpolate("{review.escaped}", context));
+        assertEquals("done", interpolator.interpolate("{review.deep.0}", context));
+    }
+
     private static final class ThrowingToString {
         @Override
         public String toString() {

@@ -24,10 +24,21 @@ import org.junit.jupiter.api.Test
 
 class GeneratedKotlinMetadataTest {
     @Test
-    fun fieldSpecificPermissionAndNestedArgumentsWorkThroughKsp() {
-        val violations = Validator.getInstance().validate(PrivateBean(null, listOf(null)))
+    fun privateFieldsRequireTheCompanionEvenWithNativeRegistration() {
+        val failure = assertThrows(jakarta.validation.ValidationException::class.java) {
+            Validator.getInstance().validate(PrivateBean(null, listOf(null)))
+        }
+        assertTrue(failure.cause!!.message!!.contains("micronaut-validation-reflection"))
+    }
+
+    @Test
+    fun generatedPropertiesAndNestedArgumentsWorkThroughKsp() {
+        val violations = Validator.getInstance().validate(PropertyBean(null, listOf(null)))
         assertEquals(2, violations.size)
     }
+
+    @Introspected
+    class PropertyBean(@get:NotNull val value: String?, val items: List<@NotNull String?>)
 
     @Introspected(accessKind = [Introspected.AccessKind.FIELD], visibility = [Introspected.Visibility.ANY])
     class PrivateBean(@field:NotNull @field:ReflectiveAccess val value: String?,

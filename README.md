@@ -2,12 +2,16 @@
 
 # Micronaut validation
 
+The default `micronaut-validation` module uses generated metadata. Add `micronaut-validation-el` for reflection-free Jakarta EL message interpolation, or `micronaut-validation-reflection` for runtime member discovery and inaccessible field access. `micronaut-validation-jakarta` aggregates bootstrap, XML, reflection and EL support.
+
 [![Maven Central](https://img.shields.io/maven-central/v/io.micronaut.validation/micronaut-validation.svg?label=Maven%20Central)](https://search.maven.org/search?q=g:%22io.micronaut.validation%22%20AND%20a:%22micronaut-validation%22)
 [![Build Status](https://github.com/micronaut-projects/micronaut-validation/workflows/Java%20CI/badge.svg)](https://github.com/micronaut-projects/micronaut-validation/actions)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=micronaut-projects_validation&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=micronaut-projects_validation)
 [![Revved up by Gradle Enterprise](https://img.shields.io/badge/Revved%20up%20by-Gradle%20Enterprise-06A0CE?logo=Gradle&labelColor=02303A)](https://ge.micronaut.io/scans)
 
 Micronaut validation
+
+The default `micronaut-validation` module uses generated metadata. Add `micronaut-validation-el` for reflection-free Jakarta EL message interpolation, or `micronaut-validation-reflection` for runtime member discovery and inaccessible field access. `micronaut-validation-jakarta` aggregates bootstrap, XML, reflection and EL support.
 
 ## Documentation
 

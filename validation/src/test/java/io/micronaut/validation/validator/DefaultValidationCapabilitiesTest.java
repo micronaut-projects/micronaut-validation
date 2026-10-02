@@ -83,6 +83,8 @@ class DefaultValidationCapabilitiesTest {
     @Test
     void defaultClasspathHasNeitherReflectionNorAdditionalGenerationInfrastructure() {
         for (String type : List.of("io.micronaut.reflection.ReflectionArguments",
+            "io.micronaut.validation.el.ElMessageInterpolator",
+            "jakarta.el.ExpressionFactory",
             "io.micronaut.validation.reflection.ReflectionValidationSupport",
             "io.micronaut.validation.visitor.GeneratedAnnotationVisitor",
             "io.micronaut.validation.validator.metadata.GeneratedAnnotationProvider")) {
