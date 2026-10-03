@@ -848,6 +848,17 @@ class ValidatorSpec extends Specification {
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
     }
 
+    void "test @Introspected is required to validate the bean after construction"() {
+        when:
+        applicationContext.getBean(NotIntrospectedBean)
+        then:
+        BeanInstantiationException e = thrown()
+        e.message.contains('''Cannot validate bean [io.micronaut.validation.validator.NotIntrospectedBean]. No bean introspection present. Please add @Introspected.''')
+        and:
+        ClassUtils.forName('io.micronaut.validation.validator.$NotIntrospectedBean$Definition', getClass().getClassLoader()).isPresent()
+        ClassUtils.forName('io.micronaut.validation.validator.$NotIntrospectedBean$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
+    }
+
     void "test @Introspected is required to validate the bean and it's intercepted if one of the methods requires validation"() {
         when:
         def beanB = applicationContext.getBean(B)
