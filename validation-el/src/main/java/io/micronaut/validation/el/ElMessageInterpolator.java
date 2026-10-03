@@ -28,6 +28,7 @@ import io.micronaut.el.resolver.IntrospectionELResolver;
 import io.micronaut.el.resolver.StreamELResolver;
 import io.micronaut.validation.validator.MessageAttributes;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
+import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.el.ExpressionFactory;
 import jakarta.inject.Singleton;
@@ -66,6 +67,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private static final char LEFT_BRACE = '{';
     private static final char RIGHT_BRACE = '}';
     private static final char DOLLAR = '$';
+    private static final String VALIDATED_VALUE = "validatedValue";
+    private static final String VALIDATED_PATH = "validatedPath";
+    // how many bundle parameters one message may expand, all levels together
+    private static final int MAX_EXPANDED_TOKENS = 1024;
 
     private final MessageSource messageSource;
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
@@ -112,12 +117,21 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
         Map<String, Object> attributes = new HashMap<>(MessageAttributes.of(context.getConstraintDescriptor()));
-        return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes), context);
+        // the message parameters the default interpolator offers besides the attributes: a {validatedValue} or
+        // {validatedPath} parameter renders the same with or without EL. ${validatedValue} stays an expression
+        Map<String, Object> parameters = new HashMap<>(2);
+        parameters.put(VALIDATED_VALUE, context.getValidatedValue());
+        if (context instanceof DefaultMessageInterpolatorContext interpolatorContext) {
+            parameters.put(VALIDATED_PATH, interpolatorContext.getValidatorContext().getCurrentPath());
+        }
+        return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes), context, parameters);
     }
 
-    private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext) {
+    private String interpolate(String template, MessageSource.MessageContext messageContext, Context interpolationContext,
+                               Map<String, Object> parameters) {
         Locale locale = messageContext.getLocale();
-        List<Token> tokens = expandUserBundles(tokenize(template), locale, new HashSet<>());
+        int[] budget = {MAX_EXPANDED_TOKENS};
+        List<Token> tokens = expandUserBundles(tokenize(template), locale, new HashSet<>(), budget);
         List<Token> provider = new ArrayList<>();
         for (Token token : tokens) {
             Optional<String> replacement = token.kind() == Kind.TEXT ? Optional.empty()
@@ -128,14 +142,23 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                 provider.add(token);
             }
         }
-        tokens = expandUserBundles(provider, locale, new HashSet<>());
+        tokens = expandUserBundles(provider, locale, new HashSet<>(), budget);
         StringBuilder result = new StringBuilder();
+        Token previous = null;
         for (Token token : tokens) {
+            Token preceding = previous;
+            previous = token;
             if (token.kind() == Kind.TEXT) {
                 result.append(token.value());
                 continue;
             }
             Object attribute = messageContext.getVariables().get(token.value());
+            // a parameter right after a dollar is what an escaped expression, \${validatedValue}, leaves: literal
+            boolean escapedExpression = preceding != null && preceding.kind() == Kind.TEXT && preceding.value().endsWith("$");
+            if (attribute == null && token.kind() == Kind.PARAMETER && !escapedExpression && parameters.containsKey(token.value())) {
+                result.append(parameters.get(token.value()));
+                continue;
+            }
             if (attribute != null) {
                 // Attribute values are final text, never input for another interpolation pass.
                 if (token.kind() == Kind.EXPRESSION) {
@@ -151,12 +174,21 @@ public final class ElMessageInterpolator implements MessageInterpolator {
         return result.toString();
     }
 
-    private List<Token> expandUserBundles(List<Token> tokens, Locale locale, Set<String> expanding) {
+    private List<Token> expandUserBundles(List<Token> tokens, Locale locale, Set<String> expanding, int[] budget) {
         List<Token> result = new ArrayList<>();
         for (Token token : tokens) {
-            if (token.kind() == Kind.TEXT || !expanding.add(token.value())) {
+            if (token.kind() == Kind.TEXT || token.cycle()) {
                 result.add(token);
                 continue;
+            }
+            if (!expanding.add(token.value())) {
+                // a cycle is cut once and for all: the later pass leaves the token as it stands
+                result.add(new Token(token.kind(), token.value(), true));
+                continue;
+            }
+            if (--budget[0] < 0) {
+                // the depth limit does not bound a message that doubles at every level
+                throw new ValidationException("Validation message expands to more than " + MAX_EXPANDED_TOKENS + " parameters");
             }
             try {
                 Optional<String> message = bundles.find(token.value(), locale);
@@ -166,7 +198,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                     if (expanding.size() > 64) {
                         throw new ValidationException("Validation message bundle nesting exceeds 64 levels");
                     }
-                    result.addAll(expandUserBundles(replacement(token, message.get()), locale, expanding));
+                    result.addAll(expandUserBundles(replacement(token, message.get()), locale, expanding, budget));
                 }
             } finally {
                 expanding.remove(token.value());
@@ -301,7 +333,18 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     private enum Kind { TEXT, PARAMETER, EXPRESSION }
 
-    private record Token(Kind kind, String value) { }
+    /**
+     * A token of a message.
+     *
+     * @param kind  What it is
+     * @param value Its text, or the name it refers to
+     * @param cycle Whether expanding it was cut as a cycle, so that no later pass expands it
+     */
+    private record Token(Kind kind, String value, boolean cycle) {
+        Token(Kind kind, String value) {
+            this(kind, value, false);
+        }
+    }
 
     private enum OptionalLocaleResolver implements InterpolatorLocaleResolver {
         INSTANCE;

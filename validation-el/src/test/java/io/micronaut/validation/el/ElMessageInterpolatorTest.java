@@ -237,6 +237,23 @@ class ElMessageInterpolatorTest {
         assertEquals("{review.cycle}", interpolator.interpolate("{review.cycle}", context));
         assertEquals("{min}", interpolator.interpolate("{review.escaped}", context));
         assertEquals("done", interpolator.interpolate("{review.deep.0}", context));
+        // a cut cycle is not expanded again by the later pass
+        assertEquals("x{review.selfprefix}", interpolator.interpolate("{review.selfprefix}", context));
+    }
+
+    @Test
+    void aMessageDoublingAtEveryLevelIsRejectedInsteadOfExhaustingMemory() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        var context = new TestContext("abc", Map.of());
+        Assertions.assertThrows(ValidationException.class, () -> interpolator.interpolate("{review.double.0}", context));
+    }
+
+    @Test
+    void validatedValueParameterRendersAsWithoutEl() {
+        var interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+        var context = new TestContext("PT1X", Map.of());
+        assertEquals("invalid duration (PT1X)", interpolator.interpolate("invalid duration ({validatedValue})", context));
+        assertEquals("PT1X", interpolator.interpolate("${validatedValue}", context));
     }
 
     private static final class ThrowingToString {
