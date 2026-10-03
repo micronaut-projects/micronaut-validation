@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.xml;
 
+import io.micronaut.validation.validator.ReflectionSupport;
 import jakarta.validation.ValidationException;
 import org.junit.jupiter.api.Test;
 import java.io.ByteArrayInputStream;
@@ -68,7 +69,7 @@ class XmlResourceOwnershipTest {
     }
 
     private static void provider(TrackedStream... streams) {
-        new XmlValidationMetadataProvider(XmlResourceOwnershipTest.class.getClassLoader(), new LinkedHashSet<>(List.of(streams)));
+        XmlBeanIntrospector.of(ReflectionSupport.forClassLoader(XmlResourceOwnershipTest.class.getClassLoader()), new LinkedHashSet<>(List.of(streams)));
     }
 
     private static class TrackedStream extends ByteArrayInputStream {

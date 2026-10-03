@@ -180,7 +180,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         newValidatorConfiguration.setStrictConstraintDefinitions(
                 configuration.isStrictConstraintDefinitions());
         newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
-        newValidatorConfiguration.setMetadataProviders(configuration.getMetadataProviders());
+        newValidatorConfiguration.setConstraintValidatorOverrides(configuration.getConstraintValidatorOverrides());
         newValidatorConfiguration.setConstraintValidatorRegistry(configuration.getConstraintValidatorRegistry());
         newValidatorConfiguration.setValueExtractorRegistry(copyValueExtractorRegistry(configuration.getValueExtractorRegistry()));
         newValidatorConfiguration.setClockProvider(configuration.getClockProvider());

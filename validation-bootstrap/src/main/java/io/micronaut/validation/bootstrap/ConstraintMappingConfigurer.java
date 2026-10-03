@@ -16,23 +16,24 @@
 package io.micronaut.validation.bootstrap;
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
+import io.micronaut.validation.validator.DefaultValidatorConfiguration;
+
 import java.io.InputStream;
 import java.util.Set;
 
 /**
- * Factory supplied by the optional XML module.
+ * Applies constraint mappings to the configuration of a validator, supplied by the optional XML module.
  *
  * @since 5.3.0
  */
 @Internal
-public interface MappingMetadataFactory {
+public interface ConstraintMappingConfigurer {
     /**
-     * Parses mapping streams and transfers their ownership to the provider.
+     * Parses the mapping streams, which it then owns and closes, and configures the validator with them:
+     * the introspector describing the mapped beans and the validators defined for the constraints.
      *
-     * @param classLoader The application loader
-     * @param streams The owned mapping streams
-     * @return The parsed mapping metadata
+     * @param configuration The validator configuration, with its introspector and metadata access set
+     * @param streams       The owned mapping streams
      */
-    ValidationMetadataProvider create(ClassLoader classLoader, Set<InputStream> streams);
+    void configure(DefaultValidatorConfiguration configuration, Set<InputStream> streams);
 }

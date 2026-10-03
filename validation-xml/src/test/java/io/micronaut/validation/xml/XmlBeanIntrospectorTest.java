@@ -19,6 +19,9 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
+import io.micronaut.validation.validator.ConstraintValidatorOverrides;
+import io.micronaut.validation.validator.IntrospectedBeanDescriptor;
+import io.micronaut.validation.validator.ReflectionSupport;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
@@ -29,6 +32,7 @@ import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.constraints.DecimalMin;
@@ -55,24 +59,23 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class XmlValidationMetadataProviderTest {
+class XmlBeanIntrospectorTest {
 
     @Test
     void xmlConfiguredBeansIgnoreAnnotationsByDefault() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
-                <bean class="java.lang.String">
+                <bean class="io.micronaut.validation.xml.XmlPropertyIgnoreBean">
                 </bean>
             </constraint-mappings>
             """);
 
-        assertTrue(provider.isBeanAnnotationMetadataIgnored(String.class));
-        assertTrue(provider.isPropertyAnnotationMetadataIgnored(String.class, "value"));
+        assertFalse(descriptor(provider, XmlPropertyIgnoreBean.class).isBeanConstrained());
     }
 
     @Test
     void rejectsFieldWithoutNameAttribute() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="java.lang.String" ignore-annotations="false">
                     <field>
@@ -87,7 +90,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsReservedConstraintElementNames() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="java.lang.String" ignore-annotations="false">
                     <field name="value">
@@ -103,7 +106,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsUnknownFieldName() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <field name="missing"/>
@@ -114,7 +117,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsUnknownGetterName() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <getter name="missing"/>
@@ -125,7 +128,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsUnknownMappingVersion() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="1.2">
             </constraint-mappings>
             """));
@@ -133,7 +136,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsUnknownRootElement() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <invalid/>
             </constraint-mappings>
@@ -142,7 +145,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsConstraintMappingDoctype() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <!DOCTYPE constraint-mappings [
                 <!ENTITY xxe SYSTEM "file:///etc/passwd">
             ]>
@@ -154,7 +157,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsConstraintMappingXInclude() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping"
                 xmlns:xi="http://www.w3.org/2001/XInclude"
                 version="3.1">
@@ -165,7 +168,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void parsesPropertyGroupConversions() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <field name="firstname">
@@ -177,7 +180,9 @@ class XmlValidationMetadataProviderTest {
             """.formatted(BeanWithProperties.class.getName(), Premium.class.getName()));
 
         List<AnnotationValue<ConvertGroup>> groupConversions = provider
-            .getPropertyAnnotationMetadata(BeanWithProperties.class, "firstname")
+            .findIntrospection(BeanWithProperties.class).orElseThrow()
+            .getProperty("firstname").orElseThrow()
+            .getAnnotationMetadata()
             .getAnnotationValuesByType(ConvertGroup.class);
 
         assertEquals(1, groupConversions.size());
@@ -187,7 +192,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsMissingMandatoryConstraintAnnotationMember() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="java.lang.String" ignore-annotations="false">
                     <field name="value">
@@ -206,12 +211,12 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(BeanWithProperties.class.getName());
 
-        assertThrows(ValidationException.class, () -> metadataProvider(xml, xml));
+        assertThrows(ValidationException.class, () -> introspector(xml, xml));
     }
 
     @Test
     void rejectsDuplicateFieldMapping() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <field name="firstname"/>
@@ -223,7 +228,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void rejectsDuplicateGetterMapping() {
-        assertThrows(ValidationException.class, () -> metadataProvider("""
+        assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <getter name="firstname"/>
@@ -235,7 +240,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void resolvesDefaultPackageForJvmArrayParameterTypes() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <default-package>io.micronaut.validation.xml</default-package>
                 <bean class="XmlArrayParameterBean">
@@ -248,8 +253,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """);
 
-        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlArrayParameterBean.class)
-            .orElseThrow()
+        MethodDescriptor descriptor = descriptor(provider, XmlArrayParameterBean.class)
             .getConstraintsForMethod("add", XmlArrayParameterBean[].class);
 
         assertEquals(XmlArrayParameterBean[].class, descriptor.getParameterDescriptors().get(0).getElementClass());
@@ -257,7 +261,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void executableIgnoreAnnotationsControlsReflectedExecutableMetadata() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <default-package>io.micronaut.validation.xml</default-package>
                 <bean class="XmlExecutableIgnoreBean" ignore-annotations="false">
@@ -271,22 +275,18 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """);
 
-        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlExecutableIgnoreBean.class)
-            .orElseThrow()
+        MethodDescriptor descriptor = descriptor(provider, XmlExecutableIgnoreBean.class)
             .getConstraintsForMethod("handle", String.class, String.class);
 
         assertFalse(descriptor.getCrossParameterDescriptor().hasConstraints());
         assertFalse(descriptor.getReturnValueDescriptor().hasConstraints());
         assertFalse(descriptor.getParameterDescriptors().get(0).hasConstraints());
         assertTrue(descriptor.getParameterDescriptors().get(1).hasConstraints());
-        assertTrue(provider.isMethodParameterAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}, 0));
-        assertFalse(provider.isMethodParameterAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}, 1));
-        assertTrue(provider.isMethodReturnValueAnnotationMetadataIgnored(XmlExecutableIgnoreBean.class, "handle", new Class<?>[]{String.class, String.class}));
     }
 
     @Test
     void fieldDescriptorsHonorIgnoreAnnotations() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <field name="ignored" ignore-annotations="true"/>
@@ -299,11 +299,9 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlPropertyIgnoreBean.class.getName()));
 
-        PropertyDescriptor ignored = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
-            .orElseThrow()
+        PropertyDescriptor ignored = descriptor(provider, XmlPropertyIgnoreBean.class)
             .getConstraintsForProperty("ignored");
-        PropertyDescriptor included = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
-            .orElseThrow()
+        PropertyDescriptor included = descriptor(provider, XmlPropertyIgnoreBean.class)
             .getConstraintsForProperty("included");
 
         assertFalse(ignored != null && ignored.hasConstraints());
@@ -312,7 +310,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void getterDescriptorsHonorIgnoreAnnotations() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s" ignore-annotations="false">
                     <getter name="ignored" ignore-annotations="true"/>
@@ -325,11 +323,9 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlPropertyIgnoreBean.class.getName()));
 
-        PropertyDescriptor ignored = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
-            .orElseThrow()
+        PropertyDescriptor ignored = descriptor(provider, XmlPropertyIgnoreBean.class)
             .getConstraintsForProperty("ignored");
-        PropertyDescriptor included = provider.getConstraintsForClass(XmlPropertyIgnoreBean.class)
-            .orElseThrow()
+        PropertyDescriptor included = descriptor(provider, XmlPropertyIgnoreBean.class)
             .getConstraintsForProperty("included");
 
         assertFalse(ignored != null && ignored.hasConstraints());
@@ -338,7 +334,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void parsesPropertyContainerElementConstraints() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="lines">
@@ -357,8 +353,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlContainerElementBean.class.getName()));
 
-        PropertyDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
-            .orElseThrow()
+        PropertyDescriptor descriptor = descriptor(provider, XmlContainerElementBean.class)
             .getConstraintsForProperty("lines");
 
         assertEquals(1, descriptor.getConstrainedContainerElementTypes().size());
@@ -371,7 +366,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void defaultsContainerElementTypeArgumentIndexForSingleTypeArgumentContainers() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="nickname">
@@ -383,8 +378,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlContainerElementBean.class.getName()));
 
-        PropertyDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
-            .orElseThrow()
+        PropertyDescriptor descriptor = descriptor(provider, XmlContainerElementBean.class)
             .getConstraintsForProperty("nickname");
 
         assertEquals(1, descriptor.getConstrainedContainerElementTypes().size());
@@ -397,7 +391,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void parsesExecutableContainerElementConstraints() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <method name="useNickname">
@@ -416,8 +410,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlContainerElementBean.class.getName()));
 
-        MethodDescriptor descriptor = provider.getConstraintsForClass(XmlContainerElementBean.class)
-            .orElseThrow()
+        MethodDescriptor descriptor = descriptor(provider, XmlContainerElementBean.class)
             .getConstraintsForMethod("useNickname", Optional.class);
 
         var parameterContainerElement = descriptor.getParameterDescriptors()
@@ -463,7 +456,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void describesAMappedBeanTheArchiveHasNoIntrospectionFor() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="lines">
@@ -475,7 +468,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlDescribedBean.class.getName()));
 
-        BeanIntrospection<XmlDescribedBean> introspection = provider.getBeanIntrospection(XmlDescribedBean.class).orElseThrow();
+        BeanIntrospection<XmlDescribedBean> introspection = provider.findIntrospection(XmlDescribedBean.class).orElseThrow();
 
         assertEquals(XmlDescribedBean.class, introspection.getBeanType());
         assertEquals(List.of("lines"), List.of(introspection.getPropertyNames()));
@@ -488,7 +481,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void readsTheValueOfAMemberAMappingNamesWhateverItsVisibility() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="lines">
@@ -503,7 +496,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlDescribedBean.class.getName()));
 
-        BeanIntrospection<XmlDescribedBean> introspection = provider.getBeanIntrospection(XmlDescribedBean.class).orElseThrow();
+        BeanIntrospection<XmlDescribedBean> introspection = provider.findIntrospection(XmlDescribedBean.class).orElseThrow();
         XmlDescribedBean bean = new XmlDescribedBean();
 
         assertEquals(Map.of("a", BigDecimal.ONE), introspection.getProperty("lines").orElseThrow().get(bean));
@@ -512,7 +505,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void readsTheConstraintsAMappedMemberDeclaresOnItsTypeArguments() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="lines" ignore-annotations="false">
@@ -524,7 +517,7 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlDescribedBean.class.getName()));
 
-        Argument<?> lines = provider.getBeanIntrospection(XmlDescribedBean.class)
+        Argument<?> lines = provider.findIntrospection(XmlDescribedBean.class)
             .orElseThrow()
             .getProperty("lines")
             .orElseThrow()
@@ -537,7 +530,7 @@ class XmlValidationMetadataProviderTest {
 
     @Test
     void describesNothingForATypeNoMappingNames() {
-        XmlValidationMetadataProvider provider = metadataProvider("""
+        XmlBeanIntrospector provider = introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
                 <bean class="%s">
                     <field name="lines">
@@ -549,18 +542,28 @@ class XmlValidationMetadataProviderTest {
             </constraint-mappings>
             """.formatted(XmlDescribedBean.class.getName()));
 
-        assertTrue(provider.getBeanIntrospection(XmlContainerElementBean.class).isEmpty());
+        // a type no mapping names is described by the decorated introspector alone
+        assertFalse(provider.findIntrospection(XmlContainerElementBean.class).orElse(null) instanceof XmlBeanIntrospection);
+        assertTrue(provider.findIntrospection(XmlDescribedBean.class).orElse(null) instanceof XmlBeanIntrospection);
     }
 
-    private static XmlValidationMetadataProvider metadataProvider(String... xmls) {
+    private static XmlBeanIntrospector introspector(String... xmls) {
         Set<InputStream> mappingStreams = new LinkedHashSet<>();
         for (String xml : xmls) {
             mappingStreams.add(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8)));
         }
-        return new XmlValidationMetadataProvider(
-            Thread.currentThread().getContextClassLoader(),
-            mappingStreams
-        );
+        return XmlBeanIntrospector.of(support(), mappingStreams);
+    }
+
+    /** The metadata access of a bootstrapped validator: the generated introspections, supplemented when the reflection module is there. */
+    private static ReflectionSupport support() {
+        ReflectionSupport support = ReflectionSupport.forClassLoader(Thread.currentThread().getContextClassLoader());
+        return support.withIntrospector(support.supplemented(support.introspector()));
+    }
+
+    private static BeanDescriptor descriptor(XmlBeanIntrospector introspector, Class<?> beanType) {
+        return new IntrospectedBeanDescriptor(support().withIntrospector(introspector),
+            introspector.findIntrospection(beanType).orElseThrow(), ConstraintValidatorOverrides.NONE);
     }
 
     @SuppressWarnings("unused")
@@ -586,7 +589,7 @@ final class XmlArrayParameterBean {
 final class XmlExecutableIgnoreBean {
 
     @Valid
-    @XmlValidationMetadataProviderTest.CrossParameterConstraint
+    @XmlBeanIntrospectorTest.CrossParameterConstraint
     @NotNull
     String handle(@Valid @NotNull String ignored, @Valid @NotNull String applied) {
         return "";

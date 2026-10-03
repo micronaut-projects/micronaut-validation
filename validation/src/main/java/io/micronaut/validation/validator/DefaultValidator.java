@@ -45,7 +45,6 @@ import io.micronaut.inject.InjectionPoint;
 import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
-import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
@@ -56,7 +55,6 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 import jakarta.annotation.PreDestroy;
@@ -97,7 +95,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentMap;
-import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -142,7 +139,7 @@ public class DefaultValidator
     private final ConversionService conversionService;
     private final ValidatorDeclarations declarations;
     private final BeanIntrospector beanIntrospector;
-    private final List<ValidationMetadataProvider> metadataProviders;
+    private final ConstraintValidatorOverrides validatorOverrides;
     private final InternalConstraintValidatorFactory constraintValidatorFactory;
     private final ParameterNameProvider parameterNameProvider;
     private final ConstraintValidatorInstances validatorInstances;
@@ -161,7 +158,12 @@ public class DefaultValidator
      */
     public DefaultValidator(@NonNull ValidatorConfiguration configuration) {
         requireNonNull("configuration", configuration);
-        this.reflectionSupport = configuration.getReflectionSupport();
+        // the support decides which introspections of the configured introspector the validator reads: without
+        // the reflection module, the generated ones only
+        ReflectionSupport configuredSupport = configuration.getReflectionSupport();
+        BeanIntrospector configuredIntrospector = configuration.getBeanIntrospector();
+        this.reflectionSupport = configuredSupport.introspector() == configuredIntrospector
+            ? configuredSupport : configuredSupport.withIntrospector(configuredIntrospector);
         this.constraintValidatorRegistry = configuration.getConstraintValidatorRegistry();
         this.clockProvider = configuration.getClockProvider();
         this.valueExtractorRegistry = configuration.getValueExtractorRegistry();
@@ -169,13 +171,13 @@ public class DefaultValidator
         this.executionHandleLocator = configuration.getExecutionHandleLocator();
         this.messageInterpolator = configuration.getMessageInterpolator();
         this.conversionService = configuration.getConversionService();
-        this.beanIntrospector = configuration.getBeanIntrospector();
-        this.metadataProviders = configuration.getMetadataProviders();
+        this.beanIntrospector = reflectionSupport.introspector();
+        this.validatorOverrides = configuration.getConstraintValidatorOverrides();
         this.constraintValidatorFactory = internalConstraintValidatorFactory(configuration);
         this.validatorInstances = new ConstraintValidatorInstances(constraintValidatorFactory);
         this.parameterNameProvider = configuration.getParameterNameProvider();
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
-        this.declarations = new ValidatorDeclarations(beanIntrospector, configuration.isStrictConstraintDefinitions(), metadataProviders, reflectionSupport);
+        this.declarations = new ValidatorDeclarations(beanIntrospector, configuration.isStrictConstraintDefinitions(), reflectionSupport);
     }
 
     /**
@@ -356,9 +358,9 @@ public class DefaultValidator
             }
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : constraintContext.findGroupSequences(introspection)) {
                 try (DefaultConstraintValidatorContext.GroupsValidation validation = constraintContext.withGroupSequence(groupSequence)) {
-                    AnnotationMetadata annotationMetadata = propertyAnnotationMetadata(beanType, beanProperty);
+                    AnnotationMetadata annotationMetadata = beanProperty.getAnnotationMetadata();
 
-                    Argument<Object> propertyArgument = (Argument<Object>) declarations.configuredPropertyArgument(beanType, propertyName, argumentWithMetadata(beanProperty.asArgument(), annotationMetadata));
+                    Argument<Object> propertyArgument = argumentWithMetadata(beanProperty.asArgument(), annotationMetadata);
                     visitElement(constraintContext, null, propertyArgument, annotationMetadata, value, false);
 
                     if (validation.isFailed()) {
@@ -429,18 +431,9 @@ public class DefaultValidator
         if (clazz == null) {
             throw new IllegalArgumentException();
         }
-        Optional<BeanDescriptor> metadataDescriptor = metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(clazz).stream())
-            .findFirst();
         return findIntrospection(clazz)
-            .map(introspection -> (BeanDescriptor) new IntrospectedBeanDescriptor(
-                introspection,
-                beanAnnotationMetadata(introspection),
-                propertyAnnotationMetadata(introspection),
-                metadataProviders,
-                declarations
-            ))
-            .orElseGet(() -> metadataDescriptor.orElseGet(() -> new EmptyDescriptor(clazz)));
+            .map(introspection -> (BeanDescriptor) new IntrospectedBeanDescriptor(introspection, validatorOverrides, declarations))
+            .orElseGet(() -> new EmptyDescriptor(clazz));
     }
 
     @Override
@@ -899,18 +892,7 @@ public class DefaultValidator
         return findIntrospection(type).orElse(null);
     }
 
-    /**
-     * The introspection the archive holds for a type, and where it holds none the description a metadata
-     * provider builds from what it configures for it: an XML mapping naming the members of a type the
-     * annotation processor never saw describes the bean it configures.
-     */
     private <T> Optional<BeanIntrospection<T>> findIntrospection(@NonNull Class<T> type) {
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            Optional<BeanIntrospection<T>> configured = provider.getBeanIntrospection(type);
-            if (configured.isPresent()) {
-                return configured;
-            }
-        }
         return beanIntrospector.findIntrospection(type);
     }
 
@@ -1007,53 +989,7 @@ public class DefaultValidator
     }
 
     final AnnotationMetadata beanAnnotationMetadata(BeanIntrospection<?> introspection) {
-        Class<?> beanType = introspection.getBeanType();
-        return additionalAnnotationMetadata(
-            introspection.getAnnotationMetadata(),
-            provider -> provider.getBeanAnnotationMetadata(beanType),
-            provider -> provider.isBeanAnnotationMetadataIgnored(beanType)
-        );
-    }
-
-    private Map<String, AnnotationMetadata> propertyAnnotationMetadata(BeanIntrospection<?> introspection) {
-        Map<String, AnnotationMetadata> metadata = new LinkedHashMap<>();
-        for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
-            metadata.put(property.getName(), propertyAnnotationMetadata(introspection.getBeanType(), property));
-        }
-        return metadata;
-    }
-
-    private AnnotationMetadata propertyAnnotationMetadata(Class<?> beanType, BeanProperty<?, ?> property) {
-        String propertyName = property.getName();
-        return additionalAnnotationMetadata(
-            property,
-            provider -> provider.getPropertyAnnotationMetadata(beanType, propertyName),
-            provider -> provider.isPropertyAnnotationMetadataIgnored(beanType, propertyName)
-        );
-    }
-
-    private AnnotationMetadata additionalAnnotationMetadata(AnnotationMetadata original,
-                                                           Function<ValidationMetadataProvider, AnnotationMetadata> metadataResolver,
-                                                           Predicate<ValidationMetadataProvider> ignoreResolver) {
-        List<AnnotationMetadata> metadata = new ArrayList<>();
-        boolean ignoreOriginal = false;
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            AnnotationMetadata additionalMetadata = metadataResolver.apply(provider);
-            if (!additionalMetadata.isEmpty()) {
-                metadata.add(additionalMetadata);
-            }
-            if (ignoreResolver.test(provider)) {
-                ignoreOriginal = true;
-                break;
-            }
-        }
-        if (metadata.isEmpty()) {
-            return ignoreOriginal ? AnnotationMetadata.EMPTY_METADATA : original;
-        }
-        if (!ignoreOriginal) {
-            metadata.add(0, original);
-        }
-        return new AnnotationMetadataHierarchy(metadata.toArray(AnnotationMetadata[]::new));
+        return introspection.getAnnotationMetadata();
     }
 
     private static <T> Argument<T> argumentWithMetadata(Argument<T> argument, AnnotationMetadata annotationMetadata) {
@@ -1149,7 +1085,7 @@ public class DefaultValidator
         }
         String propertyName = property.getName();
         Class<?> beanType = object.getClass();
-        if (!hasConfiguredPropertyMetadata(beanType, propertyName) && reflectionSupport.separatesDeclarations(introspection)) {
+        if (reflectionSupport.separatesDeclarations(introspection)) {
             // the members declaring constraints are validated one by one, each against the value it holds. A
             // generated introspection reports its members only where the type asked for them, and merges what
             // they declare into the property, so walking them is what a description separating the declarations
@@ -1180,7 +1116,7 @@ public class DefaultValidator
                 !context.getValidationContext().isPropertyValidated(object, property)) {
                 return;
             }
-            AnnotationMetadata annotationMetadata = propertyAnnotationMetadata(beanType, property);
+            AnnotationMetadata annotationMetadata = property.getAnnotationMetadata();
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(annotationMetadata)) {
                 Object propertyValue;
                 try {
@@ -1188,7 +1124,7 @@ public class DefaultValidator
                 } catch (Exception e) {
                     throw new ValidationException("Failed to get the value of property: " + propertyName, e);
                 }
-                Argument<Object> propertyArgument = (Argument<Object>) declarations.configuredPropertyArgument(beanType, propertyName, argumentWithMetadata(property.asArgument(), annotationMetadata));
+                Argument<Object> propertyArgument = argumentWithMetadata(property.asArgument(), annotationMetadata);
                 visitElement(
                     context,
                     object,
@@ -1248,21 +1184,6 @@ public class DefaultValidator
             || annotationMetadata.hasStereotype(Valid.class)
             || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()))
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
-    }
-
-    /**
-     * Whether a metadata provider configures or replaces the annotations of a property: the property is then
-     * validated as one element, the way the configuration describes it.
-     */
-    private boolean hasConfiguredPropertyMetadata(Class<?> beanType, String propertyName) {
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            if (provider.isPropertyAnnotationMetadataIgnored(beanType, propertyName)
-                || !provider.getPropertyAnnotationMetadata(beanType, propertyName).isEmpty()
-                || provider.getConstraintsForClass(beanType).isPresent()) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, @Nullable T object) {
@@ -1926,21 +1847,12 @@ public class DefaultValidator
         return descriptors;
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
         Class<Annotation> constraintType,
         AnnotationValue<Annotation> annotationValue) {
-        List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses =
-            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-        Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
-        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            Optional<List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>>> providerClasses =
-                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
-            if (providerClasses.isPresent()) {
-                configuredClasses = providerClasses;
-                validatorClasses = providerClasses.get();
-            }
-        }
-        return configuredClasses;
+        return Optional.ofNullable((List) validatorOverrides.validatorsOf(constraintType,
+            List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY))));
     }
 
     private ClassLoader currentClassLoader() {

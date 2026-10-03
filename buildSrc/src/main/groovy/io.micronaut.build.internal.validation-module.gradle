@@ -29,4 +29,18 @@ dependencies {
 noReflection {
     forbidAll()
     severity "ERROR"
+    // reflection reached through Micronaut core rather than java.lang.reflect: what synthesizes an annotation
+    // or looks a member up at runtime. Every module but micronaut-validation-reflection goes without them, so
+    // that reflection is used only where that module is on the classpath
+    forbid("io.micronaut.inject.annotation.AnnotationMetadataSupport#buildAnnotation")
+    forbid("io.micronaut.core.annotation.AnnotationSource#synthesize")
+    forbid("io.micronaut.core.annotation.AnnotationSource#synthesizeAll")
+    forbid("io.micronaut.core.annotation.AnnotationSource#synthesizeDeclared")
+    forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredMethod")
+    forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredField")
+    forbid("io.micronaut.inject.MethodReference#getTargetMethod")
+    forbid("io.micronaut.inject.ExecutableMethod#getTargetMethod")
+    forbid("io.micronaut.core.reflect.ClassUtils#forName")
+    forbid("io.micronaut.core.reflect.InstantiationUtils#instantiate")
+    forbid("io.micronaut.core.reflect.InstantiationUtils#tryInstantiate")
 }

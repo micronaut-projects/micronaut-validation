@@ -13,27 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.micronaut.validation.xml;
+package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.validation.bootstrap.MappingMetadataFactory;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
-
-import java.io.InputStream;
-import java.util.Set;
+import io.micronaut.core.beans.BeanIntrospector;
 
 /**
- * Service adapter for XML mapping metadata.
+ * An introspector describing some types by decorating the introspections of another: an XML constraint mapping
+ * adds the annotation metadata it declares to the introspection of the bean it names. The validator reads the
+ * decorated introspections like any other, and asks for the introspector underneath to tell where they come
+ * from.
  *
  * @since 5.3.0
  */
 @Internal
-public final class XmlMappingMetadataFactory implements MappingMetadataFactory {
-    /** Constructor for service discovery. */
-    public XmlMappingMetadataFactory() { }
+public interface BeanIntrospectorDecorator extends BeanIntrospector {
 
-    @Override
-    public ValidationMetadataProvider create(ClassLoader classLoader, Set<InputStream> streams) {
-        return new XmlValidationMetadataProvider(classLoader, streams);
-    }
+    /**
+     * @return The introspector whose introspections this one decorates
+     */
+    BeanIntrospector getDecorated();
 }

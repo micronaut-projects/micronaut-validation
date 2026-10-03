@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.xml;
 
+import io.micronaut.validation.validator.ReflectionSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,9 +40,9 @@ class GeneratedXmlMetadataTest {
     void defaultIgnorePolicyRemovesUnmappedExecutableAndNestedAnnotations() {
         String xml = "<constraint-mappings version=\"3.1\"><bean class=\"" + ExecutableBean.class.getName()
             + "\"/></constraint-mappings>";
-        var provider = new XmlValidationMetadataProvider(getClass().getClassLoader(),
+        var provider = XmlBeanIntrospector.of(ReflectionSupport.forClassLoader(getClass().getClassLoader()),
             Set.of(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))));
-        var method = provider.getBeanIntrospection(ExecutableBean.class).orElseThrow().getBeanMethods().stream()
+        var method = provider.findIntrospection(ExecutableBean.class).orElseThrow().getBeanMethods().stream()
             .filter(candidate -> candidate.getName().equals("handle")).findFirst().orElseThrow();
         assertTrue(method.getAnnotationMetadata().isEmpty());
         assertTrue(method.getArguments()[0].getAnnotationMetadata().isEmpty());
@@ -61,7 +62,7 @@ class GeneratedXmlMetadataTest {
                                 "io.micronaut.validation.reflection.ReflectionValidationSupport"));
         var provider = mapping(Bean.class, "value");
         DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
-        configuration.setMetadataProviders(List.of(provider));
+        configuration.setBeanIntrospector(provider);
         try (var factory = new DefaultValidatorFactory(configuration)) {
             var violations = factory.getValidator().validate(new Bean());
             assertEquals(1, violations.size());
@@ -74,12 +75,12 @@ class GeneratedXmlMetadataTest {
     void annotatedPrivateFieldsStillRequireTheReflectionModule() {
         var provider = mapping(PrivateBean.class, "value");
         var annotatedFailure = assertThrows(ValidationException.class, () -> provider
-            .getBeanIntrospection(PrivateBean.class).orElseThrow()
+            .findIntrospection(PrivateBean.class).orElseThrow()
             .getRequiredProperty("value", String.class).get(new PrivateBean()));
         assertTrue(annotatedFailure.getMessage().contains("micronaut-validation-reflection"));
         var forbidden = mapping(ForbiddenBean.class, "value");
         var failure = assertThrows(ValidationException.class, () -> forbidden
-            .getBeanIntrospection(ForbiddenBean.class).orElseThrow()
+            .findIntrospection(ForbiddenBean.class).orElseThrow()
             .getRequiredProperty("value", String.class).get(new ForbiddenBean()));
         assertTrue(failure.getMessage().contains("micronaut-validation-reflection"));
     }
@@ -102,8 +103,7 @@ class GeneratedXmlMetadataTest {
                     assertThrows(
                             ValidationException.class,
                             () ->
-                                    new XmlValidationMetadataProvider(
-                                            getClass().getClassLoader(),
+                                    XmlBeanIntrospector.of(ReflectionSupport.forClassLoader(getClass().getClassLoader()),
                                             Set.of(
                                                     new ByteArrayInputStream(
                                                             xml.getBytes(
@@ -112,7 +112,7 @@ class GeneratedXmlMetadataTest {
         }
     }
 
-    private static XmlValidationMetadataProvider mapping(Class<?> bean, String field) {
+    private static XmlBeanIntrospector mapping(Class<?> bean, String field) {
         String xml =
                 "<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\""
                     + " version=\"3.1\"><bean class=\""
@@ -121,8 +121,7 @@ class GeneratedXmlMetadataTest {
                         + field
                         + "\"><constraint"
                         + " annotation=\"jakarta.validation.constraints.NotNull\"/></field></bean></constraint-mappings>";
-        return new XmlValidationMetadataProvider(
-                bean.getClassLoader(),
+        return XmlBeanIntrospector.of(ReflectionSupport.forClassLoader(bean.getClassLoader()),
                 Set.of(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))));
     }
 

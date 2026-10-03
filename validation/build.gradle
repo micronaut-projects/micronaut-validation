@@ -45,12 +45,6 @@ dependencies {
 }
 
 noReflection {
-    forbid("io.micronaut.inject.annotation.AnnotationMetadataSupport#buildAnnotation")
-    forbid("io.micronaut.core.annotation.AnnotationSource#synthesize")
-    forbid("io.micronaut.core.annotation.AnnotationSource#synthesizeAll")
-    forbid("io.micronaut.core.annotation.AnnotationSource#synthesizeDeclared")
-    forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredMethod")
-    forbid("io.micronaut.core.reflect.ReflectionUtils#getRequiredField")
     allowIn("io.micronaut.validation.validator.ConstraintValidatorServiceDiscovery", "SERVICE_LOADING")
     allowIn("io.micronaut.validation.validator.ReflectionSupportServiceDiscovery", "SERVICE_LOADING")
 }

@@ -127,11 +127,6 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
-    public boolean isSupplemented(BeanIntrospector introspector) {
-        return ReflectiveValidation.isSupplemented(introspector);
-    }
-
-    @Override
     public ResourceBundle messageBundle(
             String baseName, Locale locale, ClassLoader loader) {
         if (!ReflectiveValidation.isEnabled()) {

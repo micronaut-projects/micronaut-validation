@@ -27,7 +27,6 @@ import io.micronaut.validation.tck.runtime.TestClassVisitor;
 import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.DefaultValidatorFactory;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import org.jboss.arquillian.container.spi.client.container.DeployableContainer;
 import org.jboss.arquillian.container.spi.client.protocol.ProtocolDescription;
 import org.jboss.arquillian.container.spi.client.protocol.metadata.ProtocolMetaData;
@@ -277,7 +276,6 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         // without one unless micronaut.validation.reflection.enabled says otherwise
         BeanIntrospector beanIntrospector = BeanIntrospector.forClassLoader(classLoader);
         validatorConfiguration.setBeanIntrospector(ReflectiveValidation.supplemented(beanIntrospector));
-        validatorConfiguration.setMetadataProviders(List.copyOf(applicationContext.getBeansOfType(ValidationMetadataProvider.class)));
         return validatorConfiguration;
     }
 
@@ -346,29 +344,24 @@ public final class TckDeployableContainer implements DeployableContainer<TckCont
         if (bootstrapConfiguration == null || bootstrapConfiguration.getConstraintMappingResourcePaths().isEmpty()) {
             return;
         }
-        xmlMappingMetadataProvider(classLoader, bootstrapConfiguration)
-            .ifPresent(provider -> {
-                List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
-                metadataProviders.add(provider);
-                validatorConfiguration.setMetadataProviders(metadataProviders);
-            });
-    }
-
-    private static Optional<ValidationMetadataProvider> xmlMappingMetadataProvider(ClassLoader classLoader,
-                                                                                  BootstrapConfiguration bootstrapConfiguration) {
         Set<InputStream> mappingStreams = new LinkedHashSet<>();
         for (String mappingPath : bootstrapConfiguration.getConstraintMappingResourcePaths()) {
             mappingStreams.add(getConstraintMappingResource(classLoader, mappingPath));
         }
         try {
-            Class<?> providerClass = Class.forName("io.micronaut.validation.xml.XmlValidationMetadataProvider", true, classLoader);
-            return Optional.of((ValidationMetadataProvider) providerClass
-                .getConstructor(ClassLoader.class, Set.class)
-                .newInstance(classLoader, mappingStreams));
+            // the mappings decorate the introspector of the configuration, the way the bootstrap applies them
+            Class<?> configurerClass = Class.forName("io.micronaut.validation.xml.XmlConstraintMappingConfigurer", true, classLoader);
+            configurerClass.getMethod("configure", DefaultValidatorConfiguration.class, Set.class)
+                .invoke(configurerClass.getConstructor().newInstance(), validatorConfiguration, mappingStreams);
         } catch (ClassNotFoundException e) {
-            return Optional.empty();
+            // no XML module: the mappings are not applied
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            if (e.getCause() instanceof RuntimeException failure) {
+                throw failure;
+            }
+            throw new ValidationException("Cannot apply TCK XML constraint mappings", e);
         } catch (ReflectiveOperationException e) {
-            throw new ValidationException("Cannot initialize TCK XML validation metadata provider", e);
+            throw new ValidationException("Cannot apply TCK XML constraint mappings", e);
         }
     }
 

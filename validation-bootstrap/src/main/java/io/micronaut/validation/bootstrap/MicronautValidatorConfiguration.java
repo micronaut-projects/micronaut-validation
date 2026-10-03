@@ -26,7 +26,6 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Configuration;
@@ -377,13 +376,11 @@ public final class MicronautValidatorConfiguration
         BeanIntrospector beanIntrospector = validatorConfiguration.getReflectionSupport()
             .supplemented(BeanIntrospector.forClassLoader(loader));
         validatorConfiguration.setBeanIntrospector(beanIntrospector);
-        validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(beanIntrospector, applicationContext, validatorConfiguration.getReflectionSupport()));
-        xmlMappingMetadataProvider(applicationContext.getClassLoader(), configurationState.getMappingStreams())
-            .ifPresent(provider -> {
-                List<ValidationMetadataProvider> metadataProviders = new ArrayList<>(validatorConfiguration.getMetadataProviders());
-                metadataProviders.add(provider);
-                validatorConfiguration.setMetadataProviders(metadataProviders);
-            });
+        // the constraint mappings decorate the introspector: a mapped bean is described by its introspection
+        // with what the mapping declares, and the validator reads nothing else
+        applyConstraintMappings(validatorConfiguration, configurationState.getMappingStreams());
+        validatorConfiguration.constraintValidatorFactory(new DefaultInternalConstraintValidatorFactory(
+            validatorConfiguration.getBeanIntrospector(), applicationContext, validatorConfiguration.getReflectionSupport()));
         if (shouldApplyMessageInterpolator(configurationState)) {
             validatorConfiguration.messageInterpolator(configurationState.getMessageInterpolator());
         }
@@ -512,11 +509,6 @@ public final class MicronautValidatorConfiguration
     }
 
     static Validator createValidator(ValidatorConfiguration validatorConfiguration) {
-        if (validatorConfiguration instanceof DefaultValidatorConfiguration defaultConfiguration
-            && !validatorConfiguration.getReflectionSupport()
-                        .isSupplemented(defaultConfiguration.getBeanIntrospector())) {
-            defaultConfiguration.setBeanIntrospector(validatorConfiguration.getReflectionSupport().supplemented(defaultConfiguration.getBeanIntrospector()));
-        }
         return new DefaultValidator(validatorConfiguration);
     }
 
@@ -576,14 +568,14 @@ public final class MicronautValidatorConfiguration
         return BOOTSTRAP_PACKAGES.stream().anyMatch(name::startsWith);
     }
 
-    private static Optional<ValidationMetadataProvider> xmlMappingMetadataProvider(ClassLoader classLoader, Set<InputStream> mappingStreams) {
+    private static void applyConstraintMappings(DefaultValidatorConfiguration validatorConfiguration, Set<InputStream> mappingStreams) {
         if (mappingStreams.isEmpty()) {
-            return Optional.empty();
+            return;
         }
-        MappingMetadataFactory factory =
-                BootstrapServiceDiscovery.mappingFactory(classLoader)
+        ConstraintMappingConfigurer configurer =
+                BootstrapServiceDiscovery.mappingConfigurer(validatorConfiguration.getReflectionSupport().classLoader())
                         .orElse(null);
-        if (factory == null) {
+        if (configurer == null) {
             ValidationException failure =
                     new ValidationException(
                             "XML constraint mappings require micronaut-validation-xml");
@@ -596,7 +588,7 @@ public final class MicronautValidatorConfiguration
             }
             throw failure;
         }
-        return Optional.of(factory.create(classLoader, mappingStreams));
+        configurer.configure(validatorConfiguration, mappingStreams);
     }
 
     private Optional<MessageInterpolator> createElMessageInterpolator() {

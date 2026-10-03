@@ -26,7 +26,7 @@ Optional. Describes reflectively what the annotation processors never saw, throu
 Provides the Jakarta `ValidationProvider`, `Configuration`, and `ValidatorFactory` bootstrap integration used by `jakarta.validation.Validation`. It uses generated metadata first and has no dependency on `micronaut-validation-reflection`. Bootstrap classes without generated constructors require the optional reflection provider.
 
 `micronaut-validation-xml`::
-Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources. Classes, declaration signatures, annotation members, and access use generated metadata first. Missing metadata requires `micronaut-validation-reflection`; XML does not independently authorize reflection.
+Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources. A mapping is applied by decorating the bean introspections the validator reads with the annotation metadata it declares. Classes, declaration signatures, annotation members, and access use generated metadata first. Missing metadata requires `micronaut-validation-reflection`; XML does not independently authorize reflection.
 
 `micronaut-validation-el`::
 Adds Micronaut Jakarta EL and its runtime interpreter. Message interpolation uses generated bean introspections and container resolvers, with direct locale-aware formatter dispatch. It does not add the EL reflection companion or reflective bean, record, or static-field resolvers. An EL API jar alone does not activate this integration.

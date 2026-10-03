@@ -130,15 +130,6 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
-     * @param introspector The introspector
-     * @return Whether it is already supplemented
-     * @since 5.3.0
-     */
-    default boolean isSupplemented(BeanIntrospector introspector) {
-        return false;
-    }
-
-    /**
      * @return Whether optional reflection is enabled
      * @since 5.3.0
      */

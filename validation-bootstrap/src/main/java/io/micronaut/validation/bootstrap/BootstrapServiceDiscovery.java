@@ -32,8 +32,8 @@ final class BootstrapServiceDiscovery {
         return ServiceLoader.load(type, loader).stream().map(ServiceLoader.Provider::get).toList();
     }
 
-    static Optional<MappingMetadataFactory> mappingFactory(ClassLoader loader) {
-        return SoftServiceLoader.load(MappingMetadataFactory.class, loader).firstAvailable();
+    static Optional<ConstraintMappingConfigurer> mappingConfigurer(ClassLoader loader) {
+        return SoftServiceLoader.load(ConstraintMappingConfigurer.class, loader).firstAvailable();
     }
 
     static List<MessageInterpolatorProvider> interpolators(ClassLoader loader) {

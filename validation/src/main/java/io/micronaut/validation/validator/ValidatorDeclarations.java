@@ -25,7 +25,6 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import org.jspecify.annotations.Nullable;
 
@@ -56,13 +55,10 @@ final class ValidatorDeclarations {
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
     private final Map<ExecutableHierarchy.Key, ConfiguredExecutable> configuredExecutables = new ConcurrentHashMap<>();
 
-    private final List<ValidationMetadataProvider> metadataProviders;
-
-    ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, List<ValidationMetadataProvider> metadataProviders, ReflectionSupport reflectionSupport) {
+    ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, ReflectionSupport reflectionSupport) {
         this.reflectionSupport = reflectionSupport;
         this.beanIntrospector = beanIntrospector;
         this.strictConstraintDefinitions = strictConstraintDefinitions;
-        this.metadataProviders = metadataProviders;
     }
 
     ReflectionSupport reflectionSupport() {
@@ -82,86 +78,23 @@ final class ValidatorDeclarations {
         return reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
     }
 
-    /** The argument of a property as the metadata providers configure it. */
-    Argument<?> configuredPropertyArgument(Class<?> beanType, String propertyName, Argument<?> argument) {
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            argument = provider.getPropertyArgument(beanType, propertyName, argument);
-        }
-        return argument;
-    }
-
-    /** A method with what it inherits and what the metadata providers configure for it. */
+    /** A method with what it inherits, computed once per method. */
     ConfiguredExecutable configuredExecutable(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
         return configuredExecutables.computeIfAbsent(ExecutableHierarchy.Key.of(method), key -> new ConfiguredExecutable(
-            configuredMethodMetadata(method, hierarchy.annotationMetadata()),
-            configuredParameterArguments(method, hierarchy.arguments()),
-            configuredReturnArgument(method, hierarchy.returnArgument())
+            hierarchy.annotationMetadata(),
+            hierarchy.arguments(),
+            hierarchy.returnArgument()
         ));
     }
 
-    /** A constructor as the metadata providers configure it, computed once per constructor. */
+    /** A constructor as its introspection describes it, computed once per constructor. */
     ConfiguredExecutable configuredConstructor(Class<?> beanType, AnnotationMetadata annotationMetadata, Argument<?>[] arguments) {
         ExecutableHierarchy.Key key = new ExecutableHierarchy.Key(beanType, "<init>", List.of(Argument.toClassArray(arguments)));
-        return configuredExecutables.computeIfAbsent(key, ignored -> {
-            AnnotationMetadata metadata = configuredConstructorMetadata(beanType, arguments, annotationMetadata);
-            return new ConfiguredExecutable(
-                metadata,
-                configuredConstructorArguments(beanType, arguments),
-                configuredConstructorReturnArgument(beanType, arguments, Argument.of(beanType, metadata))
-            );
-        });
-    }
-
-    /** The parameters of a method as the metadata providers configure them. */
-    private Argument<?>[] configuredParameterArguments(ExecutableMethod<?, ?> method, Argument<?>[] arguments) {
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            arguments = provider.getMethodParameterArguments(method.getDeclaringType(), method.getMethodName(), arguments);
-        }
-        return arguments;
-    }
-
-    /** The annotations of a method as the metadata providers configure them. */
-    private AnnotationMetadata configuredMethodMetadata(ExecutableMethod<?, ?> method, AnnotationMetadata annotationMetadata) {
-        Class<?>[] parameterTypes = Argument.toClassArray(method.getArguments());
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            annotationMetadata = provider.getMethodAnnotationMetadata(method.getDeclaringType(), method.getMethodName(), parameterTypes, annotationMetadata);
-        }
-        return annotationMetadata;
-    }
-
-    /** The return value of a method as the metadata providers configure it. */
-    private Argument<?> configuredReturnArgument(ExecutableMethod<?, ?> method, Argument<?> argument) {
-        Class<?>[] parameterTypes = Argument.toClassArray(method.getArguments());
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            argument = provider.getMethodReturnArgument(method.getDeclaringType(), method.getMethodName(), parameterTypes, argument);
-        }
-        return argument;
-    }
-
-    /** The parameters of a constructor as the metadata providers configure them. */
-    private Argument<?>[] configuredConstructorArguments(Class<?> beanType, Argument<?>[] arguments) {
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            arguments = provider.getConstructorParameterArguments(beanType, arguments);
-        }
-        return arguments;
-    }
-
-    /** The annotations of a constructor as the metadata providers configure them. */
-    private AnnotationMetadata configuredConstructorMetadata(Class<?> beanType, Argument<?>[] arguments, AnnotationMetadata annotationMetadata) {
-        Class<?>[] parameterTypes = Argument.toClassArray(arguments);
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            annotationMetadata = provider.getConstructorAnnotationMetadata(beanType, parameterTypes, annotationMetadata);
-        }
-        return annotationMetadata;
-    }
-
-    /** The return value of a constructor as the metadata providers configure it. */
-    private Argument<?> configuredConstructorReturnArgument(Class<?> beanType, Argument<?>[] arguments, Argument<?> argument) {
-        Class<?>[] parameterTypes = Argument.toClassArray(arguments);
-        for (ValidationMetadataProvider provider : metadataProviders) {
-            argument = provider.getConstructorReturnArgument(beanType, parameterTypes, argument);
-        }
-        return argument;
+        return configuredExecutables.computeIfAbsent(key, ignored -> new ConfiguredExecutable(
+            annotationMetadata,
+            arguments,
+            Argument.of(beanType, annotationMetadata)
+        ));
     }
 
     ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {

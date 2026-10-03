@@ -27,7 +27,6 @@ import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
@@ -53,13 +52,11 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -76,8 +73,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private final BeanIntrospection<?> beanIntrospection;
     private final ReflectionSupport reflectionSupport;
     private final AnnotationMetadata beanAnnotationMetadata;
-    private final Map<String, AnnotationMetadata> propertyAnnotationMetadata;
-    private final List<ValidationMetadataProvider> metadataProviders;
+    private final ConstraintValidatorOverrides validatorOverrides;
     private final IntrospectedExecutableDescriptors executables;
     @Nullable
     private final ValidatorDeclarations declarations;
@@ -88,65 +84,33 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
      * @param beanIntrospection The bean introspection
      */
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection) {
-        this(beanIntrospection, beanIntrospection.getAnnotationMetadata(), Collections.emptyMap(), List.of());
-    }
-
-    /**
-     * @param beanIntrospection The bean introspection
-     * @param beanAnnotationMetadata The bean annotation metadata
-     * @param propertyAnnotationMetadata The property annotation metadata
-     */
-    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
-                               AnnotationMetadata beanAnnotationMetadata,
-                               Map<String, AnnotationMetadata> propertyAnnotationMetadata) {
-        this(beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, List.of());
-    }
-
-    /**
-     * @param beanIntrospection The bean introspection
-     * @param beanAnnotationMetadata The bean annotation metadata
-     * @param propertyAnnotationMetadata The property annotation metadata
-     * @param metadataProviders The validation metadata providers
-     */
-    public IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
-                               AnnotationMetadata beanAnnotationMetadata,
-                               Map<String, AnnotationMetadata> propertyAnnotationMetadata,
-                               List<ValidationMetadataProvider> metadataProviders) {
-        this(beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, metadataProviders, null);
+        this(ReflectionSupport.get(), beanIntrospection, ConstraintValidatorOverrides.NONE, null);
     }
 
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
-                               AnnotationMetadata beanAnnotationMetadata,
-                               Map<String, AnnotationMetadata> propertyAnnotationMetadata,
-                               List<ValidationMetadataProvider> metadataProviders,
-                               @Nullable ValidatorDeclarations declarations) {
-        this(declarations == null ? ReflectionSupport.get() : declarations.reflectionSupport(),
-            beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, metadataProviders, declarations);
+                               ConstraintValidatorOverrides validatorOverrides,
+                               ValidatorDeclarations declarations) {
+        this(declarations.reflectionSupport(), beanIntrospection, validatorOverrides, declarations);
     }
 
     /**
      * Creates a descriptor with the application's captured access provider.
      * @param reflectionSupport The access provider
      * @param beanIntrospection The bean introspection
-     * @param beanAnnotationMetadata The bean annotations
-     * @param propertyAnnotationMetadata The property annotations
-     * @param metadataProviders The metadata providers
+     * @param validatorOverrides The configured validators of the constraints
      */
     public IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
-            AnnotationMetadata beanAnnotationMetadata, Map<String, AnnotationMetadata> propertyAnnotationMetadata,
-            List<ValidationMetadataProvider> metadataProviders) {
-        this(reflectionSupport, beanIntrospection, beanAnnotationMetadata, propertyAnnotationMetadata, metadataProviders, null);
+            ConstraintValidatorOverrides validatorOverrides) {
+        this(reflectionSupport, beanIntrospection, validatorOverrides, null);
     }
 
     private IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
-            AnnotationMetadata beanAnnotationMetadata, Map<String, AnnotationMetadata> propertyAnnotationMetadata,
-            List<ValidationMetadataProvider> metadataProviders, @Nullable ValidatorDeclarations declarations) {
+            ConstraintValidatorOverrides validatorOverrides, @Nullable ValidatorDeclarations declarations) {
         ArgumentUtils.requireNonNull("beanIntrospection", beanIntrospection);
         this.beanIntrospection = beanIntrospection;
         this.reflectionSupport = reflectionSupport;
-        this.beanAnnotationMetadata = beanAnnotationMetadata;
-        this.propertyAnnotationMetadata = new LinkedHashMap<>(propertyAnnotationMetadata);
-        this.metadataProviders = List.copyOf(metadataProviders);
+        this.beanAnnotationMetadata = beanIntrospection.getAnnotationMetadata();
+        this.validatorOverrides = validatorOverrides;
         this.executables = new IntrospectedExecutableDescriptors(this::constraintDescriptors, declarations, reflectionSupport);
         this.declarations = declarations;
     }
@@ -162,98 +126,31 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         if (propertyName == null) {
             throw new IllegalArgumentException("Property name cannot be null");
         }
-        PropertyDescriptor introspectedDescriptor = beanIntrospection.getProperty(propertyName)
+        return beanIntrospection.getProperty(propertyName)
             .map(IntrospectedPropertyDescriptor::new)
             .filter(property -> property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty())
             .map(PropertyDescriptor.class::cast)
             .orElse(null);
-        PropertyMetadataResolution metadata = propertyMetadata(propertyName);
-        if (metadata.annotationsIgnored()) {
-            return metadata.descriptor();
-        }
-        if (introspectedDescriptor == null) {
-            return metadata.descriptor();
-        }
-        if (metadata.descriptor() != null
-            && metadata.descriptor().getConstraintDescriptors().size() > introspectedDescriptor.getConstraintDescriptors().size()) {
-            return metadata.descriptor();
-        }
-        return introspectedDescriptor;
     }
 
     @Override
     public Set<PropertyDescriptor> getConstrainedProperties() {
-        Map<String, PropertyDescriptor> properties = beanIntrospection.getBeanProperties()
+        return beanIntrospection.getBeanProperties()
             .stream()
             .map(IntrospectedPropertyDescriptor::new)
             .filter(property -> property.hasConstraints() || property.isCascaded())
-            .collect(Collectors.toMap(PropertyDescriptor::getPropertyName, property -> property, (left, right) -> left, LinkedHashMap::new));
-        metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .flatMap(descriptor -> descriptor.getConstrainedProperties().stream())
-            .forEach(property -> properties.merge(
-                property.getPropertyName(),
-                property,
-                (existing, replacement) -> replacement.getConstraintDescriptors().size() > existing.getConstraintDescriptors().size() ? replacement : existing
-            ));
-        for (BeanProperty<?, ?> beanProperty : beanIntrospection.getBeanProperties()) {
-            String propertyName = beanProperty.getName();
-            PropertyMetadataResolution metadata = propertyMetadata(propertyName);
-            if (metadata.annotationsIgnored()) {
-                if (metadata.descriptor() == null || !isConstrained(metadata.descriptor())) {
-                    properties.remove(propertyName);
-                } else {
-                    properties.put(propertyName, metadata.descriptor());
-                }
-            }
-        }
-        return new LinkedHashSet<>(properties.values());
-    }
-
-    private PropertyMetadataResolution propertyMetadata(String propertyName) {
-        PropertyDescriptor descriptor = null;
-        boolean annotationsIgnored = false;
-        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType())
-                .map(beanDescriptor -> beanDescriptor.getConstraintsForProperty(propertyName))
-                .orElse(null);
-            if (metadataProvider.isPropertyAnnotationMetadataIgnored(beanIntrospection.getBeanType(), propertyName)) {
-                annotationsIgnored = true;
-                break;
-            }
-            if (descriptor != null) {
-                break;
-            }
-        }
-        return new PropertyMetadataResolution(descriptor, annotationsIgnored);
-    }
-
-    private static boolean isConstrained(PropertyDescriptor property) {
-        return property.hasConstraints()
-            || property.isCascaded()
-            || !property.getGroupConversions().isEmpty()
-            || !property.getConstrainedContainerElementTypes().isEmpty();
+            .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
     /**
      * The executables come from the introspection — the {@code @Executable} methods and the constructor of a
-     * generated one, every public method and the constructor of a reflective one — and from the metadata
-     * providers for what the introspection does not know.
+     * generated one, every public method and the constructor of a reflective one.
      */
     @Nullable
     @Override
     public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
         if (methodName == null) {
             throw new IllegalArgumentException("Method name cannot be null");
-        }
-        MethodDescriptor provided = metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .map(descriptor -> descriptor.getConstraintsForMethod(methodName, parameterTypes))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-        if (provided != null) {
-            return provided;
         }
         for (BeanMethod<?, ?> method : beanIntrospection.getBeanMethods()) {
             if (method.getName().equals(methodName) && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes)) {
@@ -278,25 +175,12 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 methods.putIfAbsent(signature(descriptor.getName(), method.getArguments()), descriptor);
             }
         }
-        metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .flatMap(descriptor -> descriptor.getConstrainedMethods(methodType, methodTypes).stream())
-            .forEach(descriptor -> methods.put(signature(descriptor), descriptor));
         return new LinkedHashSet<>(methods.values());
     }
 
     @Nullable
     @Override
     public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
-        ConstructorDescriptor provided = metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .map(descriptor -> descriptor.getConstraintsForConstructor(parameterTypes))
-            .filter(Objects::nonNull)
-            .findFirst()
-            .orElse(null);
-        if (provided != null) {
-            return provided;
-        }
         for (BeanConstructor<?> constructor : constructors()) {
             if (Arrays.equals(Argument.toClassArray(constructor.getArguments()), parameterTypes)) {
                 ConstructorDescriptor descriptor = executables.constructor(constructor);
@@ -315,10 +199,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 constructors.putIfAbsent(signature(descriptor), descriptor);
             }
         }
-        metadataProviders.stream()
-            .flatMap(provider -> provider.getConstraintsForClass(beanIntrospection.getBeanType()).stream())
-            .flatMap(provided -> provided.getConstrainedConstructors().stream())
-            .forEach(provided -> constructors.put(signature(provided), provided));
         return new LinkedHashSet<>(constructors.values());
     }
 
@@ -384,12 +264,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            Optional<BeanDescriptor> descriptor = metadataProvider.getConstraintsForClass(beanIntrospection.getBeanType());
-            if (metadataProvider.isBeanAnnotationMetadataIgnored(beanIntrospection.getBeanType()) && descriptor.isPresent()) {
-                return descriptor.get().getConstraintDescriptors();
-            }
-        }
         return constraintDescriptors(beanAnnotationMetadata);
     }
 
@@ -450,21 +324,12 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             ));
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
         Class<Annotation> constraintType,
         AnnotationValue<Annotation> annotationValue) {
-        List<Class<? extends ConstraintValidator<Annotation, ?>>> validatorClasses =
-            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> configuredClasses = Optional.empty();
-        for (ValidationMetadataProvider metadataProvider : metadataProviders) {
-            Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> providerClasses =
-                metadataProvider.getConstraintValidatorClasses(constraintType, validatorClasses);
-            if (providerClasses.isPresent()) {
-                configuredClasses = providerClasses;
-                validatorClasses = providerClasses.get();
-            }
-        }
-        return configuredClasses;
+        return Optional.ofNullable((List) validatorOverrides.validatorsOf(constraintType,
+            List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY))));
     }
 
     private ClassLoader currentClassLoader() {
@@ -491,7 +356,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
         private IntrospectedPropertyDescriptor(BeanProperty<?, ?> beanProperty, Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
             this.beanProperty = beanProperty;
-            this.annotationMetadata = propertyAnnotationMetadata.getOrDefault(beanProperty.getName(), beanProperty);
+            this.annotationMetadata = beanProperty.getAnnotationMetadata();
             this.groups = groups;
             this.scope = scope;
             this.declaredOn = declaredOn;
@@ -804,11 +669,5 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         public <U> U unwrap(Class<U> type) {
             return delegate.unwrap(type);
         }
-    }
-
-    private record PropertyMetadataResolution(
-        @Nullable PropertyDescriptor descriptor,
-        boolean annotationsIgnored
-    ) {
     }
 }

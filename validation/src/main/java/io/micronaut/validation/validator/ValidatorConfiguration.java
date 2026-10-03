@@ -21,7 +21,6 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
@@ -29,7 +28,6 @@ import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
 import org.jspecify.annotations.NonNull;
 
-import java.util.List;
 
 /**
  * Configuration for the {@link Validator}.
@@ -160,12 +158,12 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     }
 
     /**
-     * @return Optional validation metadata providers
+     * @return The validators a configuration defines for the constraints
      * @since 5.3.0
      */
-    @NonNull
-    default List<ValidationMetadataProvider> getMetadataProviders() {
-        return List.of();
+    @Internal
+    default ConstraintValidatorOverrides getConstraintValidatorOverrides() {
+        return ConstraintValidatorOverrides.NONE;
     }
 
     /**

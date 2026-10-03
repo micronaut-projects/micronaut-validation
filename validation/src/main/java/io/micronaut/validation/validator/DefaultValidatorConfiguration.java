@@ -36,7 +36,6 @@ import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
-import io.micronaut.validation.validator.metadata.ValidationMetadataProvider;
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintTarget;
@@ -56,8 +55,6 @@ import org.jspecify.annotations.Nullable;
 import java.lang.annotation.ElementType;
 import java.lang.reflect.Type;
 import java.util.Collection;
-import java.util.Comparator;
-import java.util.List;
 import java.util.Optional;
 
 /**
@@ -112,7 +109,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     private ReflectionSupport reflectionSupport = ReflectionSupport.get();
     private BeanIntrospector beanIntrospector = reflectionSupport.introspector();
-    private List<ValidationMetadataProvider> metadataProviders = List.of();
+    private ConstraintValidatorOverrides constraintValidatorOverrides = ConstraintValidatorOverrides.NONE;
 
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
@@ -552,33 +549,28 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
-        this.beanIntrospector = beanIntrospector;
         this.reflectionSupport = reflectionSupport.withIntrospector(beanIntrospector);
+        // the introspector as the support reads it: without the reflection module, its generated introspections
+        this.beanIntrospector = reflectionSupport.introspector();
         this.defaultParameterNameProvider = null;
         if (constraintValidatorFactory == null || constraintValidatorFactory instanceof DefaultInternalConstraintValidatorFactory) {
-            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null, reflectionSupport);
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(this.beanIntrospector, null, reflectionSupport);
         }
     }
 
     @Override
-    public List<ValidationMetadataProvider> getMetadataProviders() {
-        return metadataProviders;
+    public ConstraintValidatorOverrides getConstraintValidatorOverrides() {
+        return constraintValidatorOverrides;
     }
 
     /**
-     * Sets optional metadata providers.
+     * Sets the validators a configuration defines for the constraints.
      *
-     * @param metadataProviders The metadata providers
+     * @param constraintValidatorOverrides The configured validators
      */
-    @Inject
-    public void setMetadataProviders(List<ValidationMetadataProvider> metadataProviders) {
-        if (metadataProviders == null) {
-            this.metadataProviders = List.of();
-        } else {
-            this.metadataProviders = metadataProviders.stream()
-                .sorted(Comparator.comparingInt(ValidationMetadataProvider::getOrder))
-                .toList();
-        }
+    @Internal
+    public final void setConstraintValidatorOverrides(ConstraintValidatorOverrides constraintValidatorOverrides) {
+        this.constraintValidatorOverrides = constraintValidatorOverrides;
     }
 
     @Override

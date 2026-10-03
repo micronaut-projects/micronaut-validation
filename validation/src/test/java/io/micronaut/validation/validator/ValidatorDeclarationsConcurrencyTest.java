@@ -64,7 +64,7 @@ class ValidatorDeclarationsConcurrencyTest {
                 }
                 return method.invoke(new CompileTimeSupport(), arguments);
             });
-        var declarations = new ValidatorDeclarations(BeanIntrospector.SHARED, true, List.of(), support);
+        var declarations = new ValidatorDeclarations(BeanIntrospector.SHARED, true, support);
         try (var executor = Executors.newFixedThreadPool(2)) {
             var first = executor.submit(() -> check.accept(declarations));
             assertTrue(entered.await(5, TimeUnit.SECONDS));

@@ -72,18 +72,31 @@ import java.util.TreeSet;
 final class CompileTimeSupport implements ReflectionSupport {
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
+    private final boolean generatedOnly;
 
+    /**
+     * The support of a validator without the reflection module: whatever introspector it is given, it reads
+     * the generated introspections of it only.
+     */
     CompileTimeSupport() {
-        this(BeanIntrospector.forClassLoader(CompileTimeSupport.class.getClassLoader()));
+        this(BeanIntrospector.forClassLoader(CompileTimeSupport.class.getClassLoader()), CompileTimeSupport.class.getClassLoader(), true);
     }
 
-    CompileTimeSupport(BeanIntrospector introspector) {
-        this(introspector, CompileTimeSupport.class.getClassLoader());
-    }
-
+    /**
+     * The support the reflection module answers through for what the generated metadata describes: the
+     * introspector is the one that module chose, reflective introspections included.
+     *
+     * @param introspector The introspector
+     * @param classLoader  The application class loader
+     */
     CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader) {
-        this.introspector = introspector;
+        this(introspector, classLoader, false);
+    }
+
+    private CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader, boolean generatedOnly) {
+        this.introspector = generatedOnly ? GeneratedBeanIntrospector.of(introspector) : introspector;
         this.classLoader = classLoader;
+        this.generatedOnly = generatedOnly;
     }
 
     @Override
@@ -93,7 +106,7 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public ReflectionSupport withClassLoader(ClassLoader loader) {
-        return new CompileTimeSupport(BeanIntrospector.forClassLoader(loader), loader);
+        return new CompileTimeSupport(BeanIntrospector.forClassLoader(loader), loader, generatedOnly);
     }
 
     @Override
@@ -103,7 +116,7 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public ReflectionSupport withIntrospector(BeanIntrospector introspector) {
-        return new CompileTimeSupport(introspector, classLoader);
+        return new CompileTimeSupport(introspector, classLoader, generatedOnly);
     }
 
     @Override

@@ -89,9 +89,9 @@ final class XmlMappingParser {
     private final ClassLoader classLoader;
     private final ReflectionSupport reflectionSupport;
 
-    XmlMappingParser(ClassLoader classLoader, Set<InputStream> mappingStreams) {
-        this.classLoader = classLoader;
-        this.reflectionSupport = ReflectionSupport.forClassLoader(classLoader);
+    XmlMappingParser(ReflectionSupport reflectionSupport, Set<InputStream> mappingStreams) {
+        this.classLoader = reflectionSupport.classLoader();
+        this.reflectionSupport = reflectionSupport;
         RuntimeException failure = null;
         try {
             for (InputStream mappingStream : mappingStreams) {

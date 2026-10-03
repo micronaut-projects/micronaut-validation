@@ -23,7 +23,7 @@ import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import java.util.List;
 
 /**
- * Merges the annotation metadata of an element with the one a {@link ValidationMetadataProvider} configures.
+ * Merges the annotation metadata of an element with the one a configuration, such as an XML mapping, adds to it.
  *
  * @since 5.0.0
  */
