@@ -368,6 +368,9 @@ public final class MicronautValidatorConfiguration
             ? configuration.classLoader : ReflectionSupport.get().classLoader();
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties, loader);
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
+        // a factory bootstrapped through the Jakarta API checks constraint definitions as the specification
+        // has it, which the bean of an application only does when configured to
+        validatorConfiguration.setStrictConstraintDefinitions(true);
         // the generated introspections of the application, supplemented by the reflection bridge of
         // micronaut-core for
         // the types without one: the validator reads them, the factory instantiates the constraint

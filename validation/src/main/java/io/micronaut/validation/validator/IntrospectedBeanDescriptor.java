@@ -602,7 +602,12 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
      * @param implicitGroup The interface declaring the member
      * @param <A>           The annotation type
      */
-    private record ImplicitGroupConstraintDescriptor<A extends Annotation>(ConstraintDescriptor<A> delegate, Class<?> implicitGroup) implements ConstraintDescriptor<A> {
+    private record ImplicitGroupConstraintDescriptor<A extends Annotation>(ConstraintDescriptor<A> delegate, Class<?> implicitGroup) implements ConstraintDescriptor<A>, MessageAttributes.Source {
+
+        @Override
+        public Map<String, Object> messageAttributes() {
+            return MessageAttributes.of(delegate);
+        }
 
         public Class<?> getType() {
             return ((DefaultConstraintDescriptor<?>) delegate).getType();

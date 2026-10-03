@@ -171,7 +171,8 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             return JavaComposition.hasDirectAndContainerComposition(type);
         }
         var annotations = type.getAnnotationMetadata().getDeclaredAnnotationNames();
-        return annotations.stream().anyMatch(name -> name.endsWith(".List")
+        // a nested container is named by its binary name, Size$List, as on the Java path
+        return annotations.stream().anyMatch(name -> (name.endsWith("$List") || name.endsWith(".List"))
             && annotations.contains(name.substring(0, name.length() - 5)));
     }
 

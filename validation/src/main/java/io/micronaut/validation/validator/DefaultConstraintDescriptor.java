@@ -32,6 +32,7 @@ import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Payload;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
@@ -62,7 +63,7 @@ import java.util.Set;
  * @since 1.2
  */
 @Internal
-class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T> {
+class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T>, MessageAttributes.Source {
 
     private static final String CONSTRAINT_ANNOTATION = Constraint.class.getName();
 
@@ -312,6 +313,23 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         if (reflected != null) {
             return reflected;
         }
+        return metadataAttributes();
+    }
+
+    @Override
+    public Map<String, Object> messageAttributes() {
+        if (annotationValue.stringValues(ValidationAnnotationUtil.RUNTIME_ATTRIBUTES).length == 0) {
+            return getAttributes();
+        }
+        try {
+            return getAttributes();
+        } catch (ValidationException e) {
+            // an enum or annotation member without its typed value: the message renders the metadata's
+            return metadataAttributes();
+        }
+    }
+
+    private Map<String, Object> metadataAttributes() {
         final Map<?, ?> values = annotationValue.getValues();
         Map<String, Object> variables = CollectionUtils.newLinkedHashMap(values.size());
         for (Map.Entry<?, ?> entry : values.entrySet()) {

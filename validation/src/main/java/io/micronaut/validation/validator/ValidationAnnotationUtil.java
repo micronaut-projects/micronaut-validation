@@ -37,5 +37,10 @@ public interface ValidationAnnotationUtil {
     String PATTERN_FLAGS = "$patternFlags";
     String PATTERN_FLAG_ARRAYS = "$patternFlagArrays";
     String RUNTIME_ATTRIBUTES = "$runtimeAttributes";
+    /**
+     * Recorded on a Jakarta constraint validator: whether it implements {@code initialize(A)} itself. One
+     * that keeps the no-op default needs no annotation instance.
+     */
+    String VALIDATOR_INITIALIZATION = "io.micronaut.validation.internal.ValidatorInitialization";
 
 }

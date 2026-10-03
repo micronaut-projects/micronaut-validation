@@ -174,7 +174,7 @@ public class DefaultValidator
         this.beanIntrospector = reflectionSupport.introspector();
         this.validatorOverrides = configuration.getConstraintValidatorOverrides();
         this.constraintValidatorFactory = internalConstraintValidatorFactory(configuration);
-        this.validatorInstances = new ConstraintValidatorInstances(constraintValidatorFactory);
+        this.validatorInstances = new ConstraintValidatorInstances(constraintValidatorFactory, beanIntrospector);
         this.parameterNameProvider = configuration.getParameterNameProvider();
         this.isPrependPropertyPath = configuration.isPrependPropertyPath();
         this.declarations = new ValidatorDeclarations(beanIntrospector, configuration.isStrictConstraintDefinitions(), reflectionSupport);

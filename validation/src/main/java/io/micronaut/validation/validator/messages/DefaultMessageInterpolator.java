@@ -21,6 +21,7 @@ import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.ArgumentUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import io.micronaut.validation.validator.MessageAttributes;
 import jakarta.validation.MessageInterpolator;
 
 import java.util.HashMap;
@@ -158,7 +159,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
 
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
-        var attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
+        var attributes = new HashMap<>(MessageAttributes.of(context.getConstraintDescriptor()));
         attributes.put("validatedValue", context.getValidatedValue());
         if (context instanceof DefaultMessageInterpolatorContext interpolatorContext) {
             attributes.put("validatedPath", interpolatorContext.getValidatorContext().getCurrentPath());

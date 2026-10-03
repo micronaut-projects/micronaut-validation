@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 
@@ -37,13 +38,26 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 @Internal
 final class ConstraintValidatorInstances implements AutoCloseable {
     private final InternalConstraintValidatorFactory factory;
+    private final BeanIntrospector introspector;
     private final Map<InitializedValidatorKey, jakarta.validation.ConstraintValidator<?, ?>>
             initializedValidators = new ConcurrentHashMap<>();
     private final ReentrantReadWriteLock validatorLifecycle = new ReentrantReadWriteLock();
     private volatile boolean closed;
 
-    ConstraintValidatorInstances(InternalConstraintValidatorFactory factory) {
+    ConstraintValidatorInstances(InternalConstraintValidatorFactory factory, BeanIntrospector introspector) {
         this.factory = factory;
+        this.introspector = introspector;
+    }
+
+    /**
+     * Whether a Jakarta validator implements {@code initialize}. The processor records it on the validator's
+     * introspection; a validator it never saw is initialized, as the specification has it.
+     */
+    private boolean initializes(Class<?> validatorType) {
+        return introspector.findIntrospection(validatorType)
+            .flatMap(introspection -> introspection.getAnnotationMetadata()
+                .booleanValue(ValidationAnnotationUtil.VALIDATOR_INITIALIZATION, "value"))
+            .orElse(true);
     }
 
     void checkOpen() {
@@ -157,7 +171,7 @@ final class ConstraintValidatorInstances implements AutoCloseable {
                             + type.getName());
         }
         try {
-            if (!(instance instanceof ConstraintValidator<?, ?>)) {
+            if (!(instance instanceof ConstraintValidator<?, ?>) && initializes(type)) {
                 instance.initialize(constraint.getAnnotation());
             }
         } catch (RuntimeException e) {

@@ -220,14 +220,10 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
         var metadata = introspector().findIntrospection(type)
             .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
-        if (metadata == null) {
-            throw new ValidationException(
-                    "No generated hierarchy for "
-                            + type.getName()
-                            + ": add micronaut-validation-reflection or compile the type with"
-                            + " micronaut-validation-processor");
-        }
-        return List.of(metadata.classValues("interfaces"));
+        // a type the processor never described (a library compiled without it, a type introspected through
+        // @Introspected(classes = ...)) has no validated super types: the constraints core merges into its
+        // introspection are all the validator reads, as before 5.3
+        return metadata == null ? List.of() : List.of(metadata.classValues("interfaces"));
     }
 
     /**
@@ -250,14 +246,8 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
         var metadata = introspector().findIntrospection(type)
             .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
-        if (metadata == null) {
-            throw new ValidationException(
-                    "No generated hierarchy for "
-                            + type.getName()
-                            + ": add micronaut-validation-reflection or compile the type with"
-                            + " micronaut-validation-processor");
-        }
-        return metadata.classValue("superType").orElse(null);
+        // see interfaces(Class): no generated hierarchy, no validated super type
+        return metadata == null ? null : metadata.classValue("superType").orElse(null);
     }
 
     /**

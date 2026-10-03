@@ -26,6 +26,7 @@ import io.micronaut.el.interpreter.InterpretingELExpressionParser;
 import io.micronaut.el.resolver.CommonELResolver;
 import io.micronaut.el.resolver.IntrospectionELResolver;
 import io.micronaut.el.resolver.StreamELResolver;
+import io.micronaut.validation.validator.MessageAttributes;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.el.ExpressionFactory;
@@ -110,7 +111,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
-        Map<String, Object> attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
+        Map<String, Object> attributes = new HashMap<>(MessageAttributes.of(context.getConstraintDescriptor()));
         return interpolate(messageTemplate, MessageSource.MessageContext.of(locale, attributes), context);
     }
 
@@ -215,7 +216,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     private String evaluateExpression(String expression, Context context, Locale locale) {
         ValidationELContext elContext = new ValidationELContext(introspector);
-        for (Map.Entry<String, Object> entry : context.getConstraintDescriptor().getAttributes().entrySet()) {
+        for (Map.Entry<String, Object> entry : MessageAttributes.of(context.getConstraintDescriptor()).entrySet()) {
             elContext.getVariableMapper().setVariable(
                 entry.getKey(),
                 expressionFactory.createValueExpression(entry.getValue(), Object.class)

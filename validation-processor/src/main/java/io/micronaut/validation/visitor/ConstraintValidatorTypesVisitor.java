@@ -18,10 +18,12 @@ package io.micronaut.validation.visitor;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
@@ -80,6 +82,16 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
         // the introspection records what the validator binds in ConstraintValidator - the constraint and the
         // validated type - and the validation target it declares. Without one it can only be read from the class
         element.annotate(Introspected.class);
+        // whether initialize(A) is implemented below the no-op default of the interface: a validator keeping
+        // the default is passed no annotation instance, which would need reflection to build
+        boolean initializes = element.getEnclosedElements(ElementQuery.ALL_METHODS
+                .onlyConcrete()
+                .named("initialize")
+                .filter(method -> method.getParameters().length == 1))
+            .stream()
+            .anyMatch(method -> !method.getDeclaringType().getName().equals(CONSTRAINT_VALIDATOR));
+        element.annotate(ValidationAnnotationUtil.VALIDATOR_INITIALIZATION,
+            builder -> builder.member("value", initializes));
     }
 
     /**
