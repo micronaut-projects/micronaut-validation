@@ -71,20 +71,6 @@ public final class ExecutableHierarchy {
      * super type or an interface lists for the executable, by name and parameter types, and the local one
      * merged with them.
      *
-     * @param introspector The introspector of the super types
-     * @param local        The executable as validated
-     * @param name         Its name
-     * @return The executable with what it inherits merged in
-     */
-    public static Resolved resolve(BeanIntrospector introspector, Declaration local, String name) {
-        return resolve(ReflectionSupport.get(), introspector, local, name);
-    }
-
-    /**
-     * Resolves the hierarchy of an executable from the introspections of the super types: the declaration a
-     * super type or an interface lists for the executable, by name and parameter types, and the local one
-     * merged with them.
-     *
      * @param reflectionSupport The access provider captured by the validator factory
      * @param introspector The introspector of the super types
      * @param local        The executable as validated
@@ -284,18 +270,6 @@ public final class ExecutableHierarchy {
      * <p>When the declaring type is not introspected reflectively, the validated metadata may already merge
      * what the executable inherits: only what none of the inherited declarations carries counts as added.</p>
      *
-     * @param hierarchy The hierarchy of the executable
-     */
-    static void checkParameterDeclarations(Resolved hierarchy) {
-        checkParameterDeclarations(ReflectionSupport.get(), hierarchy);
-    }
-
-    /**
-     * Parameter constraints, cascades and group conversions are declared once, at the root of the hierarchy.
-     *
-     * <p>When the declaring type is not introspected reflectively, the validated metadata may already merge
-     * what the executable inherits: only what none of the inherited declarations carries counts as added.</p>
-     *
      * @param reflectionSupport The access provider captured by the validator factory
      * @param hierarchy The hierarchy of the executable
      */
@@ -320,15 +294,6 @@ public final class ExecutableHierarchy {
         if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasParameterGroupConversions)) {
             throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter group conversions: " + describe(declared));
         }
-    }
-
-    /**
-     * A return value is marked cascaded once in the hierarchy, and its group conversions are not declared in parallel.
-     *
-     * @param hierarchy The hierarchy of the executable
-     */
-    static void checkReturnValueDeclarations(Resolved hierarchy) {
-        checkReturnValueDeclarations(ReflectionSupport.get(), hierarchy);
     }
 
     /**
@@ -360,15 +325,6 @@ public final class ExecutableHierarchy {
     /**
      * Checks the group conversions of an element and of its type arguments.
      *
-     * @param argument The element
-     */
-    static void checkGroupConversions(Argument<?> argument) {
-        checkGroupConversions(ReflectionSupport.get(), argument);
-    }
-
-    /**
-     * Checks the group conversions of an element and of its type arguments.
-     *
      * @param reflectionSupport The access provider captured by the validator factory
      * @param argument The element
      */
@@ -377,16 +333,6 @@ public final class ExecutableHierarchy {
         for (Argument<?> typeArgument : argument.getTypeParameters()) {
             checkGroupConversions(reflectionSupport, typeArgument);
         }
-    }
-
-    /**
-     * Group conversions are declared on cascaded elements, from a group that is not a sequence, once per source group.
-     *
-     * @param annotationMetadata The element annotations
-     * @param cascaded           Whether the element is cascaded
-     */
-    static void checkGroupConversions(AnnotationMetadata annotationMetadata, boolean cascaded) {
-        checkGroupConversions(ReflectionSupport.get(), annotationMetadata, cascaded);
     }
 
     /**

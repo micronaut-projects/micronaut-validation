@@ -227,16 +227,6 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * @param type The annotation interface
-     * @param value The attributes
-     * @param <T> The annotation type
-     * @return Its optional runtime implementation
-     */
-    public static <T extends Annotation> T create(Class<T> type, AnnotationValue<?> value) {
-        return create(ReflectionSupport.get(), type, value);
-    }
-
-    /**
      * @param reflectionSupport The access provider captured by the validator factory
      * @param type The annotation interface
      * @param value The attributes
@@ -245,15 +235,6 @@ public final class ValidationMetadataSupport {
      */
     public static <T extends Annotation> T create(ReflectionSupport reflectionSupport, Class<T> type, AnnotationValue<?> value) {
         return reflectionSupport.annotation(type, value);
-    }
-
-    /**
-     * @param name The type name
-     * @param loader The application loader
-     * @return An introspected class or optional runtime lookup
-     */
-    public static Class<?> type(String name, ClassLoader loader) {
-        return type(ReflectionSupport.get(), name, loader);
     }
 
     /**
@@ -273,14 +254,6 @@ public final class ValidationMetadataSupport {
             }
         }
         return reflectionSupport.classForName(name, loader);
-    }
-
-    /**
-     * @param type The annotation interface
-     * @return Its optional member definitions
-     */
-    public static Map<String, AnnotationMember> annotationMembers(Class<? extends Annotation> type) {
-        return annotationMembers(ReflectionSupport.get(), type);
     }
 
     /**
@@ -346,14 +319,6 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * @param type The enum type
-     * @return Its optional runtime constants
-     */
-    public static List<Enum<?>> enumConstants(Class<?> type) {
-        return enumConstants(ReflectionSupport.get(), type);
-    }
-
-    /**
      * @param reflectionSupport The access provider captured by the validator factory
      * @param type The enum type
      * @return Its optional runtime constants
@@ -363,15 +328,6 @@ public final class ValidationMetadataSupport {
             return List.of(Pattern.Flag.values());
         }
         return reflectionSupport.enumConstants(type);
-    }
-
-    /**
-     * @param type The array component
-     * @param size The requested size
-     * @return Its optional typed array
-     */
-    public static Object[] typedArray(Class<?> type, int size) {
-        return typedArray(ReflectionSupport.get(), type, size);
     }
 
     /**

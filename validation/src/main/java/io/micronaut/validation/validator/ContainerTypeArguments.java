@@ -46,15 +46,6 @@ final class ContainerTypeArguments {
     /**
      * The type a type binds the type argument of a generic super type to, with the annotations declared on it
      * and its own type arguments.
-     */
-    @Nullable
-    static Argument<?> resolveBoundTypeArgument(BeanIntrospector introspector, Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        return resolveBoundTypeArgument(ReflectionSupport.get(), introspector, declaredType, containerType, typeArgumentIndex);
-    }
-
-    /**
-     * The type a type binds the type argument of a generic super type to, with the annotations declared on it
-     * and its own type arguments.
      *
      * @param reflectionSupport The access provider captured by the validator factory
      */
@@ -70,14 +61,6 @@ final class ContainerTypeArguments {
             }
         }
         return reflectionSupport.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
-    }
-
-    /** Which of a type's own type arguments carries the one an extractor extracts. */
-    @Nullable
-    static Integer resolveExtractedTypeArgumentIndex(BeanIntrospector introspector, Class<?> declaredType,
-                                                     Class<?> extractorContainerType,
-                                                     @Nullable Integer extractorTypeArgumentIndex) {
-        return resolveExtractedTypeArgumentIndex(ReflectionSupport.get(), introspector, declaredType, extractorContainerType, extractorTypeArgumentIndex);
     }
 
     /** Which of a type's own type arguments carries the one an extractor extracts.

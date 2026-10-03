@@ -76,10 +76,11 @@ class DefaultValidationCapabilitiesTest {
         var leaf = Argument.of(String.class, "leaf", leafMetadata);
         var unmarked = Argument.of(List.class, "unmarked", AnnotationMetadata.EMPTY_METADATA, leaf);
         var root = Argument.of(List.class, "root", AnnotationMetadata.EMPTY_METADATA, unmarked);
-        assertFalse(ArgumentValidationMetadata.isValidated(root));
-        assertFalse(ArgumentValidationMetadata.hasValidatedTypeArgument(root));
-        assertFalse(ArgumentValidationMetadata.hasCascadedTypeArgument(root));
-        assertTrue(ArgumentValidationMetadata.hasValidatedTypeArgument(unmarked));
+        var support = ReflectionSupport.generated(BeanIntrospector.SHARED, getClass().getClassLoader());
+        assertFalse(ArgumentValidationMetadata.isValidated(support, root));
+        assertFalse(ArgumentValidationMetadata.hasValidatedTypeArgument(support, root));
+        assertFalse(ArgumentValidationMetadata.hasCascadedTypeArgument(support, root));
+        assertTrue(ArgumentValidationMetadata.hasValidatedTypeArgument(support, unmarked));
     }
 
     @Test

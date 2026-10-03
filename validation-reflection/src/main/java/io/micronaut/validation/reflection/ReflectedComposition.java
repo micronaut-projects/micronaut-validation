@@ -80,7 +80,7 @@ final class ReflectedComposition {
         checkCompositionTargets(reflectionSupport, constraintType, composingAnnotations);
         List<ReflectionSupport.ComposingConstraint> composingConstraints = new ArrayList<>();
         for (ComposingAnnotation annotation : composingAnnotations) {
-            composingConstraints.add(composingConstraint(annotation, constraintType, parentAnnotationValue, composingAnnotations));
+            composingConstraints.add(composingConstraint(reflectionSupport, annotation, constraintType, parentAnnotationValue, composingAnnotations));
         }
         return List.copyOf(composingConstraints);
     }
@@ -104,6 +104,7 @@ final class ReflectedComposition {
 
     @SuppressWarnings("unchecked")
     private static ReflectionSupport.ComposingConstraint composingConstraint(
+        ReflectionSupport reflectionSupport,
         ComposingAnnotation composingAnnotation,
         Class<? extends Annotation> parentType,
         AnnotationValue<? extends Annotation> parentAnnotationValue,
@@ -121,6 +122,7 @@ final class ReflectedComposition {
         values.put(ATTRIBUTE_GROUPS, parentGroups.length == 0 ? new Class<?>[]{Default.class} : parentGroups);
         values.put(ATTRIBUTE_PAYLOAD, parentAnnotationValue.classValues(ATTRIBUTE_PAYLOAD));
         AnnotationValue<Annotation> annotationValue = (AnnotationValue<Annotation>) ConstraintContainers.withValidators(
+            reflectionSupport,
             new AnnotationValue<>(annotationType.getName(), values, ReflectionAnnotations.defaultValues(annotationType)),
             annotationType
         );

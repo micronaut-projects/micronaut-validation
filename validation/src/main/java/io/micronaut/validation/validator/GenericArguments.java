@@ -39,17 +39,6 @@ public final class GenericArguments {
      * The argument of a type: the class it erases to, with the type arguments it binds, an unbound variable
      * standing for its erasure.
      *
-     * @param type The type
-     * @return The argument
-     */
-    public static Argument<?> of(Type type) {
-        return of(ReflectionSupport.get(), type);
-    }
-
-    /**
-     * The argument of a type: the class it erases to, with the type arguments it binds, an unbound variable
-     * standing for its erasure.
-     *
      * @param reflectionSupport The access provider captured by the validator factory
      * @param type The type
      * @return The argument

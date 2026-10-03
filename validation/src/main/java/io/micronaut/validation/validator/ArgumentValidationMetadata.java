@@ -30,24 +30,11 @@ final class ArgumentValidationMetadata {
      * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
      * it carries a constraint or a cascade, and an argument read reflectively carries the
      * constraint or the cascade itself.
-     */
-    static <E> boolean isValidated(Argument<E> containerArgument) {
-        return isValidated(ReflectionSupport.get(), containerArgument);
-    }
-
-    /**
-     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
-     * it carries a constraint or a cascade, and an argument read reflectively carries the
-     * constraint or the cascade itself.
      *
      * @param reflectionSupport The access provider captured by the validator factory
      */
     static <E> boolean isValidated(ReflectionSupport reflectionSupport, Argument<E> containerArgument) {
         return reflectionSupport.prepareArgument(containerArgument).getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
-    }
-
-    static boolean hasValidatedTypeArgument(Argument<?> argument) {
-        return hasValidatedTypeArgument(ReflectionSupport.get(), argument);
     }
 
     /**
@@ -65,10 +52,6 @@ final class ArgumentValidationMetadata {
             }
         }
         return false;
-    }
-
-    static boolean hasCascadedTypeArgument(Argument<?> argument) {
-        return hasCascadedTypeArgument(ReflectionSupport.get(), argument);
     }
 
     /**
