@@ -283,19 +283,25 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @NonNull
     public TraversableResolver getDefaultTraversableResolver() {
         if (defaultTraversableResolver == null) {
-            defaultTraversableResolver = new TraversableResolver() {
-                @Override
-                public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
-
-                @Override
-                public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
-            };
+            defaultTraversableResolver = new TraverseAll();
         }
         return defaultTraversableResolver;
+    }
+
+    /**
+     * The default resolver: everything is reachable and cascadable. The validator recognizes it and skips
+     * building the paths it would be asked about.
+     */
+    static final class TraverseAll implements TraversableResolver {
+        @Override
+        public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+            return true;
+        }
+
+        @Override
+        public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+            return true;
+        }
     }
 
     @Override

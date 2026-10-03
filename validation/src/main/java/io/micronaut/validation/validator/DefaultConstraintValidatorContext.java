@@ -182,17 +182,24 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             // interface
             return true;
         }
+        // loops rather than streams: this runs for every constraint of every validated element
+        boolean converted = !convertedGroups.isEmpty();
         if (constraintGroups.isEmpty()) {
-            return currentGroups.stream().anyMatch(group -> group == Default.class
-                || (convertedGroups.isEmpty() && Default.class.isAssignableFrom(group)));
+            for (Class<?> group : currentGroups) {
+                if (group == Default.class || (!converted && Default.class.isAssignableFrom(group))) {
+                    return true;
+                }
+            }
+            return false;
         }
         if (currentGroups.contains(Default.class) && rootClass != null && constraintGroups.contains(rootClass)) {
             return true;
         }
         for (Class<?> group : currentGroups) {
-            if (constraintGroups.stream().anyMatch(constraintGroup -> constraintGroup == group
-                || (convertedGroups.isEmpty() && constraintGroup.isAssignableFrom(group)))) {
-                return true;
+            for (Class<?> constraintGroup : constraintGroups) {
+                if (constraintGroup == group || (!converted && constraintGroup.isAssignableFrom(group))) {
+                    return true;
+                }
             }
         }
         return false;

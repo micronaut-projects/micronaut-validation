@@ -94,6 +94,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -144,12 +145,19 @@ public class DefaultValidator
     private final ParameterNameProvider parameterNameProvider;
     private final ConstraintValidatorInstances validatorInstances;
     private final boolean isPrependPropertyPath;
+    // the default resolver answers true for every node: the paths it would be handed are not built
+    private final boolean traversesAll;
 
-    // The advantage of CopyOnWriteMap over ConcurrentHashMap is that here we can define a maximum
-    // size after which entries are evicted. This can save us from a memory leak if we cache more
-    // than we should. We still set it comfortably high to avoid unnecessary evictions.
+    // The constraints of an element, by the identity of its metadata. The metadata of the elements the
+    // validator walks is prepared once, so the keys are few; a metadata built per call would only churn the
+    // cache, which is dropped whole past MAX_CACHED_CONSTRAINTS rather than copied on every insert the way a
+    // CopyOnWriteMap would.
+    private static final int MAX_CACHED_CONSTRAINTS = 16 * 1024;
     private final ConcurrentMap<AnnotationMetadata, List<DefaultConstraintDescriptor<Annotation>>> constraintCache =
-        CopyOnWriteMap.create(65536);
+        new ConcurrentHashMap<>();
+    // the prepared validation of each property, by property: an introspection hands out the same property
+    // instances for its life, an XML decorated one too
+    private final Map<BeanProperty<?, ?>, PropertyPlan> propertyPlans = new ConcurrentHashMap<>();
 
     /**
      * Default constructor.
@@ -168,6 +176,7 @@ public class DefaultValidator
         this.clockProvider = configuration.getClockProvider();
         this.valueExtractorRegistry = configuration.getValueExtractorRegistry();
         this.traversableResolver = configuration.getTraversableResolver();
+        this.traversesAll = traversableResolver instanceof DefaultValidatorConfiguration.TraverseAll;
         this.executionHandleLocator = configuration.getExecutionHandleLocator();
         this.messageInterpolator = configuration.getMessageInterpolator();
         this.conversionService = configuration.getConversionService();
@@ -193,6 +202,7 @@ public class DefaultValidator
             validatorInstances.close();
         } finally {
             constraintCache.clear();
+            propertyPlans.clear();
             findGroupSequencesCache.clear();
             declarations.clear();
         }
@@ -1021,7 +1031,7 @@ public class DefaultValidator
                                 object,
                                 false,
                                 false,
-                                false
+                                true
                             );
                         }
                     }
@@ -1030,7 +1040,7 @@ public class DefaultValidator
                         AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
                         if (declarations.declaresConstraints(superMetadata, currentClassLoader())) {
                             try (ValidationPath.ContextualPath ignore2 = context.getCurrentPath().addBeanNode()) {
-                                visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, false, false);
+                                visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, false, true);
                             }
                         }
                     }
@@ -1085,28 +1095,20 @@ public class DefaultValidator
         }
         String propertyName = property.getName();
         Class<?> beanType = object.getClass();
-        if (reflectionSupport.separatesDeclarations(introspection)) {
-            // the members declaring constraints are validated one by one, each against the value it holds. A
-            // generated introspection reports its members only where the type asked for them, and merges what
-            // they declare into the property, so walking them is what a description separating the declarations
-            // needs and what a generated one must not have done for it twice
-            List<? extends BeanPropertyMember<T, ?>> members = property.getMembers().stream()
-                .filter(BeanPropertyMember::isReadable)
-                .filter(member -> isValidatedMember(beanType, member))
-                .toList();
-            if (!members.isEmpty()) {
-                // the value is cascaded once, by the first member marking it so
-                boolean cascadeLeft = canCascade;
-                for (BeanPropertyMember<T, ?> member : members) {
-                    if (declaringTypes.test(member.getDeclaringType())) {
-                        visitPropertyMember(context, object, property, member, cascadeLeft);
-                    }
-                    if (isCascadedMember(beanType, member)) {
-                        cascadeLeft = false;
-                    }
+        PropertyPlan plan = propertyPlan(introspection, property);
+        if (!plan.members().isEmpty()) {
+            // the members declaring constraints are validated one by one, each against the value it holds
+            // the value is cascaded once, by the first member marking it so
+            boolean cascadeLeft = canCascade;
+            for (MemberPlan member : plan.members()) {
+                if (declaringTypes.test(member.member().getDeclaringType())) {
+                    visitPropertyMember(context, object, property, member, cascadeLeft);
                 }
-                return;
+                if (member.cascaded()) {
+                    cascadeLeft = false;
+                }
             }
+            return;
         }
         if (!declaringTypes.test(beanType)) {
             return;
@@ -1124,27 +1126,64 @@ public class DefaultValidator
                 } catch (Exception e) {
                     throw new ValidationException("Failed to get the value of property: " + propertyName, e);
                 }
-                Argument<Object> propertyArgument = argumentWithMetadata(property.asArgument(), annotationMetadata);
                 visitElement(
                     context,
                     object,
-                    propertyArgument,
+                    plan.argument(),
                     annotationMetadata,
                     propertyValue,
                     canCascade,
                     true,
-                    false
+                    true
                 );
             }
         }
+    }
+
+    /**
+     * What validating a property reads from its metadata, prepared once per property: the argument carrying
+     * its metadata, and the members validated on their own with theirs. The arguments are the same instances
+     * on every call, which is what lets the constraints of their metadata be cached.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private PropertyPlan propertyPlan(BeanIntrospection<?> introspection, BeanProperty<?, Object> property) {
+        PropertyPlan plan = propertyPlans.get(property);
+        if (plan != null) {
+            return plan;
+        }
+        return propertyPlans.computeIfAbsent(property, p -> {
+            Argument<Object> argument = argumentWithMetadata(property.asArgument(), property.getAnnotationMetadata());
+            if (!reflectionSupport.separatesDeclarations(introspection)) {
+                // a description merging the declarations into the property validates the property alone
+                return new PropertyPlan(argument, List.of());
+            }
+            // a generated introspection reports its members only where the type asked for them, and merges
+            // what they declare into the property, so walking them is what a description separating the
+            // declarations needs and what a generated one must not have done for it twice
+            List<MemberPlan> members = new ArrayList<>();
+            for (BeanPropertyMember<?, ?> member : property.getMembers()) {
+                if (!member.isReadable() || !isValidatedMember(member)) {
+                    continue;
+                }
+                AnnotationMetadata memberMetadata = member.getAnnotationMetadata();
+                Argument<?> typed = ValidationMetadataSupport.argument(member.asArgument(), memberMetadata);
+                boolean cascaded = memberMetadata.hasStereotype(Valid.class)
+                    || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, typed);
+                members.add(new MemberPlan((BeanPropertyMember) member,
+                    (Argument<Object>) typed.withName(property.getName()).withAnnotationMetadata(memberMetadata),
+                    cascaded));
+            }
+            return new PropertyPlan(argument, List.copyOf(members));
+        });
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <R, T> void visitPropertyMember(DefaultConstraintValidatorContext<R> context,
                                             T object,
                                             BeanProperty<T, Object> property,
-                                            BeanPropertyMember<T, ?> member,
+                                            MemberPlan plan,
                                             boolean canCascade) {
+        BeanPropertyMember<T, ?> member = (BeanPropertyMember<T, ?>) plan.member();
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(property.getName())) {
             Class<?> implicitGroup = member.getDeclaringType().isInterface() ? member.getDeclaringType() : null;
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.getElementType(), implicitGroup)) {
@@ -1160,22 +1199,36 @@ public class DefaultValidator
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }
-                    Argument<Object> argument = (Argument<Object>) ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()).withName(property.getName()).withAnnotationMetadata(memberMetadata);
-                    visitElement(context, object, argument, memberMetadata, value, canCascade, true, false);
+                    visitElement(context, object, plan.argument(), memberMetadata, value, canCascade, true, true);
                 }
             }
         }
     }
 
-    private boolean isCascadedMember(Class<?> beanType, BeanPropertyMember<?, ?> member) {
-        return member.getAnnotationMetadata().hasStereotype(Valid.class) || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
+    /**
+     * The prepared validation of a property.
+     *
+     * @param argument The argument of the property, with its metadata
+     * @param members The members validated on their own, empty when the property is validated as a whole
+     */
+    private record PropertyPlan(Argument<Object> argument, List<MemberPlan> members) {
+    }
+
+    /**
+     * The prepared validation of a member of a property.
+     *
+     * @param member The member
+     * @param argument Its argument, with its own metadata and the type-use annotations of its type
+     * @param cascaded Whether it cascades the value
+     */
+    private record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded) {
     }
 
     /**
      * Whether a member of a property declares something to validate: constraints, a cascade, constrained
      * type arguments or group conversions.
      */
-    private boolean isValidatedMember(Class<?> beanType, BeanPropertyMember<?, ?> member) {
+    private boolean isValidatedMember(BeanPropertyMember<?, ?> member) {
         AnnotationMetadata annotationMetadata = member.getAnnotationMetadata();
         if (annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)) {
             return false;
@@ -1187,6 +1240,9 @@ public class DefaultValidator
     }
 
     private <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, @Nullable T object) {
+        if (traversesAll) {
+            return false;
+        }
         ValidationPath currentPath = context.getCurrentPath();
         ValidationPath previousPath = currentPath.previousPath();
         try {
@@ -1204,6 +1260,9 @@ public class DefaultValidator
 
     private <R> boolean canCascade(@NonNull DefaultConstraintValidatorContext<R> context,
                                    @Nullable Object leftBean) {
+        if (traversesAll) {
+            return true;
+        }
         try {
             ValidationPath currentPath = context.getCurrentPath();
             ValidationPath previousPath = currentPath.previousPath();
@@ -1519,9 +1578,10 @@ public class DefaultValidator
                                 canCascade,
                                 containerValueArgument.getAnnotationMetadata().hasStereotype(Valid.class) || isLegacyValid,
                                 true,
-                                false // might be possible to cache, investigate if
-                                                  // there's a perf problem here
-                                            );
+                                // the type arguments are those of an argument prepared once, so their metadata
+                                // is the same instance for every element
+                                true
+                            );
                         }
                     }
 
@@ -1553,7 +1613,7 @@ public class DefaultValidator
 
     private boolean hasConstrainedTypeArgument(DefaultConstraintValidatorContext<?> context, Argument<?> argument) {
         for (Argument<?> typeParameter : argument.getTypeParameters()) {
-            if (!getConstraints(context, typeParameter.getAnnotationMetadata(), false).isEmpty()
+            if (!getConstraints(context, typeParameter.getAnnotationMetadata(), true).isEmpty()
                 || hasConstrainedTypeArgument(context, typeParameter)) {
                 return true;
             }
@@ -1794,10 +1854,29 @@ public class DefaultValidator
                                                                              AnnotationMetadata annotationMetadata,
                                                                              boolean cache) {
         if (cache) {
-            List<DefaultConstraintDescriptor<Annotation>> cached = constraintCache.computeIfAbsent(annotationMetadata, m -> getConstraints0(null, m));
-            if (!cached.isEmpty()) {
-                cached = new ArrayList<>(cached);
-                cached.removeIf(descriptor -> !isConstraintIncluded(context, descriptor));
+            List<DefaultConstraintDescriptor<Annotation>> cached = constraintCache.get(annotationMetadata);
+            if (cached == null) {
+                if (constraintCache.size() > MAX_CACHED_CONSTRAINTS) {
+                    constraintCache.clear();
+                }
+                // built outside the map: describing a constraint may look up the constraints of other metadata
+                cached = getConstraints0(null, annotationMetadata);
+                List<DefaultConstraintDescriptor<Annotation>> existing = constraintCache.putIfAbsent(annotationMetadata, cached);
+                if (existing != null) {
+                    cached = existing;
+                }
+            }
+            // the list is shared: copied only when the groups validated leave a constraint out
+            for (int i = 0; i < cached.size(); i++) {
+                if (!isConstraintIncluded(context, cached.get(i))) {
+                    List<DefaultConstraintDescriptor<Annotation>> included = new ArrayList<>(cached.size());
+                    for (DefaultConstraintDescriptor<Annotation> descriptor : cached) {
+                        if (isConstraintIncluded(context, descriptor)) {
+                            included.add(descriptor);
+                        }
+                    }
+                    return included;
+                }
             }
             return cached;
         } else {

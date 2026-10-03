@@ -107,6 +107,10 @@ final class ValidatorDeclarations {
      * type is validated.
      */
     void checkBeanDeclarations(BeanIntrospection<?> introspection) {
+        if (checkedBeanDeclarations.contains(introspection)) {
+            // checked once, published only after every check completed: no monitor on the validation path
+            return;
+        }
         synchronized (checkedBeanDeclarations) {
             if (!checkedBeanDeclarations.contains(introspection)) {
                 for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
