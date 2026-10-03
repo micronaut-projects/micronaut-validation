@@ -22,7 +22,6 @@ dependencies {
     testCompileOnly mn.micronaut.inject.groovy
 
     testImplementation projects.micronautValidationProcessor
-    testImplementation libs.asm
     testImplementation libs.spotbugs
     testImplementation mn.micronaut.inject
 

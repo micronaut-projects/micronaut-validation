@@ -1,7 +1,8 @@
 plugins {
     id 'io.micronaut.build.internal.validation-module'
 }
-def compilerNegativeTasks = [Reflection: 'NoReflection', HiddenReflection: 'NoReflection', Nullness: 'NullAway', Generated: 'NoReflection', GeneratedNullness: 'NullAway'].collect { fixture, diagnostic ->
+// TargetMethod, ClassLookup and Instantiation each call one Micronaut core helper that reflects, which the gate bans by name
+def compilerNegativeTasks = [Reflection: 'NoReflection', HiddenReflection: 'NoReflection', TargetMethod: 'NoReflection', ClassLookup: 'NoReflection', Instantiation: 'NoReflection', Nullness: 'NullAway', Generated: 'NoReflection', GeneratedNullness: 'NullAway'].collect { fixture, diagnostic ->
     def taskName = "compileCompiler${fixture}Negative"
     noReflection.checkedTasks.add(taskName)
     tasks.register(taskName, JavaCompile) {

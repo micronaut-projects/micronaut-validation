@@ -12,7 +12,6 @@ jakarta-cdi-api = "4.0.1"
 jakarta-ejb-api = "4.0.1"
 
 micronaut = "5.3.0-SNAPSHOT"
-asm = "9.10.1"
 micronaut-platform = "5.1.1"
 micronaut-reactor = "4.1.0"
 micronaut-rxjava3 = "4.1.0"
@@ -48,9 +47,6 @@ jakarta-cdi-api = { module = "jakarta.enterprise:jakarta.enterprise.cdi-api", ve
 jakarta-ejb-api = { module = "jakarta.ejb:jakarta.ejb-api", version.ref = "jakarta-ejb-api" }
 javafx-base = { module = "org.openjfx:javafx-base", version.ref = "javafx" }
 
-asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
-
-# Sourcegen emits concrete annotations as JVM classes for all source languages.
 
 # managed dependencies
 

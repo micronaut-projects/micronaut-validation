@@ -66,6 +66,7 @@ import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
 import static io.micronaut.validation.xml.XmlMappingSupport.singleValue;
 import static io.micronaut.validation.xml.XmlMappingSupport.text;
 import static io.micronaut.validation.xml.XmlMappingSupport.textOfChild;
+import static io.micronaut.validation.xml.XmlMappingSupport.validateMappingStructure;
 import static io.micronaut.validation.xml.XmlMappingSupport.validateRootElements;
 import static io.micronaut.validation.xml.XmlMappingSupport.validateVersion;
 
@@ -130,6 +131,7 @@ final class XmlMappingParser {
             Element root = document.getDocumentElement();
             validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
             validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
+            validateMappingStructure(root);
             String defaultPackage = textOfChild(root, "default-package");
             Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
             for (var definition : mappingConstraintDefinitions.entrySet()) {

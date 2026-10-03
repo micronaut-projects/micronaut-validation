@@ -135,6 +135,20 @@ class XmlBeanIntrospectorTest {
     }
 
     @Test
+    void rejectsAnElementTheSchemaDoesNotAllowWhereItStands() {
+        ValidationException failure = assertThrows(ValidationException.class, () -> introspector("""
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="%s" ignore-annotations="false">
+                    <field name="firstname">
+                        <constrain annotation="jakarta.validation.constraints.NotNull"/>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """.formatted(BeanWithProperties.class.getName())));
+        assertTrue(failure.getMessage().contains("constrain in field"));
+    }
+
+    @Test
     void rejectsUnknownRootElement() {
         assertThrows(ValidationException.class, () -> introspector("""
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">

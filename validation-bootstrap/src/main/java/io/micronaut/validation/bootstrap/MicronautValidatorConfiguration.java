@@ -124,7 +124,7 @@ public final class MicronautValidatorConfiguration
         }
         this.classLoader = classLoader;
         defaults.setBeanIntrospector(BeanIntrospector.forClassLoader(classLoader));
-        bootstrapConfiguration = BootstrapServiceDiscovery.services(BootstrapConfigurationLoader.class, classLoader)
+        bootstrapConfiguration = BootstrapServiceDiscovery.configurationLoaders(classLoader)
             .stream()
             .map(loader -> loader.load(this.classLoader))
             .flatMap(Optional::stream)

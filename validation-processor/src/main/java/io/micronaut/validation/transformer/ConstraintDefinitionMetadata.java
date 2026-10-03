@@ -27,13 +27,43 @@ import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /** Retains definition diagnostics and attributes requiring concrete runtime values. */
 final class ConstraintDefinitionMetadata {
+    /**
+     * The annotation processor option making an invalid constraint definition a compilation error. Without
+     * it the definition is reported as a warning and, as the specification asks, fails when it is validated.
+     */
+    static final String STRICT_OPTION = "micronaut.validation.strictConstraintDefinitions";
+
+    private static final String REPORTED = ConstraintDefinitionMetadata.class.getName() + ".reported";
+
     private ConstraintDefinitionMetadata() { }
+
+    /** Reports an invalid definition where it is compiled, once for a constraint however often it is used. */
+    @SuppressWarnings("unchecked")
+    private static void report(ClassElement type, VisitorContext context, String error) {
+        Set<String> reported = context.get(REPORTED, Set.class).orElse(null);
+        if (reported == null) {
+            reported = new HashSet<>();
+            context.put(REPORTED, reported);
+        }
+        if (!reported.add(type.getName() + ": " + error)) {
+            return;
+        }
+        if (Boolean.parseBoolean(context.getOptions().get(STRICT_OPTION))) {
+            context.fail(error, type);
+        } else {
+            context.warn(error + ". The constraint fails with a ConstraintDefinitionException when a validator checking"
+                + " constraint definitions validates it; set the annotation processor option " + STRICT_OPTION
+                + "=true to fail the compilation instead", type);
+        }
+    }
 
     static void retain(ClassElement type, VisitorContext context, AnnotationValueBuilder<?> occurrence) {
         var members = new LinkedHashMap<String, MethodElement>();
@@ -79,10 +109,12 @@ final class ConstraintDefinitionMetadata {
         String error = definitionError(type, context, members, defaults);
         String compositionError = compositionError(type, context, members);
         if (compositionError != null) {
+            report(type, context, compositionError);
             occurrence.member(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR, compositionError);
         }
         if (error != null) {
-            // Keep failure timing at validation, including for imported Jakarta TCK fixtures.
+            report(type, context, error);
+            // the specification times the failure at validation, so the error is also retained for it
             occurrence.member(ValidationAnnotationUtil.DEFINITION_ERROR, error);
         }
     }

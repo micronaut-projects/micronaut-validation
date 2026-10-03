@@ -23,10 +23,39 @@ import org.w3c.dom.NodeList;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** XML structure checks and DOM access shared by validation XML readers. */
 final class XmlMappingSupport {
+
+    private static final Set<String> CONSTRAINED_ELEMENT_CHILDREN = Set.of("valid", "convert-group", "container-element-type", "constraint");
+    private static final Set<String> EXECUTABLE_CHILDREN = Set.of("parameter", "cross-parameter", "return-value");
+    private static final Set<String> VALUES = Set.of("value");
+
+    /** The elements the constraint mapping schema allows in each element; one not listed has no child elements. */
+    private static final Map<String, Set<String>> MAPPING_CHILDREN = Map.ofEntries(
+        Map.entry("constraint-mappings", Set.of("default-package", "bean", "constraint-definition")),
+        Map.entry("bean", Set.of("class", "field", "getter", "constructor", "method")),
+        Map.entry("class", Set.of("group-sequence", "constraint")),
+        Map.entry("field", CONSTRAINED_ELEMENT_CHILDREN),
+        Map.entry("getter", CONSTRAINED_ELEMENT_CHILDREN),
+        Map.entry("parameter", CONSTRAINED_ELEMENT_CHILDREN),
+        Map.entry("return-value", CONSTRAINED_ELEMENT_CHILDREN),
+        Map.entry("container-element-type", CONSTRAINED_ELEMENT_CHILDREN),
+        Map.entry("cross-parameter", Set.of("constraint")),
+        Map.entry("constructor", EXECUTABLE_CHILDREN),
+        Map.entry("method", EXECUTABLE_CHILDREN),
+        Map.entry("constraint", Set.of("message", "groups", "payload", "element")),
+        Map.entry("element", Set.of("value", "annotation")),
+        Map.entry("annotation", Set.of("element")),
+        Map.entry("groups", VALUES),
+        Map.entry("payload", VALUES),
+        Map.entry("group-sequence", VALUES),
+        Map.entry("constraint-definition", Set.of("validated-by")),
+        Map.entry("validated-by", VALUES)
+    );
+
     private XmlMappingSupport() { }
 
     static String requireAttribute(Element element, String name) {
@@ -104,6 +133,26 @@ final class XmlMappingSupport {
             Node node = children.item(i);
             if (node instanceof Element element && !allowedElementNames.contains(localName(element))) {
                 throw new ValidationException("Unsupported " + resourceDescription + " element: " + localName(element));
+            }
+        }
+    }
+
+    /**
+     * Rejects an element the mapping schema does not allow where it stands, at any depth: a misspelt or
+     * misplaced element would otherwise be skipped, and the constraints it declares silently not applied.
+     *
+     * @param element The element whose children are checked, down to the leaves
+     */
+    static void validateMappingStructure(Element element) {
+        Set<String> allowed = MAPPING_CHILDREN.getOrDefault(localName(element), Set.of());
+        NodeList children = element.getChildNodes();
+        for (int i = 0; i < children.getLength(); i++) {
+            if (children.item(i) instanceof Element child) {
+                if (!allowed.contains(localName(child))) {
+                    throw new ValidationException("Unsupported constraint mapping XML element: " + localName(child)
+                        + " in " + localName(element));
+                }
+                validateMappingStructure(child);
             }
         }
     }

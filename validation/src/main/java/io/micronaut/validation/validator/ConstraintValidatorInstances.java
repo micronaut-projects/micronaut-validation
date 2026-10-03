@@ -27,10 +27,10 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /** Owns initialized instances and prevents release while validation is in progress. */
@@ -38,7 +38,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 final class ConstraintValidatorInstances implements AutoCloseable {
     private final InternalConstraintValidatorFactory factory;
     private final Map<InitializedValidatorKey, jakarta.validation.ConstraintValidator<?, ?>>
-            initializedValidators = new HashMap<>();
+            initializedValidators = new ConcurrentHashMap<>();
     private final ReentrantReadWriteLock validatorLifecycle = new ReentrantReadWriteLock();
     private volatile boolean closed;
 
@@ -111,7 +111,7 @@ final class ConstraintValidatorInstances implements AutoCloseable {
     }
 
     @SuppressWarnings("unchecked")
-    synchronized <E> jakarta.validation.@Nullable ConstraintValidator<Annotation, E> get(
+    <E> jakarta.validation.@Nullable ConstraintValidator<Annotation, E> get(
             Class<jakarta.validation.ConstraintValidator<Annotation, E>> type,
             Class<?> targetType,
             ConstraintTarget target,
@@ -122,6 +122,24 @@ final class ConstraintValidatorInstances implements AutoCloseable {
         InitializedValidatorKey key =
                 new InitializedValidatorKey(
                         type, targetType, target, constraint.getAnnotationValue());
+        // an initialized validator is read without the monitor: only creating one is serialized
+        var found = initializedValidators.get(key);
+        if (found != null) {
+            return (jakarta.validation.ConstraintValidator<Annotation, E>) found;
+        }
+        return create(key, type, targetType, target, constraint);
+    }
+
+    @SuppressWarnings("unchecked")
+    private synchronized <E> jakarta.validation.@Nullable ConstraintValidator<Annotation, E> create(
+            InitializedValidatorKey key,
+            Class<jakarta.validation.ConstraintValidator<Annotation, E>> type,
+            Class<?> targetType,
+            ConstraintTarget target,
+            DefaultConstraintDescriptor<Annotation> constraint) {
+        if (closed) {
+            throw new ValidationException("Validator factory is closed");
+        }
         var found = initializedValidators.get(key);
         if (found != null) {
             return (jakarta.validation.ConstraintValidator<Annotation, E>) found;

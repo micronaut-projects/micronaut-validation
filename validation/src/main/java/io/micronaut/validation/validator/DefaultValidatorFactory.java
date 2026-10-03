@@ -32,8 +32,10 @@ import jakarta.validation.ValidatorContext;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 
-import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Default validator factory implementation.
@@ -48,7 +50,10 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     private final Validator validator;
     private final ValidatorConfiguration configuration;
-    private final List<DefaultValidator> ownedValidators = new ArrayList<>();
+    // the validators closed with the factory. A validator of a context is created per call and nothing says
+    // when its caller is done with it, so it is held weakly: one no longer in use is not kept until the
+    // factory closes
+    private final Set<DefaultValidator> ownedValidators = Collections.newSetFromMap(new WeakHashMap<>());
     private boolean closed;
 
     /** The constructor. */

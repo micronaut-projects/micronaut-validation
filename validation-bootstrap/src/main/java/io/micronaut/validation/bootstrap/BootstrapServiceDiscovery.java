@@ -32,6 +32,11 @@ final class BootstrapServiceDiscovery {
         return ServiceLoader.load(type, loader).stream().map(ServiceLoader.Provider::get).toList();
     }
 
+    /** The loaders of this framework's own bootstrap configuration, which need no JDK service lookup. */
+    static List<BootstrapConfigurationLoader> configurationLoaders(ClassLoader loader) {
+        return SoftServiceLoader.load(BootstrapConfigurationLoader.class, loader).collectAll();
+    }
+
     static Optional<ConstraintMappingConfigurer> mappingConfigurer(ClassLoader loader) {
         return SoftServiceLoader.load(ConstraintMappingConfigurer.class, loader).firstAvailable();
     }

@@ -33,6 +33,8 @@ import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ValidationException;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Formatter;
@@ -56,6 +58,8 @@ import java.util.Set;
 @Replaces(DefaultMessageInterpolator.class)
 @Requires(classes = CompiledExpressionFactory.class)
 public final class ElMessageInterpolator implements MessageInterpolator {
+
+    private static final Logger LOG = LoggerFactory.getLogger(ElMessageInterpolator.class);
 
     private static final char ESCAPE = '\\';
     private static final char LEFT_BRACE = '{';
@@ -237,6 +241,11 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             Object value = expressionFactory.createValueExpression(elContext, "${" + expression + "}", Object.class).getValue(elContext);
             return value == null ? "" : value.toString();
         } catch (RuntimeException e) {
+            // the expression is left as written, the way an unresolved message parameter is; what it failed
+            // on - a type without an introspection as much as a typo - would otherwise be invisible
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Cannot evaluate the EL expression '{}' of a validation message", expression, e);
+            }
             return "${" + expression + "}";
         }
     }

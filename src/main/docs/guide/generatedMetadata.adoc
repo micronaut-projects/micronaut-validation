@@ -49,7 +49,7 @@ Constraint descriptors expose typed `Pattern.Flag` and `Pattern.Flag[]` attribut
 
 == Generated Definitions and Runtime Fallback
 
-The processor retains constraint-definition diagnostics, including member types and defaults, validator targets, and composition overrides. Nested compositions retain their child constraints when groups and payload are applied. Strict definition validation consumes these results without the reflection companion; invalid definitions still fail when validation requests them. Concurrent declaration checks publish only completed successes, and failed checks remain retryable.
+The processor retains constraint-definition diagnostics, including member types and defaults, validator targets, and composition overrides. Nested compositions retain their child constraints when groups and payload are applied. Strict definition validation consumes these results without the reflection companion; invalid definitions still fail when validation requests them. The processor also reports an invalid definition as a compiler warning, or as a compilation error when the annotation processor option `micronaut.validation.strictConstraintDefinitions=true` is set. Concurrent declaration checks publish only completed successes, and failed checks remain retryable.
 
 Concrete value extractor implementations receive introspections automatically. An instance registered with `addValueExtractor` uses its generated signature, including `@ExtractedValue` and `@UnwrapByDefault`. Implementations without generated metadata can use an explicit `ValueExtractorDefinition` or the reflection companion.
 
