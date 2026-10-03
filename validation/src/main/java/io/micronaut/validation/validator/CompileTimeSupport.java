@@ -269,6 +269,11 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
+        if (constraintType.getName().startsWith("jakarta.validation.constraints.")) {
+            // a constraint of the specification is a valid definition: one an XML mapping declares, which the
+            // processor never checked, needs no reading of its class
+            return;
+        }
         throw missing("the members " + constraintType.getName() + " declares, which the constraint definition"
             + " rules are checked against");
     }

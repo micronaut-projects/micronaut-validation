@@ -120,6 +120,7 @@ public class DefaultValidator
                 BeanDefinitionValidator,
                 AutoCloseable {
 
+    private static final int MAX_CACHED_CONSTRAINTS = 16 * 1024;
     private static final ValueExtractor<Object[]> LEGACY_ARRAY_EXTRACTOR = (originalValue, receiver) -> {
         int i = 0;
         for (Object item : originalValue) {
@@ -152,7 +153,6 @@ public class DefaultValidator
     // validator walks is prepared once, so the keys are few; a metadata built per call would only churn the
     // cache, which is dropped whole past MAX_CACHED_CONSTRAINTS rather than copied on every insert the way a
     // CopyOnWriteMap would.
-    private static final int MAX_CACHED_CONSTRAINTS = 16 * 1024;
     private final ConcurrentMap<AnnotationMetadata, List<DefaultConstraintDescriptor<Annotation>>> constraintCache =
         new ConcurrentHashMap<>();
     // the prepared validation of each property, by property: an introspection hands out the same property
@@ -1206,25 +1206,6 @@ public class DefaultValidator
     }
 
     /**
-     * The prepared validation of a property.
-     *
-     * @param argument The argument of the property, with its metadata
-     * @param members The members validated on their own, empty when the property is validated as a whole
-     */
-    private record PropertyPlan(Argument<Object> argument, List<MemberPlan> members) {
-    }
-
-    /**
-     * The prepared validation of a member of a property.
-     *
-     * @param member The member
-     * @param argument Its argument, with its own metadata and the type-use annotations of its type
-     * @param cascaded Whether it cascades the value
-     */
-    private record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded) {
-    }
-
-    /**
      * Whether a member of a property declares something to validate: constraints, a cascade, constrained
      * type arguments or group conversions.
      */
@@ -1986,5 +1967,24 @@ public class DefaultValidator
     private static String simpleName(Class<?> type) {
         String name = type.getName();
         return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
+    }
+
+    /**
+     * The prepared validation of a property.
+     *
+     * @param argument The argument of the property, with its metadata
+     * @param members The members validated on their own, empty when the property is validated as a whole
+     */
+    private record PropertyPlan(Argument<Object> argument, List<MemberPlan> members) {
+    }
+
+    /**
+     * The prepared validation of a member of a property.
+     *
+     * @param member The member
+     * @param argument Its argument, with its own metadata and the type-use annotations of its type
+     * @param cascaded Whether it cascades the value
+     */
+    private record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded) {
     }
 }
