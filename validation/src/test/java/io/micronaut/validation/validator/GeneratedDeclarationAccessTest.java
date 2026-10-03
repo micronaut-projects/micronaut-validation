@@ -110,7 +110,8 @@ class GeneratedDeclarationAccessTest {
         var support = new CompileTimeSupport();
         assertEquals(1, support.extractedTypeArgumentIndex(Swapped.class, Pair.class, 0));
         assertEquals(0, support.extractedTypeArgumentIndex(Swapped.class, Pair.class, 1));
-        assertTrue(BeanIntrospector.SHARED.getIntrospection(Swapped.class).separatesDeclarations());
+        // a container declaring no constraint keeps its introspection as declared, the mappings recorded all the same
+        assertFalse(BeanIntrospector.SHARED.getIntrospection(Swapped.class).separatesDeclarations());
     }
 
     @Test

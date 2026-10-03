@@ -24,10 +24,14 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.ElementQuery;
+import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.ast.GenericPlaceholderElement;
+import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.processing.ProcessingException;
+import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
@@ -56,6 +60,12 @@ import java.util.stream.Stream;
  */
 @Internal
 public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<Object, Object> {
+
+    /**
+     * The annotation processor option describing every introspected type for validation, the ones without a
+     * constraint included: what an XML constraint mapping of a type declaring none needs.
+     */
+    public static final String DESCRIBE_ALL_OPTION = "micronaut.validation.describeAllIntrospections";
 
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
@@ -88,8 +98,15 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         if (!element.hasStereotype(Introspected.class)) {
             return;
         }
-        recordHierarchy(element);
+        // what a container binds in the generic types it implements: an unconstrained type can be a container
         recordContainerMappings(element);
+        if (!participates(element) && !Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION))) {
+            // an introspection of a type that takes no part in validation - a serialization DTO, an entity
+            // without constraints - is left as its author declared it: other modules read it too. A type
+            // constrained only by an XML mapping asks for the option
+            return;
+        }
+        recordHierarchy(element);
         recordFields(element);
         registerAnnotatedFields(element, context);
         element.getMethods().stream()
@@ -103,6 +120,55 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                 .ifPresent(method -> method.annotate(ValidationRecordAccessor.class)));
         }
         configureIntrospection(element, context);
+    }
+
+    /**
+     * Whether a type takes part in validation: it or a super type declares a constraint, a cascade or a
+     * group sequence on the type or on a field, method or constructor, or it is an interface, which a group
+     * or a constrained contract can be, or a validator or value extractor.
+     */
+    static boolean participates(ClassElement element) {
+        if (element.isInterface()
+            || element.isAssignable("jakarta.validation.ConstraintValidator")
+            || element.isAssignable("jakarta.validation.valueextraction.ValueExtractor")) {
+            return true;
+        }
+        return declaresValidation(element, new HashSet<>());
+    }
+
+    private static boolean declaresValidation(ClassElement type, Set<String> visited) {
+        if (type.getName().equals(Object.class.getName()) || !visited.add(type.getName())) {
+            return false;
+        }
+        if (type.hasStereotype(ANN_CONSTRAINT) || type.hasStereotype(ANN_VALID)
+            || type.hasAnnotation("jakarta.validation.GroupSequence")
+            || type.hasAnnotation(RequiresValidation.class)) {
+            return true;
+        }
+        for (FieldElement field : type.getEnclosedElements(ElementQuery.ALL_FIELDS.onlyDeclared())) {
+            if (ValidationVisitor.hasValidation(field, new HashSet<>())) {
+                return true;
+            }
+        }
+        for (MethodElement method : type.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared())) {
+            if (ValidationVisitor.requiresValidation(method)) {
+                return true;
+            }
+        }
+        for (ConstructorElement constructor : type.getEnclosedElements(ElementQuery.CONSTRUCTORS)) {
+            if (ValidationVisitor.requiresValidation(constructor)) {
+                return true;
+            }
+        }
+        if (type.getSuperType().filter(parent -> declaresValidation(parent, visited)).isPresent()) {
+            return true;
+        }
+        for (ClassElement anInterface : type.getInterfaces()) {
+            if (declaresValidation(anInterface, visited)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static void recordHierarchy(ClassElement element) {

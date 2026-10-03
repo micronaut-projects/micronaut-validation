@@ -187,6 +187,9 @@ final class ArchiveCompiler {
         if (!PROCESSOR_ENABLED) {
             // no bean introspections are generated: the validator describes the archive reflectively
             options.add("-proc:none");
+        } else {
+            // the archives map types declaring no constraint in XML: describe every introspection
+            options.add("-Amicronaut.validation.describeAllIntrospections=true");
         }
         options.add("-classpath");
         options.add(compilerClasspath());

@@ -179,7 +179,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         return false;
     }
 
-    private static boolean hasValidation(TypedElement element, Set<Object> visited) {
+    static boolean hasValidation(TypedElement element, Set<Object> visited) {
         AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
         if (metadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(metadata) || metadata.hasStereotype(ANN_VALID)
             || metadata.hasStereotype("jakarta.validation.groups.ConvertGroup")

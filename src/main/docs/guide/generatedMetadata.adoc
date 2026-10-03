@@ -4,6 +4,15 @@ Validation uses the existing Micronaut visitors and generated bean introspection
 
 Validation keeps Micronaut `Argument` information through constraints, container extraction, and executable inheritance: annotations, nested generic arguments, raw types, wildcard bounds, and resolved type variables. Compile with `micronaut-validation-processor` to retain validation annotations in the normal Micronaut metadata. `ValidatedElement` marks the arguments that require traversal; unmarked branches are skipped.
 
+The processor describes for validation only the introspected types that take part in it: a type that, or whose super types, declares a constraint, a cascade or a group sequence, an interface, a constraint validator and a value extractor. The introspection of any other type, such as a serialization DTO or an entity without constraints, is left as declared. A type constrained only by an XML constraint mapping declares nothing the processor can see; compile it with the annotation processor option `micronaut.validation.describeAllIntrospections=true`:
+
+[source,groovy]
+----
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs.add('-Amicronaut.validation.describeAllIntrospections=true')
+}
+----
+
 == Field and Getter Access
 
 By default, `@Introspected` selects method access. Constraints on a backing field are validated through its compatible generated property getter. Record components use their generated accessors. Ordinary bean properties and records do not require `@ReflectiveAccess`.

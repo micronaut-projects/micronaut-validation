@@ -246,7 +246,9 @@ final class XmlMappingParser {
         String propertyName = requireAttribute(element, "name");
         ValidationDeclaration source = findPropertySource(beanType, elementName, propertyName);
         if (source == null) {
-            throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName);
+            throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName
+                + ". A type declaring no constraint is described for an XML mapping when compiled with the annotation"
+                + " processor option micronaut.validation.describeAllIntrospections=true");
         }
         validatePropertyConfiguredOnce(beanType, elementName, propertyName, methods, configuredFields, configuredGetters, configuredGetterMethods);
         MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();

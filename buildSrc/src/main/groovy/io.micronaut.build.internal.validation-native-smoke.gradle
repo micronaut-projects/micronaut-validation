@@ -54,3 +54,8 @@ tasks.register('nativeSmokeJvm', JavaExec) {
 }
 tasks.named('nativeSmokeBuild') { dependsOn 'nativeSmokeJvm' }
 tasks.named('check') { dependsOn 'nativeSmokeJvm' }
+
+tasks.named('compileNativeSmokeJava', JavaCompile) {
+    // the smoke maps a type declaring no constraint in XML
+    options.compilerArgs.add('-Amicronaut.validation.describeAllIntrospections=true')
+}
