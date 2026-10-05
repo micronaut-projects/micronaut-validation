@@ -17,7 +17,6 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.BeanRegistration;
-import io.micronaut.context.DefaultBeanContext;
 import io.micronaut.context.WatchableBeanContext;
 import io.micronaut.context.annotation.Context;
 import io.micronaut.context.annotation.Requires;
@@ -54,9 +53,11 @@ import java.util.List;
  * development mode, so nothing of it is on the path of a validation: the beans are recreated, and the
  * next validation builds fresh caches.
  *
- * <p>Each bean is recreated through the context, which destroys the beans that received it, as the
- * dependency graph of a development context records, so that they are created again on top of the new
- * one. The others are recreated in turn as well, for a context that does not record the graph.</p>
+ * <p>Each bean is recreated through {@link WatchableBeanContext#recreate(Object)}, which destroys the beans
+ * that received it, as the dependency graph of a development context records, so that they are created again
+ * on top of the new one. A bean of the list that is not a dependent of one recreated before it is recreated in
+ * turn. A context that does not track bean dependencies recreates nothing: the beans are kept, rather than
+ * replaced under beans that would keep the old ones, and the change is seen after a restart.</p>
  *
  * <p>It holds the context only, never a validation bean: a bean that received one is a dependent of it,
  * which recreating it would destroy along with its watches.</p>
@@ -194,14 +195,13 @@ final class DevelopmentValidationReloader {
      * @param reason Why, for the log
      */
     private void rebuild(String reason) {
-        // TODO: switch to the public WatchableBeanContext.recreate(...) once core has it
-        if (!(beanContext instanceof DefaultBeanContext context)) {
+        if (!(beanContext instanceof WatchableBeanContext context)) {
             return;
         }
-        // taken first: recreating one destroys the beans that received it when the graph records them
+        // taken first: recreating one destroys the beans that received it, as the graph records them
         List<Object> beans = new ArrayList<>();
         for (Class<?> type : RECREATED) {
-            for (BeanRegistration<?> registration : context.getActiveBeanRegistrations(type)) {
+            for (BeanRegistration<?> registration : beanContext.getActiveBeanRegistrations(type)) {
                 Object bean = registration.bean();
                 if (beans.stream().noneMatch(taken -> taken == bean)) {
                     beans.add(bean);
@@ -213,8 +213,9 @@ final class DevelopmentValidationReloader {
         }
         LOG.debug("Recreating the validator: {}", reason);
         for (Object bean : beans) {
-            // false for a bean destroyed with one it received: it is created again when next asked for
-            context.recreateBean(bean);
+            // false for a bean destroyed with one it received: it is created again when next asked for. False for
+            // all of them in a context that does not track bean dependencies: they are kept, read again after a restart
+            context.recreate(bean);
         }
     }
 }

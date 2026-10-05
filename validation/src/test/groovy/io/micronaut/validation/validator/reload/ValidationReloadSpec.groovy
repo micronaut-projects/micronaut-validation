@@ -16,7 +16,6 @@ import jakarta.validation.UnexpectedTypeException
 import jakarta.validation.ValidatorFactory
 import jakarta.validation.valueextraction.ValueExtractor
 import spock.lang.Specification
-import spock.lang.Unroll
 
 import java.util.function.Supplier
 
@@ -24,12 +23,11 @@ class ValidationReloadSpec extends Specification {
 
     private static final String RELOADER = 'io.micronaut.validation.validator.DevelopmentValidationReloader'
 
-    @Unroll
-    void "in development mode a validator and an extractor registered at runtime are used by the next validation (dependency graph: #track)"() {
+    void "in development mode a validator and an extractor registered at runtime are used by the next validation"() {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true)
-            .trackBeanDependencies(track)
+            .trackBeanDependencies(true)
             .start()
         Validator validator = context.getBean(Validator)
         ValueExtractorRegistry extractors = context.getBean(ValueExtractorRegistry)
@@ -70,9 +68,34 @@ class ValidationReloadSpec extends Specification {
 
         cleanup:
         context.close()
+    }
 
-        where:
-        track << [true, false]
+    void "in development mode a context that does not track bean dependencies keeps the validation beans, rather than replace them under the beans that received them"() {
+        given:
+        ApplicationContext context = ApplicationContext.builder()
+            .properties('micronaut.dev.enabled': true)
+            .trackBeanDependencies(false)
+            .start()
+        Validator validator = context.getBean(Validator)
+        ValueExtractorRegistry extractors = context.getBean(ValueExtractorRegistry)
+        ValidatorFactory validatorFactory = context.getBean(ValidatorFactory)
+        ValidatingInterceptor interceptor = context.getBean(ValidatingInterceptor)
+
+        expect:
+        context.containsBean(reloader())
+
+        when:
+        register(context)
+
+        then: 'nothing is recreated: the change is read after a restart'
+        context.getBean(Validator).is(validator)
+        context.getBean(ValueExtractorRegistry).is(extractors)
+        context.getBean(ValidatorFactory).is(validatorFactory)
+        context.getBean(ValidatingInterceptor).is(interceptor)
+        extractors.findValueExtractors(ReloadBox).isEmpty()
+
+        cleanup:
+        context.close()
     }
 
     void "a bean that received the validator is recreated on top of the new one through the dependency graph"() {
