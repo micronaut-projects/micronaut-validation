@@ -51,6 +51,7 @@ include 'test-suite'
 include 'test-suite-groovy'
 include 'test-suite-kotlin'
 include 'test-suite-python'
+include 'test-suite-dev-reload'
 
 include 'tests:jakarta-validation-tck'
 
