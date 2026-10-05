@@ -47,6 +47,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedArrayType;
+import java.lang.reflect.AnnotatedParameterizedType;
+import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -236,15 +239,16 @@ final class DevelopmentValidationReloader {
 
     /**
      * Whether a bean validates its methods: a method marked {@link Validated}, or a method whose return
-     * value or parameters carry a constraint or {@link Valid}. The interceptor caches what it decided
-     * for each method.
+     * value or parameters carry a constraint or {@link Valid}, on themselves or on a type argument or array
+     * component, as in {@code List<@NotBlank String>}. The interceptor caches what it decided for each method.
      *
      * @param type The changed class
      * @return Whether a method of it is validated
      */
     private static boolean hasMethodConstraints(Class<?> type) {
         for (Method method : type.getDeclaredMethods()) {
-            if (method.isAnnotationPresent(Validated.class) || anyConstraint(method.getAnnotations())) {
+            if (method.isAnnotationPresent(Validated.class) || anyConstraint(method.getAnnotations())
+                || anyConstraint(method.getAnnotatedReturnType())) {
                 return true;
             }
             for (Annotation[] parameterAnnotations : method.getParameterAnnotations()) {
@@ -252,6 +256,33 @@ final class DevelopmentValidationReloader {
                     return true;
                 }
             }
+            for (AnnotatedType parameterType : method.getAnnotatedParameterTypes()) {
+                if (anyConstraint(parameterType)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether a type use carries a constraint or {@link Valid}, at any depth of its type arguments and array components.
+     *
+     * @param type The annotated type
+     * @return Whether a constraint is found
+     */
+    private static boolean anyConstraint(AnnotatedType type) {
+        if (anyConstraint(type.getAnnotations())) {
+            return true;
+        }
+        if (type instanceof AnnotatedParameterizedType parameterized) {
+            for (AnnotatedType argument : parameterized.getAnnotatedActualTypeArguments()) {
+                if (anyConstraint(argument)) {
+                    return true;
+                }
+            }
+        } else if (type instanceof AnnotatedArrayType array) {
+            return anyConstraint(array.getAnnotatedGenericComponentType());
         }
         return false;
     }

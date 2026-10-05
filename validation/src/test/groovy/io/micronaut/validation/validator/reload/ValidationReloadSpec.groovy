@@ -166,6 +166,13 @@ class ValidationReloadSpec extends Specification {
         !context.getBean(ValidatingInterceptor).is(beforeService)
         context.getBean(ReloadService).name() == 'reload'
 
+        when: 'a class whose methods constrain only the type arguments of their parameters and return value is redefined in place'
+        ValidatingInterceptor beforeNames = context.getBean(ValidatingInterceptor)
+        context.publishEvent(classChange([] as Set, [new ClassChange(ReloadNames.name, ClassChange.Kind.MODIFIED)], ReloadStrategy.RELOAD))
+
+        then:
+        !context.getBean(ValidatingInterceptor).is(beforeNames)
+
         when: 'a reload retires the loader of the test classes'
         context.publishEvent(classChange([ReloadBook.classLoader] as Set, [], ReloadStrategy.RELOAD))
         Validator afterRetirement = context.getBean(Validator)
