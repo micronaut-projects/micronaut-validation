@@ -183,6 +183,55 @@ class ValidationReloadSpec extends Specification {
         context.close()
     }
 
+    void "a class change applied in place that removes the last constraint, @Validated or @GroupSequence of a class recreates the validator, as the class it replaces was validated"() {
+        given:
+        ApplicationContext context = ApplicationContext.builder()
+            .properties('micronaut.dev.enabled': true)
+            .trackBeanDependencies(true)
+            .start()
+        Validator validator = context.getBean(Validator)
+        validator.validate(new ReloadBook("Dune", 41), ReloadOrdered)
+        context.getBean(ReloadService).name()
+        // the new generation's classes of the same names, edited down to nothing validation reads
+        ClassLoader edited = editedLoader(
+            "package ${ReloadBook.package.name}; class ReloadBook { String title; Integer pages }",
+            "package ${ReloadOrdered.package.name}; interface ReloadOrdered {}",
+            "package ${ReloadService.package.name}; class ReloadService { String name() { 'reload' } }"
+        )
+
+        expect: 'none of them looks validated any more'
+        [ReloadBook, ReloadOrdered, ReloadService].every { type ->
+            Class<?> replacement = Class.forName(type.name, false, edited)
+            !replacement.is(type) && replacement.annotations.length == 0
+                && replacement.declaredMethods.every { method -> method.annotations.every { !it.annotationType().name.startsWith('jakarta.') } }
+        }
+
+        when: 'the constraints of a validated type are removed in place'
+        context.publishEvent(editedChange(edited, ReloadBook))
+        Validator afterBook = context.getBean(Validator)
+
+        then:
+        !afterBook.is(validator)
+
+        when: 'the group sequence of a group is removed in place'
+        context.publishEvent(editedChange(edited, ReloadOrdered))
+        Validator afterGroup = context.getBean(Validator)
+
+        then:
+        !afterGroup.is(afterBook)
+
+        when: 'the method constraints of a bean are removed in place'
+        ValidatingInterceptor beforeService = context.getBean(ValidatingInterceptor)
+        context.publishEvent(editedChange(edited, ReloadService))
+
+        then: 'the interceptor, which caches what it decided for each method, is replaced'
+        !context.getBean(ValidatingInterceptor).is(beforeService)
+        !context.getBean(Validator).is(afterGroup)
+
+        cleanup:
+        context.close()
+    }
+
     void "outside development mode there is no reloader and the validation beans read the definitions once, as they always have"() {
         given:
         ApplicationContext context = ApplicationContext.run()
@@ -226,6 +275,16 @@ class ValidationReloadSpec extends Specification {
             .typeArguments(Argument.of(ReloadBox, Argument.OBJECT_ARGUMENT))
             .build())
         return [validator: validator, extractor: extractor]
+    }
+
+    private static ClassLoader editedLoader(String... sources) {
+        GroovyClassLoader loader = new GroovyClassLoader(ValidationReloadSpec.classLoader)
+        sources.each { loader.parseClass(it) }
+        return loader
+    }
+
+    private static ClassChangeEvent editedChange(ClassLoader edited, Class<?> type) {
+        return new ClassChangeEvent(ValidationReloadSpec, 1, [] as Set, edited, [new ClassChange(type.name, ClassChange.Kind.MODIFIED)], ReloadStrategy.RELOAD)
     }
 
     private static ClassChangeEvent classChange(Set<ClassLoader> retired, List<ClassChange> changes, ReloadStrategy strategy) {

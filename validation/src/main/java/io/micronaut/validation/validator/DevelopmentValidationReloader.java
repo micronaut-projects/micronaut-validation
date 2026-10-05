@@ -24,9 +24,14 @@ import io.micronaut.context.env.DevelopmentMode;
 import io.micronaut.context.reload.ClassChange;
 import io.micronaut.context.reload.ClassChangeEvent;
 import io.micronaut.context.reload.ReloadStrategy;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.inject.BeanDefinition;
+import io.micronaut.inject.BeanDefinitionReference;
+import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.validation.Validated;
 import io.micronaut.validation.ValidatingInterceptor;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
@@ -107,7 +112,7 @@ final class DevelopmentValidationReloader {
                 }
             });
             watchable.watchClassChanges(change -> {
-                if (affectsValidation(change)) {
+                if (affectsValidation(change, beanContext)) {
                     rebuild("validated classes changed");
                 }
             });
@@ -121,10 +126,18 @@ final class DevelopmentValidationReloader {
      * what was resolved for the retired generation, and one that redefines in place a validated type, or a bean
      * that validates its methods, changes the constraints read from it.
      *
+     * <p>A class counts when it is validated now or when the class it replaces was: an edit that removes the last
+     * constraint, {@link Validated} or {@link GroupSequence} of a class leaves a class that no longer looks
+     * validated, while the caches still hold what was resolved from the one it replaces. The one it replaces is
+     * read from the metadata the context was compiled with, the introspections and bean definitions validation
+     * resolved from, which a change applied in place leaves as they were. It is looked up by name: nothing of a
+     * previous class is kept.</p>
+     *
      * @param change The class change
+     * @param beanContext The context
      * @return Whether to recreate the validation beans
      */
-    private static boolean affectsValidation(ClassChangeEvent change) {
+    private static boolean affectsValidation(ClassChangeEvent change, BeanContext beanContext) {
         if (change.strategy() == ReloadStrategy.RESTART) {
             return false;
         }
@@ -133,11 +146,41 @@ final class DevelopmentValidationReloader {
         }
         for (ClassChange classChange : change.changes()) {
             String className = classChange.className();
-            if (className.endsWith("$Introspection") || isValidated(className, change.newLoader())) {
+            if (className.endsWith("$Introspection")
+                || isValidated(className, change.newLoader())
+                || wasValidated(className, beanContext)) {
                 return true;
             }
         }
         return false;
+    }
+
+    /**
+     * Whether the class a change replaces was validated, as the context was compiled: it has an introspection,
+     * or a bean definition of it validates its methods. The references are matched by name: only the definitions
+     * and the introspection of that name are loaded.
+     *
+     * @param className The changed class
+     * @param beanContext The context
+     * @return Whether validation resolved something from the class it replaces
+     */
+    private static boolean wasValidated(String className, BeanContext beanContext) {
+        // the compiled definitions of a class are named after it: $Outer$Inner$Definition, and $Outer$Inner$Definition$...
+        // for its proxy, so that the references are matched without loading a bean type
+        int lastDot = className.lastIndexOf('.');
+        String definition = className.substring(0, lastDot + 1) + '$' + className.substring(lastDot + 1) + "$Definition";
+        for (BeanDefinitionReference<?> reference : beanContext.getBeanDefinitionReferences()) {
+            String name = reference.getBeanDefinitionName();
+            if ((name.equals(definition) || name.startsWith(definition + '$')) && validatesMethods(reference)) {
+                return true;
+            }
+        }
+        try {
+            return !BeanIntrospector.SHARED.findIntrospections(reference -> className.equals(reference.getName())).isEmpty();
+        } catch (RuntimeException | LinkageError e) {
+            // an introspection of that name that no longer loads: the retired state is unknown, so it counts
+            return true;
+        }
     }
 
     private static boolean isValidated(String className, ClassLoader loader) {
@@ -155,6 +198,40 @@ final class DevelopmentValidationReloader {
             // removed, or not loadable on its own: nothing validation can have resolved from the new generation
             return false;
         }
+    }
+
+    /**
+     * Whether a compiled bean definition validates its methods, as the processor marks them.
+     *
+     * @param reference The reference to the definition
+     * @return Whether the interceptor validates a method of it
+     */
+    private static boolean validatesMethods(BeanDefinitionReference<?> reference) {
+        try {
+            if (requiresValidation(reference.getAnnotationMetadata())) {
+                return true;
+            }
+            BeanDefinition<?> definition = reference.load();
+            if (definition == null) {
+                return false;
+            }
+            if (requiresValidation(definition.getAnnotationMetadata())) {
+                return true;
+            }
+            for (ExecutableMethod<?, ?> method : definition.getExecutableMethods()) {
+                if (requiresValidation(method.getAnnotationMetadata())) {
+                    return true;
+                }
+            }
+            return false;
+        } catch (RuntimeException | LinkageError e) {
+            // a definition of that name that no longer loads: what it was is unknown, so it counts
+            return true;
+        }
+    }
+
+    private static boolean requiresValidation(AnnotationMetadata metadata) {
+        return metadata.hasStereotype(Validated.class) || metadata.hasStereotype(RequiresValidation.class);
     }
 
     /**
