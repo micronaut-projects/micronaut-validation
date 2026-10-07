@@ -130,6 +130,23 @@ class DefaultValidatorFactoryTest {
     }
 
     @Test
+    void contextKeepsItsTypeThroughTheMethodsOfTheSpecification() {
+        DefaultValidatorFactory factory = new DefaultValidatorFactory(new DefaultValidatorConfiguration());
+        BoxExtractor extractor = new BoxExtractor("chained");
+
+        // a method of ValidatorContext returns the Micronaut context, so the full description still follows it
+        Validator validator = factory.usingContext()
+            .messageInterpolator(new TestMessageInterpolator())
+            .addValueExtractor(definitionOf(extractor))
+            .getValidator();
+
+        Set<ConstraintViolation<BoxBean>> violations = validator.validate(new BoxBean(new Box<>(null)));
+        assertEquals(1, violations.size());
+        assertEquals("custom", violations.iterator().next().getMessage());
+        assertEquals(1, extractor.extractions());
+    }
+
+    @Test
     void contextValueExtractorsOverrideFactoryConfiguration() {
         DefaultValidatorConfiguration configuration = new DefaultValidatorConfiguration();
         BoxExtractor factoryExtractor = new BoxExtractor("factory");
@@ -195,8 +212,8 @@ class DefaultValidatorFactoryTest {
      * and which type argument carries it. Registering an extractor this way describes it without its class
      * being read, which is what the specification's own signature cannot do.
      */
-    private static ValueExtractorDefinition<Box<Object>> definitionOf(BoxExtractor extractor) {
-        return new ValueExtractorDefinition<>((Class) Box.class, (Class) Object.class, 0, false, (ValueExtractor) extractor);
+    private static ValueExtractorDefinition<Box> definitionOf(BoxExtractor extractor) {
+        return ValueExtractorDefinition.of(Box.class, Object.class, 0, false, extractor);
     }
 
     private static final class BoxExtractor implements ValueExtractor<Box<@ExtractedValue ?>> {

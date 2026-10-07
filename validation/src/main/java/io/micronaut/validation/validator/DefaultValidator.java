@@ -55,7 +55,6 @@ import io.micronaut.validation.validator.constraints.InternalConstraintValidator
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 import jakarta.annotation.PreDestroy;
 import jakarta.inject.Singleton;
@@ -1166,7 +1165,7 @@ public class DefaultValidator
                     continue;
                 }
                 AnnotationMetadata memberMetadata = member.getAnnotationMetadata();
-                Argument<?> typed = ValidationMetadataSupport.argument(member.asArgument(), memberMetadata);
+                Argument<?> typed = member.asArgument();
                 boolean cascaded = memberMetadata.hasStereotype(Valid.class)
                     || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, typed);
                 members.add(new MemberPlan((BeanPropertyMember) member,
@@ -1216,7 +1215,7 @@ public class DefaultValidator
         }
         return ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())
             || annotationMetadata.hasStereotype(Valid.class)
-            || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()))
+            || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, member.asArgument())
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 

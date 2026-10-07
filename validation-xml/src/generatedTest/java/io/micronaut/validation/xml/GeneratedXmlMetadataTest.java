@@ -66,8 +66,9 @@ class GeneratedXmlMetadataTest {
         try (var factory = new DefaultValidatorFactory(configuration)) {
             var violations = factory.getValidator().validate(new Bean());
             assertEquals(1, violations.size());
-            assertThrows(ValidationException.class,
-                () -> violations.iterator().next().getConstraintDescriptor().getAnnotation());
+            // a constraint of the specification mapped in XML is built by the generated builder
+            assertEquals(jakarta.validation.constraints.NotNull.class,
+                violations.iterator().next().getConstraintDescriptor().getAnnotation().annotationType());
         }
     }
 

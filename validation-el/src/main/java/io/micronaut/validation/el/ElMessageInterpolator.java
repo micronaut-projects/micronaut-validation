@@ -16,7 +16,6 @@
 package io.micronaut.validation.el;
 
 import io.micronaut.context.MessageSource;
-import io.micronaut.context.annotation.Primary;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
@@ -52,11 +51,13 @@ import java.util.Set;
  * Internal Jakarta EL-backed message interpolator used only when the optional
  * EL module is present.
  *
+ * <p>It replaces the default interpolator without being primary: an application bean that replaces the
+ * default one too is not silently ignored, it has to declare which of the two it wants.</p>
+ *
  * @since 5.3.0
  */
 @Internal
 @Singleton
-@Primary
 @Replaces(DefaultMessageInterpolator.class)
 @Requires(classes = CompiledExpressionFactory.class)
 public final class ElMessageInterpolator implements MessageInterpolator {

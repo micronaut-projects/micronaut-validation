@@ -93,7 +93,7 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     @Override
     public Map<String, Object> getAttributes() {
         var argType = notIntrospectedArgument.getType().getName();
-        if (notIntrospectedArgument.isTypeVariable() && elementValue != null) {
+        if ((notIntrospectedArgument.isUnresolvedTypeVariable() || notIntrospectedArgument.isWildcard()) && elementValue != null) {
             argType = elementValue.getClass().getName();
         }
         return Collections.singletonMap("type", argType);

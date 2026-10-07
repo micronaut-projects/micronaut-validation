@@ -52,6 +52,12 @@ import java.util.stream.Stream;
 @Internal
 public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
+    /**
+     * The annotation processor option making an invalid constraint definition a compilation error. Without
+     * it the definition is reported as a warning and, as the specification asks, fails when it is validated.
+     */
+    public static final String STRICT_DEFINITIONS_OPTION = "micronaut.validation.strictConstraintDefinitions";
+
     private static final String ANN_CASCADE = "io.micronaut.validation.annotation.ValidatedElement";
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
@@ -62,6 +68,11 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public Set<String> getSupportedAnnotationNames() {
         return Set.of("jakarta.validation.*");
+    }
+
+    @Override
+    public Set<String> getSupportedOptions() {
+        return Set.of(STRICT_DEFINITIONS_OPTION);
     }
 
     @Override

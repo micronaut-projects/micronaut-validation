@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.transformer;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.annotation.processing.visitor.ElementProvider;
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
@@ -24,6 +25,7 @@ import io.micronaut.core.annotation.AnnotationValueBuilder;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.annotation.Retainable;
 import io.micronaut.inject.annotation.AnnotationRemapper;
+import io.micronaut.inject.ast.AnnotationElement;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.EnumElement;
 import io.micronaut.inject.processing.JavaModelUtils;
@@ -39,6 +41,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
@@ -48,6 +51,7 @@ import javax.lang.model.element.TypeElement;
  *
  * @author Denis Stepanov
  */
+@Internal
 public class ValidationAnnotationRemapper implements AnnotationRemapper {
 
     @Override
@@ -167,13 +171,31 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
     }
 
     private static boolean hasDirectAndContainerComposition(ClassElement type, VisitorContext context) {
-        if (context.getLanguage() == VisitorContext.Language.JAVA) {
-            return JavaComposition.hasDirectAndContainerComposition(type);
+        Set<String> annotations = context.getLanguage() == VisitorContext.Language.JAVA
+            ? JavaComposition.declaredAnnotationNames(type)
+            : type.getAnnotationMetadata().getDeclaredAnnotationNames();
+        return hasDirectAndContainerComposition(annotations, context);
+    }
+
+    /**
+     * Whether a constraint and the container holding its repetitions are both declared. The container is the one
+     * the constraint declares as repeatable, whatever its name; an annotation the context cannot resolve is
+     * paired with a container named {@code List} nested in it.
+     */
+    private static boolean hasDirectAndContainerComposition(Set<String> declared, VisitorContext context) {
+        // the binary name of a nested container, Size$List, and its canonical name, Size.List, are the same type
+        Set<String> names = declared.stream().map(name -> name.replace('$', '.')).collect(Collectors.toSet());
+        for (String name : declared) {
+            Optional<ClassElement> element = context.getClassElement(name);
+            Optional<String> container = element.isPresent()
+                ? element.filter(AnnotationElement.class::isInstance).map(AnnotationElement.class::cast)
+                    .flatMap(AnnotationElement::getRepeatableContainer)
+                : Optional.of(name.replace('$', '.') + ".List");
+            if (container.map(it -> names.contains(it.replace('$', '.'))).orElse(false)) {
+                return true;
+            }
         }
-        var annotations = type.getAnnotationMetadata().getDeclaredAnnotationNames();
-        // a nested container is named by its binary name, Size$List, as on the Java path
-        return annotations.stream().anyMatch(name -> (name.endsWith("$List") || name.endsWith(".List"))
-            && annotations.contains(name.substring(0, name.length() - 5)));
+        return false;
     }
 
     private static AnnotationValue<?> retainedValue(AnnotationValue<?> value) {
@@ -234,15 +256,15 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             return annotations;
         }
 
-        private static boolean hasDirectAndContainerComposition(ClassElement type) {
+        private static Set<String> declaredAnnotationNames(ClassElement type) {
             if (type.getNativeType() instanceof ElementProvider provider
                 && provider.element() instanceof TypeElement element) {
-                var annotations = element.getAnnotationMirrors().stream()
-                    .map(annotation -> annotation.getAnnotationType().toString()).collect(Collectors.toSet());
-                return annotations.stream().anyMatch(name -> name.endsWith(".List")
-                    && annotations.contains(name.substring(0, name.length() - 5)));
+                // Read mirrors directly: the type's annotation metadata may still be being remapped.
+                return element.getAnnotationMirrors().stream()
+                    .map(annotation -> JavaModelUtils.getClassName((TypeElement) annotation.getAnnotationType().asElement()))
+                    .collect(Collectors.toSet());
             }
-            return false;
+            return Set.of();
         }
     }
 }

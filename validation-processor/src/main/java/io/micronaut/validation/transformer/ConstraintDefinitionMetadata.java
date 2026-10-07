@@ -20,6 +20,7 @@ import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.visitor.ValidationVisitor;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
 import jakarta.validation.OverridesAttribute;
@@ -35,11 +36,7 @@ import java.util.Set;
 
 /** Retains definition diagnostics and attributes requiring concrete runtime values. */
 final class ConstraintDefinitionMetadata {
-    /**
-     * The annotation processor option making an invalid constraint definition a compilation error. Without
-     * it the definition is reported as a warning and, as the specification asks, fails when it is validated.
-     */
-    static final String STRICT_OPTION = "micronaut.validation.strictConstraintDefinitions";
+    static final String STRICT_OPTION = ValidationVisitor.STRICT_DEFINITIONS_OPTION;
 
     private static final String REPORTED = ConstraintDefinitionMetadata.class.getName() + ".reported";
 

@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.transformer;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.context.annotation.AliasFor;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
@@ -34,6 +35,7 @@ import java.util.List;
  * @author Denis Stepanov
  * @since 5.3.0
  */
+@Internal
 public final class OverridesAttributeTransformer implements NamedAnnotationTransformer {
 
     @Override

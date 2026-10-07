@@ -97,7 +97,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
                     if (argument.getType().equals(ValueExtractor.class)) {
                         addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
                             argument,
-                            reg.getBean()
+                            reg.getBean(), true
                         ), false);
                     } else {
                         List<Argument<?>> typeArguments = beanDefinition.getTypeArguments(ValueExtractor.class);
@@ -106,7 +106,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
                         }
                         addValueExtractor(localValueExtractors, new ValueExtractorDefinition(
                             Argument.of(ValueExtractor.class, beanDefinition.getAnnotationMetadata(), typeArguments.toArray(new Argument[0])),
-                            reg.getBean()
+                            reg.getBean(), true
                         ), false);
                     }
                 }

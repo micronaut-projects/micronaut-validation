@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.reflection;
 
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.util.StringUtils;
@@ -30,11 +31,14 @@ import java.util.Set;
  * @author Denis Stepanov
  * @since 5.3.0
  */
+@Internal
 public final class ReflectiveValidation {
 
     /**
      * The system property switching the reflective description of the types off: {@code false} leaves the
-     * generated introspections alone, which is how the introspection profile of the TCK runs.
+     * generated introspections alone, which is how the introspection profile of the TCK runs. It is read as a
+     * JVM system property, not from the application environment, because the Jakarta Validation bootstrap that
+     * consults it runs without one.
      */
     public static final String ENABLED = "micronaut.validation.reflection.enabled";
 

@@ -19,7 +19,6 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
@@ -53,7 +52,6 @@ import jakarta.validation.constraints.Size;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -65,7 +63,7 @@ public final class ValidationMetadataSupport {
     /** Internal hierarchy entries stored in ordinary annotation metadata. */
     public static final String HIERARCHY = "io.micronaut.validation.internal.Hierarchy";
 
-    /** Internal declaration-owned type-use annotations. */
+    /** The name of an entry of {@link #DECLARED_PARAMETERS}: the type-use annotations a parameter declares. */
     public static final String TYPE_USE = "io.micronaut.validation.internal.TypeUse";
 
     /** Parameters before the existing visitor supplements inherited type-use annotations. */
@@ -100,16 +98,6 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * @param argument The structural argument
-     * @param declaration Its declaration metadata
-     * @return The argument with declaration-owned type-use annotations
-     */
-    public static Argument<?> argument(Argument<?> argument, AnnotationMetadata declaration) {
-        var typeUse = declaration.getAnnotation(TYPE_USE);
-        return typeUse == null ? argument : typeUse(argument, typeUse);
-    }
-
-    /**
      * @param arguments The merged parameter arguments
      * @param declaration The owning method's metadata
      * @return Parameters carrying only declaration-owned annotations
@@ -130,30 +118,6 @@ public final class ValidationMetadataSupport {
     private static Argument<?> withoutAnnotations(Argument<?> argument) {
         return ExecutableHierarchy.copyArgument(argument, AnnotationMetadata.EMPTY_METADATA,
             Arrays.stream(argument.getTypeParameters()).map(ValidationMetadataSupport::withoutAnnotations).toArray(Argument<?>[]::new));
-    }
-
-    /**
-     * @param introspection The generated description
-     * @param superType The generic declaration
-     * @return Core arguments with their declaration-owned annotations
-     */
-    public static List<Argument<?>> typeArguments(BeanIntrospection<?> introspection, Class<?> superType) {
-        var arguments = introspection.getTypeArguments(superType);
-        var hierarchy = introspection.getAnnotationMetadata().getAnnotation(HIERARCHY);
-        if (hierarchy == null) {
-            return arguments;
-        }
-        for (var entry : hierarchy.getAnnotations("arguments")) {
-            if (entry.stringValue("type").orElse("").equals(superType.getName())) {
-                var annotations = entry.getAnnotations("arguments");
-                var result = new ArrayList<Argument<?>>(arguments.size());
-                for (int i = 0; i < arguments.size(); i++) {
-                    result.add(i < annotations.size() ? typeUse(arguments.get(i), annotations.get(i)) : arguments.get(i));
-                }
-                return List.copyOf(result);
-            }
-        }
-        return arguments;
     }
 
     private static Argument<?> typeUse(Argument<?> argument, AnnotationValue<?> typeUse) {

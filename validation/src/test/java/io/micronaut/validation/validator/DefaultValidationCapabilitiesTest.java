@@ -96,7 +96,15 @@ class DefaultValidationCapabilitiesTest {
         try (var factory = new DefaultValidatorFactory()) {
             var descriptor = factory.getValidator().getConstraintsForClass(GeneratedDeclarationAccessTest.StandardRecord.class)
                 .getConstraintsForProperty("value").getConstraintDescriptors().iterator().next();
-            var failure = assertThrows(ValidationException.class, descriptor::getAnnotation);
+            // a constraint of the specification is built by the builder generated with this module
+            var annotation = descriptor.getAnnotation();
+            assertEquals(NotNull.class, annotation.annotationType());
+            assertEquals("{jakarta.validation.constraints.NotNull.message}", ((NotNull) annotation).message());
+            assertEquals(annotation, descriptor.getAnnotation());
+            // one of the application has no builder unless it registers one
+            var custom = factory.getValidator().getConstraintsForClass(Bundled.class)
+                .getConstraintsForProperty("value").getConstraintDescriptors().iterator().next();
+            var failure = assertThrows(ValidationException.class, custom::getAnnotation);
             assertTrue(failure.getMessage().contains("micronaut-validation-reflection"));
         }
     }

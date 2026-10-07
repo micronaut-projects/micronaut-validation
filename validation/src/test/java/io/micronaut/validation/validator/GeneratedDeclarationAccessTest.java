@@ -106,12 +106,26 @@ class GeneratedDeclarationAccessTest {
     }
 
     @Test
-    void generatedContainerMappingsFollowReorderedVariables() {
+    void introspectionsFollowReorderedVariables() {
         var support = new CompileTimeSupport();
         assertEquals(1, support.extractedTypeArgumentIndex(Swapped.class, Pair.class, 0));
         assertEquals(0, support.extractedTypeArgumentIndex(Swapped.class, Pair.class, 1));
-        // a container declaring no constraint keeps its introspection as declared, the mappings recorded all the same
+        // a container declaring no constraint keeps its introspection as declared
         assertFalse(BeanIntrospector.SHARED.getIntrospection(Swapped.class).separatesDeclarations());
+    }
+
+    @Test
+    void aContainerBindingEveryArgumentPassesNoVariableOn() {
+        var support = new CompileTimeSupport();
+        // a type declaring no variable binds the arguments of its generic super types, which its introspection tells
+        assertNull(support.extractedTypeArgumentIndex(Bound.class, Pair.class, 0));
+        assertNull(support.extractedTypeArgumentIndex(Bound.class, Pair.class, 1));
+        // one binding some and passing others on
+        assertNull(support.extractedTypeArgumentIndex(HalfBound.class, Pair.class, 0));
+        assertEquals(0, support.extractedTypeArgumentIndex(HalfBound.class, Pair.class, 1));
+        // one passing its variables on two levels up, through a super type renaming them
+        assertEquals(0, support.extractedTypeArgumentIndex(Deep.class, Pair.class, 0));
+        assertEquals(1, support.extractedTypeArgumentIndex(Deep.class, Pair.class, 1));
     }
 
     @Test
@@ -176,6 +190,9 @@ class GeneratedDeclarationAccessTest {
     @Introspected static class Concrete extends Middle<String> { }
     interface Pair<A, B> { }
     @Introspected static class Swapped<X, Y> implements Pair<Y, X> { }
+    @Introspected static class Bound implements Pair<String, Integer> { }
+    @Introspected static class HalfBound<Z> implements Pair<String, Z> { }
+    @Introspected static class Deep<P, Q> extends Swapped<Q, P> { }
 
     @Introspected
     static class StandardBean {

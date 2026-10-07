@@ -3,14 +3,11 @@
 <suite name="Jakarta-Bean-Validation-TCK" verbose="1">
     <!--
         Generated descriptions, with micronaut.validation.reflection.enabled=false.
-        The audit retains seven measured exclusions. Core processes only the first repeated
-        @ClassImport, so the metadata package import containing CustomerService.InnerClass
-        is ignored. Single-import probes describe its enclosing-instance parameter correctly.
-        Six XML tests name private
+        The audit retains six measured exclusions. Six XML tests name private
         methods (Groups.convert and IgnoreAnnotations.foobar) that standard introspections
         do not expose. Describing them requires the optional provider; validation does not
         generate extra declaration classes. The full Jakarta stack tests all 1,054 cases.
-        This restricted suite runs 1,047 tests; excluded tests are not reported as skipped.
+        This restricted suite runs 1,048 tests; excluded tests are not reported as skipped.
 
         Reassess with -PtckIntrospectionSuite=tck-spec-tests.xml before removing this exclusion.
     -->
@@ -19,11 +16,6 @@
             <package name="org.hibernate.beanvalidation.tck.tests.*"/>
         </packages>
         <classes>
-            <class name="org.hibernate.beanvalidation.tck.tests.metadata.ExecutableDescriptorTest">
-                <methods>
-                    <exclude name="testGetParameterDescriptorsForConstructorOfInnerClass"/>
-                </methods>
-            </class>
             <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest">
                 <methods>
                     <exclude name="testGroupConversionsAppliedOnConstructor"/>

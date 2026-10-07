@@ -587,9 +587,8 @@ public final class ExecutableHierarchy {
             return new Declaration(method.getDeclaringType(),
                 exact ? method.getDeclaredMethodAnnotationMetadata() : declaredOf(method.getAnnotationMetadata()),
                 exact ? ValidationMetadataSupport.declaredArguments(method.getArguments(), method.getDeclaredMethodAnnotationMetadata()) : method.getArguments(),
-                exact ? ValidationMetadataSupport.argument(
-                    returnArgumentOf(method.getReturnType()).withAnnotationMetadata(method.getDeclaredMethodAnnotationMetadata()),
-                    method.getDeclaredMethodAnnotationMetadata()) : returnArgumentOf(method.getReturnType()),
+                exact ? returnArgumentOf(method.getReturnType()).withAnnotationMetadata(method.getDeclaredMethodAnnotationMetadata())
+                    : returnArgumentOf(method.getReturnType()),
                 exact);
         }
 

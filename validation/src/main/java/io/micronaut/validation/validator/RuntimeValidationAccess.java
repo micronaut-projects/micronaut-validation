@@ -15,8 +15,10 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationBuilder;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
 import jakarta.validation.ValidationException;
@@ -136,7 +138,18 @@ public interface RuntimeValidationAccess {
      * @return The annotation implementation
      * @since 5.3.0
      */
+    @SuppressWarnings("unchecked")
     default <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
+        // the constraints of the specification and of this module have a builder generated with this module;
+        // one of the application has one where it registers it
+        ClassLoader own = RuntimeValidationAccess.class.getClassLoader();
+        var builder = AnnotationBuilder.find(type, own);
+        if (builder.isEmpty() && type.getClassLoader() != null && type.getClassLoader() != own) {
+            builder = AnnotationBuilder.find(type, type.getClassLoader());
+        }
+        if (builder.isPresent()) {
+            return builder.get().build((AnnotationValue<T>) value, ConversionService.SHARED);
+        }
         throw new ValidationException(
                 "No generated annotation implementation for "
                         + type.getName()
@@ -158,17 +171,5 @@ public interface RuntimeValidationAccess {
                         + name
                         + ": compile with introspection metadata or add"
                         + " micronaut-validation-reflection");
-    }
-
-    /**
-     * Erases a caller-supplied signature for the deprecated configuration helper.
-     * @param type The signature
-     * @return Its raw class
-     */
-    default Class<?> rawType(Type type) {
-        if (type instanceof Class<?> clazz) {
-            return clazz;
-        }
-        throw new ValidationException("Generic signature conversion requires micronaut-validation-reflection: " + type);
     }
 }

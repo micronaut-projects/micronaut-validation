@@ -144,6 +144,7 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * Default: false, a constraint may omit the members it does not need
      *
      * @return Whether constraint definitions are checked
+     * @since 5.3.0
      */
     default boolean isStrictConstraintDefinitions() {
         return false;
@@ -158,6 +159,8 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     }
 
     /**
+     * Internal to the validator: an implementation keeps the default.
+     *
      * @return The validators a configuration defines for the constraints
      * @since 5.3.0
      */
@@ -167,6 +170,8 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     }
 
     /**
+     * Internal to the validator: an implementation keeps the default.
+     *
      * @return The metadata access support selected for this configuration
      * @since 5.3.0
      */

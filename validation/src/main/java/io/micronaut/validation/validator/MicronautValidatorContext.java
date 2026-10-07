@@ -16,7 +16,13 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
+import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintValidatorFactory;
+import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ParameterNameProvider;
+import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidatorContext;
+import jakarta.validation.valueextraction.ValueExtractor;
 
 /**
  * A {@link ValidatorContext} that also takes a value extractor described in full.
@@ -26,10 +32,31 @@ import jakarta.validation.ValidatorContext;
  * the {@code ValueExtractor} signature the extractor's class declares, which needs
  * {@code micronaut-validation-reflection}. Describing the extractor instead needs nothing to be read.</p>
  *
+ * <p>The context {@link jakarta.validation.ValidatorFactory#usingContext()} returns is one: cast it to reach this
+ * method. The methods of {@link ValidatorContext} return this type, so a chain of calls keeps it.</p>
+ *
  * @author Denis Stepanov
  * @since 5.3.0
  */
 public interface MicronautValidatorContext extends ValidatorContext {
+
+    @Override
+    MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator);
+
+    @Override
+    MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver);
+
+    @Override
+    MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory);
+
+    @Override
+    MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider);
+
+    @Override
+    MicronautValidatorContext clockProvider(ClockProvider clockProvider);
+
+    @Override
+    MicronautValidatorContext addValueExtractor(ValueExtractor<?> extractor);
 
     /**
      * Registers a value extractor described in full: the container type it reads, the type of the value it

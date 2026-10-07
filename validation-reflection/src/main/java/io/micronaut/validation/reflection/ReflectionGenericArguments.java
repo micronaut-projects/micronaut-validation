@@ -36,7 +36,10 @@ final class ReflectionGenericArguments {
     static @Nullable Integer declaredTypeArgumentIndex(Class<?> type, Class<?> superType, int index) {
         Argument<?> resolved = ReflectionArguments.resolveGenericToArgument(type, superType);
         Argument<?>[] arguments = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
-        if (index < 0 || index >= arguments.length || !(arguments[index] instanceof GenericPlaceholder<?> placeholder)) {
+        // a wildcard or a type resolved in place of a variable is a placeholder too: only a variable left
+        // unresolved is one the type passes on
+        if (index < 0 || index >= arguments.length || !arguments[index].isUnresolvedTypeVariable()
+            || !(arguments[index] instanceof GenericPlaceholder<?> placeholder)) {
             return null;
         }
         TypeVariable<?>[] own = type.getTypeParameters();

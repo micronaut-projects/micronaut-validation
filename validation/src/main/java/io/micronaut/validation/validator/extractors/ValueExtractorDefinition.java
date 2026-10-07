@@ -45,23 +45,62 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
 
     public ValueExtractorDefinition(@NotNull Argument<ValueExtractor<T>> argument,
                                     @NotNull ValueExtractor<T> valueExtractor) {
-        this(argument, argument.getFirstTypeVariable().orElseThrow(), valueExtractor);
+        this(argument, valueExtractor, false);
+    }
+
+    /**
+     * A definition read from the {@code ValueExtractor} signature an extractor declares.
+     *
+     * @param argument The {@code ValueExtractor} signature
+     * @param valueExtractor The extractor
+     * @param firstTypeArgumentByDefault Whether a container with a single type argument and no
+     * {@link ExtractedValue} extracts that argument, as an extractor bean of the application did before 5.3.
+     * The specification requires {@link ExtractedValue}, so an extractor registered through its API is not lenient
+     */
+    ValueExtractorDefinition(Argument<ValueExtractor<T>> argument, ValueExtractor<T> valueExtractor,
+                             boolean firstTypeArgumentByDefault) {
+        this(argument, argument.getFirstTypeVariable().orElseThrow(), valueExtractor, firstTypeArgumentByDefault);
     }
 
     private ValueExtractorDefinition(@NotNull Argument<ValueExtractor<T>> argument,
                                      @NotNull Argument<?> containerArgument,
-                                     @NotNull ValueExtractor<T> valueExtractor) {
+                                     @NotNull ValueExtractor<T> valueExtractor,
+                                     boolean firstTypeArgumentByDefault) {
         this(
             (Class<T>) containerArgument.getType(),
-            (Class<Object>) findExtractedValue(containerArgument, valueExtractor).classValue("type").orElse(containerArgument.getType()),
-            findExtractedTypeArgumentIndex(containerArgument),
+            (Class<Object>) findExtractedValue(containerArgument, valueExtractor, firstTypeArgumentByDefault).classValue("type").orElse(containerArgument.getType()),
+            findExtractedTypeArgumentIndex(containerArgument, firstTypeArgumentByDefault),
             valueExtractor instanceof UnwrapByDefaultValueExtractor || argument.getAnnotationMetadata().hasAnnotation(UnwrapByDefault.class),
             valueExtractor
         );
     }
 
+    /**
+     * Describes an extractor in full, for {@link io.micronaut.validation.validator.MicronautValidatorContext}:
+     * nothing is read from its class.
+     *
+     * @param containerType The container type the extractor reads, such as {@code Optional.class}
+     * @param valueType The type of the value it yields
+     * @param typeArgumentIndex Which type argument of the container carries the value, or {@code null} when the
+     * extractor yields the container's own values, as one for {@code OptionalInt} does
+     * @param unwrapByDefault Whether the value is unwrapped by default
+     * @param valueExtractor The extractor
+     * @param <T> The container type
+     * @return The definition
+     * @since 5.3.0
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> ValueExtractorDefinition<T> of(Class<T> containerType,
+                                                     Class<?> valueType,
+                                                     @Nullable Integer typeArgumentIndex,
+                                                     boolean unwrapByDefault,
+                                                     ValueExtractor<?> valueExtractor) {
+        return new ValueExtractorDefinition<>(containerType, (Class<Object>) valueType, typeArgumentIndex,
+            unwrapByDefault, (ValueExtractor<T>) valueExtractor);
+    }
+
     @Nullable
-    private static Integer findExtractedTypeArgumentIndex(@NotNull Argument<?> argument) {
+    private static Integer findExtractedTypeArgumentIndex(@NotNull Argument<?> argument, boolean firstTypeArgumentByDefault) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         Integer typeArgumentIndex = null;
         for (int i = 0; i < typeParameters.length; i++) {
@@ -82,10 +121,14 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         if (typeArgumentIndex != null) {
             return typeArgumentIndex;
         }
+        if (firstTypeArgumentByDefault && typeParameters.length == 1) {
+            return 0;
+        }
         throw new ValueExtractorDefinitionException("ValueExtractor definition is missing @ExtractedValue on an argument: " + argument);
     }
 
-    private static AnnotationValue<?> findExtractedValue(@NotNull Argument<?> argument, ValueExtractor<?> valueExtractor) {
+    private static AnnotationValue<?> findExtractedValue(@NotNull Argument<?> argument, ValueExtractor<?> valueExtractor,
+                                                     boolean firstTypeArgumentByDefault) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         for (Argument<?> typeParameter : typeParameters) {
             AnnotationValue<ExtractedValue> annotationValue = typeParameter.getAnnotationMetadata().getAnnotation(ExtractedValue.class);
@@ -95,6 +138,9 @@ public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
         }
         AnnotationValue<ExtractedValue> annotationValue = argument.getAnnotationMetadata().getAnnotation(ExtractedValue.class);
         if (annotationValue == null) {
+            if (firstTypeArgumentByDefault && typeParameters.length == 1) {
+                return AnnotationValue.builder(ExtractedValue.class).build();
+            }
             throw new ValueExtractorDefinitionException("ValueExtractor definition '" + valueExtractor + "' is missing @ExtractedValue!");
         }
         if (annotationValue.classValue("type").isEmpty()) {

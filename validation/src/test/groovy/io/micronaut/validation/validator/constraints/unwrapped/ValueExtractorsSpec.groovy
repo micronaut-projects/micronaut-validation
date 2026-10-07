@@ -48,4 +48,35 @@ class Test {
         constraintViolations.size() == 1
         constraintViolations.iterator().next().message == "must not be null"
     }
+
+    void "an extractor bean without @ExtractedValue extracts the single type argument of its container"() {
+        given:
+        def introspection = buildBeanIntrospection('test.Boxed', """
+package test;
+
+import jakarta.validation.constraints.NotNull;
+import io.micronaut.validation.validator.constraints.unwrapped.MyBox;
+
+@io.micronaut.core.annotation.Introspected
+class Boxed {
+    @NotNull
+    private MyBox<String> field;
+
+    public MyBox<String> getField() {
+        return field;
+    }
+
+    public void setField(MyBox<String> f) {
+        this.field = f;
+    }
+}
+""")
+        def instance = introspection.instantiate()
+        introspection.getProperty("field").get().set(instance, new MyBox(null))
+        def constraintViolations = validator.validate(introspection, instance)
+
+        expect:
+        constraintViolations.size() == 1
+        constraintViolations.iterator().next().message == "must not be null"
+    }
 }

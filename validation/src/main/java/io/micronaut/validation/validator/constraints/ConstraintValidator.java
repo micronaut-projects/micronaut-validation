@@ -35,7 +35,7 @@ import java.lang.annotation.Annotation;
  */
 @Indexed(ConstraintValidator.class)
 @FunctionalInterface
-public interface ConstraintValidator<A extends Annotation, T> extends jakarta.validation.ConstraintValidator<A, T> {
+public interface ConstraintValidator<A extends Annotation, T extends @Nullable Object> extends jakarta.validation.ConstraintValidator<A, T> {
 
     /**
      * A constraint validator that just returns the object as being valid.
@@ -59,7 +59,7 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
             @NonNull ConstraintValidatorContext context);
 
     @Override
-    default boolean isValid(T value, jakarta.validation.ConstraintValidatorContext context) {
+    default boolean isValid(@Nullable T value, jakarta.validation.ConstraintValidatorContext context) {
         // simply adapt the interfaces for now.
         return isValid(value, new AnnotationValue<>(Constraint.class.getName()), new ConstraintValidatorContext() {
 

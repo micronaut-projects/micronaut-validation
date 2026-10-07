@@ -18,11 +18,10 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 import org.jspecify.annotations.Nullable;
+import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
-import io.micronaut.validation.validator.metadata.ContainerMapping;
-import io.micronaut.validation.validator.metadata.ContainerMappings;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import io.micronaut.core.type.GenericPlaceholder;
 
 import java.util.List;
 
@@ -40,6 +39,11 @@ import java.util.List;
 @Internal
 final class ContainerTypeArguments {
 
+    /** What {@link #generatedIndex} answers for a type argument the type binds rather than passes on. */
+    static final int BOUND = -1;
+    /** What {@link #generatedIndex} answers when the introspection does not tell. */
+    static final int UNKNOWN = -2;
+
     private ContainerTypeArguments() {
     }
 
@@ -55,7 +59,7 @@ final class ContainerTypeArguments {
         }
         var generated = introspector.findIntrospection(declaredType).orElse(null);
         if (generated != null) {
-            List<Argument<?>> arguments = ValidationMetadataSupport.typeArguments(generated, containerType);
+            List<Argument<?>> arguments = generated.getTypeArguments(containerType);
             if (typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()) {
                 return arguments.get(typeArgumentIndex);
             }
@@ -73,16 +77,41 @@ final class ContainerTypeArguments {
             return extractorTypeArgumentIndex;
         }
         var generated = introspector.findIntrospection(declaredType).orElse(null);
-        var mappings = generated == null ? null : generated.getAnnotationMetadata().getAnnotation(ContainerMappings.class);
-        if (mappings != null) {
-            for (var mapping : mappings.getAnnotations("value", ContainerMapping.class)) {
-                if (mapping.stringValue("type").orElse("").equals(extractorContainerType.getName())) {
-                    int[] indexes = mapping.intValues("indexes");
-                    return extractorTypeArgumentIndex >= 0 && extractorTypeArgumentIndex < indexes.length && indexes[extractorTypeArgumentIndex] >= 0
-                        ? indexes[extractorTypeArgumentIndex] : null;
-                }
+        if (generated != null) {
+            int index = generatedIndex(generated, extractorContainerType, extractorTypeArgumentIndex);
+            if (index != UNKNOWN) {
+                return index == BOUND ? null : index;
             }
         }
         return reflectionSupport.extractedTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+    }
+
+    /**
+     * Which of a type's own type variables its introspection passes as a type argument of a generic super type.
+     *
+     * @param introspection The introspection of the type
+     * @param containerType The generic super type
+     * @param typeArgumentIndex The type argument of the super type
+     * @return The index of the type variable, {@link #BOUND} if the type binds the argument, or {@link #UNKNOWN}
+     */
+    static int generatedIndex(BeanIntrospection<?> introspection, Class<?> containerType, int typeArgumentIndex) {
+        List<Argument<?>> arguments = introspection.getTypeArguments(containerType);
+        if (typeArgumentIndex < 0 || typeArgumentIndex >= arguments.size()) {
+            return UNKNOWN;
+        }
+        Argument<?> argument = arguments.get(typeArgumentIndex);
+        if (!argument.isUnresolvedTypeVariable()) {
+            return BOUND;
+        }
+        // the variable the type passes on, named as the type declares it among its own type arguments
+        if (argument instanceof GenericPlaceholder<?> placeholder) {
+            List<Argument<?>> own = introspection.getTypeArguments();
+            for (int i = 0; i < own.size(); i++) {
+                if (placeholder.getVariableName().equals(own.get(i).getName())) {
+                    return i;
+                }
+            }
+        }
+        return UNKNOWN;
     }
 }

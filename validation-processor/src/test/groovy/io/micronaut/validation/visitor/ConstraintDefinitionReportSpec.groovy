@@ -36,6 +36,12 @@ class Test {
 
     private boolean strict
 
+    def cleanup() {
+        // the Java processor copies every micronaut option into a system property, which a Groovy compilation
+        // later in the same JVM reads as its own option
+        System.clearProperty(ValidationVisitor.STRICT_DEFINITIONS_OPTION)
+    }
+
     @Override
     protected JavaParser newJavaParser() {
         boolean failing = strict

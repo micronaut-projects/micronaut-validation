@@ -25,9 +25,6 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.validation.validator.metadata.ContainerMapping;
-import io.micronaut.validation.validator.metadata.ContainerMappings;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.ValidationException;
@@ -201,14 +198,15 @@ final class CompileTimeSupport implements ReflectionSupport {
             return null;
         }
         List<Argument<?>> arguments =
-                ValidationMetadataSupport.typeArguments(introspection, containerType);
+                introspection.getTypeArguments(containerType);
         return typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()
                 ? arguments.get(typeArgumentIndex)
                 : null;
     }
 
     /**
-     * Uses the processor's variable mappings for renamed or reordered container arguments.
+     * Uses the processor's variable mappings for renamed or reordered container arguments, and the
+     * introspection for the arguments a container binds.
      * Fixed JDK collection contracts preserve their known argument order. Other containers
      * without generated mappings require the optional reflection provider.
      */
@@ -221,20 +219,9 @@ final class CompileTimeSupport implements ReflectionSupport {
         BeanIntrospection<?> introspection =
                 introspector.findIntrospection(declaredType).orElse(null);
         if (introspection != null) {
-            AnnotationValue<ContainerMappings> mappings =
-                    introspection.getAnnotationMetadata().getAnnotation(ContainerMappings.class);
-            for (AnnotationValue<ContainerMapping> mapping :
-                    mappings == null
-                            ? List.<AnnotationValue<ContainerMapping>>of()
-                            : mappings.getAnnotations("value", ContainerMapping.class)) {
-                if (mapping.stringValue("type").orElse("").equals(containerType.getName())) {
-                    int[] indexes = mapping.intValues("indexes");
-                    return typeArgumentIndex >= 0
-                                    && typeArgumentIndex < indexes.length
-                                    && indexes[typeArgumentIndex] >= 0
-                            ? indexes[typeArgumentIndex]
-                            : null;
-                }
+            int index = ContainerTypeArguments.generatedIndex(introspection, containerType, typeArgumentIndex);
+            if (index != ContainerTypeArguments.UNKNOWN) {
+                return index == ContainerTypeArguments.BOUND ? null : index;
             }
         }
         // These JDK contracts have a specified, unchanged variable order.
@@ -284,7 +271,7 @@ final class CompileTimeSupport implements ReflectionSupport {
                 introspector.findIntrospection(type).orElse(null);
         if (introspection != null) {
             List<Argument<?>> arguments =
-                    ValidationMetadataSupport.typeArguments(introspection, superType);
+                    introspection.getTypeArguments(superType);
             if (!arguments.isEmpty()) {
                 return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
             }

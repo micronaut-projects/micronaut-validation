@@ -47,7 +47,6 @@ import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
-import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -63,8 +62,10 @@ import java.util.Optional;
  * @author graemerocher
  * @since 1.2
  */
-@ConfigurationProperties(ValidatorConfiguration.PREFIX)
-public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware, MicronautValidatorContext {
+// the validator plumbing a factory hands its contexts is no configuration property
+@ConfigurationProperties(value = ValidatorConfiguration.PREFIX,
+    excludes = {"reflectionSupport", "constraintValidatorOverrides", "configuredConstraintValidatorFactory"})
+public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ConversionServiceAware, MicronautValidatorContext {
 
     @Nullable
     private InternalConstraintValidatorFactory constraintValidatorFactory;
@@ -211,6 +212,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      *
      * @param strictConstraintDefinitions Whether constraint definitions are checked
      * @return this configuration
+     * @since 5.3.0
      */
     public DefaultValidatorConfiguration setStrictConstraintDefinitions(boolean strictConstraintDefinitions) {
         this.strictConstraintDefinitions = strictConstraintDefinitions;
@@ -359,9 +361,12 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     /**
      * Sets the parameter name provider to use.
+     * A {@link ParameterNameProvider} bean of the application is injected here and names the parameters of
+     * every validated executable.
      *
      * @param parameterNameProvider The parameter name provider
      * @return this configuration
+     * @since 5.3.0
      */
     @Inject
     public DefaultValidatorConfiguration setParameterNameProvider(@Nullable ParameterNameProvider parameterNameProvider) {
@@ -379,16 +384,13 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     /**
-     * Sets the execution handle locator to use.
+     * Shares the execution handle locator of another configuration: a context derived from a factory reads the
+     * methods of the beans its factory reads.
      *
      * @param executionHandleLocator The execution handle locator
-     * @return this configuration
-     * @since 5.3.0
      */
-    @Internal
-    public DefaultValidatorConfiguration setExecutionHandleLocator(ExecutionHandleLocator executionHandleLocator) {
+    void shareExecutionHandleLocator(ExecutionHandleLocator executionHandleLocator) {
         this.executionHandleLocator = executionHandleLocator;
-        return this;
     }
 
     /**
@@ -429,19 +431,19 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    public ValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
+    public MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
         this.messageInterpolator = messageInterpolator;
         return this;
     }
 
     @Override
-    public ValidatorContext traversableResolver(TraversableResolver traversableResolver) {
+    public MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver) {
         this.traversableResolver = traversableResolver;
         return this;
     }
 
     @Override
-    public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
+    public MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
         this.configuredConstraintValidatorFactory = factory;
         this.constraintValidatorFactory = toInternalConstraintValidatorFactory(factory, reflectionSupport);
         return this;
@@ -455,18 +457,18 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    public ValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
+    public MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
         return setParameterNameProvider(parameterNameProvider);
     }
 
     @Override
-    public ValidatorContext clockProvider(ClockProvider clockProvider) {
+    public MicronautValidatorContext clockProvider(ClockProvider clockProvider) {
         this.clockProvider = clockProvider;
         return this;
     }
 
     @Override
-    public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
+    public MicronautValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
         addValueExtractor(extractor, false);
         return this;
     }
@@ -580,7 +582,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     /**
-     * Erases a caller-supplied generic signature. Non-class signatures require the reflection companion.
+     * Erases a caller-supplied generic signature.
      *
      * @param type The signature
      * @return The raw class, retaining the historical Object[] erasure for generic arrays
@@ -588,7 +590,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Deprecated(since = "5.3.0", forRemoval = true)
     public static Class<?> getClassFromType(Type type) {
-        return ReflectionSupport.get().rawType(type);
+        return SignatureErasure.erase(type);
     }
 
     private record DelegatingInternalConstraintValidatorFactory(

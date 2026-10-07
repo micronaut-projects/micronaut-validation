@@ -28,7 +28,6 @@ import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
-import jakarta.validation.ValidatorContext;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 
@@ -193,7 +192,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         newValidatorConfiguration.setMessageInterpolator(configuration.getMessageInterpolator());
         newValidatorConfiguration.constraintValidatorFactory(configuration.getConstraintValidatorFactory());
         newValidatorConfiguration.setParameterNameProvider(configuration.getParameterNameProvider());
-        newValidatorConfiguration.setExecutionHandleLocator(configuration.getExecutionHandleLocator());
+        newValidatorConfiguration.shareExecutionHandleLocator(configuration.getExecutionHandleLocator());
         newValidatorConfiguration.setConversionService(configuration.getConversionService());
         newValidatorConfiguration.setPrependPropertyPath(configuration.isPrependPropertyPath());
         return newValidatorConfiguration;
@@ -215,37 +214,37 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         }
 
         @Override
-        public ValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
+        public MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
             validatorConfiguration.messageInterpolator(messageInterpolator);
             return this;
         }
 
         @Override
-        public ValidatorContext traversableResolver(TraversableResolver traversableResolver) {
+        public MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver) {
             validatorConfiguration.traversableResolver(traversableResolver);
             return this;
         }
 
         @Override
-        public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
+        public MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
             validatorConfiguration.constraintValidatorFactory(factory);
             return this;
         }
 
         @Override
-        public ValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
+        public MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
             validatorConfiguration.parameterNameProvider(parameterNameProvider);
             return this;
         }
 
         @Override
-        public ValidatorContext clockProvider(ClockProvider clockProvider) {
+        public MicronautValidatorContext clockProvider(ClockProvider clockProvider) {
             validatorConfiguration.clockProvider(clockProvider);
             return this;
         }
 
         @Override
-        public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
+        public MicronautValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
             validatorConfiguration.addValueExtractor(extractor);
             return this;
         }

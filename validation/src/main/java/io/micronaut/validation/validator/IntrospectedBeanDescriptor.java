@@ -27,7 +27,6 @@ import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.GroupSequence;
@@ -427,7 +426,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             // them differently, an interface getter can declare another container than the implementation
             Map<Class<?>, List<Argument<?>>> byContainer = new LinkedHashMap<>();
             for (BeanPropertyMember<?, ?> member : members) {
-                byContainer.computeIfAbsent(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()).getType(), ignored -> new ArrayList<>()).add(ValidationMetadataSupport.argument(member.asArgument(), member.getAnnotationMetadata()));
+                byContainer.computeIfAbsent(member.asArgument().getType(), ignored -> new ArrayList<>()).add(member.asArgument());
             }
             Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
             for (List<Argument<?>> arguments : byContainer.values()) {

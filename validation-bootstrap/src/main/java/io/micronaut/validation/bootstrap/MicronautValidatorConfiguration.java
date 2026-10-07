@@ -63,14 +63,6 @@ import java.util.Set;
 public final class MicronautValidatorConfiguration
         implements Configuration<MicronautValidatorConfiguration>, ConfigurationState {
 
-    /**
-     * The system property that turns the reflective description of the types without a generated
-     * bean introspection off. It is on by default; a deployment that wants generated metadata only
-     * — a native image, typically — sets it to {@code false} and validates what the annotation
-     * processor produced.
-     */
-    public static final String REFLECTION_ENABLED = "micronaut.validation.reflection.enabled";
-
     private static final String BOOTSTRAP_PROPERTY_SOURCE = "micronaut-validation-bootstrap";
     private static final Set<String> BOOTSTRAP_PACKAGES = Set.of(
         "io.micronaut.validation",
@@ -517,7 +509,8 @@ public final class MicronautValidatorConfiguration
 
     /**
      * The generated introspections, supplemented by the reflection bridge of micronaut-core for the
-     * types without one, unless {@link #REFLECTION_ENABLED} says otherwise.
+     * types without one, unless the system property
+     * {@code micronaut.validation.reflection.enabled} is {@code false}.
      *
      * @param beanIntrospector The introspector of the generated introspections
      * @return The introspector the validator reads

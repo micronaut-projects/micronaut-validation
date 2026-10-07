@@ -30,7 +30,6 @@ import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
-import io.micronaut.validation.validator.metadata.ContainerMappings;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
@@ -67,8 +66,7 @@ import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
 public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
 
     /** The annotations describing the structure of a type, kept where a mapping ignores its annotations. */
-    private static final List<String> STRUCTURAL_ANNOTATIONS = List.of(
-        ValidationMetadataSupport.HIERARCHY, ContainerMappings.class.getName());
+    private static final List<String> STRUCTURAL_ANNOTATIONS = List.of(ValidationMetadataSupport.HIERARCHY);
 
     private final BeanIntrospector delegate;
     private final Map<Class<?>, BeanMapping> beanMappings;

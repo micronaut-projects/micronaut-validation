@@ -27,16 +27,14 @@ import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.FieldElement;
-import io.micronaut.inject.ast.GenericPlaceholderElement;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.processing.ProcessingException;
+import io.micronaut.inject.utils.JsonWriter;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
-import io.micronaut.validation.validator.metadata.ContainerMapping;
-import io.micronaut.validation.validator.metadata.ContainerMappings;
 import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
@@ -87,6 +85,11 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         return Set.of("jakarta.validation.*", "io.micronaut.core.annotation.Introspected");
     }
 
+    @Override
+    public Set<String> getSupportedOptions() {
+        return Set.of(DESCRIBE_ALL_OPTION);
+    }
+
     @NonNull
     @Override
     public VisitorKind getVisitorKind() {
@@ -98,8 +101,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         if (!element.hasStereotype(Introspected.class)) {
             return;
         }
-        // what a container binds in the generic types it implements: an unconstrained type can be a container
-        recordContainerMappings(element);
         if (!participates(element) && !Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION))) {
             // an introspection of a type that takes no part in validation - a serialization DTO, an entity
             // without constraints - is left as its author declared it: other modules read it too. A type
@@ -174,15 +175,8 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
     private static void recordHierarchy(ClassElement element) {
         var hierarchy = new LinkedHashMap<String, AnnotationValue<?>>();
         hierarchy(element, hierarchy);
-        var arguments = element.getAllTypeArguments().entrySet().stream()
-            .map(entry -> AnnotationValue.builder("io.micronaut.validation.internal.TypeArguments")
-                .member("type", entry.getKey())
-                .member("arguments", entry.getValue().values().stream()
-                    .map(type -> typeUse(type, new HashSet<>())).toArray(AnnotationValue<?>[]::new)).build())
-            .toArray(AnnotationValue<?>[]::new);
         element.annotate(ValidationMetadataSupport.HIERARCHY,
             builder -> builder.member("types", hierarchy.values().toArray(AnnotationValue<?>[]::new))
-                .member("arguments", arguments)
                 .member("methods", element.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).stream()
                     .map(method -> AnnotationValue.builder("io.micronaut.validation.internal.Method")
                         .member("name", method.getName())
@@ -194,23 +188,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                             .map(parameter -> new AnnotationClassValue<>(parameter.getType().getName()))
                             .toArray(AnnotationClassValue<?>[]::new)).build())
                     .toArray(AnnotationValue<?>[]::new)));
-        element.getFields().forEach(field -> field.annotate(ValidationMetadataSupport.TYPE_USE,
-            builder -> builder.members(typeUse(field.getGenericType(), new HashSet<>()).getValues())));
-        element.getMethods().stream().filter(method -> method.getParameters().length == 0)
-            .forEach(method -> method.annotate(ValidationMetadataSupport.TYPE_USE,
-                builder -> builder.members(typeUse(method.getGenericReturnType(), new HashSet<>()).getValues())));
-    }
-
-    private static void recordContainerMappings(ClassElement element) {
-        List<? extends GenericPlaceholderElement> own = element.getDeclaredGenericPlaceholders();
-        AnnotationValue<?>[] mappings = element.getAllTypeArguments().entrySet().stream()
-            .map(entry -> AnnotationValue.builder(ContainerMapping.class)
-                .member("type", entry.getKey())
-                .member("indexes", entry.getValue().values().stream()
-                    .mapToInt(type -> variableIndex(type, own)).toArray())
-                .build())
-            .toArray(AnnotationValue<?>[]::new);
-        element.annotate(ContainerMappings.class, builder -> builder.member("value", mappings));
     }
 
     private static void recordFields(ClassElement element) {
@@ -269,11 +246,13 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         if (byType.isEmpty()) {
             return;
         }
-        String json = byType.entrySet().stream()
-            .map(entry -> "{\"name\":\"" + entry.getKey() + "\",\"fields\":["
-                + entry.getValue().stream().distinct().map(name -> "{\"name\":\"" + name + "\"}")
-                    .collect(Collectors.joining(",")) + "]}")
-            .collect(Collectors.joining(",", "[", "]"));
+        var document = new JsonWriter().beginArray();
+        byType.forEach((type, fields) -> {
+            document.beginObject().name("name").value(type).name("fields").beginArray();
+            fields.stream().distinct().forEach(name -> document.beginObject().name("name").value(name).endObject());
+            document.endArray().endObject();
+        });
+        String json = document.endArray().toString();
         var resource = context.visitMetaInfFile(
             "native-image/io.micronaut.validation/" + element.getName() + "/reflect-config.json", element);
         try {
@@ -283,20 +262,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         } catch (IOException e) {
             throw new ProcessingException(element, "Cannot register annotated validation fields", e);
         }
-    }
-
-    private static AnnotationValue<?> typeUse(ClassElement type, Set<Object> visited) {
-        var value = AnnotationValue.builder(ValidationMetadataSupport.TYPE_USE);
-        var annotations = type.getTypeAnnotationMetadata().getAnnotationNames().stream()
-            .flatMap(name -> type.getTypeAnnotationMetadata().getAnnotationValuesByName(name).stream())
-            .toArray(AnnotationValue<?>[]::new);
-        value.member("annotations", annotations);
-        if (!type.isPrimitive() && visited.add(type.getNativeType())) {
-            value.member("arguments", type.getTypeArguments().values().stream()
-                .map(argument -> typeUse(argument, new HashSet<>(visited)))
-                .toArray(AnnotationValue<?>[]::new));
-        }
-        return value.build();
     }
 
     private static void hierarchy(ClassElement type, LinkedHashMap<String, AnnotationValue<?>> entries) {
@@ -312,24 +277,5 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         type.getSuperType().filter(parent -> !parent.getName().equals(Object.class.getName()))
             .ifPresent(parent -> hierarchy(parent, entries));
         type.getInterfaces().forEach(parent -> hierarchy(parent, entries));
-    }
-
-    private static int variableIndex(
-            ClassElement type, List<? extends GenericPlaceholderElement> own) {
-        if (type instanceof GenericPlaceholderElement placeholder) {
-            ClassElement resolved = placeholder.getResolved().orElse(null);
-            if (resolved != null && resolved != type) {
-                return variableIndex(resolved, own);
-            }
-            for (int i = 0; i < own.size(); i++) {
-                GenericPlaceholderElement variable = own.get(i);
-                if (variable.getVariableName().equals(placeholder.getVariableName())
-                        && variable.getDeclaringElement()
-                                .equals(placeholder.getDeclaringElement())) {
-                    return i;
-                }
-            }
-        }
-        return -1;
     }
 }

@@ -16,7 +16,7 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.context.BeanContext;
-import io.micronaut.context.BeanRegistration;
+import io.micronaut.context.scope.CreatedBean;
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
@@ -100,10 +100,8 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     @Override
     public void releaseInstance(ConstraintValidator<?, ?> constraintValidator) {
         ConstraintValidatorEntry entry = validators.remove(constraintValidator);
-        if (entry != null && beanContext != null) {
-            if (entry.beanRegistration != null) {
-                beanContext.destroyDependentBean(entry.beanRegistration);
-            }
+        if (entry != null && entry.createdBean != null) {
+            entry.createdBean.close();
         }
     }
 
@@ -171,10 +169,9 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         }
         var definition = beanContext.getBeanDefinition(type);
         List<Argument<?>> arguments = definition.getTypeArguments(ConstraintValidator.class);
-        BeanRegistration<T> registration = beanContext.getBeanRegistration(
-                definition.isSingleton() || definition.isProxy()
-                        ? new OwnedValidatorDefinition<>(definition)
-                        : definition);
+        // a validator instance belongs to the validator that initialized it, whatever the scope of its bean: the
+        // context creates a fresh one with its own dependencies, which closing the registration releases
+        CreatedBean<T> registration = beanContext.createBeanRegistration(definition);
         T instance = registration.bean();
         return new ConstraintValidatorEntry(
                 instance,
@@ -187,5 +184,5 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
     private record ConstraintValidatorEntry(ConstraintValidator<?, ?> constraintValidator,
                                             Class<?> targetType,
                                             Set<ValidationTarget> target,
-                                            @Nullable BeanRegistration<?> beanRegistration) { }
+                                            @Nullable CreatedBean<?> createdBean) { }
 }

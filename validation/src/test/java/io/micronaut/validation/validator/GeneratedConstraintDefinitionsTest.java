@@ -67,10 +67,10 @@ class GeneratedConstraintDefinitionsTest {
 
     @Test
     @SuppressWarnings("removal")
-    void deprecatedErasureHelperPreservesClassSupportAndRequiresTheCompanionForRuntimeSignatures() throws Exception {
+    void deprecatedErasureHelperErasesSignaturesWithoutTheCompanion() throws Exception {
         assertSame(String.class, DefaultValidatorConfiguration.getClassFromType(String.class));
         var type = Signatures.class.getDeclaredField("strings").getGenericType();
-        assertThrows(jakarta.validation.ValidationException.class, () -> DefaultValidatorConfiguration.getClassFromType(type));
+        assertSame(java.util.List.class, DefaultValidatorConfiguration.getClassFromType(type));
     }
 
     @Introspected

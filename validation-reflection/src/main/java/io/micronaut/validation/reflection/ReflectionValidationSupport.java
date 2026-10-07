@@ -58,9 +58,6 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.WildcardType;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
@@ -589,22 +586,5 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         } catch (ValidationException missing) {
             return ReflectedValueExtractors.argumentOf(extractorType);
         }
-    }
-
-    @Override
-    public Class<?> rawType(Type type) {
-        if (type instanceof Class<?> clazz) {
-            return clazz;
-        }
-        if (type instanceof ParameterizedType parameterized) {
-            return rawType(parameterized.getRawType());
-        }
-        if (type instanceof GenericArrayType) {
-            return Object[].class;
-        }
-        if (type instanceof WildcardType wildcard) {
-            return rawType(wildcard.getUpperBounds()[0]);
-        }
-        throw new IllegalArgumentException("Unknown type: " + type);
     }
 }
