@@ -21,6 +21,7 @@ import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
@@ -99,6 +100,12 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
     @Override
     public List<Argument<?>> getTypeArguments(@Nullable Class<?> superType) {
         return original == null ? List.of() : original.getTypeArguments(superType);
+    }
+
+    @Override
+    public Optional<BeanTypeHierarchy> getTypeHierarchy() {
+        // the hierarchy is the type's, whatever a mapping declares on it
+        return original == null ? Optional.empty() : original.getTypeHierarchy();
     }
 
     @Override

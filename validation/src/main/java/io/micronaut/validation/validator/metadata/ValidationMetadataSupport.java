@@ -19,7 +19,10 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
@@ -60,9 +63,6 @@ import java.util.Map;
 /** Resolves standard metadata before requesting optional runtime discovery. */
 @Internal
 public final class ValidationMetadataSupport {
-    /** Internal hierarchy entries stored in ordinary annotation metadata. */
-    public static final String HIERARCHY = "io.micronaut.validation.internal.Hierarchy";
-
     /** The name of an entry of {@link #DECLARED_PARAMETERS}: the type-use annotations a parameter declares. */
     public static final String TYPE_USE = "io.micronaut.validation.internal.TypeUse";
 
@@ -152,42 +152,63 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * @param metadata The owning introspection metadata
+     * @param introspection The introspection of the type declaring a method
      * @param name The method name
-     * @param parameters The signature
-     * @return Whether the described type declares this method
+     * @param parameters The erased parameter types
+     * @return Whether the described type declares this bean method itself; true when the introspection does not
+     * describe its hierarchy
      */
-    public static boolean declares(AnnotationMetadata metadata, String name, Class<?>[] parameters) {
-        var hierarchy = metadata.getAnnotation(HIERARCHY);
-        return hierarchy == null || hierarchy.getAnnotations("methods").stream()
-            .anyMatch(method -> method.stringValue("name").orElse("").equals(name)
-                && Arrays.equals(method.classValues("parameters"), parameters));
+    public static boolean declares(BeanIntrospection<?> introspection, String name, Class<?>[] parameters) {
+        var hierarchy = introspection.getTypeHierarchy().orElse(null);
+        return hierarchy == null || declaredMethod(hierarchy, name, parameters) != null;
     }
 
     /**
-     * @param metadata The owning introspection metadata
-     * @param type The hierarchy entry to find
-     * @return Its ordinary annotation value
+     * The declaring levels of a method a type declares itself, from the hierarchy its introspection describes: the
+     * type, then every type declaring a method it overrides, nearest first, a type declaring it without a bean
+     * method of it included.
+     *
+     * @param introspector The introspector
+     * @param declaringType The type declaring the method
+     * @param name The method name
+     * @param parameters The erased parameter types
+     * @return The levels, or null when the introspection of the type does not describe them
      */
-    public static @Nullable AnnotationValue<Annotation> hierarchy(AnnotationMetadata metadata, Class<?> type) {
-        var value = metadata.getAnnotation(HIERARCHY);
-        if (value != null) {
-            for (var entry : value.getAnnotations("types")) {
-                if (entry.classValue("type").orElse(null) == type) {
-                    return entry;
-                }
+    public static @Nullable List<Class<?>> declaringLevels(BeanIntrospector introspector, Class<?> declaringType,
+                                                         String name, Class<?>[] parameters) {
+        var hierarchy = hierarchy(introspector, declaringType);
+        if (hierarchy == null) {
+            return null;
+        }
+        var method = declaredMethod(hierarchy, name, parameters);
+        return method == null ? null : hierarchy.getDeclaringTypes(method);
+    }
+
+    private static @Nullable BeanMethod<?, ?> declaredMethod(BeanTypeHierarchy hierarchy, String name, Class<?>[] parameters) {
+        // matched by signature: a decorated introspection hands out bean methods of its own
+        for (BeanMethod<?, ?> method : hierarchy.getDeclaredMethods()) {
+            if (method.getName().equals(name) && Arrays.equals(Argument.toClassArray(method.getArguments()), parameters)) {
+                return method;
             }
         }
         return null;
     }
 
     /**
-     * @param type The introspected type
-     * @return Its hierarchy metadata, if compiled
+     * @param introspector The introspector
+     * @param type The type
+     * @return The hierarchy the introspection of the type describes, or null
      */
-    public static @Nullable AnnotationValue<Annotation> hierarchy(Class<?> type) {
-        return BeanIntrospector.forClassLoader(type.getClassLoader()).findIntrospection(type)
-            .map(introspection -> hierarchy(introspection.getAnnotationMetadata(), type)).orElse(null);
+    public static @Nullable BeanTypeHierarchy hierarchy(BeanIntrospector introspector, Class<?> type) {
+        return introspector.findIntrospection(type).flatMap(BeanIntrospection::getTypeHierarchy).orElse(null);
+    }
+
+    /**
+     * @param type The introspected type
+     * @return The hierarchy its generated introspection describes, or null
+     */
+    public static @Nullable BeanTypeHierarchy hierarchy(Class<?> type) {
+        return hierarchy(BeanIntrospector.forClassLoader(type.getClassLoader()), type);
     }
 
     /**

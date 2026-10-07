@@ -377,7 +377,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public List<Class<?>> interfaces(Class<?> type) {
         var generated = ValidationMetadataSupport.hierarchy(type);
-        return generated == null ? List.of(type.getInterfaces()) : List.of(generated.classValues("interfaces"));
+        return generated == null ? List.of(type.getInterfaces()) : generated.getInterfaces(type);
     }
 
     @Override
@@ -388,7 +388,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public @Nullable Class<?> superType(Class<?> type) {
         var generated = ValidationMetadataSupport.hierarchy(type);
-        return generated == null ? type.getSuperclass() : generated.classValue("superType").orElse(null);
+        return generated == null ? type.getSuperclass() : generated.getSuperclass(type).orElse(null);
     }
 
     @Override
@@ -430,13 +430,9 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     private boolean hasGeneratedHierarchy(Class<?> type) {
-        var metadata = introspector.findIntrospection(type).map(BeanIntrospection::getAnnotationMetadata).orElse(null);
-        var hierarchy = metadata == null ? null : metadata.getAnnotation(ValidationMetadataSupport.HIERARCHY);
-        return hierarchy != null && hierarchy.getAnnotations("types").stream().allMatch(entry -> {
-            Class<?> declared = entry.classValue("type").orElse(null);
-            return declared != null && (declared.getName().startsWith("java.")
-                || declared.getName().startsWith("jakarta.") || introspector.findIntrospection(declared).isPresent());
-        });
+        var hierarchy = ValidationMetadataSupport.hierarchy(introspector, type);
+        return hierarchy != null && hierarchy.getTypes().stream().allMatch(declared -> declared.getName().startsWith("java.")
+            || declared.getName().startsWith("jakarta.") || introspector.findIntrospection(declared).isPresent());
     }
 
     private static MethodHierarchy.Declaration toCore(ExecutableHierarchy.Declaration declaration) {

@@ -3,7 +3,6 @@ package io.micronaut.validation.visitor
 import io.micronaut.annotation.processing.test.AbstractTypeElementSpec
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor
 import io.micronaut.inject.visitor.TypeElementVisitor
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport
 
 /**
  * The validation processor describes the types that take part in validation, and leaves the introspection of
@@ -33,7 +32,7 @@ class Plain {
 
         then:
         !introspection.separatesDeclarations()
-        !introspection.annotationMetadata.hasAnnotation(ValidationMetadataSupport.HIERARCHY)
+        !introspection.typeHierarchy.present
     }
 
     void "a constrained introspection is described for validation"() {
@@ -55,7 +54,7 @@ class Constrained {
 
         then:
         introspection.separatesDeclarations()
-        introspection.annotationMetadata.hasAnnotation(ValidationMetadataSupport.HIERARCHY)
+        introspection.typeHierarchy.present
     }
 
     void "a type inheriting constraints is described for validation"() {
@@ -77,6 +76,6 @@ class Child extends Base {
 ''')
 
         then:
-        introspection.annotationMetadata.hasAnnotation(ValidationMetadataSupport.HIERARCHY)
+        introspection.typeHierarchy.present
     }
 }

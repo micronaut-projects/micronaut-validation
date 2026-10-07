@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
@@ -165,19 +166,19 @@ final class ValidatorDeclarations {
         }
     }
 
-    private static @Nullable AnnotationValue<Annotation> hierarchy(
-            Class<?> type, BeanIntrospection<?> root) {
-        return ValidationMetadataSupport.hierarchy(root.getAnnotationMetadata(), type);
+    private static @Nullable BeanTypeHierarchy hierarchy(Class<?> type, BeanIntrospection<?> root) {
+        // the hierarchy of the root describes every type of it
+        return root.getTypeHierarchy().filter(hierarchy -> hierarchy.contains(type)).orElse(null);
     }
 
     private @Nullable Class<?> superType(Class<?> type, BeanIntrospection<?> root) {
-        var metadata = hierarchy(type, root);
-        return metadata == null ? reflectionSupport.superType(type) : metadata.classValue("superType").orElse(null);
+        var hierarchy = hierarchy(type, root);
+        return hierarchy == null ? reflectionSupport.superType(type) : hierarchy.getSuperclass(type).orElse(null);
     }
 
     private List<Class<?>> interfaces(Class<?> type, BeanIntrospection<?> root) {
-        var metadata = hierarchy(type, root);
-        return metadata == null ? reflectionSupport.interfaces(type) : List.of(metadata.classValues("interfaces"));
+        var hierarchy = hierarchy(type, root);
+        return hierarchy == null ? reflectionSupport.interfaces(type) : hierarchy.getInterfaces(type);
     }
 
     private void addSuperIntrospection(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {

@@ -107,7 +107,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             // constrained only by an XML mapping asks for the option
             return;
         }
-        recordHierarchy(element);
         recordFields(element);
         registerAnnotatedFields(element, context);
         element.getMethods().stream()
@@ -172,24 +171,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         return false;
     }
 
-    private static void recordHierarchy(ClassElement element) {
-        var hierarchy = new LinkedHashMap<String, AnnotationValue<?>>();
-        hierarchy(element, hierarchy);
-        element.annotate(ValidationMetadataSupport.HIERARCHY,
-            builder -> builder.member("types", hierarchy.values().toArray(AnnotationValue<?>[]::new))
-                .member("methods", element.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).stream()
-                    .map(method -> AnnotationValue.builder("io.micronaut.validation.internal.Method")
-                        .member("name", method.getName())
-                        .member("unconstrained", !method.isStatic() && !method.isPrivate() && method.isAccessible()
-                            && !ValidationVisitor.requiresValidation(method)
-                            && method.getOverriddenMethods().stream().noneMatch(ValidationVisitor::requiresValidation))
-                        .member("returnType", new AnnotationClassValue<>(method.getReturnType().getName()))
-                        .member("parameters", Stream.of(method.getParameters())
-                            .map(parameter -> new AnnotationClassValue<>(parameter.getType().getName()))
-                            .toArray(AnnotationClassValue<?>[]::new)).build())
-                    .toArray(AnnotationValue<?>[]::new)));
-    }
-
     private static void recordFields(ClassElement element) {
         ClassElement accessType = ClassElement.of(element.getName() + "$ValidationAccess");
         boolean propertyAccess = element.isRecord() || Stream.of(element.getAnnotationMetadata()
@@ -227,6 +208,8 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                 Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID))
                 .toArray(AnnotationValue<?>[]::new));
             builder.member("members", true);
+            // the super types and the declaring levels of the methods, which Jakarta Validation applies apart
+            builder.member("hierarchy", true);
             if (constrainedConstructors) {
                 builder.member("constructors", true);
             }
@@ -262,20 +245,5 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         } catch (IOException e) {
             throw new ProcessingException(element, "Cannot register annotated validation fields", e);
         }
-    }
-
-    private static void hierarchy(ClassElement type, LinkedHashMap<String, AnnotationValue<?>> entries) {
-        if (entries.containsKey(type.getName())) {
-            return;
-        }
-        var value = AnnotationValue.builder("io.micronaut.validation.internal.Type")
-            .member("type", new AnnotationClassValue<>(type.getName()))
-            .member("interfaces", type.getInterfaces().stream()
-                .map(it -> new AnnotationClassValue<>(it.getName())).toArray(AnnotationClassValue<?>[]::new));
-        type.getSuperType().ifPresent(parent -> value.member("superType", new AnnotationClassValue<>(parent.getName())));
-        entries.put(type.getName(), value.build());
-        type.getSuperType().filter(parent -> !parent.getName().equals(Object.class.getName()))
-            .ifPresent(parent -> hierarchy(parent, entries));
-        type.getInterfaces().forEach(parent -> hierarchy(parent, entries));
     }
 }

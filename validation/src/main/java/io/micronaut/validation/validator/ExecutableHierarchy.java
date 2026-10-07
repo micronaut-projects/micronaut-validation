@@ -79,7 +79,12 @@ public final class ExecutableHierarchy {
      */
     public static Resolved resolve(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Declaration local, String name) {
         Class<?>[] parameterTypes = Argument.toClassArray(local.arguments());
-        List<Declaration> inherited = inherited(reflectionSupport, introspector, local.declaringType(), name, parameterTypes);
+        List<Class<?>> levels = ValidationMetadataSupport.declaringLevels(introspector, local.declaringType(), name, parameterTypes);
+        // the declaring levels the introspection lists, an unconstrained one included; the super types walked
+        // otherwise
+        List<Declaration> inherited = levels != null
+            ? inherited(introspector, local, levels, name, parameterTypes)
+            : inherited(reflectionSupport, introspector, local.declaringType(), name, parameterTypes);
         Declaration declared = declaredBy(introspector, local.declaringType(), name, parameterTypes).orElse(local);
         return merge(local, declared, inherited);
     }
@@ -111,6 +116,26 @@ public final class ExecutableHierarchy {
             mergeMetadata(levels.stream().map(Declaration::annotationMetadata).toList()),
             arguments,
             mergeArgument(levels.stream().map(Declaration::returnArgument).toList()));
+    }
+
+    /**
+     * The declarations of the levels an introspection lists for a method, the type declaring it aside: a level
+     * without a bean method of it declares it unconstrained.
+     */
+    private static List<Declaration> inherited(BeanIntrospector introspector, Declaration local, List<Class<?>> levels,
+                                               String name, Class<?>[] parameterTypes) {
+        List<Declaration> declarations = new ArrayList<>(levels.size());
+        for (Class<?> level : levels.subList(Math.min(1, levels.size()), levels.size())) {
+            String typeName = level.getName();
+            if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
+                continue;
+            }
+            declarations.add(declaredBy(introspector, level, name, parameterTypes).orElseGet(() -> new Declaration(level,
+                AnnotationMetadata.EMPTY_METADATA,
+                Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
+                Argument.of(local.returnArgument().getType()), true)));
+        }
+        return declarations;
     }
 
     /**
@@ -153,30 +178,12 @@ public final class ExecutableHierarchy {
             return Optional.empty();
         }
         return introspector.findIntrospection((Class<Object>) type)
-            .filter(introspection -> ValidationMetadataSupport.declares(introspection.getAnnotationMetadata(), name, parameterTypes))
             .flatMap(introspection -> introspection.getBeanMethods().stream()
                 .filter(method -> method.getName().equals(name)
                     && method.getDeclaringType() == type
                     && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes))
                 .findFirst()
-                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()))
-                .or(() -> unconstrainedDeclaration(introspection, name, parameterTypes)));
-    }
-
-    private static Optional<Declaration> unconstrainedDeclaration(BeanIntrospection<?> introspection,
-                                                                  String name, Class<?>[] parameterTypes) {
-        var hierarchy = introspection.getAnnotationMetadata().getAnnotation(ValidationMetadataSupport.HIERARCHY);
-        if (hierarchy == null) {
-            return Optional.empty();
-        }
-        return hierarchy.getAnnotations("methods").stream()
-            .filter(method -> method.booleanValue("unconstrained").orElse(false)
-                && method.stringValue("name").orElse("").equals(name)
-                && Arrays.equals(method.classValues("parameters"), parameterTypes))
-            .findFirst()
-            .map(method -> new Declaration(introspection.getBeanType(), AnnotationMetadata.EMPTY_METADATA,
-                Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
-                Argument.of(method.classValue("returnType").orElse(Object.class)), true));
+                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations())));
     }
 
     /**

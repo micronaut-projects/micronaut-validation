@@ -218,12 +218,11 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         if (type == Object.class || type == Default.class) {
             return List.of();
         }
-        var metadata = introspector().findIntrospection(type)
-            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
+        var hierarchy = ValidationMetadataSupport.hierarchy(introspector(), type);
         // a type the processor never described (a library compiled without it, a type introspected through
         // @Introspected(classes = ...)) has no validated super types: the constraints core merges into its
         // introspection are all the validator reads, as before 5.3
-        return metadata == null ? List.of() : List.of(metadata.classValues("interfaces"));
+        return hierarchy == null ? List.of() : hierarchy.getInterfaces(type);
     }
 
     /**
@@ -231,8 +230,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return Whether generated metadata or the optional provider can describe it
      */
     default boolean canResolveHierarchy(Class<?> type) {
-        return introspector().findIntrospection(type)
-            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null) != null;
+        return ValidationMetadataSupport.hierarchy(introspector(), type) != null;
     }
 
     /**
@@ -244,10 +242,9 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         if (type == Object.class) {
             return null;
         }
-        var metadata = introspector().findIntrospection(type)
-            .map(value -> ValidationMetadataSupport.hierarchy(value.getAnnotationMetadata(), type)).orElse(null);
+        var hierarchy = ValidationMetadataSupport.hierarchy(introspector(), type);
         // see interfaces(Class): no generated hierarchy, no validated super type
-        return metadata == null ? null : metadata.classValue("superType").orElse(null);
+        return hierarchy == null ? null : hierarchy.getSuperclass(type).orElse(null);
     }
 
     /**

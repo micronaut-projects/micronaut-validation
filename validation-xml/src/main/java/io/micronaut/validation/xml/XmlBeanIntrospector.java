@@ -17,7 +17,6 @@ package io.micronaut.validation.xml;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationMetadataDelegate;
-import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospectionReference;
@@ -31,7 +30,6 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
 import java.io.InputStream;
 import java.util.Arrays;
@@ -64,9 +62,6 @@ import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
  */
 @Internal
 public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
-
-    /** The annotations describing the structure of a type, kept where a mapping ignores its annotations. */
-    private static final List<String> STRUCTURAL_ANNOTATIONS = List.of(ValidationMetadataSupport.HIERARCHY);
 
     private final BeanIntrospector delegate;
     private final Map<Class<?>, BeanMapping> beanMappings;
@@ -156,23 +151,11 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
         if (original == null) {
             metadata = mapping.classMetadata();
         } else if (mapping.classAnnotationsIgnored()) {
-            metadata = ConfiguredMetadata.merge(structural(original.getAnnotationMetadata()), mapping.classMetadata());
+            metadata = mapping.classMetadata();
         } else {
             metadata = ConfiguredMetadata.merge(original.getAnnotationMetadata(), mapping.classMetadata());
         }
         return new XmlBeanIntrospection<>(beanType, metadata, properties, methods.values(), constructors.values(), original);
-    }
-
-    /** What describes the structure of a type rather than constrains it, which ignoring its annotations keeps. */
-    private static AnnotationMetadata structural(AnnotationMetadata original) {
-        var kept = new MutableAnnotationMetadata();
-        for (String name : STRUCTURAL_ANNOTATIONS) {
-            AnnotationValue<?> value = original.getAnnotation(name);
-            if (value != null) {
-                kept.addDeclaredAnnotation(name, value.getValues());
-            }
-        }
-        return kept;
     }
 
     /** An element no mapping names: as declared, or stripped of its annotations where the bean ignores them. */

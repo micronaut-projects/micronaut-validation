@@ -612,7 +612,7 @@ final class IntrospectedExecutableDescriptors {
          */
         private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
             if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()
-                || !ValidationMetadataSupport.declares(method.getDeclaringBean().getAnnotationMetadata(), method.getName(), Argument.toClassArray(method.getArguments()))) {
+                || !ValidationMetadataSupport.declares(method.getDeclaringBean(), method.getName(), Argument.toClassArray(method.getArguments()))) {
                 // inherited as is: the described type declares nothing on it
                 return AnnotationMetadata.EMPTY_METADATA;
             }
