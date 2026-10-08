@@ -27,7 +27,7 @@ class ValidationReloadSpec extends Specification {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true)
-            .trackBeanDependencies(true)
+            .beanDependencyTrackingEnabled(true)
             .start()
         Validator validator = context.getBean(Validator)
         ValueExtractorRegistry extractors = context.getBean(ValueExtractorRegistry)
@@ -74,7 +74,7 @@ class ValidationReloadSpec extends Specification {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true)
-            .trackBeanDependencies(false)
+            .beanDependencyTrackingEnabled(false)
             .start()
         Validator validator = context.getBean(Validator)
         ValueExtractorRegistry extractors = context.getBean(ValueExtractorRegistry)
@@ -102,7 +102,7 @@ class ValidationReloadSpec extends Specification {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true, 'validation.reload.holder': true)
-            .trackBeanDependencies(true)
+            .beanDependencyTrackingEnabled(true)
             .start()
         ReloadValidatorHolder holder = context.getBean(ReloadValidatorHolder)
 
@@ -129,7 +129,7 @@ class ValidationReloadSpec extends Specification {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true)
-            .trackBeanDependencies(true)
+            .beanDependencyTrackingEnabled(true)
             .start()
         Validator validator = context.getBean(Validator)
         def factory = context.getBean(InternalConstraintValidatorFactory)
@@ -194,7 +194,7 @@ class ValidationReloadSpec extends Specification {
         given:
         ApplicationContext context = ApplicationContext.builder()
             .properties('micronaut.dev.enabled': true)
-            .trackBeanDependencies(true)
+            .beanDependencyTrackingEnabled(true)
             .start()
         Validator validator = context.getBean(Validator)
         validator.validate(new ReloadBook("Dune", 41), ReloadOrdered)
@@ -291,10 +291,10 @@ class ValidationReloadSpec extends Specification {
     }
 
     private static ClassChangeEvent editedChange(ClassLoader edited, Class<?> type) {
-        return new ClassChangeEvent(ValidationReloadSpec, 1, [] as Set, edited, [new ClassChange(type.name, ClassChange.Kind.MODIFIED)], ReloadStrategy.RELOAD)
+        return new ClassChangeEvent(ValidationReloadSpec, [] as Set, edited, [new ClassChange(type.name, ClassChange.Kind.MODIFIED)], ReloadStrategy.RELOAD)
     }
 
     private static ClassChangeEvent classChange(Set<ClassLoader> retired, List<ClassChange> changes, ReloadStrategy strategy) {
-        return new ClassChangeEvent(ValidationReloadSpec, 1, retired, ReloadBook.classLoader, changes, strategy)
+        return new ClassChangeEvent(ValidationReloadSpec, retired, ReloadBook.classLoader, changes, strategy)
     }
 }
