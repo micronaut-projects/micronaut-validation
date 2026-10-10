@@ -103,17 +103,17 @@ final class DevelopmentValidationReloader {
         if (beanContext instanceof WatchableBeanContext watchable) {
             // the first batch is what the registries were, or will be, built from: only what changes after it matters
             // the Micronaut constraint validators are Jakarta ones too
-            watchable.watchDefinitions(ConstraintValidator.class, null, change -> {
+            watchable.definitions(ConstraintValidator.class).watch(change -> {
                 if (!change.initial()) {
                     rebuild("constraint validator definitions changed");
                 }
             });
-            watchable.watchDefinitions(ValueExtractor.class, null, change -> {
+            watchable.definitions(ValueExtractor.class).watch(change -> {
                 if (!change.initial()) {
                     rebuild("value extractor definitions changed");
                 }
             });
-            watchable.watchClassChanges(change -> {
+            watchable.classChanges().watch(change -> {
                 if (affectsValidation(change, beanContext)) {
                     rebuild("validated classes changed");
                 }
