@@ -254,6 +254,21 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The Jakarta signature
      * @since 5.3.0
      */
+    /**
+     * Rejects a reference that stands for no Java method - a lifecycle interception of a bean declaring no
+     * callback, a route to a handler function - which no reflection can name by its {@link Method} either.
+     *
+     * @param executable The generated executable
+     * @since 5.3.0
+     */
+    static void checkTargetMethod(MethodReference<?, ?> executable) {
+        if (!executable.hasTargetMethod()) {
+            throw new ValidationException("No Java method stands for "
+                + executable.getDeclaringType().getName() + "." + executable.getMethodName()
+                + ": a Jakarta Validation API naming a method by its Method cannot validate it");
+        }
+    }
+
     default Method targetMethod(MethodReference<?, ?> executable) {
         if (executable instanceof CallerSuppliedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();
@@ -261,6 +276,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         if (executable instanceof IntrospectedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();
         }
+        checkTargetMethod(executable);
         throw new ValidationException(
                 "Runtime method lookup requires micronaut-validation-reflection: "
                         + executable.getDeclaringType().getName()

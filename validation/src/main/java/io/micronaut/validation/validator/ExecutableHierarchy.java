@@ -22,9 +22,7 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
-import io.micronaut.core.type.GenericPlaceholder;
 import io.micronaut.core.type.ReturnType;
-import io.micronaut.core.type.WildcardArgument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
@@ -205,32 +203,7 @@ public final class ExecutableHierarchy {
                 .toList());
         }
         AnnotationMetadata metadata = mergeMetadata(levels.stream().map(Argument::getAnnotationMetadata).toList());
-        return copyArgument(local, metadata, typeParameters);
-    }
-
-    /**
-     * Copies an argument while retaining every structural distinction of its declaration.
-     *
-     * @param local The source
-     * @param metadata The replacement metadata
-     * @param typeParameters The replacement parameters
-     * @return The copy
-     */
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public static Argument<?> copyArgument(Argument<?> local, AnnotationMetadata metadata, Argument<?>[] typeParameters) {
-        if (local instanceof WildcardArgument<?> wildcard) {
-            return Argument.ofWildcard((Class) local.getType(), local.getName(), metadata, typeParameters,
-                wildcard.getUpperBounds().toArray(Argument.ZERO_ARGUMENTS), wildcard.getLowerBounds().toArray(Argument.ZERO_ARGUMENTS));
-        }
-        if (local instanceof GenericPlaceholder<?> placeholder) {
-            Argument<?>[] bounds = placeholder.getBounds().toArray(Argument.ZERO_ARGUMENTS);
-            return placeholder.isResolved()
-                ? Argument.ofResolvedTypeVariable((Class) local.getType(), local.getName(), placeholder.getVariableName(), metadata, typeParameters, bounds)
-                : Argument.ofTypeVariable((Class) local.getType(), local.getName(), placeholder.getVariableName(), metadata, typeParameters, bounds);
-        }
-        return local.isRawType()
-            ? Argument.ofRawType((Class) local.getType(), local.getName(), metadata, typeParameters)
-            : Argument.of((Class) local.getType(), local.getName(), metadata, typeParameters);
+        return local.withTypeParameters(typeParameters).withAnnotationMetadata(metadata);
     }
 
     /**

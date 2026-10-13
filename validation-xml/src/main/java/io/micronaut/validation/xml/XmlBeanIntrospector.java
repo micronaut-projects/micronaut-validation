@@ -25,7 +25,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
-import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
@@ -249,7 +248,7 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
             marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             metadata = ConfiguredMetadata.merge(metadata, marker);
         }
-        return ExecutableHierarchy.copyArgument(argument, metadata, configured);
+        return argument.withTypeParameters(configured).withAnnotationMetadata(metadata);
     }
 
     /**

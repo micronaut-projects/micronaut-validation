@@ -26,7 +26,6 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;

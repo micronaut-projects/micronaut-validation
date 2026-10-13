@@ -351,7 +351,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             metadata = ConfiguredMetadata.merge(metadata, marker);
         }
-        return ExecutableHierarchy.copyArgument(argument, metadata, prepared);
+        return argument.withTypeParameters(prepared).withAnnotationMetadata(metadata);
     }
 
     @Override
@@ -393,6 +393,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Method targetMethod(MethodReference<?, ?> executable) {
+        ReflectionSupport.checkTargetMethod(executable);
         return executable.getTargetMethod();
     }
 

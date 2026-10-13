@@ -26,7 +26,6 @@ import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
-import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import jakarta.validation.Constraint;
 import jakarta.validation.Valid;
@@ -116,8 +115,8 @@ public final class ValidationMetadataSupport {
     }
 
     private static Argument<?> withoutAnnotations(Argument<?> argument) {
-        return ExecutableHierarchy.copyArgument(argument, AnnotationMetadata.EMPTY_METADATA,
-            Arrays.stream(argument.getTypeParameters()).map(ValidationMetadataSupport::withoutAnnotations).toArray(Argument<?>[]::new));
+        return argument.withTypeParameters(
+            Arrays.stream(argument.getTypeParameters()).map(ValidationMetadataSupport::withoutAnnotations).toArray(Argument<?>[]::new)).withAnnotationMetadata(AnnotationMetadata.EMPTY_METADATA);
     }
 
     private static Argument<?> typeUse(Argument<?> argument, AnnotationValue<?> typeUse) {
@@ -148,7 +147,7 @@ public final class ValidationMetadataSupport {
             metadata.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             merged = ConfiguredMetadata.merge(argument.getAnnotationMetadata(), metadata);
         }
-        return ExecutableHierarchy.copyArgument(argument, merged, parameters);
+        return argument.withTypeParameters(parameters).withAnnotationMetadata(merged);
     }
 
     /**
