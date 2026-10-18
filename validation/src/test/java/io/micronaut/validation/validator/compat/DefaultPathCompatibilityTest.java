@@ -78,6 +78,39 @@ class DefaultPathCompatibilityTest {
         assertTrue(validator.validate(new WithJakartaValidator("a")).isEmpty());
     }
 
+    // E: a container no introspection describes, passing the extracted type argument to its generic super type
+    // in another position: the processor records its hierarchy, so the validator maps it without the class
+    public static class Box<T> {
+        final T value;
+
+        public Box(T value) {
+            this.value = value;
+        }
+    }
+
+    public static class Swapped<A, B> extends Box<B> {
+        public Swapped(B value) {
+            super(value);
+        }
+    }
+
+    @jakarta.inject.Singleton
+    public static class BoxExtractor implements jakarta.validation.valueextraction.ValueExtractor<Box<@jakarta.validation.valueextraction.ExtractedValue ?>> {
+        @Override
+        public void extractValues(Box<?> originalValue, ValueReceiver receiver) {
+            receiver.value(null, originalValue.value);
+        }
+    }
+
+    @Introspected
+    public record WithCustomContainer(Swapped<Integer, @jakarta.validation.constraints.NotBlank String> box) { }
+
+    @Test
+    void customContainerMapsTheExtractedArgumentThroughItsRecordedHierarchy() {
+        Set<ConstraintViolation<WithCustomContainer>> violations = validator.validate(new WithCustomContainer(new Swapped<>("")));
+        assertEquals(1, violations.size(), violations.toString());
+    }
+
     // C: a custom constraint with an enum member, Micronaut validator, message not using the member
     public enum Level { LOW, HIGH }
 

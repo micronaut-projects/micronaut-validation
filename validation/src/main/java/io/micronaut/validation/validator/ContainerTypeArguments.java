@@ -22,6 +22,8 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.GenericPlaceholder;
+import io.micronaut.core.type.TypeHierarchies;
+import io.micronaut.core.type.TypeHierarchy;
 
 import java.util.List;
 
@@ -64,6 +66,10 @@ final class ContainerTypeArguments {
                 return arguments.get(typeArgumentIndex);
             }
         }
+        Argument<?> recorded = recordedArgument(declaredType, containerType, typeArgumentIndex);
+        if (recorded != null) {
+            return recorded;
+        }
         return reflectionSupport.boundTypeArgument(declaredType, containerType, typeArgumentIndex);
     }
 
@@ -82,6 +88,10 @@ final class ContainerTypeArguments {
             if (index != UNKNOWN) {
                 return index == BOUND ? null : index;
             }
+        }
+        int recorded = recordedIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+        if (recorded != UNKNOWN) {
+            return recorded == BOUND ? null : recorded;
         }
         return reflectionSupport.extractedTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
     }
@@ -108,6 +118,58 @@ final class ContainerTypeArguments {
             List<Argument<?>> own = introspection.getTypeArguments();
             for (int i = 0; i < own.size(); i++) {
                 if (placeholder.getVariableName().equals(own.get(i).getName())) {
+                    return i;
+                }
+            }
+        }
+        return UNKNOWN;
+    }
+
+    /**
+     * The type argument a type passes to a generic super type, written in the variables of the type, read from the
+     * type hierarchy record core generates for an introspection described with its hierarchy, or imports for a
+     * container the processor saw used with constrained type arguments.
+     *
+     * @param type The type
+     * @param superType The generic super type
+     * @param typeArgumentIndex The type argument of the super type
+     * @return The argument, or {@code null} when no record describes it
+     */
+    private static @Nullable Argument<?> recordedArgument(Class<?> type, Class<?> superType, int typeArgumentIndex) {
+        TypeHierarchy hierarchy = TypeHierarchies.find(type).orElse(null);
+        if (hierarchy == null || typeArgumentIndex < 0) {
+            return null;
+        }
+        for (Argument<?> candidate : hierarchy.getSuperTypes()) {
+            if (candidate.getType() == superType) {
+                Argument<?>[] parameters = candidate.getTypeParameters();
+                return typeArgumentIndex < parameters.length ? parameters[typeArgumentIndex] : null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Which of a type's own type variables a type hierarchy record passes as a type argument of a generic super type.
+     *
+     * @param type The type
+     * @param superType The generic super type
+     * @param typeArgumentIndex The type argument of the super type
+     * @return The index of the type variable, {@link #BOUND} if the type binds the argument, or {@link #UNKNOWN}
+     */
+    static int recordedIndex(Class<?> type, Class<?> superType, int typeArgumentIndex) {
+        Argument<?> argument = recordedArgument(type, superType, typeArgumentIndex);
+        if (argument == null) {
+            return UNKNOWN;
+        }
+        if (!argument.isUnresolvedTypeVariable()) {
+            return BOUND;
+        }
+        if (argument instanceof GenericPlaceholder<?> placeholder) {
+            List<Argument<?>> variables = TypeHierarchies.find(type).map(TypeHierarchy::getTypeVariables).orElse(List.of());
+            for (int i = 0; i < variables.size(); i++) {
+                if (variables.get(i) instanceof GenericPlaceholder<?> variable
+                    && variable.getVariableName().equals(placeholder.getVariableName())) {
                     return i;
                 }
             }

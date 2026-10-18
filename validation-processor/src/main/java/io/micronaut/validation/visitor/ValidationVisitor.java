@@ -64,6 +64,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
+    private @Nullable VisitorContext visitorContext;
+    private final Set<String> importedContainers = new HashSet<>();
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
@@ -89,6 +91,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         visited.clear();
+        visitorContext = context;
         classElement = element;
         if (classElement.isInterface() && (classElement.hasAnnotation("jakarta.validation.GroupSequence")
             || classElement.isAssignable("jakarta.validation.groups.Default"))) {
@@ -255,10 +258,31 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             boolean requiresForType = visitElementValidationAndMarkForValidationIfNeeded(typeArgument, requireOnConstraint);
             requires |= requiresForType;
         }
+        if (requires) {
+            importContainerHierarchy(genericType);
+        }
         if (!genericType.equals(e)) {
             requires |= visitElementValidationAndMarkForValidationIfNeeded(genericType, requireOnConstraint);
         }
         return requires;
+    }
+
+    /**
+     * Records the generic hierarchy of a container whose type arguments are validated, so that the validator maps the
+     * type argument a value extractor extracts onto the container's own without reading the class. A container of
+     * the JDK has a fixed, known variable order, and an introspected one has its hierarchy recorded with its
+     * introspection; a container no record can describe is left to the reflection module.
+     */
+    private void importContainerHierarchy(ClassElement container) {
+        String name = container.getName();
+        if (visitorContext == null || classElement == null || container.isPrimitive() || container.isArray()
+            || name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("jakarta.")
+            || name.startsWith("kotlin.") || name.startsWith("groovy.")
+            || container.hasStereotype(Introspected.class)
+            || !importedContainers.add(classElement.getPackageName() + ":" + name)) {
+            return;
+        }
+        visitorContext.tryRecordTypeHierarchy(container, classElement);
     }
 
     /**

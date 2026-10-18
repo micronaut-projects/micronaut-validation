@@ -15,10 +15,12 @@
  */
 package io.micronaut.validation.transformer;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ElementQuery;
-import io.micronaut.inject.ast.MethodElement;
+import io.micronaut.inject.ast.AnnotationElement;
+import io.micronaut.inject.ast.AnnotationMemberElement;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.visitor.ValidationVisitor;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
@@ -63,30 +65,29 @@ final class ConstraintDefinitionMetadata {
     }
 
     static void retain(ClassElement type, VisitorContext context, AnnotationValueBuilder<?> occurrence) {
-        var members = new LinkedHashMap<String, MethodElement>();
-        type.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).forEach(member -> members.put(member.getName(), member));
-        Map<CharSequence, Object> defaults = context.getAnnotationDefaultValues(type.getName());
+        Map<String, Member> members = members(type);
+        Map<CharSequence, Object> defaults = defaults(type, context, members);
         var declaredValues = occurrence.build();
         List<String> runtimeAttributes = new ArrayList<>();
         List<String> patternFlags = new ArrayList<>();
         List<String> patternFlagArrays = new ArrayList<>();
         for (var member : members.values()) {
-            var result = member.getReturnType();
+            var result = member.type();
             var component = result.isArray() ? result.fromArray() : result;
-            boolean generatedTarget = member.getName().equals("validationAppliesTo") && !result.isArray()
+            boolean generatedTarget = member.name().equals("validationAppliesTo") && !result.isArray()
                 && component.getName().equals("jakarta.validation.ConstraintTarget");
             boolean generatedFlags = component.getName().equals("jakarta.validation.constraints.Pattern$Flag");
             if (generatedFlags) {
-                (result.isArray() ? patternFlagArrays : patternFlags).add(member.getName());
-                Object defaultValue = defaults.get(member.getName());
-                if (!declaredValues.contains(member.getName()) && defaultValue != null) {
+                (result.isArray() ? patternFlagArrays : patternFlags).add(member.name());
+                Object defaultValue = defaults.get(member.name());
+                if (!declaredValues.contains(member.name()) && defaultValue != null) {
                     // Custom enum defaults are not necessarily registered in the runtime annotation defaults registry.
-                    occurrence.members(Map.of(member.getName(), defaultValue));
+                    occurrence.members(Map.of(member.name(), defaultValue));
                 }
             }
             if ((component.isEnum() || component.isAssignable("java.lang.annotation.Annotation"))
                 && !generatedTarget && !generatedFlags) {
-                runtimeAttributes.add(member.getName());
+                runtimeAttributes.add(member.name());
             }
         }
         occurrence.member(ValidationAnnotationUtil.PATTERN_FLAGS, patternFlags.toArray(String[]::new));
@@ -117,7 +118,7 @@ final class ConstraintDefinitionMetadata {
     }
 
     private static @Nullable String definitionError(ClassElement type, VisitorContext context,
-                                          Map<String, MethodElement> members, Map<CharSequence, Object> defaults) {
+                                          Map<String, Member> members, Map<CharSequence, Object> defaults) {
         for (String name : members.keySet()) {
             if (name.startsWith("valid") && !name.equals("validationAppliesTo")) {
                 return "Constraint member names must not start with 'valid': " + type.getName() + "." + name;
@@ -125,7 +126,7 @@ final class ConstraintDefinitionMetadata {
         }
         for (var required : Map.of("message", "java.lang.String", "groups", "java.lang.Class[]", "payload", "java.lang.Class[]").entrySet()) {
             var member = members.get(required.getKey());
-            if (member == null || !name(member.getReturnType()).equals(required.getValue())) {
+            if (member == null || !name(member.type()).equals(required.getValue())) {
                 return "Invalid constraint member " + type.getName() + "." + required.getKey() + ": expected " + required.getValue();
             }
         }
@@ -157,7 +158,7 @@ final class ConstraintDefinitionMetadata {
             }
         }
         var target = members.get("validationAppliesTo");
-        if (target != null && (!name(target.getReturnType()).equals("jakarta.validation.ConstraintTarget")
+        if (target != null && (!name(target.type()).equals("jakarta.validation.ConstraintTarget")
             || !"IMPLICIT".equals(String.valueOf(defaults.get("validationAppliesTo"))))) {
             return "validationAppliesTo must return ConstraintTarget and default to IMPLICIT: " + type.getName();
         }
@@ -171,31 +172,70 @@ final class ConstraintDefinitionMetadata {
     }
 
     private static @Nullable String compositionError(ClassElement type, VisitorContext context,
-                                                      Map<String, MethodElement> members) {
+                                                      Map<String, Member> members) {
         for (var member : members.values()) {
-            for (var override : member.getAnnotationValuesByType(OverridesAttribute.class)) {
+            for (var override : member.metadata().getAnnotationValuesByType(OverridesAttribute.class)) {
                 String constraint = override.annotationClassValue("constraint").orElseThrow().getName();
-                String name = override.stringValue("name").filter(value -> !value.isEmpty()).orElse(member.getName());
+                String name = override.stringValue("name").filter(value -> !value.isEmpty()).orElse(member.name());
                 var composing = context.getClassElement(constraint).orElse(null);
-                var overridden = composing == null ? null : composing.getMethods().stream()
-                    .filter(candidate -> candidate.getName().equals(name)).findFirst().orElse(null);
+                var overridden = composing == null ? null : members(composing).get(name);
                 if (overridden == null) {
-                    return "Cannot override the missing member " + constraint + "." + name + " from " + type.getName() + "." + member.getName();
+                    return "Cannot override the missing member " + constraint + "." + name + " from " + type.getName() + "." + member.name();
                 }
-                if (!name(overridden.getReturnType()).equals(name(member.getReturnType()))) {
+                if (!name(overridden.type()).equals(name(member.type()))) {
                     return "The member of " + type.getName() + " overriding " + constraint + "." + name + " does not have the type of that member";
                 }
                 int count = ValidationAnnotationRemapper.composingOccurrences(type, constraint, context);
                 int index = override.intValue("constraintIndex").orElse(-1);
                 if (count == 0 || index >= count || (index < 0 && count > 1)) {
-                    return "Invalid composition occurrence for " + type.getName() + "." + member.getName();
+                    return "Invalid composition occurrence for " + type.getName() + "." + member.name();
                 }
             }
         }
         return null;
     }
 
+    /**
+     * The members of an annotation interface: listed by core for every compiler (micronaut-core#13924), with their
+     * own metadata and defaults, and read as its declared methods where the element does not list them.
+     */
+    private static Map<String, Member> members(ClassElement type) {
+        var members = new LinkedHashMap<String, Member>();
+        if (type instanceof AnnotationElement annotation) {
+            for (AnnotationMemberElement member : annotation.getMembers()) {
+                members.put(member.getName(), new Member(member.getName(), member.getType(), member.getAnnotationMetadata(),
+                    member.getDefaultValue().orElse(null)));
+            }
+        }
+        if (members.isEmpty()) {
+            type.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).forEach(method -> members.put(method.getName(),
+                new Member(method.getName(), method.getReturnType(), method.getAnnotationMetadata(), null)));
+        }
+        return members;
+    }
+
+    private static Map<CharSequence, Object> defaults(ClassElement type, VisitorContext context, Map<String, Member> members) {
+        Map<CharSequence, Object> defaults = new LinkedHashMap<>(context.getAnnotationDefaultValues(type.getName()));
+        members.values().forEach(member -> {
+            if (member.defaultValue() != null) {
+                defaults.putIfAbsent(member.name(), member.defaultValue());
+            }
+        });
+        return defaults;
+    }
+
     private static String name(ClassElement type) {
         return type.isArray() ? name(type.fromArray()) + "[]" : type.getName();
+    }
+
+    /**
+     * A member of an annotation interface.
+     *
+     * @param name Its name
+     * @param type Its type
+     * @param metadata Its own annotations
+     * @param defaultValue Its default, when the compiler gives it
+     */
+    private record Member(String name, ClassElement type, AnnotationMetadata metadata, @Nullable Object defaultValue) {
     }
 }
