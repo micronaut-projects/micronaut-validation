@@ -130,6 +130,25 @@ public interface RuntimeValidationAccess {
     }
 
     /**
+     * The builder generated for an annotation type, through {@code @RegisterAnnotations} of core: the constraints of
+     * the specification and of this module have one generated with this module, one of the application has one
+     * where it registers it.
+     *
+     * @param type The annotation interface
+     * @param <T> The annotation type
+     * @return The builder, or null when none is registered
+     * @since 5.3.0
+     */
+    default <T extends Annotation> @Nullable AnnotationBuilder<T> annotationBuilder(Class<T> type) {
+        ClassLoader own = RuntimeValidationAccess.class.getClassLoader();
+        var builder = AnnotationBuilder.find(type, own);
+        if (builder.isEmpty() && type.getClassLoader() != null && type.getClassLoader() != own) {
+            builder = AnnotationBuilder.find(type, type.getClassLoader());
+        }
+        return builder.orElse(null);
+    }
+
+    /**
      * Optional fallback for an annotation not described by generated providers.
      *
      * @param type The annotation interface
@@ -140,15 +159,9 @@ public interface RuntimeValidationAccess {
      */
     @SuppressWarnings("unchecked")
     default <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
-        // the constraints of the specification and of this module have a builder generated with this module;
-        // one of the application has one where it registers it
-        ClassLoader own = RuntimeValidationAccess.class.getClassLoader();
-        var builder = AnnotationBuilder.find(type, own);
-        if (builder.isEmpty() && type.getClassLoader() != null && type.getClassLoader() != own) {
-            builder = AnnotationBuilder.find(type, type.getClassLoader());
-        }
-        if (builder.isPresent()) {
-            return builder.get().build((AnnotationValue<T>) value, ConversionService.SHARED);
+        AnnotationBuilder<T> builder = annotationBuilder(type);
+        if (builder != null) {
+            return builder.build((AnnotationValue<T>) value, ConversionService.SHARED);
         }
         throw new ValidationException(
                 "No generated annotation implementation for "

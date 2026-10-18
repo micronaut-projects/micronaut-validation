@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
+import io.micronaut.core.annotation.AnnotationBuilder;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
@@ -24,6 +25,8 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.TypeHierarchies;
+import io.micronaut.core.type.TypeHierarchy;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintDefinitionException;
@@ -37,23 +40,12 @@ import java.lang.annotation.Annotation;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.NavigableMap;
-import java.util.NavigableSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SortedMap;
-import java.util.SortedSet;
-import java.util.TreeMap;
-import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The {@link ReflectionSupport} reading the generated metadata and nothing else: an executable a
@@ -70,6 +62,10 @@ final class CompileTimeSupport implements ReflectionSupport {
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
     private final boolean generatedOnly;
+    // the generic hierarchy records found, misses included: a record is instantiated on every lookup in core
+    private final Map<Class<?>, Optional<TypeHierarchy>> recordedHierarchies = new ConcurrentHashMap<>();
+    // the generated annotation builders found, misses included: a lookup reads the registry of the loader
+    private final Map<Class<?>, Optional<AnnotationBuilder<?>>> annotationBuilders = new ConcurrentHashMap<>();
 
     /**
      * The support of a validator without the reflection module: whatever introspector it is given, it reads
@@ -190,6 +186,25 @@ final class CompileTimeSupport implements ReflectionSupport {
      * Reads inherited bindings from generated introspection type arguments, retaining their
      * declaration-owned validation annotations.
      */
+    /**
+     * The builder registered where the application is, then where this module and the annotation type are.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends Annotation> @Nullable AnnotationBuilder<T> annotationBuilder(Class<T> type) {
+        return (AnnotationBuilder<T>) annotationBuilders.computeIfAbsent(type, annotationType -> {
+            Optional<AnnotationBuilder<T>> builder = AnnotationBuilder.find(type, classLoader);
+            return builder.isPresent()
+                ? builder.<AnnotationBuilder<?>>map(found -> found)
+                : Optional.ofNullable(ReflectionSupport.super.annotationBuilder(type));
+        }).orElse(null);
+    }
+
+    @Override
+    public Optional<TypeHierarchy> recordedHierarchy(Class<?> type) {
+        return recordedHierarchies.computeIfAbsent(type, recorded -> TypeHierarchies.find(recorded.getName(), classLoader));
+    }
+
     @Override
     public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         BeanIntrospection<?> introspection =
@@ -224,22 +239,12 @@ final class CompileTimeSupport implements ReflectionSupport {
                 return index == ContainerTypeArguments.BOUND ? null : index;
             }
         }
-        // These JDK contracts have a specified, unchanged variable order.
-        if (declaredType == ArrayList.class
-                || declaredType == LinkedList.class
-                || declaredType == HashSet.class
-                || declaredType == LinkedHashSet.class
-                || declaredType == TreeSet.class
-                || declaredType == List.class
-                || declaredType == Set.class
-                || declaredType == Collection.class
-                || declaredType == HashMap.class
-                || declaredType == LinkedHashMap.class
-                || declaredType == TreeMap.class
-                || declaredType == SortedMap.class
-                || declaredType == NavigableMap.class
-                || declaredType == SortedSet.class
-                || declaredType == NavigableSet.class) {
+        int recorded = ContainerTypeArguments.recordedIndex(this, declaredType, containerType, typeArgumentIndex);
+        if (recorded != ContainerTypeArguments.UNKNOWN) {
+            return recorded == ContainerTypeArguments.BOUND ? null : recorded;
+        }
+        // these JDK contracts have a specified, unchanged variable order
+        if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
             return typeArgumentIndex;
         }
         throw missing(

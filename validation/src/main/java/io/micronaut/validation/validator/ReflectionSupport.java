@@ -24,6 +24,8 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.TypeHierarchies;
+import io.micronaut.core.type.TypeHierarchy;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
@@ -40,6 +42,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -222,7 +225,12 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         // a type the processor never described (a library compiled without it, a type introspected through
         // @Introspected(classes = ...)) has no validated super types: the constraints core merges into its
         // introspection are all the validator reads, as before 5.3
-        return hierarchy == null ? List.of() : hierarchy.getInterfaces(type);
+        if (hierarchy != null) {
+            return hierarchy.getInterfaces(type);
+        }
+        // a type recorded by its generic hierarchy alone: a group, a validator, a value extractor the processor saw
+        return recordedHierarchy(type).map(recorded -> recorded.getGenericInterfaces().stream()
+            .<Class<?>>map(Argument::getType).toList()).orElse(List.of());
     }
 
     /**
@@ -230,7 +238,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return Whether generated metadata or the optional provider can describe it
      */
     default boolean canResolveHierarchy(Class<?> type) {
-        return ValidationMetadataSupport.hierarchy(introspector(), type) != null;
+        return ValidationMetadataSupport.hierarchy(introspector(), type) != null || recordedHierarchy(type).isPresent();
     }
 
     /**
@@ -244,7 +252,22 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
         var hierarchy = ValidationMetadataSupport.hierarchy(introspector(), type);
         // see interfaces(Class): no generated hierarchy, no validated super type
-        return hierarchy == null ? null : hierarchy.getSuperclass(type).orElse(null);
+        if (hierarchy != null) {
+            return hierarchy.getSuperclass(type).orElse(null);
+        }
+        return recordedHierarchy(type).flatMap(TypeHierarchy::getGenericSuperclass).<Class<?>>map(Argument::getType).orElse(null);
+    }
+
+    /**
+     * The generic hierarchy core recorded for a type at compile time (micronaut-core#13926), found through the
+     * loader of the factory.
+     *
+     * @param type The type
+     * @return The record, empty when none was recorded
+     * @since 5.3.0
+     */
+    default Optional<TypeHierarchy> recordedHierarchy(Class<?> type) {
+        return TypeHierarchies.find(type.getName(), classLoader());
     }
 
     /**

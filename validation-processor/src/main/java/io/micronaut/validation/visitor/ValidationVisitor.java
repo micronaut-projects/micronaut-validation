@@ -34,6 +34,7 @@ import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
 import java.util.HashSet;
@@ -65,7 +66,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
     private @Nullable VisitorContext visitorContext;
-    private final Set<String> importedContainers = new HashSet<>();
+    private final Set<String> importedTypes = new HashSet<>();
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
@@ -97,6 +98,39 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             || classElement.isAssignable("jakarta.validation.groups.Default"))) {
             classElement.annotate(Introspected.class);
         }
+        recordGroups(classElement.getAnnotationMetadata());
+    }
+
+    /**
+     * Records the generic hierarchy of every group a constraint or a group conversion names, so that the validator
+     * reads the groups a group extends without reading the class, introspected or not.
+     */
+    private void recordGroups(AnnotationMetadata metadata) {
+        if (visitorContext == null || classElement == null) {
+            return;
+        }
+        for (String constraint : metadata.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
+            for (var occurrence : metadata.getAnnotationValuesByName(constraint)) {
+                for (var group : occurrence.annotationClassValues("groups")) {
+                    recordGroup(group.getName());
+                }
+            }
+        }
+        for (var conversion : metadata.getAnnotationValuesByName("jakarta.validation.groups.ConvertGroup")) {
+            conversion.annotationClassValue("from").ifPresent(group -> recordGroup(group.getName()));
+            conversion.annotationClassValue("to").ifPresent(group -> recordGroup(group.getName()));
+        }
+    }
+
+    private void recordGroup(String name) {
+        VisitorContext context = visitorContext;
+        ClassElement origin = classElement;
+        if (context == null || origin == null || name.equals("jakarta.validation.groups.Default")
+            || !importedTypes.add(origin.getPackageName() + ":" + name)) {
+            return;
+        }
+        context.getClassElement(name).filter(ClassElement::isInterface)
+            .ifPresent(group -> context.tryRecordTypeHierarchy(group, origin));
     }
 
     @Override
@@ -123,12 +157,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!visited.add(element)) {
             return;
         }
-        if (!element.getOverriddenMethods().isEmpty()) {
+        var overridden = element.getOverriddenMethods();
+        // what the override declares itself, before the inherited annotations are copied in: only a method validation
+        // concerns, here or in a parent, is checked against what it inherits
+        if (!overridden.isEmpty() && (requiresValidation(element) || overridden.stream().anyMatch(ValidationVisitor::requiresValidation))) {
             var declared = Stream.of(element.getParameters()).map(parameter -> declaredTypeUse(parameter, new HashSet<>()))
                 .toArray(AnnotationValue<?>[]::new);
             element.annotate(ValidationMetadataSupport.DECLARED_PARAMETERS, builder -> builder.member("arguments", declared));
         }
-        element.getOverriddenMethods().forEach(parent -> inheritAnnotationsForMethod(element, parent));
+        overridden.forEach(parent -> inheritAnnotationsForMethod(element, parent));
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
@@ -234,6 +271,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             || annotationMetadata.hasStereotype(ANN_VALID)
             || requiresTypeValidation;
         if (requiresValidation) {
+            recordGroups(annotationMetadata);
             try {
                 e.annotate(ANN_CASCADE);
                 e.annotate(RequiresValidation.class);
@@ -247,7 +285,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static boolean hasContainerConstraint(AnnotationMetadata metadata) {
         return metadata.getAnnotationNames().stream().flatMap(name -> metadata.getAnnotationValuesByName(name).stream())
             .flatMap(value -> value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream())
-            .anyMatch(value -> value.contains(io.micronaut.validation.validator.ValidationAnnotationUtil.CONSTRAINT_TYPE));
+            .anyMatch(value -> value.contains(ValidationAnnotationUtil.CONSTRAINT_TYPE));
     }
 
     private boolean visitTypedElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
@@ -269,17 +307,17 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     /**
      * Records the generic hierarchy of a container whose type arguments are validated, so that the validator maps the
-     * type argument a value extractor extracts onto the container's own without reading the class. A container of
-     * the JDK has a fixed, known variable order, and an introspected one has its hierarchy recorded with its
-     * introspection; a container no record can describe is left to the reflection module.
+     * type argument a value extractor extracts onto the container's own without reading the class, a container of the
+     * JDK included. The standard collections pass their variables in order and need no record, an introspected
+     * container has its hierarchy recorded with its introspection, and one no record can describe is left to the
+     * reflection module.
      */
     private void importContainerHierarchy(ClassElement container) {
         String name = container.getName();
         if (visitorContext == null || classElement == null || container.isPrimitive() || container.isArray()
-            || name.startsWith("java.") || name.startsWith("javax.") || name.startsWith("jakarta.")
-            || name.startsWith("kotlin.") || name.startsWith("groovy.")
+            || ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(name)
             || container.hasStereotype(Introspected.class)
-            || !importedContainers.add(classElement.getPackageName() + ":" + name)) {
+            || !importedTypes.add(classElement.getPackageName() + ":" + name)) {
             return;
         }
         visitorContext.tryRecordTypeHierarchy(container, classElement);

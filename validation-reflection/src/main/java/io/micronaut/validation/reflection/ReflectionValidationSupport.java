@@ -321,6 +321,10 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T extends Annotation> T annotation(Class<T> type, AnnotationValue<?> value) {
+        // a builder generated at compile time first, a proxy only for an annotation without one
+        if (generated.annotationBuilder(type) != null) {
+            return generated.annotation(type, value);
+        }
         return AnnotationMetadataSupport.buildAnnotation(
                 type, (AnnotationValue<T>) value);
     }

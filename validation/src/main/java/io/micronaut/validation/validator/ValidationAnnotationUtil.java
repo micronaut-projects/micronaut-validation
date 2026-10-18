@@ -17,6 +17,8 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
 
+import java.util.Set;
+
 /**
  * Internal validation utils.
  *
@@ -42,5 +44,18 @@ public interface ValidationAnnotationUtil {
      * that keeps the no-op default needs no annotation instance.
      */
     String VALIDATOR_INITIALIZATION = "io.micronaut.validation.internal.ValidatorInitialization";
+
+    /**
+     * The containers of the JDK the validator reads without a record of their hierarchy: each passes its type
+     * variables, in order, to the container type a standard value extractor is written for, and each is a
+     * container type itself. The processor records the generic hierarchy of any other container it sees used
+     * with validated type arguments.
+     */
+    Set<String> POSITIONAL_JDK_CONTAINERS = Set.of(
+        "java.lang.Iterable", "java.util.Collection", "java.util.List", "java.util.Set", "java.util.Map",
+        "java.util.Optional", "java.util.ArrayList", "java.util.LinkedList", "java.util.HashSet",
+        "java.util.LinkedHashSet", "java.util.TreeSet", "java.util.HashMap", "java.util.LinkedHashMap",
+        "java.util.TreeMap", "java.util.SortedMap", "java.util.NavigableMap", "java.util.SortedSet",
+        "java.util.NavigableSet");
 
 }

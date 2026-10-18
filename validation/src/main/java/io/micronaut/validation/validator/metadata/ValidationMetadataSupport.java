@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.EnumBeanIntrospection;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
@@ -310,6 +311,11 @@ public final class ValidationMetadataSupport {
     public static List<Enum<?>> enumConstants(ReflectionSupport reflectionSupport, Class<?> type) {
         if (type == Pattern.Flag.class) {
             return List.of(Pattern.Flag.values());
+        }
+        // an introspected enum lists its constants without reading the class
+        var introspection = reflectionSupport.introspector().findIntrospection(type).orElse(null);
+        if (introspection instanceof EnumBeanIntrospection<?> enumIntrospection) {
+            return enumIntrospection.getConstants().stream().<Enum<?>>map(EnumBeanIntrospection.EnumConstant::getValue).toList();
         }
         return reflectionSupport.enumConstants(type);
     }

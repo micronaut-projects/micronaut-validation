@@ -35,6 +35,9 @@ import java.util.regex.PatternSyntaxException;
  */
 abstract class AbstractPatternValidator<A extends Annotation> implements ConstraintValidator<A, CharSequence> {
     private static final Pattern.Flag[] ZERO_FLAGS = new Pattern.Flag[0];
+    // the patterns of every constraint compiled, dropped whole past the bound: messages of XML mappings or of
+    // factories built over and over cannot grow it without end
+    private static final int MAX_COMPUTED_PATTERNS = 1024;
     private static final Map<PatternKey, java.util.regex.Pattern> COMPUTED_PATTERNS = new ConcurrentHashMap<>(10);
 
     /**
@@ -82,6 +85,9 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
                 }
             } catch (PatternSyntaxException e) {
                 throw new IllegalArgumentException("Invalid regular expression", e);
+            }
+            if (COMPUTED_PATTERNS.size() >= MAX_COMPUTED_PATTERNS) {
+                COMPUTED_PATTERNS.clear();
             }
             COMPUTED_PATTERNS.put(key, regex);
         }

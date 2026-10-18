@@ -22,7 +22,6 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.GenericPlaceholder;
-import io.micronaut.core.type.TypeHierarchies;
 import io.micronaut.core.type.TypeHierarchy;
 
 import java.util.List;
@@ -66,7 +65,7 @@ final class ContainerTypeArguments {
                 return arguments.get(typeArgumentIndex);
             }
         }
-        Argument<?> recorded = recordedArgument(declaredType, containerType, typeArgumentIndex);
+        Argument<?> recorded = recordedArgument(reflectionSupport, declaredType, containerType, typeArgumentIndex);
         if (recorded != null) {
             return recorded;
         }
@@ -89,7 +88,7 @@ final class ContainerTypeArguments {
                 return index == BOUND ? null : index;
             }
         }
-        int recorded = recordedIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+        int recorded = recordedIndex(reflectionSupport, declaredType, extractorContainerType, extractorTypeArgumentIndex);
         if (recorded != UNKNOWN) {
             return recorded == BOUND ? null : recorded;
         }
@@ -135,8 +134,8 @@ final class ContainerTypeArguments {
      * @param typeArgumentIndex The type argument of the super type
      * @return The argument, or {@code null} when no record describes it
      */
-    private static @Nullable Argument<?> recordedArgument(Class<?> type, Class<?> superType, int typeArgumentIndex) {
-        TypeHierarchy hierarchy = TypeHierarchies.find(type).orElse(null);
+    private static @Nullable Argument<?> recordedArgument(ReflectionSupport reflectionSupport, Class<?> type, Class<?> superType, int typeArgumentIndex) {
+        TypeHierarchy hierarchy = reflectionSupport.recordedHierarchy(type).orElse(null);
         if (hierarchy == null || typeArgumentIndex < 0) {
             return null;
         }
@@ -157,8 +156,8 @@ final class ContainerTypeArguments {
      * @param typeArgumentIndex The type argument of the super type
      * @return The index of the type variable, {@link #BOUND} if the type binds the argument, or {@link #UNKNOWN}
      */
-    static int recordedIndex(Class<?> type, Class<?> superType, int typeArgumentIndex) {
-        Argument<?> argument = recordedArgument(type, superType, typeArgumentIndex);
+    static int recordedIndex(ReflectionSupport reflectionSupport, Class<?> type, Class<?> superType, int typeArgumentIndex) {
+        Argument<?> argument = recordedArgument(reflectionSupport, type, superType, typeArgumentIndex);
         if (argument == null) {
             return UNKNOWN;
         }
@@ -166,7 +165,7 @@ final class ContainerTypeArguments {
             return BOUND;
         }
         if (argument instanceof GenericPlaceholder<?> placeholder) {
-            List<Argument<?>> variables = TypeHierarchies.find(type).map(TypeHierarchy::getTypeVariables).orElse(List.of());
+            List<Argument<?>> variables = reflectionSupport.recordedHierarchy(type).map(TypeHierarchy::getTypeVariables).orElse(List.of());
             for (int i = 0; i < variables.size(); i++) {
                 if (variables.get(i) instanceof GenericPlaceholder<?> variable
                     && variable.getVariableName().equals(placeholder.getVariableName())) {

@@ -19,6 +19,7 @@ import io.micronaut.context.BeanContext;
 import io.micronaut.context.scope.CreatedBean;
 import io.micronaut.context.annotation.Bean;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
@@ -36,6 +37,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -127,8 +129,8 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             entry = beanContext != null && beanContext.findBeanDefinition(type).isPresent()
                 ? instantiateConstraintValidatorEntryOfBeanRegistration(type)
                 : beanIntrospector.findIntrospection(type)
-                    .filter(introspection -> introspection.getConstructorArguments().length == 0)
-                    .map(this::instantiateConstraintValidatorEntry)
+                    .flatMap(introspection -> noArgumentConstructor(introspection)
+                        .map(constructor -> instantiateConstraintValidatorEntry(introspection, constructor)))
                     .orElseGet(() -> instantiateConstraintValidatorEntryOfDeclaredConstructor(type));
         } catch (ValidationException e) {
             throw e;
@@ -154,9 +156,20 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             null);
     }
 
-    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection) {
+    /**
+     * The constructor without parameters among every one the introspection describes: the primary one of a
+     * validator need not be it.
+     */
+    private static <T> Optional<BeanConstructor<T>> noArgumentConstructor(BeanIntrospection<T> introspection) {
+        return introspection.getConstructors().stream()
+            .filter(constructor -> constructor.getArguments().length == 0)
+            .findFirst();
+    }
+
+    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection,
+                                                                                                         BeanConstructor<T> constructor) {
         return new ConstraintValidatorEntry(
-            beanIntrospection.instantiate(),
+            constructor.instantiate(),
             ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, beanIntrospection),
             ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, beanIntrospection),
             null);
