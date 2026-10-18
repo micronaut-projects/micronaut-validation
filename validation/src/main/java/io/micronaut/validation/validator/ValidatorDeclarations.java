@@ -196,7 +196,7 @@ final class ValidatorDeclarations {
     boolean declaresConstraints(AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
         Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
         for (String name : ConstraintContainers.constraintNames(reflectionSupport, annotationMetadata, classLoader)) {
-            if (ConstraintAnnotationKey.isDeclaredConstraint(declared, name)) {
+            if (ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, name)) {
                 return true;
             }
         }
@@ -217,7 +217,7 @@ final class ValidatorDeclarations {
             AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
             Set<String> declared = superMetadata.getDeclaredAnnotationNames();
             for (String name : ConstraintContainers.constraintNames(reflectionSupport, superMetadata, classLoader)) {
-                if (ConstraintAnnotationKey.isDeclaredConstraint(declared, name)) {
+                if (ConstraintAnnotationKey.isDeclaredConstraint(superMetadata, name)) {
                     superDeclared.add(name);
                 }
             }

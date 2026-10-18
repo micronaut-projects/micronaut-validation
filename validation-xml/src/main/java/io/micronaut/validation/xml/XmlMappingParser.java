@@ -23,6 +23,7 @@ import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
+import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
@@ -258,13 +259,28 @@ final class XmlMappingParser {
         }
         parseGroupConversions(element, defaultPackage, propertyMetadata);
         Argument<?> propertyType = source.argument();
-        properties.put(propertyName, new PropertyMapping(
+        var mapping = new PropertyMapping(
             propertyMetadata,
             booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored),
             source,
-                        source.argument().getType(),
+            source.argument().getType(),
             parseContainerElements(element, defaultPackage, propertyType)
-        ));
+        );
+        // a <field> and a <getter> of the same name both apply to the property the mapping decorates: neither
+        // replaces the other
+        properties.merge(propertyName, mapping, XmlMappingParser::mergeDeclarations);
+    }
+
+    private static PropertyMapping mergeDeclarations(PropertyMapping first, PropertyMapping second) {
+        var containerElements = new ArrayList<>(first.containerElements());
+        containerElements.addAll(second.containerElements());
+        return new PropertyMapping(
+            ExecutableHierarchy.mergeMetadata(List.of(first.metadata(), second.metadata())),
+            // the annotations of the property are ignored only when both declarations ignore them
+            first.annotationsIgnored() && second.annotationsIgnored(),
+            first.source(),
+            first.elementClass(),
+            List.copyOf(containerElements));
     }
 
     private void validatePropertyConfiguredOnce(Class<?> beanType,

@@ -1869,9 +1869,9 @@ public class DefaultValidator
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
         Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
         Set<Class<? extends Annotation>> constraintTypes = ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, currentClassLoader());
-        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type));
+        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type));
         for (Class<? extends Annotation> constraintType : constraintTypes) {
-            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, constraintType)) {
+            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, constraintType)) {
                 continue;
             }
             List<? extends AnnotationValue<? extends Annotation>> annotationValuesByType = ConstraintContainers.values(reflectionSupport, annotationMetadata, constraintType);

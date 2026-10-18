@@ -280,9 +280,9 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
         Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
         List<Class<? extends Annotation>> constraintTypes = constraintTypes(annotationMetadata);
-        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type));
+        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type));
         for (Class<? extends Annotation> type : constraintTypes) {
-            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(declaredAnnotationNames, type)) {
+            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type)) {
                 continue;
             }
             for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(reflectionSupport, annotationMetadata, type)) {

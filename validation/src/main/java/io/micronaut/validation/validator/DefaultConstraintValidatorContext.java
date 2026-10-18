@@ -298,7 +298,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 if (validationGroup.isRedefinedDefaultGroupSequence()) {
                     return !overallViolations.isEmpty();
                 }
-                return hasCurrentViolations;
+                // a group outside any sequence stops nothing: the sequences requested with it still run
+                return validationGroup.isSequence() && hasCurrentViolations;
             }
 
             @Override
@@ -420,7 +421,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             if (group == defaultGroupType) {
                 dest.add(new ValidationGroup(true, true, List.of(Default.class)));
             } else {
+                int start = dest.size();
                 findGroups(ctx, dest, List.of(group), new HashSet<>());
+                // every group of the redefined default sequence is a step of it: a violation stops the sequence
+                for (int i = start; i < dest.size(); i++) {
+                    ValidationGroup step = dest.get(i);
+                    if (!step.isSequence()) {
+                        dest.set(i, new ValidationGroup(true, false, step.groups()));
+                    }
+                }
             }
         }
         return dest;
@@ -448,6 +457,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
+        // the groups being expanded, not every group seen: two sequences may share a group without a cycle
+        try {
+            expandGroup(ctx, dest, group, processedGroups);
+        } finally {
+            processedGroups.remove(group);
+        }
+    }
+
+    private static void expandGroup(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
         List<Class<?>> groupSequence = ctx.defaultValidator.getBeanIntrospector()
             .findIntrospection(group).stream()
             .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
@@ -463,7 +481,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             }
             findGroups(ctx, dest, g, processedGroups);
         }
-        for (int i = start; i < groupSequence.size(); i++) {
+        // every group the sequence expanded to, wherever the destination started
+        for (int i = start; i < dest.size(); i++) {
             ValidationGroup vg = dest.get(i);
             dest.set(i, new ValidationGroup(true, true, vg.groups));
         }
@@ -483,7 +502,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             findGroups(ctx, dest, g, processedGroups);
         }
         boolean anySequence = false;
-        for (int i = start; i < groupSequence.size() && !anySequence; i++) {
+        for (int i = start; i < dest.size() && !anySequence; i++) {
             anySequence |= dest.get(i).isSequence;
         }
         if (!anySequence) {

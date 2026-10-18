@@ -359,6 +359,22 @@ public final class MicronautValidatorConfiguration
         ClassLoader loader = configurationState instanceof MicronautValidatorConfiguration configuration
             ? configuration.classLoader : ReflectionSupport.get().classLoader();
         ApplicationContext applicationContext = createBootstrapContext(configurationProperties, loader);
+        try {
+            return buildValidatorFactory(configurationState, loader, applicationContext);
+        } catch (RuntimeException | Error e) {
+            // the factory owns the context only once it is returned: a failure on the way closes it
+            try {
+                applicationContext.close();
+            } catch (RuntimeException closing) {
+                e.addSuppressed(closing);
+            }
+            throw e;
+        }
+    }
+
+    private static ValidatorFactory buildValidatorFactory(ConfigurationState configurationState,
+                                                          ClassLoader loader,
+                                                          ApplicationContext applicationContext) {
         DefaultValidatorConfiguration validatorConfiguration = (DefaultValidatorConfiguration) applicationContext.getBean(ValidatorConfiguration.class);
         // a factory bootstrapped through the Jakarta API checks constraint definitions as the specification
         // has it, which the bean of an application only does when configured to

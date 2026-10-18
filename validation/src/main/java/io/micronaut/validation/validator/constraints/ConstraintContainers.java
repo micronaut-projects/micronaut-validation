@@ -77,6 +77,15 @@ public final class ConstraintContainers {
     }
 
     /**
+     * Whether a constraint is declared on the element itself, directly or in the repeatable container the
+     * metadata records for it, whatever its name.
+     */
+    private static boolean isDeclared(AnnotationMetadata annotationMetadata, Set<String> declared, String name) {
+        return declared.contains(name)
+            || declared.contains(annotationMetadata.findRepeatableAnnotation(name).orElse(name + "$List"));
+    }
+
+    /**
      * The constraint types of the metadata: the ones found by stereotype and the ones inside
      * containers.
      *
@@ -96,9 +105,9 @@ public final class ConstraintContainers {
         Set<Class<? extends Annotation>> types = new LinkedHashSet<>();
         var names = constraintNames(reflectionSupport, annotationMetadata, classLoader);
         var declared = annotationMetadata.getDeclaredAnnotationNames();
-        boolean hasDeclared = names.stream().anyMatch(name -> declared.contains(name) || declared.contains(name + "$List"));
+        boolean hasDeclared = names.stream().anyMatch(name -> isDeclared(annotationMetadata, declared, name));
         for (String name : names) {
-            if (hasDeclared && !declared.contains(name) && !declared.contains(name + "$List")) {
+            if (hasDeclared && !isDeclared(annotationMetadata, declared, name)) {
                 continue;
             }
             var values = annotationMetadata.getAnnotationValuesByName(name);

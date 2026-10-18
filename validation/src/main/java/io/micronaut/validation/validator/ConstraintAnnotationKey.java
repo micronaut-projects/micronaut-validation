@@ -15,6 +15,7 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 
 import java.lang.annotation.Annotation;
@@ -54,14 +55,24 @@ final class ConstraintAnnotationKey {
         return constraintType.getName() + attributes;
     }
 
-    static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames,
+    static boolean isDeclaredConstraint(AnnotationMetadata annotationMetadata,
                                         Class<? extends Annotation> constraintType) {
-        return isDeclaredConstraint(declaredAnnotationNames, constraintType.getName());
+        return isDeclaredConstraint(annotationMetadata, constraintType.getName());
     }
 
-    static boolean isDeclaredConstraint(Set<String> declaredAnnotationNames, String constraintName) {
-        return declaredAnnotationNames.contains(constraintName)
-            || declaredAnnotationNames.contains(constraintName + "$List");
+    /**
+     * Whether a constraint is declared on the element itself, directly or in its repeatable container. The
+     * container is the one the metadata records for the constraint, whatever its name; metadata recording
+     * none is read with the container named {@code List} nested in the constraint.
+     */
+    static boolean isDeclaredConstraint(AnnotationMetadata annotationMetadata, String constraintName) {
+        Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
+        return declared.contains(constraintName)
+            || declared.contains(container(annotationMetadata, constraintName));
+    }
+
+    static String container(AnnotationMetadata annotationMetadata, String constraintName) {
+        return annotationMetadata.findRepeatableAnnotation(constraintName).orElse(constraintName + "$List");
     }
 
     private static boolean isMeaningfulAttribute(String attributeName, Object value) {
