@@ -260,7 +260,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
 
     /**
      * The generic hierarchy core recorded for a type at compile time (micronaut-core#13926), found through the
-     * loader of the factory.
+     * loader of the factory; core finds a record once per loader (micronaut-core#14064).
      *
      * @param type The type
      * @return The record, empty when none was recorded

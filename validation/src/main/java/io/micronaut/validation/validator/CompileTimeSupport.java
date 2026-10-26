@@ -25,8 +25,6 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
-import io.micronaut.core.type.TypeHierarchies;
-import io.micronaut.core.type.TypeHierarchy;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintDefinitionException;
@@ -62,8 +60,6 @@ final class CompileTimeSupport implements ReflectionSupport {
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
     private final boolean generatedOnly;
-    // the generic hierarchy records found, misses included: a record is instantiated on every lookup in core
-    private final Map<Class<?>, Optional<TypeHierarchy>> recordedHierarchies = new ConcurrentHashMap<>();
     // the generated annotation builders found, misses included: a lookup reads the registry of the loader
     private final Map<Class<?>, Optional<AnnotationBuilder<?>>> annotationBuilders = new ConcurrentHashMap<>();
 
@@ -198,11 +194,6 @@ final class CompileTimeSupport implements ReflectionSupport {
                 ? builder.<AnnotationBuilder<?>>map(found -> found)
                 : Optional.ofNullable(ReflectionSupport.super.annotationBuilder(type));
         }).orElse(null);
-    }
-
-    @Override
-    public Optional<TypeHierarchy> recordedHierarchy(Class<?> type) {
-        return recordedHierarchies.computeIfAbsent(type, recorded -> TypeHierarchies.find(recorded.getName(), classLoader));
     }
 
     @Override

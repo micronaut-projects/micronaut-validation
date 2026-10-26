@@ -23,6 +23,7 @@ import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
+import io.micronaut.inject.ast.AnnotationElement;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
@@ -62,11 +63,16 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private static final String ANN_CASCADE = "io.micronaut.validation.annotation.ValidatedElement";
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
+    // a file name may be 255 bytes long; a builder adds two separators and "$AnnotationBuilder" to its two names
+    private static final int MAX_FILE_NAME = 255;
+    private static final int BUILDER_NAME_OVERHEAD = 20;
 
     private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
     private @Nullable VisitorContext visitorContext;
     private final Set<String> importedTypes = new HashSet<>();
+    private final Set<String> registeredBuilders = new HashSet<>();
+    private @Nullable Set<String> shippedBuilders;
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
@@ -110,6 +116,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
         for (String constraint : metadata.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
+            registerAnnotationBuilder(constraint);
             for (var occurrence : metadata.getAnnotationValuesByName(constraint)) {
                 for (var group : occurrence.annotationClassValues("groups")) {
                     recordGroup(group.getName());
@@ -120,6 +127,73 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             conversion.annotationClassValue("from").ifPresent(group -> recordGroup(group.getName()));
             conversion.annotationClassValue("to").ifPresent(group -> recordGroup(group.getName()));
         }
+    }
+
+    /**
+     * Registers the builder of a constraint and of the constraints it composes (micronaut-core#14055), so that a
+     * Jakarta validator is initialized with, and a descriptor answers, an annotation instance without reflection.
+     * The constraints this module registers itself, an annotation core cannot build from generated code because it
+     * or a member type is not public, and one whose builder name would not fit a file name are left out.
+     */
+    private void registerAnnotationBuilder(String constraint) {
+        VisitorContext context = visitorContext;
+        ClassElement origin = classElement;
+        if (context == null || origin == null || shippedBuilders(context).contains(constraint)
+            || !registeredBuilders.add(origin.getName() + ":" + constraint)) {
+            return;
+        }
+        context.getClassElement(constraint).filter(AnnotationElement.class::isInstance).ifPresent(type -> {
+            // core names the builder after its owner and the whole annotation name, and writes a service entry
+            // under that name: past the file name limit of the file system the compilation fails
+            if (origin.getName().length() + constraint.length() + BUILDER_NAME_OVERHEAD <= MAX_FILE_NAME
+                && buildable(type, new HashSet<>())) {
+                context.registerAnnotationBuilder(type, origin);
+            }
+            for (String composing : type.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
+                if (!composing.equals(constraint)) {
+                    registerAnnotationBuilder(composing);
+                }
+            }
+        });
+    }
+
+    /**
+     * The constraints whose builders this module generates itself, read from the {@code @RegisterAnnotations} its
+     * {@code ConstraintAnnotationBuilders} declares.
+     */
+    private Set<String> shippedBuilders(VisitorContext context) {
+        Set<String> shipped = shippedBuilders;
+        if (shipped == null) {
+            shipped = context.getClassElement("io.micronaut.validation.validator.metadata.ConstraintAnnotationBuilders")
+                .map(type -> Set.of(type.getAnnotationMetadata().stringValues("io.micronaut.core.annotation.RegisterAnnotations")))
+                .orElse(Set.of());
+            shippedBuilders = shipped;
+        }
+        return shipped;
+    }
+
+    /**
+     * Whether generated code can implement an annotation: it, the annotation and enum types of its members and
+     * the types enclosing them are public.
+     */
+    private static boolean buildable(ClassElement type, Set<String> visited) {
+        if (!visited.add(type.getName())) {
+            return true;
+        }
+        for (ClassElement current = type; current != null; current = current.getEnclosingType().orElse(null)) {
+            if (!current.isPublic()) {
+                return false;
+            }
+        }
+        if (type instanceof AnnotationElement annotation) {
+            for (var member : annotation.getMembers()) {
+                ClassElement memberType = member.getType().isArray() ? member.getType().fromArray() : member.getType();
+                if ((memberType.isEnum() || memberType instanceof AnnotationElement) && !buildable(memberType, visited)) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     private void recordGroup(String name) {
