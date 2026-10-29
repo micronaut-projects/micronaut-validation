@@ -46,6 +46,7 @@ import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.ProxyBeanDefinition;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.validation.BeanDefinitionValidator;
+import io.micronaut.validation.validator.PropertyPlan.MemberPlan;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
@@ -1114,7 +1115,8 @@ public class DefaultValidator
             }
             return;
         }
-        if (!declaringTypes.test(beanType)) {
+        if (!plan.validated() || !declaringTypes.test(beanType)) {
+            // nothing to validate: the getter is never called and the traversable resolver never asked
             return;
         }
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(propertyName)) {
@@ -1157,9 +1159,10 @@ public class DefaultValidator
         }
         return propertyPlans.computeIfAbsent(property, p -> {
             Argument<Object> argument = argumentWithMetadata(property.asArgument(), property.getAnnotationMetadata());
+            boolean validated = isValidated(property.getAnnotationMetadata(), argument);
             if (!reflectionSupport.separatesDeclarations(introspection)) {
                 // a description merging the declarations into the property validates the property alone
-                return new PropertyPlan(argument, List.of());
+                return new PropertyPlan(argument, validated, List.of());
             }
             // a generated introspection reports its members only where the type asked for them, and merges
             // what they declare into the property, so walking them is what a description separating the
@@ -1177,7 +1180,7 @@ public class DefaultValidator
                     (Argument<Object>) typed.withName(property.getName()).withAnnotationMetadata(memberMetadata),
                     cascaded));
             }
-            return new PropertyPlan(argument, List.copyOf(members));
+            return new PropertyPlan(argument, validated, List.copyOf(members));
         });
     }
 
@@ -1215,12 +1218,18 @@ public class DefaultValidator
      */
     private boolean isValidatedMember(BeanPropertyMember<?, ?> member) {
         AnnotationMetadata annotationMetadata = member.getAnnotationMetadata();
-        if (annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)) {
-            return false;
-        }
+        return !annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)
+            && isValidated(annotationMetadata, member.asArgument());
+    }
+
+    /**
+     * Whether an element declares something to validate: constraints, a cascade, constrained type arguments or
+     * group conversions.
+     */
+    private boolean isValidated(AnnotationMetadata annotationMetadata, Argument<?> argument) {
         return ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())
             || annotationMetadata.hasStereotype(Valid.class)
-            || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, member.asArgument())
+            || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, argument)
             || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
     }
 
@@ -1672,6 +1681,10 @@ public class DefaultValidator
                                            Argument<E> elementArgument,
                                            @Nullable E elementValue,
                                            @NonNull List<DefaultConstraintDescriptor<Annotation>> constraints) {
+        if (constraints.isEmpty()) {
+            // most elements carry no constraint: no validator runs, so the lifecycle lock is not taken
+            return;
+        }
         validatorInstances.beginValidation();
         try {
             validateConstraintInstances(context, leftBean, elementArgument, elementValue, constraints);
@@ -1970,24 +1983,5 @@ public class DefaultValidator
     private static String simpleName(Class<?> type) {
         String name = type.getName();
         return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
-    }
-
-    /**
-     * The prepared validation of a property.
-     *
-     * @param argument The argument of the property, with its metadata
-     * @param members The members validated on their own, empty when the property is validated as a whole
-     */
-    private record PropertyPlan(Argument<Object> argument, List<MemberPlan> members) {
-    }
-
-    /**
-     * The prepared validation of a member of a property.
-     *
-     * @param member The member
-     * @param argument Its argument, with its own metadata and the type-use annotations of its type
-     * @param cascaded Whether it cascades the value
-     */
-    private record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded) {
     }
 }

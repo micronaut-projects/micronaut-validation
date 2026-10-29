@@ -33,6 +33,26 @@ class ReactiveMethodValidationSpec extends Specification {
         e.getConstraintViolations().first().propertyPath.toString() == '<return value>[].title'
     }
 
+    void "test a resubscribed publisher argument does not keep the violations of an earlier subscription"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+        def subscriptions = new java.util.concurrent.atomic.AtomicInteger()
+        Publisher<String> titles = Flux.defer { subscriptions.getAndIncrement() == 0 ? Flux.just("") : Flux.just("It") }
+        Flux<Book> books = Flux.from(bookService.rxSimple(titles))
+
+        when:
+        books.collectList().block()
+
+        then:
+        thrown(ConstraintViolationException)
+
+        when:
+        List<Book> second = books.collectList().block()
+
+        then:
+        second*.title == ["It"]
+    }
+
     void "test reactive return type no validation"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)

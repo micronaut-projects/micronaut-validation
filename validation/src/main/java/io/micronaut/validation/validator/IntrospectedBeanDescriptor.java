@@ -287,56 +287,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         return effective;
     }
 
-    /** The class-level constraints of the bean, narrowed by groups, scope and element type. */
-    private final class BeanConstraintFinder implements ConstraintFinder {
-
-        private final Set<Class<?>> groups;
-        private final Scope scope;
-        private final Set<ElementType> declaredOn;
-
-        private BeanConstraintFinder(Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
-            this.groups = groups;
-            this.scope = scope;
-            this.declaredOn = declaredOn;
-        }
-
-        @Override
-        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
-            return new BeanConstraintFinder(new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
-        }
-
-        @Override
-        public ConstraintFinder lookingAt(Scope requested) {
-            return new BeanConstraintFinder(groups, requested, declaredOn);
-        }
-
-        @Override
-        public ConstraintFinder declaredOn(ElementType... types) {
-            return new BeanConstraintFinder(groups, scope, new LinkedHashSet<>(List.of(types)));
-        }
-
-        @Override
-        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            if (!declaredOn.isEmpty() && !declaredOn.contains(ElementType.TYPE)) {
-                return Set.of();
-            }
-            Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
-                ? beanAnnotationMetadata.getDeclaredMetadata()
-                : beanAnnotationMetadata);
-            if (groups.isEmpty()) {
-                return descriptors;
-            }
-            Set<Class<?>> effective = effectiveGroups(groups);
-            descriptors.removeIf(descriptor -> !IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective));
-            return descriptors;
-        }
-
-        @Override
-        public boolean hasConstraints() {
-            return !getConstraintDescriptors().isEmpty();
-        }
-    }
-
     private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
         return new LinkedHashSet<>(constraintDescriptorsByKey(annotationMetadata).values());
     }
@@ -721,6 +671,56 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         @Override
         public <U> U unwrap(Class<U> type) {
             return delegate.unwrap(type);
+        }
+    }
+
+    /** The class-level constraints of the bean, narrowed by groups, scope and element type. */
+    private final class BeanConstraintFinder implements ConstraintFinder {
+
+        private final Set<Class<?>> groups;
+        private final Scope scope;
+        private final Set<ElementType> declaredOn;
+
+        private BeanConstraintFinder(Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
+            this.groups = groups;
+            this.scope = scope;
+            this.declaredOn = declaredOn;
+        }
+
+        @Override
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
+            return new BeanConstraintFinder(new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder lookingAt(Scope requested) {
+            return new BeanConstraintFinder(groups, requested, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder declaredOn(ElementType... types) {
+            return new BeanConstraintFinder(groups, scope, new LinkedHashSet<>(List.of(types)));
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            if (!declaredOn.isEmpty() && !declaredOn.contains(ElementType.TYPE)) {
+                return Set.of();
+            }
+            Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
+                ? beanAnnotationMetadata.getDeclaredMetadata()
+                : beanAnnotationMetadata);
+            if (groups.isEmpty()) {
+                return descriptors;
+            }
+            Set<Class<?>> effective = effectiveGroups(groups);
+            descriptors.removeIf(descriptor -> !IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective));
+            return descriptors;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
         }
     }
 }

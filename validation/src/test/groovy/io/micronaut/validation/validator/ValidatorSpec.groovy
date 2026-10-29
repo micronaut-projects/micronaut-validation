@@ -837,6 +837,28 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
+    void "test an unconstrained property is never read"() {
+        when:
+        def violations = validator.validate(new UnconstrainedGetter(name: ""))
+
+        then: "the throwing getter of the unconstrained property is not called"
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'name'
+    }
+
+    void "test the class-level constraints of a bean descriptor are filtered"() {
+        given:
+        def descriptor = validator.getConstraintsForClass(ClassLevelConstrained)
+
+        expect:
+        descriptor.findConstraints().getConstraintDescriptors().size() == 1
+        descriptor.findConstraints().unorderedAndMatchingGroups(jakarta.validation.groups.Default).getConstraintDescriptors().size() == 1
+        descriptor.findConstraints().unorderedAndMatchingGroups(UnrelatedGroup).getConstraintDescriptors().isEmpty()
+        descriptor.findConstraints().declaredOn(java.lang.annotation.ElementType.FIELD).getConstraintDescriptors().isEmpty()
+        descriptor.findConstraints().declaredOn(java.lang.annotation.ElementType.TYPE).getConstraintDescriptors().size() == 1
+        !descriptor.findConstraints().unorderedAndMatchingGroups(UnrelatedGroup).hasConstraints()
+    }
+
     void "test a constrained @Value field is validated at inject time without @Introspected"() {
         when:
         applicationContext.getBean(A)
@@ -1155,4 +1177,21 @@ class MyBookService {
     MyBook saveBook(@Valid MyBook book) {
         book
     }
+}
+
+@Introspected
+class UnconstrainedGetter {
+    @NotBlank
+    String name
+
+    String getBroken() {
+        throw new IllegalStateException("an unconstrained property must not be read")
+    }
+}
+
+interface UnrelatedGroup {}
+
+@Introspected
+@io.micronaut.validation.validator.ClassLevelCheck
+class ClassLevelConstrained {
 }
