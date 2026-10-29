@@ -69,6 +69,10 @@ public final class TestClassVisitor implements TypeElementVisitor<Object, Object
     }
 
     private void process(ClassElement element) {
+        if (element.isAssignable("io.micronaut.core.type.TypeHierarchy")) {
+            // core keeps its @Generated hierarchy records away from visitors, except one a package import brings in
+            return;
+        }
         if ((element.getName().startsWith("org.hibernate.beanvalidation.tck.tests") || element.getName().startsWith("org.hibernate.beanvalidation.tck.javafx"))) {
             if (element.isAssignable("jakarta.validation.ClockProvider")) {
                 element.annotate(Vetoed.class);

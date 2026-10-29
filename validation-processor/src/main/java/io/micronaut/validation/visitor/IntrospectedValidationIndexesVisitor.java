@@ -98,7 +98,9 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
-        if (!element.hasStereotype(Introspected.class)) {
+        if (!element.hasStereotype(Introspected.class) || element.isAssignable("io.micronaut.core.type.TypeHierarchy")) {
+            // core keeps its @Generated hierarchy records away from visitors, except one a @ClassImport brings in:
+            // describing it would ask core for the hierarchy of the record
             return;
         }
         if (!participates(element) && !Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION))) {

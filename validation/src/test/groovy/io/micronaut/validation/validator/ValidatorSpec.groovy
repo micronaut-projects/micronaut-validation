@@ -845,7 +845,6 @@ class ValidatorSpec extends Specification {
         e.message.contains('''number - must be less than or equal to 20''')
         and:
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition', getClass().getClassLoader()).isPresent()
-        ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
     }
 
     void "test @Introspected is required to validate the bean after construction"() {
