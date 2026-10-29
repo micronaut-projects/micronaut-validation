@@ -649,16 +649,6 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         return Collections.unmodifiableSet(composingConstraints);
     }
 
-    private static Map<String, Object> attributes(AnnotationValue<? extends Annotation> annotationValue) {
-        Map<String, Object> attributes = new LinkedHashMap<>();
-        annotationValue.getValues().forEach((key, value) -> attributes.put(key.toString(), value));
-        Map<CharSequence, Object> defaultValues = annotationValue.getDefaultValues();
-        if (defaultValues != null) {
-            defaultValues.forEach((key, value) -> attributes.putIfAbsent(key.toString(), value));
-        }
-        return attributes;
-    }
-
     /**
      * A constraint the retained tree names as composing another, with its type loaded.
      *

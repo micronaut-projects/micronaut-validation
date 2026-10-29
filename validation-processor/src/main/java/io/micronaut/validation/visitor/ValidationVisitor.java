@@ -200,7 +200,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         VisitorContext context = visitorContext;
         ClassElement origin = classElement;
         if (context == null || origin == null || name.equals("jakarta.validation.groups.Default")
-            || !importedTypes.add(origin.getPackageName() + ":" + name)) {
+            || !importedTypes.add(originKey(origin, name))) {
             return;
         }
         context.getClassElement(name).filter(ClassElement::isInterface)
@@ -387,10 +387,23 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (visitorContext == null || classElement == null || container.isPrimitive() || container.isArray()
             || ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(name)
             || container.hasStereotype(Introspected.class)
-            || !importedTypes.add(classElement.getPackageName() + ":" + name)) {
+            || !importedTypes.add(originKey(classElement, name))) {
             return;
         }
         visitorContext.tryRecordTypeHierarchy(container, classElement);
+    }
+
+    /**
+     * The key of a recorded hierarchy: core writes a record per top-level origin class, so each origin asks for its
+     * own and none depends on a record another origin wrote.
+     */
+    private static String originKey(ClassElement origin, String type) {
+        ClassElement topLevel = origin;
+        for (ClassElement enclosing = origin.getEnclosingType().orElse(null); enclosing != null;
+             enclosing = enclosing.getEnclosingType().orElse(null)) {
+            topLevel = enclosing;
+        }
+        return topLevel.getName() + ":" + type;
     }
 
     /**

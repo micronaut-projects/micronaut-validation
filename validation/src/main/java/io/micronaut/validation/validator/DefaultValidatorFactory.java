@@ -17,6 +17,7 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
@@ -31,7 +32,10 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
 
+import java.lang.ref.Cleaner;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
 import java.util.WeakHashMap;
@@ -53,6 +57,9 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     // when its caller is done with it, so it is held weakly: one no longer in use is not kept until the
     // factory closes
     private final Set<DefaultValidator> ownedValidators = Collections.newSetFromMap(new WeakHashMap<>());
+    // the initialized constraint validators of the validators of contexts, held by the factory, not by the
+    // validator: one no longer in use releases them when collected, the others when the factory closes
+    private final Set<ConstraintValidatorInstances> ownedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
     private boolean closed;
 
     /** The constructor. */
@@ -129,6 +136,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     @Override
     public void close() {
         List<DefaultValidator> closing;
+        List<ConstraintValidatorInstances> collected;
         synchronized (this) {
             if (closed) {
                 return;
@@ -137,22 +145,37 @@ public class DefaultValidatorFactory implements ValidatorFactory {
             closed = true;
             closing = List.copyOf(ownedValidators);
             ownedValidators.clear();
+            collected = new ArrayList<>(ownedInstances);
+            ownedInstances.clear();
         }
         RuntimeException failure = null;
         for (DefaultValidator owned : closing) {
             try {
                 owned.close();
             } catch (RuntimeException e) {
-                if (failure == null) {
-                    failure = e;
-                } else {
-                    failure.addSuppressed(e);
-                }
+                failure = addFailure(failure, e);
+            }
+        }
+        // the validators of contexts collected before the factory closed: releasing is idempotent, so those
+        // closed above are skipped
+        for (ConstraintValidatorInstances instances : collected) {
+            try {
+                instances.close();
+            } catch (RuntimeException e) {
+                failure = addFailure(failure, e);
             }
         }
         if (failure != null) {
             throw failure;
         }
+    }
+
+    private static RuntimeException addFailure(@Nullable RuntimeException failure, RuntimeException e) {
+        if (failure == null) {
+            return e;
+        }
+        failure.addSuppressed(e);
+        return failure;
     }
 
     private void requireOpen() {
@@ -272,8 +295,39 @@ public class DefaultValidatorFactory implements ValidatorFactory {
                         newValidator(copyConfiguration(validatorConfiguration));
                 if (created instanceof DefaultValidator defaultValidator) {
                     ownedValidators.add(defaultValidator);
+                    ConstraintValidatorInstances instances = defaultValidator.validatorInstances();
+                    ownedInstances.add(instances);
+                    Cleaners.CLEANER.register(defaultValidator, new ReleaseInstances(DefaultValidatorFactory.this, instances));
                 }
                 return created;
+            }
+        }
+    }
+
+    /** The cleaner, created on the first validator of a context. */
+    private static final class Cleaners {
+        static final Cleaner CLEANER = Cleaner.create();
+    }
+
+    /**
+     * Releases the constraint validators of a collected validator of a context, unless the factory closed first.
+     *
+     * @param factory   The factory
+     * @param instances The instances of the validator
+     */
+    private record ReleaseInstances(DefaultValidatorFactory factory,
+                                    ConstraintValidatorInstances instances) implements Runnable {
+        @Override
+        public void run() {
+            synchronized (factory) {
+                if (!factory.ownedInstances.remove(instances)) {
+                    return;
+                }
+            }
+            try {
+                instances.close();
+            } catch (RuntimeException e) {
+                // nobody to report to on the cleaner thread; the validator is gone
             }
         }
     }

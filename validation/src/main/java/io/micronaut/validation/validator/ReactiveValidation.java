@@ -115,31 +115,27 @@ final class ReactiveValidation {
                                                                   E parameterValue,
                                                                   boolean canCascade) {
         final Publisher<?> publisher = Publishers.convertPublisher(validator.conversionService(), parameterValue, Publisher.class);
-        DefaultConstraintValidatorContext<R> valueContext = context.copy();
+        // the context of the call, copied for every value: a subscription, or a value of one, never sees the
+        // violations or the path another left
+        DefaultConstraintValidatorContext<R> callContext = context.copy();
 
         Publisher<?> objectPublisher;
         if (publisherArgument.isSpecifiedSingle()) {
             objectPublisher = Mono.from(publisher)
                 .flatMap(value -> {
-
-                    validatePublishedValue(validator, valueContext, publisherArgument, parameterValue, value, canCascade);
-
-                    return valueContext.getOverallViolations().isEmpty() ? Mono.just(value) :
-                        Mono.error(new ConstraintViolationException(valueContext.getOverallViolations()));
+                    Set<? extends ConstraintViolation<?>> violations = validatePublishedValue(validator, callContext.copy(), publisherArgument, parameterValue, value, canCascade);
+                    return violations.isEmpty() ? Mono.just(value) : Mono.error(new ConstraintViolationException(violations));
                 });
         } else {
             objectPublisher = Flux.from(publisher).flatMap(value -> {
-
-                validatePublishedValue(validator, valueContext, publisherArgument, parameterValue, value, canCascade);
-
-                return valueContext.getOverallViolations().isEmpty() ? Flux.just(value) :
-                    Flux.error(new ConstraintViolationException(valueContext.getOverallViolations()));
+                Set<? extends ConstraintViolation<?>> violations = validatePublishedValue(validator, callContext.copy(), publisherArgument, parameterValue, value, canCascade);
+                return violations.isEmpty() ? Flux.just(value) : Flux.error(new ConstraintViolationException(violations));
             });
         }
         argumentValues[argumentIndex] = Publishers.convertPublisher(validator.conversionService(), objectPublisher, publisherArgument.getType());
     }
 
-    private static <R, E> void validatePublishedValue(DefaultValidator validator,
+    private static <R, E> Set<? extends ConstraintViolation<?>> validatePublishedValue(DefaultValidator validator,
                                                       @NonNull DefaultConstraintValidatorContext<R> context,
                                                @NonNull Argument<E> publisherArgument,
                                                E value,
@@ -149,7 +145,7 @@ final class ReactiveValidation {
 
         if (typeParameters.length == 0) {
             // No validation if no parameters
-            return;
+            return Set.of();
         }
         Argument<?> valueArgument = typeParameters[0];
 
@@ -157,6 +153,7 @@ final class ReactiveValidation {
             .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(value.getClass()))) {
             validator.visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, publisherInstance, canCascade);
         }
+        return context.getOverallViolations();
     }
 
     /**

@@ -248,17 +248,17 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-        return this;
+        return findConstraints().unorderedAndMatchingGroups(groups);
     }
 
     @Override
     public ConstraintFinder lookingAt(Scope scope) {
-        return this;
+        return findConstraints().lookingAt(scope);
     }
 
     @Override
     public ConstraintFinder declaredOn(ElementType... types) {
-        return this;
+        return findConstraints().declaredOn(types);
     }
 
     @Override
@@ -268,7 +268,73 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public ConstraintFinder findConstraints() {
-        return this;
+        return new BeanConstraintFinder(Set.of(), Scope.HIERARCHY, Set.of());
+    }
+
+    /**
+     * The groups requested and those of the default group sequence of the bean when the default group is among
+     * them, as the section 4.4.2 redefines it.
+     */
+    private Set<Class<?>> effectiveGroups(Set<Class<?>> groups) {
+        Set<Class<?>> effective = new LinkedHashSet<>(groups);
+        if (groups.contains(Default.class)) {
+            for (Class<?> group : beanAnnotationMetadata.classValues(GroupSequence.class)) {
+                if (group != beanIntrospection.getBeanType()) {
+                    effective.add(group);
+                }
+            }
+        }
+        return effective;
+    }
+
+    /** The class-level constraints of the bean, narrowed by groups, scope and element type. */
+    private final class BeanConstraintFinder implements ConstraintFinder {
+
+        private final Set<Class<?>> groups;
+        private final Scope scope;
+        private final Set<ElementType> declaredOn;
+
+        private BeanConstraintFinder(Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
+            this.groups = groups;
+            this.scope = scope;
+            this.declaredOn = declaredOn;
+        }
+
+        @Override
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
+            return new BeanConstraintFinder(new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder lookingAt(Scope requested) {
+            return new BeanConstraintFinder(groups, requested, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder declaredOn(ElementType... types) {
+            return new BeanConstraintFinder(groups, scope, new LinkedHashSet<>(List.of(types)));
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            if (!declaredOn.isEmpty() && !declaredOn.contains(ElementType.TYPE)) {
+                return Set.of();
+            }
+            Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
+                ? beanAnnotationMetadata.getDeclaredMetadata()
+                : beanAnnotationMetadata);
+            if (groups.isEmpty()) {
+                return descriptors;
+            }
+            Set<Class<?>> effective = effectiveGroups(groups);
+            descriptors.removeIf(descriptor -> !IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective));
+            return descriptors;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
+        }
     }
 
     private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
@@ -278,7 +344,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Map<String, ConstraintDescriptor<?>> constraintDescriptorsByKey(AnnotationMetadata annotationMetadata) {
         Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
-        Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
         List<Class<? extends Annotation>> constraintTypes = constraintTypes(annotationMetadata);
         boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type));
         for (Class<? extends Annotation> type : constraintTypes) {
@@ -561,7 +626,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             if (groups.isEmpty()) {
                 return descriptors;
             }
-            Set<Class<?>> effective = effectiveGroups();
+            Set<Class<?>> effective = effectiveGroups(groups);
             Set<ConstraintDescriptor<?>> matching = new LinkedHashSet<>();
             for (ConstraintDescriptor<?> descriptor : descriptors) {
                 if (IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective)) {
@@ -569,22 +634,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 }
             }
             return matching;
-        }
-
-        /**
-         * The requested groups, and the groups of the default group sequence of the bean when the default
-         * group is among them, as the section 4.4.2 redefines it.
-         */
-        private Set<Class<?>> effectiveGroups() {
-            Set<Class<?>> effective = new LinkedHashSet<>(groups);
-            if (groups.contains(Default.class)) {
-                for (Class<?> group : beanAnnotationMetadata.classValues(GroupSequence.class)) {
-                    if (group != beanIntrospection.getBeanType()) {
-                        effective.add(group);
-                    }
-                }
-            }
-            return effective;
         }
 
         @Override

@@ -22,13 +22,13 @@ import jakarta.validation.ValidationException;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Reads application message resources without constructing class-based resource bundles
@@ -39,12 +39,8 @@ final class ValidationMessageBundleLoader {
     private static final int CACHE_SIZE = 64;
     private final ClassLoader loader;
     private final ReflectionSupport reflectionSupport;
-    private final Map<Locale, BundleCandidates> cache = new LinkedHashMap<>(16, 0.75f, true) {
-        @Override
-        protected boolean removeEldestEntry(Map.Entry<Locale, BundleCandidates> eldest) {
-            return size() > CACHE_SIZE;
-        }
-    };
+    // read without a monitor; a full cache starts over, which bounds it without ordering every lookup
+    private final Map<Locale, BundleCandidates> cache = new ConcurrentHashMap<>();
 
     ValidationMessageBundleLoader(ClassLoader loader) {
         this.loader = loader;
@@ -72,7 +68,14 @@ final class ValidationMessageBundleLoader {
         return Optional.empty();
     }
 
-    private synchronized BundleCandidates candidates(Locale locale) {
+    private BundleCandidates candidates(Locale locale) {
+        BundleCandidates found = cache.get(locale);
+        if (found != null) {
+            return found;
+        }
+        if (cache.size() >= CACHE_SIZE) {
+            cache.clear();
+        }
         return cache.computeIfAbsent(locale, key -> {
             var control = ResourceBundle.Control.getControl(ResourceBundle.Control.FORMAT_PROPERTIES);
             return loadCandidates(control.getCandidateLocales("ValidationMessages", key), control);

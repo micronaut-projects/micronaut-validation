@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import org.jspecify.annotations.NonNull;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArrayUtils;
-import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -52,9 +51,7 @@ public interface BeanValidationContext {
                     throw new IllegalArgumentException("Validation groups cannot contain null");
                 }
             }
-            return new DefaultBeanValidationContext(
-                    Arrays.asList(groups)
-            );
+            return new DefaultBeanValidationContext(List.of(groups));
         }
     }
 

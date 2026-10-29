@@ -207,6 +207,11 @@ public class DefaultValidator
         }
     }
 
+    /** The initialized constraint validators, owned by the factory for a validator of a context. */
+    final ConstraintValidatorInstances validatorInstances() {
+        return validatorInstances;
+    }
+
     /** Rejects closure from a validator callback before factory state changes. */
     final void checkCloseAllowed() {
         validatorInstances.checkCloseAllowed();
@@ -319,7 +324,7 @@ public class DefaultValidator
 
         final Optional<BeanProperty<T, Object>> property = introspection.getProperty(propertyName);
         if (property.isEmpty()) {
-            throw new IllegalArgumentException("Cannot find property with name: " + property);
+            throw new IllegalArgumentException("Cannot find property with name: " + propertyName);
         }
 
         DefaultConstraintValidatorContext<T> constraintValidationContext = new DefaultConstraintValidatorContext<>(this, introspection, object, context);
@@ -920,7 +925,7 @@ public class DefaultValidator
 
                 if (ConstraintContainers.hasConstraints(reflectionSupport, methodAnnotationMetadata, currentClassLoader())) {
                     try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addCrossParameterNode()) {
-                        validateConstrains(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters, true);
+                        validateConstraints(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters, true);
                     }
                 }
 
@@ -1357,7 +1362,7 @@ public class DefaultValidator
         }
 
         if (!constraints.isEmpty()) {
-            validateConstrains(context, leftBean, elementArgument, elementValue, constraints);
+            validateConstraints(context, leftBean, elementArgument, elementValue, constraints);
         }
 
         if (canCascade && hasValid && elementValue != null) {
@@ -1450,7 +1455,7 @@ public class DefaultValidator
                 }
             }
 
-            validateConstrains(context, leftBean, containerArgument, containerValue, skipUnwrappingConstraints);
+            validateConstraints(context, leftBean, containerArgument, containerValue, skipUnwrappingConstraints);
         } else {
             containerElementConstraints = new ArrayList<>();
 
@@ -1463,7 +1468,7 @@ public class DefaultValidator
                 }
             }
 
-            validateConstrains(context, leftBean, containerArgument, containerValue, containerConstraints);
+            validateConstraints(context, leftBean, containerArgument, containerValue, containerConstraints);
         }
 
         for (ValueExtractorDefinition<E> valueExtractorDefinition : valueExtractorDefinitions) {
@@ -1507,7 +1512,7 @@ public class DefaultValidator
             }
 
             if (containerValue == null) {
-                validateConstrains(context, leftBean, containerValueArgument, null, containerElementConstraints);
+                validateConstraints(context, leftBean, containerValueArgument, null, containerElementConstraints);
 
                 continue;
             }
@@ -1546,7 +1551,7 @@ public class DefaultValidator
                     }
 
                     private void validateContainerValue(Object value) {
-                        validateConstrains(context, leftBean, containerValueArgument, value, containerElementConstraints);
+                        validateConstraints(context, leftBean, containerValueArgument, value, containerElementConstraints);
                         try (DefaultConstraintValidatorContext.ValidationCloseable ignored = finalUnwrapping
                             ? context.withUnwrappedContainer(context.reportedContainerType(finalContainerArgument.getType()))
                             : () -> { }) {
@@ -1652,17 +1657,17 @@ public class DefaultValidator
         }
     }
 
-    private <R, E> void validateConstrains(DefaultConstraintValidatorContext<R> context,
+    private <R, E> void validateConstraints(DefaultConstraintValidatorContext<R> context,
                                            @Nullable Object leftBean,
                                            @NonNull Argument<E> elementArgument,
                                            @Nullable E elementValue,
                                            boolean cacheConstraints) {
         AnnotationMetadata annotationMetadata = elementArgument.getAnnotationMetadata();
         List<DefaultConstraintDescriptor<Annotation>> constraints = getConstraints(context, annotationMetadata, cacheConstraints);
-        validateConstrains(context, leftBean, elementArgument, elementValue, constraints);
+        validateConstraints(context, leftBean, elementArgument, elementValue, constraints);
     }
 
-    private <R, E> void validateConstrains(DefaultConstraintValidatorContext<R> context,
+    private <R, E> void validateConstraints(DefaultConstraintValidatorContext<R> context,
                                            @Nullable Object leftBean,
                                            Argument<E> elementArgument,
                                            @Nullable E elementValue,
@@ -1786,13 +1791,13 @@ public class DefaultValidator
         List<DefaultConstraintDescriptor<Annotation>> composingConstraints = List.copyOf(constraint.getComposingConstraintDescriptors());
         if (constraint.isReportAsSingleViolation()) {
             Set<ConstraintViolation<R>> existingViolations = new LinkedHashSet<>(context.getOverallViolations());
-            validateConstrains(context, leftBean, elementArgument, elementValue, composingConstraints);
+            validateConstraints(context, leftBean, elementArgument, elementValue, composingConstraints);
             if (!existingViolations.containsAll(context.getOverallViolations())) {
                 context.getOverallViolations().removeIf(violation -> !existingViolations.contains(violation));
                 context.addViolation(createConstraintViolation(context, leftBean, elementValue, constraint));
             }
         } else {
-            validateConstrains(context, leftBean, elementArgument, elementValue, composingConstraints);
+            validateConstraints(context, leftBean, elementArgument, elementValue, composingConstraints);
         }
         return true;
     }
@@ -1867,7 +1872,6 @@ public class DefaultValidator
     private <R> List<DefaultConstraintDescriptor<Annotation>> getConstraints0(@Nullable DefaultConstraintValidatorContext<R> context,
                                                                               AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
-        Set<String> declaredAnnotationNames = annotationMetadata.getDeclaredAnnotationNames();
         Set<Class<? extends Annotation>> constraintTypes = ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, currentClassLoader());
         boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type));
         for (Class<? extends Annotation> constraintType : constraintTypes) {
