@@ -346,12 +346,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             || requiresTypeValidation;
         if (requiresValidation) {
             recordGroups(annotationMetadata);
-            try {
-                e.annotate(ANN_CASCADE);
-                e.annotate(RequiresValidation.class);
-            } catch (IllegalStateException ex) {
-                // workaround Groovy bug
-            }
+            e.annotate(ANN_CASCADE);
+            e.annotate(RequiresValidation.class);
         }
         return requiresValidation;
     }
