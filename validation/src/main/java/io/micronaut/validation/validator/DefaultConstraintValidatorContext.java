@@ -41,6 +41,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -70,7 +71,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private final @Nullable R rootBean;
     @Nullable
     private final Class<R> rootClass;
-    private final Set<Object> validatedObjects = new HashSet<>(20);
+    // the spec tracks the instances already validated, not equal ones
+    private final Set<Object> validatedObjects = Collections.newSetFromMap(new IdentityHashMap<>(20));
     private final ValidationPath currentPath;
     private final List<Class<?>> definedGroups;
     private @Nullable String messageTemplate;

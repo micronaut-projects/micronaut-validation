@@ -183,6 +183,22 @@ class ReactiveMethodValidationSpec extends Specification {
         e.cause.message == "<completion stage element>: must be greater than or equal to 10"
     }
 
+    void "test future validation of a return value completed later"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+        def title = new CompletableFuture<String>()
+
+        when:
+        def result = bookService.futureLong(title)
+        title.complete("abc")
+        result.toCompletableFuture().get()
+
+        then:
+        ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
+        e.cause.message == "<completion stage element>: must be greater than or equal to 10"
+    }
+
     void "test future validation with invalid argument"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)

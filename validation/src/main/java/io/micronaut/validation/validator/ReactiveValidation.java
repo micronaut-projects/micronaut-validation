@@ -157,6 +157,20 @@ final class ReactiveValidation {
     }
 
     /**
+     * Validates the value a completion stage completed with, as its element.
+     */
+    static <T, E> void validateCompletedValue(DefaultValidator validator,
+                                              DefaultConstraintValidatorContext<T> context,
+                                              Argument<E> argument,
+                                              E value,
+                                              boolean canCascade) {
+        try (ValidationPath.ContextualPath ignored = context.getCurrentPath()
+            .addContainerElementNode("<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class))) {
+            validator.visitElement(context, context.getRootBean(), argument, value, canCascade);
+        }
+    }
+
+    /**
      * Processes a method argument that is a completion stage. Since the argument cannot be validated
      * at this exact time, the validation is applied to the completion stage.
      */
@@ -181,10 +195,7 @@ final class ReactiveValidation {
                                                                 boolean canCascade) {
         return completionStage.thenApply(value -> {
 
-            try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
-                .addContainerElementNode("<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class))) {
-                validator.visitElement(context, context.getRootBean(), argument, value, canCascade);
-            }
+            validateCompletedValue(validator, context, argument, value, canCascade);
 
             if (!context.getOverallViolations().isEmpty()) {
                 throw validator.constraintViolationException(context.getOverallViolations());

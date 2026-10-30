@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.ClockProvider;
@@ -130,10 +131,14 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public <T> T unwrap(Class<T> type) {
-        throw new UnsupportedOperationException("Method unwrap(..) not supported");
+        if (type.isInstance(this)) {
+            return type.cast(this);
+        }
+        throw new ValidationException("Type " + type.getName() + " is not supported by unwrap");
     }
 
     @Override
+    @PreDestroy
     public void close() {
         List<DefaultValidator> closing;
         List<ConstraintValidatorInstances> collected;

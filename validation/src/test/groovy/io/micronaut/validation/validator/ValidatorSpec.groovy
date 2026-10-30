@@ -837,6 +837,37 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
+    void "test cycle detection tracks instances, not equal beans"() {
+        given:
+        def child = new EqualNode(name: null)
+        def root = new EqualNode(name: "root", child: child)
+
+        when:
+        def violations = validator.validate(root)
+
+        then: "the child equal to the root is still validated"
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'child.name'
+    }
+
+    void "test a constraint repeating a group builds its descriptor"() {
+        when:
+        def violations = validator.validate(new RepeatedGroup())
+
+        then:
+        violations.size() == 1
+        validator.getConstraintsForClass(RepeatedGroup).getConstraintsForProperty("name")
+            .constraintDescriptors[0].groups == [jakarta.validation.groups.Default] as Set
+    }
+
+    void "test unwrap of an unsupported type throws a validation exception"() {
+        when:
+        applicationContext.getBean(ValidatorFactory).unwrap(String)
+
+        then:
+        thrown(jakarta.validation.ValidationException)
+    }
+
     void "test an unconstrained property is never read"() {
         when:
         def violations = validator.validate(new UnconstrainedGetter(name: ""))
@@ -1194,4 +1225,24 @@ interface UnrelatedGroup {}
 @Introspected
 @io.micronaut.validation.validator.ClassLevelCheck
 class ClassLevelConstrained {
+}
+
+@Introspected
+class EqualNode {
+    @NotNull
+    String name
+    @Valid
+    EqualNode child
+
+    @Override
+    boolean equals(Object o) { o instanceof EqualNode }
+
+    @Override
+    int hashCode() { 1 }
+}
+
+@Introspected
+class RepeatedGroup {
+    @NotNull(groups = [jakarta.validation.groups.Default, jakarta.validation.groups.Default])
+    String name
 }

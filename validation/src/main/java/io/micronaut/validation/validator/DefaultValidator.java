@@ -746,13 +746,22 @@ public class DefaultValidator
         requireNonNull("completionStage", completionStage);
         requireNonNull("groups", groups);
 
-        DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, null, BeanValidationContext.fromGroups(groups));
-        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-            try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
-                return ReactiveValidation.instrumentCompletionStage(this, context, completionStage, argument, true);
+        // the groups are active only while the value is validated, so the whole sequence runs once it completes
+        return completionStage.thenApply(value -> {
+            DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, null, BeanValidationContext.fromGroups(groups));
+            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
+                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
+                    ReactiveValidation.validateCompletedValue(this, context, argument, value, true);
+                    if (validation.isFailed()) {
+                        break;
+                    }
+                }
             }
-        }
-        return completionStage;
+            if (!context.getOverallViolations().isEmpty()) {
+                throw constraintViolationException(context.getOverallViolations());
+            }
+            return value;
+        });
     }
 
     @Override
