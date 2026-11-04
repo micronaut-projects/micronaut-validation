@@ -46,7 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -57,7 +57,18 @@ import java.util.stream.Collectors;
 @Internal
 public final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorContext {
 
-    private static final Map<Class<?>, List<Class<?>>> GROUP_SEQUENCES = new ConcurrentHashMap<>();
+    /**
+     * The group sequence of each group, kept on the group class itself: a map keyed by class would keep
+     * every group, and its classloader, reachable for the life of the process, which pins a retired
+     * generation in development mode. The sequence is resolved on first use, with the introspector of the
+     * validator that asks.
+     */
+    private static final ClassValue<AtomicReference<List<Class<?>>>> GROUP_SEQUENCES = new ClassValue<>() {
+        @Override
+        protected AtomicReference<List<Class<?>>> computeValue(Class<?> type) {
+            return new AtomicReference<>();
+        }
+    };
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     boolean disableDefaultConstraintViolation;
@@ -302,12 +313,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
-        Class<?> finalGroup = group;
-        List<Class<?>> groupSequence = GROUP_SEQUENCES.computeIfAbsent(group, ignore -> {
-            return ctx.defaultValidator.getBeanIntrospector().findIntrospection(finalGroup).stream()
+        AtomicReference<List<Class<?>>> resolved = GROUP_SEQUENCES.get(group);
+        List<Class<?>> groupSequence = resolved.get();
+        if (groupSequence == null) {
+            groupSequence = ctx.defaultValidator.getBeanIntrospector().findIntrospection(group).stream()
                 .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
                 .toList();
-        });
+            if (!resolved.compareAndSet(null, groupSequence)) {
+                groupSequence = resolved.get();
+            }
+        }
         if (groupSequence.isEmpty()) {
             dest.add(new ValidationGroup(false, false, List.of(group)));
             return;
