@@ -37,6 +37,24 @@ class PrivateFieldAccessTest {
         }
     }
 
+    @Test
+    void aFieldConstraintValidatesTheFieldNotItsGetter() {
+        try (var factory = new DefaultValidatorFactory()) {
+            var violations = factory.getValidator().validate(new FieldWithGetter());
+            assertEquals(1, violations.size());
+            assertEquals("value", violations.iterator().next().getPropertyPath().toString());
+        }
+    }
+
+    @Introspected
+    static final class FieldWithGetter {
+        @NotNull private String value;
+
+        public String getValue() {
+            return "valid";
+        }
+    }
+
     @Introspected(accessKind = Introspected.AccessKind.FIELD, visibility = Introspected.Visibility.ANY)
     static final class PrivateField {
         @ReflectiveAccess @NotNull private String value;

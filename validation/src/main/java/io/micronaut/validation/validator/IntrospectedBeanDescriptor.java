@@ -116,7 +116,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public boolean isBeanConstrained() {
-        return hasConstraints() || getConstrainedProperties().stream().anyMatch(property -> property.hasConstraints() || property.isCascaded());
+        return hasConstraints() || !getConstrainedProperties().isEmpty();
     }
 
     @Nullable
@@ -127,7 +127,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         }
         return beanIntrospection.getProperty(propertyName)
             .map(IntrospectedPropertyDescriptor::new)
-            .filter(property -> property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty())
+            .filter(IntrospectedBeanDescriptor::isConstrained)
             .map(PropertyDescriptor.class::cast)
             .orElse(null);
     }
@@ -137,8 +137,15 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         return beanIntrospection.getBeanProperties()
             .stream()
             .map(IntrospectedPropertyDescriptor::new)
-            .filter(property -> property.hasConstraints() || property.isCascaded())
+            .filter(IntrospectedBeanDescriptor::isConstrained)
             .collect(Collectors.toCollection(LinkedHashSet::new));
+    }
+
+    /**
+     * Whether a property declares something to validate: constraints, a cascade or constrained container elements.
+     */
+    private static boolean isConstrained(PropertyDescriptor property) {
+        return property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty();
     }
 
     /**

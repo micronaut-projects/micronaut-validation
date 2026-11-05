@@ -49,6 +49,19 @@ class MicronautValidatorConfigurationTest {
     }
 
     @Test
+    void aMappingStreamStaysOpenForItsCaller() {
+        var closed = new boolean[1];
+        var stream = new java.io.ByteArrayInputStream(new byte[0]) {
+            @Override
+            public void close() {
+                closed[0] = true;
+            }
+        };
+        new MicronautValidatorConfiguration().addMapping(stream);
+        assertTrue(!closed[0]);
+    }
+
+    @Test
     void duplicateProgrammaticValueExtractorsFailAtConfigurationTime() {
         MicronautValidatorConfiguration configuration = new MicronautValidatorConfiguration();
         configuration.addValueExtractor(new BoxValueExtractorOne());

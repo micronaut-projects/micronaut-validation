@@ -837,6 +837,66 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
+    void "test a non-numeric string fails Min and Max instead of throwing"() {
+        when:
+        def violations = validator.validate(new NumericText(value: "abc"))
+
+        then:
+        violations.size() == 2
+    }
+
+    void "test a calendar of another zone is compared at its instant"() {
+        given:
+        def tokyo = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"))
+        tokyo.setTimeInMillis(System.currentTimeMillis() - 60_000)
+
+        expect: "a minute ago is past, wherever its calendar is"
+        validator.validate(new PastCalendar(past: tokyo, future: tokyo))*.propertyPath*.toString() == ['future']
+    }
+
+    void "test a bean with only container element constraints is constrained"() {
+        given:
+        def descriptor = validator.getConstraintsForClass(ElementsOnly)
+
+        expect:
+        descriptor.isBeanConstrained()
+        descriptor.constrainedProperties*.propertyName == ['items']
+    }
+
+    void "test a long email domain is rejected without exhausting the stack"() {
+        when:
+        def violations = validator.validate(new LongEmail(email: "a@" + ("a." * 5000) + "com"))
+
+        then:
+        violations.size() == 1
+    }
+
+    void "test a group conversion leaves the constraints next to it in the requested groups"() {
+        when:
+        def violations = validator.validate(new ConvertingParent())
+
+        then:
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'child'
+    }
+
+    void "test group conversions chain across cascaded relationships"() {
+        when:
+        def violations = validator.validate(new ChainRoot(mid: new ChainMid(leaf: new ChainLeaf())))
+
+        then:
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'mid.leaf.value'
+    }
+
+    void "test the redefined default sequence runs when another group is requested with it"() {
+        when:
+        def violations = validator.validate(new RedefinedDefault(), jakarta.validation.groups.Default, OtherGroup)
+
+        then:
+        violations*.propertyPath*.toString() as Set == ['checked', 'other'] as Set
+    }
+
     void "test cycle detection tracks instances, not equal beans"() {
         given:
         def child = new EqualNode(name: null)
@@ -1245,4 +1305,72 @@ class EqualNode {
 class RepeatedGroup {
     @NotNull(groups = [jakarta.validation.groups.Default, jakarta.validation.groups.Default])
     String name
+}
+
+@Introspected
+class LongEmail {
+    @jakarta.validation.constraints.Email
+    String email
+}
+
+interface BasicGroup {}
+interface AdvancedGroup {}
+interface ChecksGroup {}
+interface OtherGroup {}
+
+@Introspected
+class ConvertingParent {
+    @NotNull
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = jakarta.validation.groups.Default, to = BasicGroup)
+    ChainLeaf child
+}
+
+@Introspected
+class ChainRoot {
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = jakarta.validation.groups.Default, to = BasicGroup)
+    ChainMid mid
+}
+
+@Introspected
+class ChainMid {
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = BasicGroup, to = AdvancedGroup)
+    ChainLeaf leaf
+}
+
+@Introspected
+class ChainLeaf {
+    @NotNull(groups = AdvancedGroup)
+    String value
+}
+
+@Introspected
+@jakarta.validation.GroupSequence([RedefinedDefault, ChecksGroup])
+class RedefinedDefault {
+    @NotNull(groups = ChecksGroup)
+    String checked
+    @NotNull(groups = OtherGroup)
+    String other
+}
+
+@Introspected
+class NumericText {
+    @Min(1L)
+    @Max(10L)
+    String value
+}
+
+@Introspected
+class PastCalendar {
+    @jakarta.validation.constraints.Past
+    Calendar past
+    @jakarta.validation.constraints.Future
+    Calendar future
+}
+
+@Introspected
+class ElementsOnly {
+    List<@NotBlank String> items
 }

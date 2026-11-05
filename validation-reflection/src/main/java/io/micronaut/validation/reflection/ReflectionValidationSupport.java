@@ -22,6 +22,7 @@ import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
@@ -156,6 +157,16 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             }
         }
         return member.read(bean);
+    }
+
+    @Override
+    public <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
+        if (!ReflectiveValidation.isEnabled()
+            && !member.getAnnotationMetadata().hasAnnotation(ReflectiveAccess.class)) {
+            return ReflectionSupport.super.readMember(member, property, bean);
+        }
+        // Jakarta Validation reads the annotated declaration itself: a field constraint never sees what the getter returns
+        return readMember(member, bean);
     }
 
     @Override

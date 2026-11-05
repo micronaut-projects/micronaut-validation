@@ -62,6 +62,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     boolean disableDefaultConstraintViolation;
+    // the reports added so far, counted rather than read off the violations: equal reports are kept once
+    int reportedViolations;
     @Nullable ConstraintDescriptor<Annotation> constraint;
 
     private final BeanValidationContext validationContext;
@@ -89,6 +91,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private Object executableReturnValue;
     private List<Class<?>> currentGroups;
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
+    // whether the current groups are the result of a conversion, not merely validated below one
+    private boolean currentGroupsConverted;
+    private List<AnnotationValue<ConvertGroup>> appliedConversions = List.of();
     private boolean hasCurrentViolations = false;
 
     DefaultConstraintValidatorContext(DefaultValidator defaultValidator, @Nullable BeanIntrospection<R> beanIntrospection, @Nullable R rootBean, BeanValidationContext validationContext) {
@@ -185,7 +190,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             return true;
         }
         // loops rather than streams: this runs for every constraint of every validated element
-        boolean converted = !convertedGroups.isEmpty();
+        boolean converted = currentGroupsConverted;
         if (constraintGroups.isEmpty()) {
             for (Class<?> group : currentGroups) {
                 if (group == Default.class || (!converted && Default.class.isAssignableFrom(group))) {
@@ -287,7 +292,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     public GroupsValidation withGroupSequence(@NonNull ValidationGroup validationGroup) {
         List<Class<?>> prevGroups = currentGroups;
         boolean prevViolations = hasCurrentViolations;
+        boolean prevConverted = currentGroupsConverted;
         currentGroups = validationGroup.groups();
+        currentGroupsConverted = !convertedGroups.isEmpty();
+        int violationsBefore = overallViolations.size();
         hasCurrentViolations = false;
 
         return new GroupsValidation() {
@@ -298,7 +306,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 // should fail immediately if group or a cascaded element has violations,
                 // but redefined default groups should continue to the other group validation
                 if (validationGroup.isRedefinedDefaultGroupSequence()) {
-                    return !overallViolations.isEmpty();
+                    // the violations of this step, a cascaded element's included, not those of the groups before
+                    return overallViolations.size() > violationsBefore;
                 }
                 // a group outside any sequence stops nothing: the sequences requested with it still run
                 return validationGroup.isSequence() && hasCurrentViolations;
@@ -307,6 +316,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             @Override
             public void close() {
                 currentGroups = prevGroups;
+                currentGroupsConverted = prevConverted;
                 hasCurrentViolations = prevViolations;
             }
         };
@@ -314,13 +324,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     public ValidationCloseable convertGroups(@NonNull AnnotationMetadata annotationMetadata) {
         List<AnnotationValue<ConvertGroup>> conversions = annotationMetadata.getAnnotationValuesByType(ConvertGroup.class);
-        if (conversions.isEmpty()) {
+        if (conversions.isEmpty() || conversions.equals(appliedConversions)) {
+            // the conversions of the relationship being cascaded, met again on its way in, are applied once
             return () -> {
             };
         }
+        List<AnnotationValue<ConvertGroup>> prevAppliedConversions = appliedConversions;
+        appliedConversions = conversions;
         Map<Class<?>, Class<?>> prevConvertedGroups = convertedGroups;
         List<Class<?>> prevGroups = currentGroups;
-        convertedGroups = new HashMap<>(prevConvertedGroups);
 
         Map<Class<?>, Class<?>> newConvertGroups = conversions.stream().collect(Collectors.toMap(
             av -> av.classValue("from").orElse(Default.class),
@@ -333,11 +345,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                     + ": add micronaut-validation-reflection for inherited group conversion");
             }
         }
-        convertedGroups.putAll(newConvertGroups);
-        currentGroups = prevGroups.stream().<Class<?>>map(c -> convertGroup(convertedGroups, c)).toList();
+        // the conversions of the relationships cascaded so far, followed by this one: a group the previous
+        // relationships converted is converted again, a group they left is converted from its original
+        Map<Class<?>, Class<?>> composed = new HashMap<>(newConvertGroups);
+        prevConvertedGroups.forEach((from, to) -> composed.put(from, convertGroup(newConvertGroups, to)));
+        convertedGroups = composed;
+        // only the cascaded bean is validated in the converted groups: the groups of the constraints declared
+        // next to the conversion stay the ones requested
         return () -> {
             convertedGroups = prevConvertedGroups;
-            currentGroups = prevGroups;
+            appliedConversions = prevAppliedConversions;
         };
     }
 
@@ -366,7 +383,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
-        if (!hasDefaultGroup(ctx.definedGroups)) {
+        // a requested group extending the default group validates its constraints itself, without the redefinition
+        if (!ctx.definedGroups.contains(Default.class)
+            || ctx.definedGroups.stream().anyMatch(group -> group != Default.class && Default.class.isAssignableFrom(group))) {
             return findGroupSequences(ctx);
         }
         Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
@@ -375,7 +394,15 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             return findGroupSequences(ctx);
         }
         validateDefaultGroupSequence(defaultGroupType, classGroupSequence);
-        return expandDefaultGroupSequence(ctx, defaultGroupType, classGroupSequence);
+        // the other groups requested with the default group first: a failed step of the redefined sequence ends
+        // the validation of the bean
+        List<ValidationGroup> dest = new ArrayList<>();
+        List<Class<?>> others = ctx.definedGroups.stream().filter(group -> group != Default.class).toList();
+        if (!others.isEmpty()) {
+            findGroups(ctx, dest, others, new HashSet<>());
+        }
+        dest.addAll(expandDefaultGroupSequence(ctx, defaultGroupType, classGroupSequence));
+        return dest;
     }
 
     /**
@@ -519,6 +546,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public void addViolation(DefaultConstraintViolation<R> violation) {
+        reportedViolations++;
         hasCurrentViolations = true;
         overallViolations.add(violation);
     }

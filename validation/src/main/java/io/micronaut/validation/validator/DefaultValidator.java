@@ -1051,11 +1051,8 @@ public class DefaultValidator
                     }
                     // the class-level constraints of the super types, each type its own violations
                     for (BeanIntrospection<?> superIntrospection : superIntrospections) {
-                        AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
-                        if (declarations.declaresConstraints(superMetadata, currentClassLoader())) {
-                            try (ValidationPath.ContextualPath ignore2 = context.getCurrentPath().addBeanNode()) {
-                                visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, false, true);
-                            }
+                        if (!isolated.containsKey(superIntrospection.getBeanType())) {
+                            visitSuperTypeConstraints(context, object, superIntrospection);
                         }
                     }
                     for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
@@ -1073,6 +1070,11 @@ public class DefaultValidator
                 boolean isolatedCanCascade = true;
                 for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : entry.getValue()) {
                     try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
+                        for (BeanIntrospection<?> superIntrospection : declarations.superIntrospections(introspection)) {
+                            if (superIntrospection.getBeanType() == entry.getKey()) {
+                                visitSuperTypeConstraints(context, object, superIntrospection);
+                            }
+                        }
                         for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
                             visitProperty(context, introspection, object, property, isolatedCanCascade, type -> type == entry.getKey());
                         }
@@ -1082,6 +1084,18 @@ public class DefaultValidator
                     }
                     isolatedCanCascade = false;
                 }
+            }
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private <R, T> void visitSuperTypeConstraints(DefaultConstraintValidatorContext<R> context,
+                                                  T object,
+                                                  BeanIntrospection<?> superIntrospection) {
+        AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
+        if (declarations.declaresConstraints(superMetadata, currentClassLoader())) {
+            try (ValidationPath.ContextualPath ignore = context.getCurrentPath().addBeanNode()) {
+                visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, false, true);
             }
         }
     }
@@ -1781,11 +1795,13 @@ public class DefaultValidator
                 throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
             }
             try {
+                int reportedBefore = context.reportedViolations;
                 if (!validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
                     if (!context.disableDefaultConstraintViolation) {
                         DefaultConstraintViolation<R> constraintViolation = createConstraintViolation(context, leftBean, elementValue, constraint);
                         context.addViolation(constraintViolation);
-                    } else if (context.getOverallViolations().isEmpty()) {
+                    } else if (context.reportedViolations == reportedBefore) {
+                        // this validator reported nothing, whatever the constraints before it did
                         throw new ValidationException("Default violation is disabled and no violations were added");
                     }
                 }

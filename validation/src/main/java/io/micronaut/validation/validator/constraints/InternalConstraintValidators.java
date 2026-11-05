@@ -126,7 +126,8 @@ final class InternalConstraintValidators {
             final Long max = annotationMetadata.getValue(Long.class).orElseThrow(() ->
                 new ValidationException("@Max annotation specified without value")
             );
-            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(max)) <= 0;
+            BigDecimal number = parseDecimal(value);
+            return number != null && number.compareTo(BigDecimal.valueOf(max)) <= 0;
         };
 
     final ConstraintValidator<Min, CharSequence> minCharSequenceValidator =
@@ -137,7 +138,8 @@ final class InternalConstraintValidators {
             final Long min = annotationMetadata.getValue(Long.class).orElseThrow(() ->
                 new ValidationException("@Min annotation specified without value")
             );
-            return new BigDecimal(value.toString()).compareTo(BigDecimal.valueOf(min)) >= 0;
+            BigDecimal number = parseDecimal(value);
+            return number != null && number.compareTo(BigDecimal.valueOf(min)) >= 0;
         };
 
     final ConstraintValidator<Min, Number> minNumberValidator =
@@ -336,8 +338,8 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-            return comparable.compareTo(toLocalDateTime(value)) > 0;
+            // instants, not local times: a calendar of another zone is compared at the moment it represents
+            return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) > 0;
         };
 
     final ConstraintValidator<PastOrPresent, TemporalAccessor> pastOrPresentTemporalAccessorConstraintValidator =
@@ -366,8 +368,8 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-            return comparable.compareTo(toLocalDateTime(value)) >= 0;
+            // instants, not local times: a calendar of another zone is compared at the moment it represents
+            return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) >= 0;
         };
 
     final ConstraintValidator<Future, TemporalAccessor> futureTemporalAccessorConstraintValidator = (value, annotationMetadata, context) -> {
@@ -384,8 +386,8 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-        return comparable.compareTo(toLocalDateTime(value)) < 0;
+        // instants, not local times: a calendar of another zone is compared at the moment it represents
+        return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) < 0;
     };
 
     final ConstraintValidator<Future, Date> futureDateConstraintValidator = (value, annotationMetadata, context) -> {
@@ -420,8 +422,8 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-        return comparable.compareTo(toLocalDateTime(value)) <= 0;
+        // instants, not local times: a calendar of another zone is compared at the moment it represents
+        return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) <= 0;
     };
 
     /**
@@ -499,5 +501,17 @@ final class InternalConstraintValidators {
             .stream()
             .<Map.Entry<Argument<Object>, ConstraintValidator<?, ?>>>map(p -> Map.entry(p.asArgument(), (ConstraintValidator<?, ?>) p.get(bean)))
             .toList();
+    }
+
+    /**
+     * The number a character sequence spells, null when it spells none: a value that is no number is invalid,
+     * not an error.
+     */
+    private static @Nullable BigDecimal parseDecimal(CharSequence value) {
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
