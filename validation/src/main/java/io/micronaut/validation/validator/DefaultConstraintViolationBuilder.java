@@ -119,18 +119,18 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         constraintValidatorContext.addViolation(new DefaultConstraintViolation<>(
             constraintValidatorContext.getRootBean(),
             constraintValidatorContext.getRootClass(),
-            null,
-            null,
+            constraintValidatorContext.leafBean,
+            constraintValidatorContext.validatedValue,
             messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
                 constraintValidatorContext,
                 constraintValidatorContext.currentConstraint(),
-                null
+                constraintValidatorContext.validatedValue
             )),
             messageTemplate,
             validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
             constraintValidatorContext.currentConstraint(),
-            null,
-            null)
+            constraintValidatorContext.getExecutableParameterValues(),
+            constraintValidatorContext.getExecutableReturnValue())
         );
         return constraintValidatorContext;
     }

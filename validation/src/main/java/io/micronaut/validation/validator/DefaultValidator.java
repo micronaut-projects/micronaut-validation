@@ -53,6 +53,7 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
+import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
@@ -1088,6 +1089,22 @@ public class DefaultValidator
         }
     }
 
+    private <E> List<ValueExtractorDefinition<E>> findValueExtractors(Class<E> containerType) {
+        if (valueExtractorRegistry instanceof DefaultValueExtractors extractors) {
+            // the extractors compared by the type argument of the container each extracts
+            return extractors.findValueExtractors(containerType, definition -> {
+                try {
+                    return ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport, beanIntrospector,
+                        containerType, definition.containerType(), definition.typeArgumentIndex());
+                } catch (ValidationException e) {
+                    // a runtime type without metadata, a JDK collection: its extractors meet by their own argument
+                    return definition.typeArgumentIndex();
+                }
+            });
+        }
+        return valueExtractorRegistry.findValueExtractors(containerType);
+    }
+
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <R, T> void visitSuperTypeConstraints(DefaultConstraintValidatorContext<R> context,
                                                   T object,
@@ -1428,12 +1445,13 @@ public class DefaultValidator
         }
 
         Class<E> extractorLookupType = containerArgument.getType();
+        // a cascade follows the runtime type of the container, a declared Iterable holding a List is indexed
         if (containerValue != null
-            && ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, containerArgument)
+            && (isLegacyValid || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, containerArgument))
             && !hasConstrainedTypeArgument(context, containerArgument)) {
             extractorLookupType = (Class<E>) containerValue.getClass();
         }
-        List<ValueExtractorDefinition<E>> valueExtractorDefinitions = valueExtractorRegistry.findValueExtractors(extractorLookupType);
+        List<ValueExtractorDefinition<E>> valueExtractorDefinitions = findValueExtractors(extractorLookupType);
         if (valueExtractorDefinitions.isEmpty()) {
             if (isLegacyValid && Object[].class.isAssignableFrom(containerArgument.getType())) {
                 // Provide a custom legacy value extractor for an array
@@ -1728,6 +1746,8 @@ public class DefaultValidator
         ValidationPath.DefaultMethodNode executableNode = executableNode(context.getCurrentPath());
         for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
             context.constraint = constraint;
+            context.leafBean = leftBean;
+            context.validatedValue = elementValue;
             ConstraintTarget validationAppliesTo = constraint.getValidationAppliesTo();
             if (constraint.hasDefinedConstraintValidatorClasses() || validationAppliesTo != null) {
                 boolean onExecutable = executableNode != null
@@ -1814,6 +1834,8 @@ public class DefaultValidator
             validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
             context.messageTemplate(null);
             context.constraint = null;
+            context.leafBean = null;
+            context.validatedValue = null;
             context.disableDefaultConstraintViolation = false;
         }
     }

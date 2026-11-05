@@ -38,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * The default value extractors.
@@ -53,6 +54,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> internalValueExtractors = new HashMap<>();
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> localValueExtractors = new HashMap<>();
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> matchingValueExtractors = new ConcurrentHashMap<>();
+    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> matchingDeclaredValueExtractors = new ConcurrentHashMap<>();
 
     /**
      * Default constructor.
@@ -141,6 +143,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         }
         valueExtractorDefinitions.add(valueExtractorDefinition);
         matchingValueExtractors.clear();
+        matchingDeclaredValueExtractors.clear();
     }
 
     private static void copyValueExtractors(Map<Class<?>, List<ValueExtractorDefinition<?>>> source,
@@ -179,7 +182,34 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         return (List) valueExtractorDefinitions;
     }
 
+    /**
+     * Finds the maximally specific value extractors of a type, comparing the extractors by the type argument of the
+     * type each extracts: extractors declared on different super types meet only where their arguments map to the same
+     * one.
+     *
+     * @param targetType The container type
+     * @param declaredTypeArgument The type argument of the container an extractor extracts, null when it binds none
+     * @param <T> The container type
+     * @return The extractors
+     * @since 5.3.0
+     */
+    @SuppressWarnings("unchecked")
+    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType,
+                                                                     Function<ValueExtractorDefinition<?>, @Nullable Integer> declaredTypeArgument) {
+        List<ValueExtractorDefinition<?>> valueExtractorDefinitions = matchingDeclaredValueExtractors.get(targetType);
+        if (valueExtractorDefinitions == null) {
+            valueExtractorDefinitions = findMaximallySpecificValueExtractors(targetType, declaredTypeArgument);
+            matchingDeclaredValueExtractors.put(targetType, valueExtractorDefinitions);
+        }
+        return (List) valueExtractorDefinitions;
+    }
+
     private List<ValueExtractorDefinition<?>> findMaximallySpecificValueExtractors(Class<?> targetType) {
+        return findMaximallySpecificValueExtractors(targetType, ValueExtractorDefinition::typeArgumentIndex);
+    }
+
+    private List<ValueExtractorDefinition<?>> findMaximallySpecificValueExtractors(Class<?> targetType,
+                                                                                   Function<ValueExtractorDefinition<?>, @Nullable Integer> declaredTypeArgument) {
         Map<ExtractorKey, ValueExtractorDefinition<?>> candidates = new LinkedHashMap<>();
         addCandidates(candidates, localValueExtractors, targetType);
         addCandidates(candidates, internalValueExtractors, targetType);
@@ -188,7 +218,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         }
         Map<Integer, List<ValueExtractorDefinition<?>>> byTypeArgument = new LinkedHashMap<>();
         for (ValueExtractorDefinition<?> candidate : candidates.values()) {
-            byTypeArgument.computeIfAbsent(candidate.typeArgumentIndex(), ignored -> new ArrayList<>()).add(candidate);
+            byTypeArgument.computeIfAbsent(declaredTypeArgument.apply(candidate), ignored -> new ArrayList<>()).add(candidate);
         }
 
         List<ValueExtractorDefinition<?>> maximallySpecific = new ArrayList<>(byTypeArgument.size());

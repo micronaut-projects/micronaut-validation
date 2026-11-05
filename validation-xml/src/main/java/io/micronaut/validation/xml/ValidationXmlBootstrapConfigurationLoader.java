@@ -142,6 +142,8 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                 executableTypes.add(ExecutableType.NON_GETTER_METHODS);
             }
             executableTypes = normalizeExecutableTypes(executableTypes);
+            // after the checks above, whose messages are more specific than the schema's
+            XmlMappingSupport.validateSchema(document, "validation-configuration", "validation.xml");
             return new DefaultBootstrapConfiguration(
                 defaultProvider,
                 constraintValidatorFactory,

@@ -128,6 +128,10 @@ final class ReflectedConstraintDefinitions {
         boolean crossParameter = false;
         int crossParameterValidators = 0;
         for (Class<? extends ConstraintValidator<?, ?>> validator : validators) {
+            if (!isWildcardParameterized(validator)) {
+                throw new ConstraintDefinitionException("Constraint validator must validate a type whose type arguments are"
+                    + " unbounded wildcards: " + annotationType.getName() + " with " + validator.getName());
+            }
             List<ValidationTarget> targets = validationTargets(validator);
             if (targets.contains(ValidationTarget.ANNOTATED_ELEMENT)) {
                 generic = true;
@@ -160,6 +164,24 @@ final class ReflectedConstraintDefinitions {
         Argument<?> signature = ReflectionArguments.resolveGenericToArgument(validator, ConstraintValidator.class);
         Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
         return typeParameters.length == 2 ? typeParameters[1].getType() : Object.class;
+    }
+
+    /**
+     * Whether the type a validator validates is raw or has only unbounded wildcards for type arguments, which a
+     * wildcard resolves to Object: a validator of {@code List<String>} would be handed any list.
+     */
+    private static boolean isWildcardParameterized(Class<?> validator) {
+        Argument<?> signature = ReflectionArguments.resolveGenericToArgument(validator, ConstraintValidator.class);
+        Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
+        if (typeParameters.length != 2) {
+            return true;
+        }
+        for (Argument<?> typeArgument : typeParameters[1].getTypeParameters()) {
+            if (typeArgument.getType() != Object.class) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static Method requiredMember(Class<? extends Annotation> annotationType, String name) {

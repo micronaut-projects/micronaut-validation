@@ -65,6 +65,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     // the reports added so far, counted rather than read off the violations: equal reports are kept once
     int reportedViolations;
     @Nullable ConstraintDescriptor<Annotation> constraint;
+    // the bean and value the current constraint validates, which a custom report keeps
+    @Nullable Object leafBean;
+    @Nullable Object validatedValue;
 
     private final BeanValidationContext validationContext;
     private final DefaultValidator defaultValidator;

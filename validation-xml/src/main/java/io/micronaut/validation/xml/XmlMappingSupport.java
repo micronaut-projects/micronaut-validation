@@ -15,19 +15,32 @@
  */
 package io.micronaut.validation.xml;
 
+import jakarta.validation.Validation;
 import jakarta.validation.ValidationException;
 import org.jspecify.annotations.Nullable;
+import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
+import org.xml.sax.SAXException;
 
+import javax.xml.XMLConstants;
+import javax.xml.transform.dom.DOMSource;
+import javax.xml.validation.Schema;
+import javax.xml.validation.SchemaFactory;
+import java.io.IOException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /** XML structure checks and DOM access shared by validation XML readers. */
 final class XmlMappingSupport {
+
+    private static final Map<String, Optional<Schema>> SCHEMAS = new ConcurrentHashMap<>();
 
     private static final Set<String> CONSTRAINED_ELEMENT_CHILDREN = Set.of("valid", "convert-group", "container-element-type", "constraint");
     private static final Set<String> EXECUTABLE_CHILDREN = Set.of("parameter", "cross-parameter", "return-value");
@@ -109,6 +122,53 @@ final class XmlMappingSupport {
      * @param supportedVersions The versions implemented by this module
      * @param resourceDescription Description used in validation errors
      */
+    /**
+     * Validates a parsed document against the schema of its version, which the Jakarta Validation API ships: a wrong
+     * root, a repeated singleton element or a malformed value is rejected instead of ignored.
+     *
+     * @param document The parsed document
+     * @param schemaName The schema name without its version, such as {@code validation-configuration}
+     * @param resourceDescription Description used in validation errors
+     */
+    static void validateSchema(Document document, String schemaName, String resourceDescription) {
+        String version = document.getDocumentElement().getAttribute("version");
+        String resource = schemaName + "-" + (version.isBlank() ? "1.0" : version) + ".xsd";
+        Schema schema = SCHEMAS.computeIfAbsent(resource, XmlMappingSupport::loadSchema).orElse(null);
+        if (schema == null) {
+            return;
+        }
+        try {
+            javax.xml.validation.Validator validator = schema.newValidator();
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            validator.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            Document validated = document;
+            if ("3.1".equals(version)) {
+                // the 3.1 schemas the API ships fix the version at 3.0; the documents are otherwise the same
+                validated = (Document) document.cloneNode(true);
+                validated.getDocumentElement().setAttribute("version", "3.0");
+            }
+            validator.validate(new DOMSource(validated));
+        } catch (SAXException | IOException e) {
+            throw new ValidationException("Invalid " + resourceDescription + ": " + e.getMessage(), e);
+        }
+    }
+
+    private static Optional<Schema> loadSchema(String resource) {
+        URL url = Validation.class.getClassLoader() == null ? null : Validation.class.getClassLoader().getResource(resource);
+        if (url == null) {
+            return Optional.empty();
+        }
+        try {
+            SchemaFactory factory = SchemaFactory.newDefaultInstance();
+            factory.setFeature(XMLConstants.FEATURE_SECURE_PROCESSING, true);
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_DTD, "");
+            factory.setProperty(XMLConstants.ACCESS_EXTERNAL_SCHEMA, "");
+            return Optional.of(factory.newSchema(url));
+        } catch (SAXException e) {
+            throw new ValidationException("Cannot load the schema " + resource, e);
+        }
+    }
+
     static void validateVersion(Element root, Set<String> supportedVersions, String resourceDescription) {
         String version = root.getAttribute("version");
         if (!version.isBlank() && !supportedVersions.contains(version)) {

@@ -64,16 +64,16 @@ final class InternalValueExtractors {
     final UnwrapByDefaultValueExtractor<@ExtractedValue(type = Double.class)  OptionalDouble> optionalDoubleValueExtractor =
         (originalValue, receiver) -> receiver.value(null, originalValue.isPresent() ? originalValue.getAsDouble() : null);
 
+    // an iterable is extracted as one whatever its runtime type, a list by its own extractor
     final ValueExtractor<Iterable<@ExtractedValue ?>> iterableValueExtractor = (originalValue, receiver) -> {
-        if (originalValue instanceof List) {
-            int i = 0;
-            for (Object o : originalValue) {
-                receiver.indexedValue(LIST_ELEMENT_NODE_NAME, i++, o);
-            }
-        } else {
-            for (Object o : originalValue) {
-                receiver.iterableValue(ITERABLE_ELEMENT_NODE_NAME, o);
-            }
+        for (Object o : originalValue) {
+            receiver.iterableValue(ITERABLE_ELEMENT_NODE_NAME, o);
+        }
+    };
+    final ValueExtractor<List<@ExtractedValue ?>> listValueExtractor = (originalValue, receiver) -> {
+        int i = 0;
+        for (Object o : originalValue) {
+            receiver.indexedValue(LIST_ELEMENT_NODE_NAME, i++, o);
         }
     };
     final ValueExtractor<Map<@ExtractedValue ?, ?>> mapKeyExtractor = (originalValue, receiver) -> {

@@ -145,6 +145,13 @@ final class ConstraintDefinitionMetadata {
                 if (validator == null) {
                     return "Cannot resolve constraint validator " + reference.getName();
                 }
+                var validated = validator.getTypeArguments("jakarta.validation.ConstraintValidator").get("T");
+                if (validated != null && validated.getTypeArguments().values().stream()
+                    .anyMatch(argument -> !name(argument).equals("java.lang.Object"))) {
+                    // a validator of List<String> would be handed any list
+                    return "Constraint validator must validate a type whose type arguments are unbounded wildcards: "
+                        + type.getName() + " with " + validator.getName();
+                }
                 List<String> targets = List.of(validator.stringValues(SupportedValidationTarget.class));
                 generic |= targets.isEmpty() || targets.contains("ANNOTATED_ELEMENT");
                 if (targets.contains("PARAMETERS")) {

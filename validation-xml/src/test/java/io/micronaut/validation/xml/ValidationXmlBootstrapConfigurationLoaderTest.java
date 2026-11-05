@@ -49,17 +49,17 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
             <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
                 <default-provider>example.Provider</default-provider>
                 <message-interpolator>example.Interpolator</message-interpolator>
-                <constraint-validator-factory>example.Factory</constraint-validator-factory>
                 <traversable-resolver>example.TraversableResolver</traversable-resolver>
+                <constraint-validator-factory>example.Factory</constraint-validator-factory>
                 <parameter-name-provider>example.ParameterNameProvider</parameter-name-provider>
                 <clock-provider>example.ClockProvider</clock-provider>
                 <value-extractor>example.ValueExtractor</value-extractor>
-                <constraint-mapping>META-INF/constraints.xml</constraint-mapping>
                 <executable-validation enabled="false">
                     <default-validated-executable-types>
                         <executable-type>GETTER_METHODS</executable-type>
                     </default-validated-executable-types>
                 </executable-validation>
+                <constraint-mapping>META-INF/constraints.xml</constraint-mapping>
                 <property name="micronaut.validator.spec.reflection.enabled">true</property>
             </validation-config>
             """;
@@ -78,6 +78,22 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
         assertFalse(configuration.isExecutableValidationEnabled());
         assertEquals(Set.of(ExecutableType.GETTER_METHODS), configuration.getDefaultValidatedExecutableTypes());
         assertTrue(Boolean.parseBoolean(configuration.getProperties().get("micronaut.validator.spec.reflection.enabled")));
+    }
+
+    @Test
+    void schemaViolationsAreRejected() {
+        var loader = new ValidationXmlBootstrapConfigurationLoader();
+        for (String body : List.of(
+            "<executable-validation enabled=\"tru\"/>",
+            "<default-provider>a.A</default-provider><default-provider>b.B</default-provider>")) {
+            String xml = "<validation-config xmlns=\"https://jakarta.ee/xml/ns/validation/configuration\" version=\"3.1\">"
+                + body + "</validation-config>";
+            assertThrows(ValidationException.class,
+                () -> loader.parse(new ByteArrayInputStream(xml.getBytes(StandardCharsets.UTF_8))), body);
+        }
+        String wrongRoot = "<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/configuration\" version=\"3.1\"/>";
+        assertThrows(ValidationException.class,
+            () -> loader.parse(new ByteArrayInputStream(wrongRoot.getBytes(StandardCharsets.UTF_8))));
     }
 
     @Test

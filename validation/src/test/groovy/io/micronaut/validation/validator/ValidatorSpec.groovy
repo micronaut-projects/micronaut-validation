@@ -837,6 +837,31 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
+    void "test an iterable backed by a list keeps iterable element paths"() {
+        when:
+        def violations = validator.validate(new IterableElements(items: [""]))
+
+        then:
+        violations.size() == 1
+        def nodes = violations[0].propertyPath.toList()
+        nodes[1].name == '<iterable element>'
+        nodes[1].index == null
+    }
+
+    void "test a custom report keeps the validated value and its bean"() {
+        given:
+        def bean = new CustomReported(text: "bad")
+
+        when:
+        def violations = validator.validate(bean)
+
+        then:
+        violations.size() == 1
+        violations[0].message == 'custom report'
+        violations[0].invalidValue == 'bad'
+        violations[0].leafBean.is(bean)
+    }
+
     void "test a non-numeric string fails Min and Max instead of throwing"() {
         when:
         def violations = validator.validate(new NumericText(value: "abc"))
@@ -1373,4 +1398,15 @@ class PastCalendar {
 @Introspected
 class ElementsOnly {
     List<@NotBlank String> items
+}
+
+@Introspected
+class CustomReported {
+    @CustomReport
+    String text
+}
+
+@Introspected
+class IterableElements {
+    Iterable<@NotBlank String> items
 }
