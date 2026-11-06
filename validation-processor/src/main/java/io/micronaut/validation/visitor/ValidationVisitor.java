@@ -24,6 +24,8 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.AnnotationElement;
+import jakarta.validation.executable.ExecutableType;
+import jakarta.validation.executable.ValidateOnExecution;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
@@ -39,6 +41,7 @@ import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 
 import java.util.HashSet;
+import java.util.Optional;
 import java.util.Set;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -72,6 +75,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     private @Nullable VisitorContext visitorContext;
     private final Set<String> importedTypes = new HashSet<>();
     private final Set<String> registeredBuilders = new HashSet<>();
+    private final Set<String> warnedUnbuildable = new HashSet<>();
     private @Nullable Set<String> shippedBuilders;
 
     @Override
@@ -145,9 +149,14 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         context.getClassElement(constraint).filter(AnnotationElement.class::isInstance).ifPresent(type -> {
             // core names the builder after its owner and the whole annotation name, and writes a service entry
             // under that name: past the file name limit of the file system the compilation fails
-            if (origin.getName().length() + constraint.length() + BUILDER_NAME_OVERHEAD <= MAX_FILE_NAME
-                && buildable(type, new HashSet<>())) {
+            boolean buildable = buildable(type, new HashSet<>());
+            if (origin.getName().length() + constraint.length() + BUILDER_NAME_OVERHEAD <= MAX_FILE_NAME && buildable) {
                 context.registerAnnotationBuilder(type, origin);
+            } else if (!buildable && hasTypedMembers((AnnotationElement) type) && warnedUnbuildable.add(constraint)) {
+                // its enum or annotation attributes are typed by the generated builder only: without one, a
+                // descriptor answers them with the reflection module alone
+                context.warn("ConstraintDescriptor.getAttributes() of " + constraint + " requires micronaut-validation-reflection:"
+                    + " make the annotation, its enum and annotation member types and the types enclosing them public", type);
             }
             for (String composing : type.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
                 if (!composing.equals(constraint)) {
@@ -170,6 +179,16 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             shippedBuilders = shipped;
         }
         return shipped;
+    }
+
+    private static boolean hasTypedMembers(AnnotationElement annotation) {
+        for (var member : annotation.getMembers()) {
+            ClassElement memberType = member.getType().isArray() ? member.getType().fromArray() : member.getType();
+            if (memberType.isEnum() || memberType instanceof AnnotationElement) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -255,6 +274,10 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         // a vetoed method is not validated when it is invoked: it asks for no validation advice. It is
         // described all the same - the specification describes every constrained method, whether or not
         // anything validates it - so being described and being validated are decided apart
+        if (!isPrivate && !validatedOnExecution(element)) {
+            // @ValidateOnExecution leaves the method out: it is described, not validated when invoked
+            element.annotate(Vetoed.class);
+        }
         boolean vetoed = element.hasStereotype(Vetoed.class);
         if (isPrivate) {
             if (vetoed) {
@@ -273,6 +296,63 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         }
         element.annotate(RequiresValidation.class);
         classElement.annotate(RequiresValidation.class);
+    }
+
+    /**
+     * Whether the executable types {@code @ValidateOnExecution} declares include a method: the declaration of the
+     * method, else the one of a method it overrides or of the type declaring that one, else the one of its own
+     * type. A method nothing declares it for is validated.
+     */
+    static boolean validatedOnExecution(MethodElement method) {
+        boolean getter = isGetter(method);
+        Optional<ExecutableType[]> types = executableTypes(method.getMethodAnnotationMetadata());
+        if (types.isEmpty()) {
+            for (MethodElement overridden : method.getOverriddenMethods()) {
+                types = executableTypes(overridden.getMethodAnnotationMetadata())
+                    .or(() -> typeExecutableTypes(overridden.getDeclaringType()));
+                if (types.isPresent()) {
+                    break;
+                }
+            }
+        }
+        if (types.isEmpty()) {
+            types = typeExecutableTypes(method.getDeclaringType());
+        }
+        return types.map(executableTypes -> includes(executableTypes, getter)).orElse(true);
+    }
+
+    private static Optional<ExecutableType[]> executableTypes(AnnotationMetadata metadata) {
+        if (!metadata.hasDeclaredAnnotation(ValidateOnExecution.class)) {
+            return Optional.empty();
+        }
+        ExecutableType[] types = metadata.enumValues(ValidateOnExecution.class, "type", ExecutableType.class);
+        return Optional.of(types.length == 0 ? new ExecutableType[] {ExecutableType.IMPLICIT} : types);
+    }
+
+    private static Optional<ExecutableType[]> typeExecutableTypes(ClassElement type) {
+        // on a type, the implicit type leaves the default
+        return executableTypes(type.getAnnotationMetadata())
+            .filter(types -> !(types.length == 1 && types[0] == ExecutableType.IMPLICIT));
+    }
+
+    private static boolean includes(ExecutableType[] types, boolean getter) {
+        for (ExecutableType type : types) {
+            if (type == ExecutableType.ALL || type == ExecutableType.IMPLICIT
+                || (type == ExecutableType.GETTER_METHODS && getter)
+                || (type == ExecutableType.NON_GETTER_METHODS && !getter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGetter(MethodElement method) {
+        if (method.getParameters().length != 0 || method.getReturnType().isVoid()) {
+            return false;
+        }
+        String name = method.getName();
+        return (name.startsWith("get") && name.length() > 3)
+            || (name.startsWith("is") && name.length() > 2 && method.getReturnType().getName().equals("boolean"));
     }
 
     @Override

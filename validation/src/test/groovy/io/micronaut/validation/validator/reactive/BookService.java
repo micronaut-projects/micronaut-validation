@@ -60,6 +60,12 @@ class BookService {
     }
 
     @Executable
+    @jakarta.validation.constraints.NotNull
+    CompletionStage<String> futureNullReturn() {
+        return null;
+    }
+
+    @Executable
     @Null
     Publisher<String> rxNullReturn() {
         return Mono.just("ok");

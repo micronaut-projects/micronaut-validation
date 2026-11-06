@@ -127,7 +127,9 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
                 constraintValidatorContext.validatedValue
             )),
             messageTemplate,
-            validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
+            // the bean node is left out only for a node added in its place: a class-level violation reported
+            // as is keeps it, the one of a cascaded bean included
+            next == null && validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
             constraintValidatorContext.currentConstraint(),
             constraintValidatorContext.getExecutableParameterValues(),
             constraintValidatorContext.getExecutableReturnValue())

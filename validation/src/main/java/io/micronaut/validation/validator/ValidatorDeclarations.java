@@ -26,6 +26,7 @@ import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import jakarta.validation.ParameterNameProvider;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -47,15 +48,26 @@ import java.util.concurrent.ConcurrentHashMap;
 final class ValidatorDeclarations {
 
     private final ReflectionSupport reflectionSupport;
+    // the provider of the application naming the parameters, null for the names compiled into the metadata
+    private final @Nullable ParameterNameProvider parameterNameProvider;
     private final BeanIntrospector beanIntrospector;
     private final boolean strictConstraintDefinitions;
     private final Map<ExecutableHierarchy.Key, ExecutableHierarchy.Resolved> executableHierarchies = new ConcurrentHashMap<>();
     private final Set<Class<?>> checkedConstraintDefinitions = ConcurrentHashMap.newKeySet();
     private final Set<BeanIntrospection<?>> checkedBeanDeclarations = ConcurrentHashMap.newKeySet();
+    // the methods whose hierarchy declares its parameters, or its return value, as a hierarchy may: checked once
+    private final Set<ExecutableHierarchy.Key> checkedParameterDeclarations = ConcurrentHashMap.newKeySet();
+    private final Set<ExecutableHierarchy.Key> checkedReturnValueDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
     private final Map<ExecutableHierarchy.Key, ConfiguredExecutable> configuredExecutables = new ConcurrentHashMap<>();
 
     ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, ReflectionSupport reflectionSupport) {
+        this(beanIntrospector, strictConstraintDefinitions, reflectionSupport, null);
+    }
+
+    ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, ReflectionSupport reflectionSupport,
+                          @Nullable ParameterNameProvider parameterNameProvider) {
+        this.parameterNameProvider = parameterNameProvider instanceof DefaultParameterNameProvider ? null : parameterNameProvider;
         this.reflectionSupport = reflectionSupport;
         this.beanIntrospector = beanIntrospector;
         this.strictConstraintDefinitions = strictConstraintDefinitions;
@@ -69,8 +81,27 @@ final class ValidatorDeclarations {
         executableHierarchies.clear();
         checkedConstraintDefinitions.clear();
         checkedBeanDeclarations.clear();
+        checkedParameterDeclarations.clear();
+        checkedReturnValueDeclarations.clear();
         superIntrospectionsCache.clear();
         configuredExecutables.clear();
+    }
+
+    /**
+     * The names the parameter name provider of the application gives the parameters of a method, as the
+     * descriptors of the method report them.
+     *
+     * @param declaringType The type declaring the method
+     * @param name The name of the method
+     * @param arguments The parameters
+     * @return The names, or null for the names compiled into the metadata
+     */
+    @Nullable List<String> parameterNames(Class<?> declaringType, String name, Argument<?>[] arguments) {
+        if (parameterNameProvider == null) {
+            return null;
+        }
+        java.lang.reflect.Method method = reflectionSupport.declaredMethod(declaringType, name, Argument.toClassArray(arguments));
+        return method == null ? null : parameterNameProvider.getParameterNames(method);
     }
 
     /** The hierarchy of a bean method, for the descriptors of a bean. */
@@ -108,6 +139,30 @@ final class ValidatorDeclarations {
     ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {
         return executableHierarchies.computeIfAbsent(ExecutableHierarchy.Key.of(method),
             key -> reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method), method.getMethodName()));
+    }
+
+    /**
+     * The parameters a hierarchy declares are checked the first time the method is validated, a failed check
+     * failing every validation of it.
+     */
+    void checkParameterDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
+        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
+        if (!checkedParameterDeclarations.contains(key)) {
+            ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy);
+            checkedParameterDeclarations.add(key);
+        }
+    }
+
+    /**
+     * The return value a hierarchy declares is checked the first time the method is validated, a failed check
+     * failing every validation of it.
+     */
+    void checkReturnValueDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
+        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
+        if (!checkedReturnValueDeclarations.contains(key)) {
+            ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, hierarchy);
+            checkedReturnValueDeclarations.add(key);
+        }
     }
 
     /**

@@ -224,7 +224,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         }
         String name = method.getName();
         return (name.startsWith("get") && name.length() > 3)
-            || (name.startsWith("is") && name.length() > 2 && (method.getReturnType().getType() == boolean.class || method.getReturnType().getType() == Boolean.class));
+            // the JavaBeans rule the specification follows: an is-method returns the primitive boolean
+            || (name.startsWith("is") && name.length() > 2 && method.getReturnType().getType() == boolean.class);
     }
 
     private static String signature(String name, Argument<?>[] arguments) {
@@ -558,8 +559,13 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 // the members are unknown: the metadata of the property, as validated, with what the super
                 // types declare attributed to them rather than to the type inheriting it
                 Map<String, ConstraintDescriptor<?>> byKey = new LinkedHashMap<>(constraintDescriptorsByKey(annotationMetadata));
+                AnnotationMetadata declared = annotationMetadata.getDeclaredMetadata();
                 if (scope != Scope.LOCAL_ELEMENT) {
                     byKey.putAll(superConstraintDescriptors());
+                } else if (declared != annotationMetadata) {
+                    // a hierarchy of metadata tells what the property declares itself, a constraint redeclared
+                    // as the super type declares it included
+                    byKey = new LinkedHashMap<>(constraintDescriptorsByKey(declared));
                 } else {
                     superConstraintDescriptors().keySet().forEach(byKey::remove);
                 }

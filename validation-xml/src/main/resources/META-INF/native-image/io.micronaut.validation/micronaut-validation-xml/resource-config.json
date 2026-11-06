@@ -1,0 +1,8 @@
+{
+  "resources": {
+    "includes": [
+      { "pattern": "\\Qvalidation-configuration-\\E.*\\Q.xsd\\E" },
+      { "pattern": "\\Qvalidation-mapping-\\E.*\\Q.xsd\\E" }
+    ]
+  }
+}

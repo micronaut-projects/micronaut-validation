@@ -84,6 +84,9 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final List<Class<? extends ConstraintValidator<T, ?>>> validatedBy;
     private final boolean constraintValidatorClassesDefined;
     private final boolean builtInValidators;
+    // the validator the last validation of this constraint resolved, with what it was resolved for: the
+    // validator owning the instances, the validated type and the target
+    private volatile @Nullable ResolvedValidator resolvedValidator;
 
     @Nullable
     private final ConstraintTarget validationAppliesTo;
@@ -316,6 +319,51 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
      */
     boolean includesBuiltInValidators() {
         return builtInValidators;
+    }
+
+    /**
+     * @param owner      The owner of the validator instances
+     * @param type       The validated type
+     * @param target     The target validated
+     * @return The validator resolved for them before, or null
+     */
+    io.micronaut.validation.validator.constraints.@Nullable ConstraintValidator<Annotation, ?> resolvedValidator(Object owner, Class<?> type, ConstraintTarget target) {
+        ResolvedValidator resolved = resolvedValidator;
+        return resolved != null && resolved.owner() == owner && resolved.type() == type && resolved.target() == target
+            ? resolved.validator() : null;
+    }
+
+    /**
+     * Remembers the validator resolved for this constraint.
+     *
+     * @param owner     The owner of the validator instances
+     * @param type      The validated type
+     * @param target    The target validated
+     * @param validator The validator
+     */
+    void resolvedValidator(Object owner, Class<?> type, ConstraintTarget target, io.micronaut.validation.validator.constraints.ConstraintValidator<Annotation, ?> validator) {
+        resolvedValidator = new ResolvedValidator(owner, type, target, validator);
+    }
+
+    /**
+     * Two descriptors of one occurrence of a constraint are equal: the same constraint, the same attributes, read
+     * from the same element. A descriptor built again for an element, as a validation without a constraint cache
+     * does, equals the one built before, and so do the violations reporting them.
+     */
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        return o instanceof DefaultConstraintDescriptor<?> that
+            && type == that.type
+            && annotationMetadata == that.annotationMetadata
+            && annotationValue.equals(that.annotationValue);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * type.hashCode() + annotationValue.hashCode();
     }
 
     @Override
@@ -667,5 +715,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
      * @param value The occurrence in the tree, the overrides of the composed constraint applied
      */
     private record RetainedComposing(Class<? extends Annotation> type, AnnotationValue<?> value) {
+    }
+
+    private record ResolvedValidator(Object owner, Class<?> type, ConstraintTarget target, io.micronaut.validation.validator.constraints.ConstraintValidator<Annotation, ?> validator) {
     }
 }

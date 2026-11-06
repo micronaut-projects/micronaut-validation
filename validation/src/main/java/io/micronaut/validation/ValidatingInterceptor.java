@@ -37,6 +37,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.executable.ExecutableValidator;
 import org.jspecify.annotations.Nullable;
+import org.reactivestreams.Publisher;
 
 import java.lang.reflect.Method;
 import java.util.Map;
@@ -87,8 +88,8 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
 
         if (validatorFactory != null) {
             jakarta.validation.Validator validator = validatorFactory.getValidator();
-            if (validator instanceof Validator) {
-                this.micronautValidator = (ExecutableMethodValidator) validator;
+            if (validator instanceof Validator micronautFactoryValidator) {
+                this.micronautValidator = micronautFactoryValidator.forExecutables();
                 this.executableValidator = null;
             } else {
                 this.micronautValidator = null;
@@ -151,6 +152,9 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 if (!containerViolations.isEmpty()) {
                                     throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
                                 }
+                                // each value is an element of the return value of the method invoked on the target
+                                yield interceptedMethod.handleResult(defaultValidator.validateReturnedPublisher(
+                                    context.getTarget(), executableMethod, (Publisher<Object>) publisher, getValidationGroups(context)));
                             }
                             yield interceptedMethod.handleResult(
                                 reactiveValidator.validatePublisher(
@@ -159,12 +163,29 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                     getValidationGroups(context))
                             );
                         }
-                        case COMPLETION_STAGE -> interceptedMethod.handleResult(
-                            reactiveValidator.validateCompletionStage(
-                                (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),
-                                (Argument<Object>) context.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT),
-                                getValidationGroups(context))
-                        );
+                        case COMPLETION_STAGE -> {
+                            if (reactiveValidator instanceof DefaultValidator defaultValidator) {
+                                // the stage as returned: its own constraints first, a null one among them
+                                Object result = context.proceed();
+                                Set<ConstraintViolation<Object>> containerViolations = defaultValidator.validateReturnedContainer(
+                                    context.getTarget(), executableMethod, result, getValidationGroups(context));
+                                if (!containerViolations.isEmpty()) {
+                                    throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
+                                }
+                                if (!(result instanceof CompletionStage<?> stage)) {
+                                    // nothing completes: the method returned no stage, which is passed on as it is
+                                    yield result;
+                                }
+                                yield interceptedMethod.handleResult(defaultValidator.validateReturnedCompletionStage(
+                                    context.getTarget(), executableMethod, (CompletionStage<Object>) stage, getValidationGroups(context)));
+                            }
+                            yield interceptedMethod.handleResult(
+                                reactiveValidator.validateCompletionStage(
+                                    (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),
+                                    (Argument<Object>) context.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT),
+                                    getValidationGroups(context))
+                            );
+                        }
                         case SYNCHRONOUS ->
                             hasReturnValueValidation(executableMethod)
                                 ? validateReturnMicronautValidator(micronautValidator, context, executableMethod)

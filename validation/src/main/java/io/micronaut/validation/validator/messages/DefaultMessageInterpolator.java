@@ -37,6 +37,9 @@ import java.util.Optional;
 @Singleton
 public class DefaultMessageInterpolator implements MessageInterpolator {
 
+    // how deep bundle messages are interpolated within one another: a message referring to itself stops there
+    private static final int MAX_BUNDLE_DEPTH = 10;
+
     private static final char QUOT = '\\';
     private static final char L_BRACE = '{';
     private static final char R_BRACE = '}';
@@ -70,6 +73,10 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
     }
 
     private String interpolate(@NonNull String template, MessageSource.@NonNull MessageContext context) {
+        return interpolate(template, context, 0);
+    }
+
+    private String interpolate(@NonNull String template, MessageSource.@NonNull MessageContext context, int depth) {
         ArgumentUtils.requireNonNull("template", template);
         ArgumentUtils.requireNonNull("context", context);
 
@@ -87,6 +94,9 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     builder.append(R_BRACE);
                 } else if (c == DOLL_BRACE) {
                     builder.append(DOLL_BRACE);
+                } else if (c == QUOT) {
+                    // an escaped backslash is the backslash itself
+                    builder.append(QUOT);
                 } else {
                     builder.append(QUOT);
                     builder.append(c);
@@ -101,7 +111,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                 int end = template.indexOf(R_BRACE, i + 2);
                 if (end > -1) {
                     String variableName = template.substring(i + 2, end);
-                    Object variableValue = resolveVariable(variableName, context);
+                    Object variableValue = resolveVariable(variableName, context, depth);
                     if (variableValue == null) {
                         builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
@@ -124,7 +134,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     isVariable = false;
                     String variableName = variableBuilder.toString();
                     variableBuilder.setLength(0);
-                    Object variableValue = resolveVariable(variableName, context);
+                    Object variableValue = resolveVariable(variableName, context, depth);
                     if (variableValue == null) {
                         builder.append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
@@ -141,10 +151,15 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
     }
 
     @Nullable
-    private Object resolveVariable(String variableName, MessageSource.MessageContext context) {
+    private Object resolveVariable(String variableName, MessageSource.MessageContext context, int depth) {
         Object variableValue = context.getVariables().get(variableName);
         if (variableValue == null) {
-            variableValue = messageSource.getMessage(variableName, context).orElse(null);
+            // the message of a bundle is interpolated by the rules of this interpolator, not by the ones of the
+            // message source: a quote stays, an unknown parameter stays a parameter
+            String rawMessage = messageSource.getRawMessage(variableName, context).orElse(null);
+            if (rawMessage != null) {
+                variableValue = depth >= MAX_BUNDLE_DEPTH ? rawMessage : interpolate(rawMessage, context, depth + 1);
+            }
         }
         return variableValue;
     }

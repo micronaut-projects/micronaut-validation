@@ -296,6 +296,19 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
     }
 
+    /**
+     * The Java method a type declares by a name and parameter types, as a parameter name provider of the
+     * application reads it.
+     *
+     * @param declaringType The type
+     * @param name The name of the method
+     * @param parameterTypes Its parameter types
+     * @return The method, or null where no reflection reads it
+     */
+    default @Nullable Method declaredMethod(Class<?> declaringType, String name, Class<?>[] parameterTypes) {
+        return null;
+    }
+
     default Method targetMethod(MethodReference<?, ?> executable) {
         if (executable instanceof CallerSuppliedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();

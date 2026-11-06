@@ -61,7 +61,8 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     // the initialized constraint validators of the validators of contexts, held by the factory, not by the
     // validator: one no longer in use releases them when collected, the others when the factory closes
     private final Set<ConstraintValidatorInstances> ownedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
-    private boolean closed;
+    // read without the monitor by getValidator: written under it once, when the factory closes
+    private volatile boolean closed;
 
     /** The constructor. */
     public DefaultValidatorFactory() {
@@ -93,7 +94,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     }
 
     @Override
-    public synchronized jakarta.validation.Validator getValidator() {
+    public jakarta.validation.Validator getValidator() {
         requireOpen();
         return validator;
     }

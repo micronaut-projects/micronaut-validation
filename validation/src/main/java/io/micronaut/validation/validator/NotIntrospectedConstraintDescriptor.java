@@ -24,6 +24,7 @@ import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.Payload;
 import jakarta.validation.ValidationException;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import org.jspecify.annotations.Nullable;
@@ -72,7 +73,8 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
 
     @Override
     public Set<Class<?>> getGroups() {
-        return Set.of();
+        // a constraint declaring no group is in the default group
+        return Set.of(Default.class);
     }
 
     @Override

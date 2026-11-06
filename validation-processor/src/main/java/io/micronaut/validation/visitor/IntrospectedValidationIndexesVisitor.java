@@ -45,6 +45,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -102,7 +103,15 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             // describing it would ask core for the hierarchy of the record
             return;
         }
-        if (!participates(element) && !Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION))) {
+        // the types an @Introspected(classes = ...) introspects with the members of its annotation: they are
+        // judged and described themselves, not the type holding the annotation
+        List<ClassElement> targets = Stream.of(element.getAnnotationMetadata().stringValues(Introspected.class, "classes"))
+            .map(context::getClassElement)
+            .flatMap(Optional::stream)
+            .filter(target -> !target.hasStereotype(Introspected.class))
+            .toList();
+        boolean describeAll = Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION));
+        if (!participates(element) && !describeAll && targets.stream().noneMatch(IntrospectedValidationIndexesVisitor::participates)) {
             // an introspection of a type that takes no part in validation - a serialization DTO, an entity
             // without constraints - is left as its author declared it: other modules read it too. A type
             // constrained only by an XML mapping asks for the option
@@ -110,17 +119,27 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         }
         recordFields(element);
         registerAnnotatedFields(element, context);
-        element.getMethods().stream()
-            .filter(method -> !method.isStatic() && !method.isPrivate() && method.isAccessible())
-            .filter(method -> ValidationVisitor.requiresValidation(method)
-                || method.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation))
-            .forEach(method -> method.annotate(Executable.class));
+        markExecutable(element);
+        for (ClassElement target : targets) {
+            if (describeAll || participates(target)) {
+                recordFields(target);
+                markExecutable(target);
+            }
+        }
         if (element.isRecord()) {
             element.getBeanProperties().forEach(property -> property.getReadMethod()
                 .filter(method -> method.getName().equals(property.getName()))
                 .ifPresent(method -> method.annotate(ValidationRecordAccessor.class)));
         }
         configureIntrospection(element, context);
+    }
+
+    private static void markExecutable(ClassElement element) {
+        element.getMethods().stream()
+            .filter(method -> !method.isStatic() && !method.isPrivate() && method.isAccessible())
+            .filter(method -> ValidationVisitor.requiresValidation(method)
+                || method.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation))
+            .forEach(method -> method.annotate(Executable.class));
     }
 
     /**

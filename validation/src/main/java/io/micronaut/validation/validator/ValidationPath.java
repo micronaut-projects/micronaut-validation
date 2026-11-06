@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Path implementation.
@@ -385,6 +386,72 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
             return ConstraintTarget.IMPLICIT;
         }
 
+        /**
+         * Nodes are values, as in the reference implementation: two violations of one constraint on the same
+         * element, reported by two steps of a validation, are the same violation.
+         */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof DefaultNode that) || getKind() != that.getKind()) {
+                return false;
+            }
+            return Objects.equals(name, that.name)
+                && isInIterable() == that.isInIterable()
+                && Objects.equals(getIndex(), that.getIndex())
+                && Objects.equals(getKey(), that.getKey())
+                && Objects.equals(containerClass(this), containerClass(that))
+                && Objects.equals(typeArgumentIndex(this), typeArgumentIndex(that))
+                && parameterIndex(this) == parameterIndex(that)
+                && Objects.equals(parameterTypes(this), parameterTypes(that));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getKind(), name, getIndex(), getKey());
+        }
+
+        private static @Nullable Class<?> containerClass(Node node) {
+            if (node instanceof ContainerElementNode n) {
+                return n.getContainerClass();
+            }
+            if (node instanceof PropertyNode n) {
+                return n.getContainerClass();
+            }
+            if (node instanceof BeanNode n) {
+                return n.getContainerClass();
+            }
+            return null;
+        }
+
+        private static @Nullable Integer typeArgumentIndex(Node node) {
+            if (node instanceof ContainerElementNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            if (node instanceof PropertyNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            if (node instanceof BeanNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            return null;
+        }
+
+        private static int parameterIndex(Node node) {
+            return node instanceof ParameterNode n ? n.getParameterIndex() : -1;
+        }
+
+        private static @Nullable List<Class<?>> parameterTypes(Node node) {
+            if (node instanceof MethodNode n) {
+                return n.getParameterTypes();
+            }
+            if (node instanceof ConstructorNode n) {
+                return n.getParameterTypes();
+            }
+            return null;
+        }
     }
 
     /**

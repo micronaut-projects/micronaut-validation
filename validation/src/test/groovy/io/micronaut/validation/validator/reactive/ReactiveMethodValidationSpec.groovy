@@ -54,8 +54,10 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == '<return value>[].title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[].title'
+        e.message == 'rxReturnInvalid.<return value>[].title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == 'rxReturnInvalid.<return value>[].title'
+        // the root bean is the bean the method was invoked on, not the publisher
+        BookService.isAssignableFrom(e.getConstraintViolations().first().rootBeanClass)
     }
 
     void "test a resubscribed publisher argument does not keep the violations of an earlier subscription"() {
@@ -126,7 +128,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "<return value>[]<publisher element>: must be greater than or equal to 10"
+        e.message == "rxLong.<return value>[]<publisher element>: must be greater than or equal to 10"
     }
 
     void "test reactive validation with valid argument"() {
@@ -205,7 +207,20 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "<completion stage element>: must be greater than or equal to 10"
+        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
+    }
+
+    void "a null completion stage violates the constraint on the stage itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        bookService.futureNullReturn().toCompletableFuture().get()
+
+        then:
+        ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
+        ((ConstraintViolationException) e.cause).constraintViolations*.propertyPath*.toString() == ["futureNullReturn.<return value>"]
     }
 
     void "test future validation of a return value completed later"() {
@@ -221,7 +236,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "<completion stage element>: must be greater than or equal to 10"
+        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
     }
 
     void "test future validation with invalid argument"() {

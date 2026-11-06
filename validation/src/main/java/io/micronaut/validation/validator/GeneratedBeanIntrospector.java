@@ -90,7 +90,8 @@ final class GeneratedBeanIntrospector implements BeanIntrospector {
         if (!isGenerated(references(), beanType)) {
             ClassLoader classLoader = beanType.getClassLoader();
             if (classLoader == null || !loaderNames.computeIfAbsent(classLoader,
-                loader -> index(BeanIntrospector.forClassLoader(loader)).keySet()).contains(beanType.getName())) {
+                // the names alone: a key set view would keep the references, and through them the loader, alive
+                loader -> Set.copyOf(index(BeanIntrospector.forClassLoader(loader)).keySet())).contains(beanType.getName())) {
                 return Optional.empty();
             }
         }

@@ -80,6 +80,13 @@ import java.util.Set;
 @Internal
 public final class ReflectionValidationSupport implements ReflectionSupport {
 
+    private static final ClassValue<java.util.Map<String, java.lang.reflect.Field>> ACCESSIBLE_FIELDS = new ClassValue<>() {
+        @Override
+        protected java.util.Map<String, java.lang.reflect.Field> computeValue(Class<?> type) {
+            return new java.util.concurrent.ConcurrentHashMap<>();
+        }
+    };
+
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
     private final ReflectionSupport generated;
@@ -147,16 +154,28 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         if (member.getAnnotationMetadata().booleanValue(
                 ValidationField.class, "reflection").orElse(false)) {
             try {
-                var field = member.getDeclaringType().getDeclaredField(member.getName());
-                if (!field.trySetAccessible()) {
-                    throw new ValidationException("Cannot access field " + member.getDeclaringType().getName() + "." + member.getName());
-                }
-                return field.get(bean);
+                return accessibleField(member.getDeclaringType(), member.getName()).get(bean);
             } catch (ReflectiveOperationException | SecurityException e) {
                 throw new ValidationException("Cannot read field " + member.getDeclaringType().getName() + "." + member.getName(), e);
             }
         }
         return member.read(bean);
+    }
+
+    /**
+     * A field made accessible, looked up once per type and name: a field is read on every validation of its bean.
+     * The cache belongs to the type, so it never keeps the class loader of the type alive.
+     */
+    private static java.lang.reflect.Field accessibleField(Class<?> type, String name) throws NoSuchFieldException {
+        java.lang.reflect.Field field = ACCESSIBLE_FIELDS.get(type).get(name);
+        if (field == null) {
+            field = type.getDeclaredField(name);
+            if (!field.trySetAccessible()) {
+                throw new ValidationException("Cannot access field " + type.getName() + "." + name);
+            }
+            ACCESSIBLE_FIELDS.get(type).put(name, field);
+        }
+        return field;
     }
 
     @Override
@@ -404,6 +423,15 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     public @Nullable Class<?> superType(Class<?> type) {
         var generated = ValidationMetadataSupport.hierarchy(type);
         return generated == null ? type.getSuperclass() : generated.getSuperclass(type).orElse(null);
+    }
+
+    @Override
+    public @Nullable Method declaredMethod(Class<?> declaringType, String name, Class<?>[] parameterTypes) {
+        try {
+            return declaringType.getDeclaredMethod(name, parameterTypes);
+        } catch (NoSuchMethodException | SecurityException e) {
+            return null;
+        }
     }
 
     @Override

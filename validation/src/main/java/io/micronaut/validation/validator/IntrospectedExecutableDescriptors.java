@@ -257,18 +257,77 @@ final class IntrospectedExecutableDescriptors {
 
         @Override
         public ConstraintFinder lookingAt(Scope scope) {
-            return this;
+            return new ScopedFinder(this, groups, scope, Set.of());
         }
 
         @Override
         public ConstraintFinder declaredOn(ElementType... types) {
-            return this;
+            return new ScopedFinder(this, groups, Scope.HIERARCHY, Set.of(types));
         }
+
+        /**
+         * @return The constraints the element declares itself, before the group filter: all of them unless the
+         * element tells its own declaration apart
+         */
+        Set<ConstraintDescriptor<?>> localConstraints() {
+            return allConstraints();
+        }
+
+        /**
+         * @return The kind of element the constraints are declared on
+         */
+        abstract ElementType declaredOnType();
 
         abstract ConstraintFinder withGroups(Set<Class<?>> groups);
 
         boolean cascaded() {
             return annotationMetadata.hasAnnotation(Valid.class);
+        }
+    }
+
+    /**
+     * A finder of the constraints of an element restricted to a scope or to the kinds of element declaring them.
+     *
+     * @param element The element
+     * @param groups The groups, empty for all
+     * @param scope The scope
+     * @param types The kinds of element the constraints are declared on, empty for all
+     */
+    private record ScopedFinder(IntrospectedElement element, Set<Class<?>> groups, Scope scope,
+                                Set<ElementType> types) implements ElementDescriptor.ConstraintFinder {
+
+        @Override
+        public ElementDescriptor.ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
+            return new ScopedFinder(element, new LinkedHashSet<>(List.of(requested)), scope, types);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder lookingAt(Scope requested) {
+            return new ScopedFinder(element, groups, requested, types);
+        }
+
+        @Override
+        public ElementDescriptor.ConstraintFinder declaredOn(ElementType... requested) {
+            return new ScopedFinder(element, groups, scope, Set.of(requested));
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            if (!types.isEmpty() && !types.contains(element.declaredOnType())) {
+                return Set.of();
+            }
+            Set<ConstraintDescriptor<?>> filtered = new LinkedHashSet<>();
+            for (ConstraintDescriptor<?> descriptor : scope == Scope.LOCAL_ELEMENT ? element.localConstraints() : element.allConstraints()) {
+                if (matchesGroups(descriptor, groups)) {
+                    filtered.add(descriptor);
+                }
+            }
+            return filtered;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
         }
     }
 
@@ -278,14 +337,30 @@ final class IntrospectedExecutableDescriptors {
         private final int index;
         private final Argument<?> argument;
 
-        IntrospectedParameterDescriptor(int index, Argument<?> argument) {
-            this(index, argument, Set.of());
+        private final String name;
+        // the parameter as the executable declares it itself, null when it declares nothing of it
+        private final @Nullable Argument<?> localArgument;
+
+        IntrospectedParameterDescriptor(int index, Argument<?> argument, String name, @Nullable Argument<?> localArgument) {
+            this(index, argument, name, localArgument, Set.of());
         }
 
-        private IntrospectedParameterDescriptor(int index, Argument<?> argument, Set<Class<?>> groups) {
+        private IntrospectedParameterDescriptor(int index, Argument<?> argument, String name, @Nullable Argument<?> localArgument, Set<Class<?>> groups) {
             super(argument.getAnnotationMetadata(), groups);
             this.index = index;
             this.argument = argument;
+            this.name = name;
+            this.localArgument = localArgument;
+        }
+
+        @Override
+        Set<ConstraintDescriptor<?>> localConstraints() {
+            return localArgument == null ? Set.of() : constraints.apply(localArgument.getAnnotationMetadata());
+        }
+
+        @Override
+        ElementType declaredOnType() {
+            return ElementType.PARAMETER;
         }
 
         @Override
@@ -295,7 +370,8 @@ final class IntrospectedExecutableDescriptors {
 
         @Override
         public String getName() {
-            return argument.getName();
+            // the name the parameter name provider gives it
+            return name;
         }
 
         @Override
@@ -320,7 +396,7 @@ final class IntrospectedExecutableDescriptors {
 
         @Override
         ConstraintFinder withGroups(Set<Class<?>> groups) {
-            return new IntrospectedParameterDescriptor(index, argument, groups);
+            return new IntrospectedParameterDescriptor(index, argument, name, localArgument, groups);
         }
 
         boolean isConstrained() {
@@ -336,25 +412,45 @@ final class IntrospectedExecutableDescriptors {
     private final class IntrospectedReturnValueDescriptor extends IntrospectedElement implements ReturnValueDescriptor {
 
         private final Argument<?> returnArgument;
+        private final AnnotationMetadata declaredMetadata;
+        private final ElementType declaredOnType;
 
-        IntrospectedReturnValueDescriptor(AnnotationMetadata executableMetadata, Argument<?> returnArgument) {
-            this(executableMetadata, returnArgument, Set.of());
+        IntrospectedReturnValueDescriptor(AnnotationMetadata executableMetadata, Argument<?> returnArgument, AnnotationMetadata declaredMetadata, ElementType declaredOnType) {
+            this(executableMetadata, returnArgument, declaredMetadata, declaredOnType, Set.of());
         }
 
-        private IntrospectedReturnValueDescriptor(AnnotationMetadata executableMetadata, Argument<?> returnArgument, Set<Class<?>> groups) {
+        private IntrospectedReturnValueDescriptor(AnnotationMetadata executableMetadata, Argument<?> returnArgument, AnnotationMetadata declaredMetadata,
+                                                  ElementType declaredOnType, Set<Class<?>> groups) {
             super(executableMetadata, groups);
             this.returnArgument = returnArgument;
+            this.declaredMetadata = declaredMetadata;
+            this.declaredOnType = declaredOnType;
         }
 
         @Override
         Set<ConstraintDescriptor<?>> allConstraints() {
+            return returnValueConstraints(annotationMetadata);
+        }
+
+        /** What the executable declares itself on its return value: nothing for one inherited as is. */
+        @Override
+        Set<ConstraintDescriptor<?>> localConstraints() {
+            return returnValueConstraints(declaredMetadata);
+        }
+
+        private Set<ConstraintDescriptor<?>> returnValueConstraints(AnnotationMetadata metadata) {
             Set<ConstraintDescriptor<?>> targeted = new LinkedHashSet<>();
-            for (ConstraintDescriptor<?> descriptor : constraints.apply(annotationMetadata)) {
+            for (ConstraintDescriptor<?> descriptor : constraints.apply(metadata)) {
                 if (targets(descriptor, ConstraintTarget.RETURN_VALUE)) {
                     targeted.add(descriptor);
                 }
             }
             return targeted;
+        }
+
+        @Override
+        ElementType declaredOnType() {
+            return declaredOnType;
         }
 
         @Override
@@ -381,7 +477,7 @@ final class IntrospectedExecutableDescriptors {
 
         @Override
         ConstraintFinder withGroups(Set<Class<?>> groups) {
-            return new IntrospectedReturnValueDescriptor(annotationMetadata, returnArgument, groups);
+            return new IntrospectedReturnValueDescriptor(annotationMetadata, returnArgument, declaredMetadata, declaredOnType, groups);
         }
 
         boolean isConstrained() {
@@ -397,9 +493,11 @@ final class IntrospectedExecutableDescriptors {
 
         private final AnnotationMetadata declaredMetadata;
         private final Scope scope;
+        private ElementType declaredOnType = ElementType.METHOD;
 
-        IntrospectedCrossParameterDescriptor(AnnotationMetadata executableMetadata, AnnotationMetadata declaredMetadata) {
+        IntrospectedCrossParameterDescriptor(AnnotationMetadata executableMetadata, AnnotationMetadata declaredMetadata, ElementType declaredOnType) {
             this(executableMetadata, declaredMetadata, Set.of(), Scope.HIERARCHY);
+            this.declaredOnType = declaredOnType;
         }
 
         private IntrospectedCrossParameterDescriptor(AnnotationMetadata executableMetadata, AnnotationMetadata declaredMetadata, Set<Class<?>> groups, Scope scope) {
@@ -430,13 +528,27 @@ final class IntrospectedExecutableDescriptors {
         }
 
         @Override
+        Set<ConstraintDescriptor<?>> localConstraints() {
+            return new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, groups, Scope.LOCAL_ELEMENT).allConstraints();
+        }
+
+        @Override
+        ElementType declaredOnType() {
+            return declaredOnType;
+        }
+
+        @Override
         public ConstraintFinder lookingAt(Scope requested) {
-            return new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, groups, requested);
+            IntrospectedCrossParameterDescriptor scoped = new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, groups, requested);
+            scoped.declaredOnType = declaredOnType;
+            return scoped;
         }
 
         @Override
         ConstraintFinder withGroups(Set<Class<?>> groups) {
-            return new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, groups, scope);
+            IntrospectedCrossParameterDescriptor grouped = new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, groups, scope);
+            grouped.declaredOnType = declaredOnType;
+            return grouped;
         }
     }
 
@@ -461,6 +573,11 @@ final class IntrospectedExecutableDescriptors {
         @Override
         public Class<?> getContainerClass() {
             return containerClass;
+        }
+
+        @Override
+        ElementType declaredOnType() {
+            return ElementType.TYPE_USE;
         }
 
         @Override
@@ -503,16 +620,28 @@ final class IntrospectedExecutableDescriptors {
         private final IntrospectedCrossParameterDescriptor crossParameters;
         private final IntrospectedReturnValueDescriptor returnValue;
 
-        IntrospectedExecutableDescriptor(String name, AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument, AnnotationMetadata declaredMetadata) {
+        IntrospectedExecutableDescriptor(String name, AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument, AnnotationMetadata declaredMetadata,
+                                         ElementType kind) {
+            this(name, annotationMetadata, arguments, returnArgument, declaredMetadata, kind, null, arguments);
+        }
+
+        /**
+         * @param localArguments The parameters as the executable declares them itself, null when it declares
+         *                       nothing of them
+         */
+        IntrospectedExecutableDescriptor(String name, AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument, AnnotationMetadata declaredMetadata,
+                                         ElementType kind, @Nullable List<String> parameterNames, Argument<?> @Nullable [] localArguments) {
             this.name = name;
             this.annotationMetadata = annotationMetadata;
             List<ParameterDescriptor> descriptors = new ArrayList<>(arguments.length);
             for (int i = 0; i < arguments.length; i++) {
-                descriptors.add(new IntrospectedParameterDescriptor(i, arguments[i]));
+                String parameterName = parameterNames != null && parameterNames.size() > i ? parameterNames.get(i) : arguments[i].getName();
+                Argument<?> localArgument = localArguments != null && localArguments.length > i ? localArguments[i] : null;
+                descriptors.add(new IntrospectedParameterDescriptor(i, arguments[i], parameterName, localArgument));
             }
             this.parameters = Collections.unmodifiableList(descriptors);
-            this.crossParameters = new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata);
-            this.returnValue = new IntrospectedReturnValueDescriptor(annotationMetadata, returnArgument);
+            this.crossParameters = new IntrospectedCrossParameterDescriptor(annotationMetadata, declaredMetadata, kind);
+            this.returnValue = new IntrospectedReturnValueDescriptor(annotationMetadata, returnArgument, declaredMetadata, kind);
         }
 
         @Override
@@ -601,8 +730,27 @@ final class IntrospectedExecutableDescriptors {
                 hierarchy == null ? method.getAnnotationMetadata() : hierarchy.annotationMetadata(),
                 hierarchy == null ? method.getArguments() : hierarchy.arguments(),
                 hierarchy == null ? method.getReturnType().asArgument() : hierarchy.returnArgument(),
-                declaredMetadata(method, hierarchy));
+                declaredMetadata(method, hierarchy),
+                ElementType.METHOD,
+                declarations == null ? null : declarations.parameterNames(method.getDeclaringType(), method.getName(), method.getArguments()),
+                localArguments(method, hierarchy));
             this.returnType = method.getReturnType().getType();
+        }
+
+        /**
+         * The parameters as the method declares them itself, for the local scope: the exact declaration when the
+         * hierarchy knows it, the parameters of a method overriding nothing, none for an inherited method or an
+         * override whose own declaration is not known apart.
+         */
+        private static Argument<?> @Nullable [] localArguments(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+            if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()
+                || !ValidationMetadataSupport.declares(method.getDeclaringBean(), method.getName(), Argument.toClassArray(method.getArguments()))) {
+                return null;
+            }
+            if (hierarchy == null || hierarchy.inherited().isEmpty()) {
+                return hierarchy == null ? method.getArguments() : hierarchy.arguments();
+            }
+            return hierarchy.declared().exact() ? hierarchy.declared().arguments() : null;
         }
 
         /**
@@ -638,7 +786,8 @@ final class IntrospectedExecutableDescriptors {
                 constructor.getAnnotationMetadata(),
                 constructor.getArguments(),
                 Argument.of(constructor.getDeclaringBeanType()),
-                constructor.getAnnotationMetadata());
+                constructor.getAnnotationMetadata(),
+                ElementType.CONSTRUCTOR);
             this.beanType = constructor.getDeclaringBeanType();
         }
 

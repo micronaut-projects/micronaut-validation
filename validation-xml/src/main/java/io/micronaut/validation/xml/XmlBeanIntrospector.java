@@ -119,10 +119,11 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
                 if (mapping.properties().containsKey(property.getName())) {
                     continue;
                 }
-                if (!ignored) {
-                    properties.put(property.getName(), new ValidationDeclaration(beanType, property.getName(), property.asArgument(),
-                        property.asArgument().getAnnotationMetadata(), List.of(), bean -> property.get(beanType.cast(bean))));
-                }
+                // a property the mapping leaves out stays a property of the bean: with the annotations ignored it is
+                // unconstrained, yet validateProperty and validateValue still name it
+                Argument<?> argument = unconfigured(property.asArgument(), ignored);
+                properties.put(property.getName(), new ValidationDeclaration(beanType, property.getName(), argument,
+                    argument.getAnnotationMetadata(), List.of(), bean -> property.get(beanType.cast(bean))));
             }
             for (var method : original.getBeanMethods()) {
                 var signature = List.of(Argument.toClassArray(method.getArguments()));

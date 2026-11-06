@@ -65,6 +65,25 @@ class XmlConstraintValidationTest {
         }
     }
 
+    @Test
+    void anUnmappedPropertyOfABeanIgnoringAnnotationsIsStillAProperty() {
+        String mapping = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="io.micronaut.validation.xml.XmlConstraintValidationTest$Pair" ignore-annotations="true">
+                    <getter name="first">
+                        <constraint annotation="jakarta.validation.constraints.NotNull"/>
+                    </getter>
+                </bean>
+            </constraint-mappings>
+            """;
+        try (ValidatorFactory factory = factory(mapping)) {
+            var validator = factory.getValidator();
+            assertEquals(0, validator.validateProperty(new Pair(), "second").size());
+            assertEquals(0, validator.validateValue(Pair.class, "second", null).size());
+            assertEquals(1, validator.validate(new Pair()).size());
+        }
+    }
+
     private static ValidatorFactory factory(String mapping) {
         return new MicronautValidatorConfiguration()
             .addMapping(new ByteArrayInputStream(mapping.getBytes(StandardCharsets.UTF_8)))
@@ -88,6 +107,18 @@ class XmlConstraintValidationTest {
 
         public String getName() {
             return name;
+        }
+    }
+
+    @Introspected
+    public static class Pair {
+        public String getFirst() {
+            return null;
+        }
+
+        @NotNull
+        public String getSecond() {
+            return null;
         }
     }
 }

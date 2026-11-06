@@ -21,6 +21,7 @@ import io.micronaut.core.async.publisher.Publishers;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
+import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
 import org.reactivestreams.Publisher;
@@ -83,6 +84,107 @@ final class ReactiveValidation {
             return (Publisher<T>) output;
         }
         return Publishers.convertPublisher(conversionService, output, (Class<Publisher>) returnClass);
+    }
+
+    /**
+     * Validates the elements a method returned a publisher of emits, each as an element of the return value of
+     * the method invoked on the bean.
+     *
+     * @param validator         The validator
+     * @param conversionService The conversion service converting the instrumented publisher back to the return type
+     * @param bean              The bean the method was invoked on
+     * @param method            The method
+     * @param returnArgument    The return value as the hierarchy of the method declares it
+     * @param publisher         The publisher returned
+     * @param groups            The groups
+     * @param <B>               The bean type
+     * @return The instrumented publisher
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static <B> Publisher<Object> validateReturnedPublisher(DefaultValidator validator,
+                                                           ConversionService conversionService,
+                                                           B bean,
+                                                           ExecutableMethod<?, Object> method,
+                                                           Argument<?> returnArgument,
+                                                           Publisher<Object> publisher,
+                                                           Class<?>... groups) {
+        if (returnArgument.getTypeParameters().length == 0) {
+            return publisher;
+        }
+        Argument<Object> valueArgument = (Argument<Object>) returnArgument.getTypeParameters()[0];
+        Class<?> returnClass = method.getReturnType().getType();
+        Publisher<Object> output;
+        if (Publishers.isSingle(returnClass)) {
+            output = Mono.from(publisher).flatMap(value -> {
+                Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, publisher, "<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(publisher.getClass()), valueArgument, value, groups);
+                return violations.isEmpty() ? Mono.just(value) : Mono.error(new ConstraintViolationException(violations));
+            });
+        } else {
+            output = Flux.from(publisher).flatMap(value -> {
+                Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, publisher, "<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(publisher.getClass()), valueArgument, value, groups);
+                return violations.isEmpty() ? Flux.just(value) : Flux.error(new ConstraintViolationException(violations));
+            });
+        }
+        if (!Publisher.class.isAssignableFrom(returnClass)) {
+            return output;
+        }
+        return Publishers.convertPublisher(conversionService, output, (Class<Publisher>) returnClass);
+    }
+
+    /**
+     * Validates the value a completion stage a method returned completes with, as an element of the return value
+     * of the method invoked on the bean.
+     *
+     * @param validator       The validator
+     * @param bean            The bean the method was invoked on
+     * @param method          The method
+     * @param returnArgument  The return value as the hierarchy of the method declares it
+     * @param completionStage The completion stage returned
+     * @param groups          The groups
+     * @param <B>             The bean type
+     * @return The instrumented completion stage
+     */
+    @SuppressWarnings("unchecked")
+    static <B> CompletionStage<Object> validateReturnedCompletionStage(DefaultValidator validator,
+                                                                       B bean,
+                                                                       ExecutableMethod<?, Object> method,
+                                                                       Argument<?> returnArgument,
+                                                                       CompletionStage<Object> completionStage,
+                                                                       Class<?>... groups) {
+        Argument<Object> valueArgument = (Argument<Object>) returnArgument.getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT);
+        return completionStage.thenApply(value -> {
+            Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, completionStage, "<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class), valueArgument, value, groups);
+            if (!violations.isEmpty()) {
+                throw new ConstraintViolationException(violations);
+            }
+            return value;
+        });
+    }
+
+    private static <B, E> Set<? extends ConstraintViolation<?>> validateReturnedValue(DefaultValidator validator,
+                                                                                    B bean,
+                                                                                    ExecutableMethod<?, Object> method,
+                                                                                    Object container,
+                                                                                    String nodeName,
+                                                                                    ValidationPath.ContainerContext containerContext,
+                                                                                    Argument<E> valueArgument,
+                                                                                    E value,
+                                                                                    Class<?>[] groups) {
+        DefaultConstraintValidatorContext<B> context = new DefaultConstraintValidatorContext<>(validator, null, bean, BeanValidationContext.fromGroups(groups));
+        try (DefaultConstraintValidatorContext.ValidationCloseable ignored = context.withExecutableReturnValue(container);
+             ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addMethodNode(method);
+             ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addReturnValueNode();
+             ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addContainerElementNode(nodeName, containerContext)) {
+            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
+                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
+                    validator.visitElement(context, bean, valueArgument, value, true);
+                    if (validation.isFailed()) {
+                        break;
+                    }
+                }
+            }
+        }
+        return context.getOverallViolations();
     }
 
     private static <T, E> Set<? extends ConstraintViolation<?>> validatePublisherValue(DefaultValidator validator,

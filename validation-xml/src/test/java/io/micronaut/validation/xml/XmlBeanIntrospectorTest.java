@@ -485,7 +485,8 @@ class XmlBeanIntrospectorTest {
         BeanIntrospection<XmlDescribedBean> introspection = provider.findIntrospection(XmlDescribedBean.class).orElseThrow();
 
         assertEquals(XmlDescribedBean.class, introspection.getBeanType());
-        assertEquals(List.of("lines"), List.of(introspection.getPropertyNames()));
+        // a property the mapping leaves out stays a property of the bean, unconstrained
+        assertEquals(java.util.Set.of("label", "lines"), java.util.Set.of(introspection.getPropertyNames()));
         BeanProperty<XmlDescribedBean, Object> property = introspection.getProperty("lines").orElseThrow();
         assertEquals(Map.class, property.getType());
         Argument<?>[] typeParameters = property.asArgument().getTypeParameters();

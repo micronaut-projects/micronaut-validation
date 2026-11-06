@@ -162,7 +162,9 @@ final class ConstraintValidatorInstances implements AutoCloseable {
         if (instance == null) {
             return null;
         }
+        // a validator without an initialize method keeps no state of a constraint: one instance may serve several
         if (!(instance instanceof ConstraintValidator<?, ?>)
+                && initializes(type)
                 && initializedValidators.values().stream()
                         .anyMatch(existing -> existing == instance)) {
             throw new ValidationException(

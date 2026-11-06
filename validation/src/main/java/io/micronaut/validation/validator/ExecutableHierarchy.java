@@ -128,10 +128,19 @@ public final class ExecutableHierarchy {
             if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
                 continue;
             }
-            declarations.add(declaredBy(introspector, level, name, parameterTypes).orElseGet(() -> new Declaration(level,
-                AnnotationMetadata.EMPTY_METADATA,
-                Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
-                Argument.of(local.returnArgument().getType()), true)));
+            Optional<Declaration> declared = declaredBy(introspector, level, name, parameterTypes);
+            if (declared.isPresent()) {
+                declarations.add(declared.get());
+            } else if (!local.exact() && introspector.findIntrospection(level).isEmpty()) {
+                // a level the introspector cannot read, compiled without the processor: what it declares is only
+                // known merged into the metadata of the local executable, which the compiler built from it
+                declarations.add(new Declaration(level, local.annotationMetadata(), local.arguments(), local.returnArgument(), false));
+            } else {
+                declarations.add(new Declaration(level,
+                    AnnotationMetadata.EMPTY_METADATA,
+                    Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
+                    Argument.of(local.returnArgument().getType()), true));
+            }
         }
         return declarations;
     }
@@ -176,12 +185,43 @@ public final class ExecutableHierarchy {
             return Optional.empty();
         }
         return introspector.findIntrospection((Class<Object>) type)
-            .flatMap(introspection -> introspection.getBeanMethods().stream()
-                .filter(method -> method.getName().equals(name)
-                    && method.getDeclaringType() == type
-                    && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes))
-                .findFirst()
-                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations())));
+            .flatMap(introspection -> {
+                // the signature as declared first; else the one a generic declaration erases to, its type
+                // variables standing for the types of the implementation
+                BeanMethod<Object, Object> found = null;
+                for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
+                    if (!method.getName().equals(name) || method.getDeclaringType() != type) {
+                        continue;
+                    }
+                    Class<?>[] declared = Argument.toClassArray(method.getArguments());
+                    if (Arrays.equals(declared, parameterTypes)) {
+                        found = method;
+                        break;
+                    }
+                    if (found == null && erasesTo(declared, parameterTypes)) {
+                        found = method;
+                    }
+                }
+                return Optional.ofNullable(found);
+            })
+            .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
+    }
+
+    /**
+     * Whether a generic declaration, its parameter types erased, can be the one a method of the given parameter
+     * types overrides: a parameter a type variable declares erases to a super type of the overriding one.
+     */
+    private static boolean erasesTo(Class<?>[] declared, Class<?>[] parameterTypes) {
+        if (declared.length != parameterTypes.length) {
+            return false;
+        }
+        for (int i = 0; i < declared.length; i++) {
+            Class<?> overriding = parameterTypes[i];
+            if (declared[i] != overriding && (overriding.isPrimitive() || !declared[i].isAssignableFrom(overriding))) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -359,8 +399,10 @@ public final class ExecutableHierarchy {
         Argument<?>[] local = hierarchy.local().arguments();
         for (int i = 0; i < local.length; i++) {
             int index = i;
-            Set<String> added = new HashSet<>(constraintNames(reflectionSupport, local[i]));
-            hierarchy.inherited().forEach(declaration -> added.removeAll(constraintNames(reflectionSupport, declaration.arguments()[index])));
+            // the occurrences, attributes included: an override redeclaring a constraint with other attributes
+            // strengthens it as much as one adding a constraint
+            Set<Object> added = new HashSet<>(constraintOccurrences(reflectionSupport, local[i]));
+            hierarchy.inherited().forEach(declaration -> added.removeAll(constraintOccurrences(reflectionSupport, declaration.arguments()[index])));
             if (!added.isEmpty()) {
                 return true;
             }
@@ -382,23 +424,30 @@ public final class ExecutableHierarchy {
     }
 
     /** The constraints and cascades of an argument and of its type arguments, by name. */
-    private static Set<String> constraintNames(ReflectionSupport reflectionSupport, Argument<?> argument) {
-        Set<String> names = new HashSet<>();
-        collectConstraintNames(reflectionSupport, argument, "", names);
-        return names;
+    private static Set<Object> constraintOccurrences(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        Set<Object> occurrences = new HashSet<>();
+        collectConstraintOccurrences(reflectionSupport, argument, "", occurrences);
+        return occurrences;
     }
 
-    private static void collectConstraintNames(ReflectionSupport reflectionSupport, Argument<?> argument, String prefix, Set<String> names) {
+    private static void collectConstraintOccurrences(ReflectionSupport reflectionSupport, Argument<?> argument, String prefix, Set<Object> occurrences) {
         AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
         for (String name : ConstraintContainers.constraintNames(reflectionSupport, annotationMetadata, reflectionSupport.classLoader())) {
-            names.add(prefix + name);
+            List<? extends AnnotationValue<?>> values = annotationMetadata.getAnnotationValuesByName(name);
+            if (values.isEmpty()) {
+                occurrences.add(prefix + name);
+            } else {
+                for (AnnotationValue<?> value : values) {
+                    occurrences.add(List.of(prefix, value));
+                }
+            }
         }
         if (isCascaded(annotationMetadata)) {
-            names.add(prefix + Valid.class.getName());
+            occurrences.add(prefix + Valid.class.getName());
         }
         Argument<?>[] typeParameters = argument.getTypeParameters();
         for (int i = 0; i < typeParameters.length; i++) {
-            collectConstraintNames(reflectionSupport, typeParameters[i], prefix + i + ":", names);
+            collectConstraintOccurrences(reflectionSupport, typeParameters[i], prefix + i + ":", occurrences);
         }
     }
 

@@ -75,7 +75,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private final @Nullable BeanIntrospection<R> beanIntrospection;
     private final @Nullable R rootBean;
     @Nullable
-    private final Class<R> rootClass;
+    private Class<R> rootClass;
     // the spec tracks the instances already validated, not equal ones
     private final Set<Object> validatedObjects = Collections.newSetFromMap(new IdentityHashMap<>(20));
     private final ValidationPath currentPath;
@@ -99,6 +99,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private boolean currentGroupsExact;
     private List<AnnotationValue<ConvertGroup>> appliedConversions = List.of();
     private boolean hasCurrentViolations = false;
+    // the groups of the step of a requested sequence being validated, which the beans it cascades to are
+    // validated in; null outside such a step, the beans then validated in the groups requested
+    @Nullable
+    private List<Class<?>> stepGroups;
 
     DefaultConstraintValidatorContext(DefaultValidator defaultValidator, @Nullable BeanIntrospection<R> beanIntrospection, @Nullable R rootBean, BeanValidationContext validationContext) {
         this(defaultValidator, beanIntrospection, validationContext, rootBean, null, new ValidationPath(), new LinkedHashSet<>(), null, Collections.emptyList());
@@ -125,6 +129,22 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         this.currentGroups = currentGroups;
         this.currentPath = path != null ? path : new ValidationPath();
         this.overallViolations = overallViolations;
+    }
+
+    /**
+     * The context of the validation of a constructor of a type without an introspection: no instance is the root
+     * bean, the type is the root bean class.
+     *
+     * @param defaultValidator The validator
+     * @param rootClass The type declaring the constructor
+     * @param validationContext The validation context
+     * @param <R> The type
+     * @return The context
+     */
+    static <R> DefaultConstraintValidatorContext<R> forConstructor(DefaultValidator defaultValidator, Class<R> rootClass, BeanValidationContext validationContext) {
+        DefaultConstraintValidatorContext<R> context = new DefaultConstraintValidatorContext<>(defaultValidator, null, null, validationContext);
+        context.rootClass = rootClass;
+        return context;
     }
 
     /**
@@ -301,6 +321,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         currentGroupsExact = !convertedGroups.isEmpty();
         int violationsBefore = overallViolations.size();
         hasCurrentViolations = false;
+        // a bean cascaded to from a step of a requested sequence fails that step with its violations; a redefined
+        // default sequence is not ended by the beans it cascades to, which the reference implementation
+        // validates apart from the sequence
+        boolean cascadedFromSequenceStep = stepGroups != null;
 
         return new GroupsValidation() {
 
@@ -321,9 +345,38 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             public void close() {
                 currentGroups = prevGroups;
                 currentGroupsExact = prevExact;
-                hasCurrentViolations = prevViolations;
+                hasCurrentViolations = cascadedFromSequenceStep ? prevViolations || hasCurrentViolations : prevViolations;
             }
         };
+    }
+
+    /**
+     * The beans cascaded to while a step of a requested sequence is validated are validated in the groups of the
+     * step only, as the reference implementation does: each step of the sequence cascades in its own groups.
+     *
+     * @param validationGroup The step
+     * @return The closeable restoring the previous groups
+     */
+    public ValidationCloseable cascadingIn(ValidationGroup validationGroup) {
+        List<Class<?>> prevStepGroups = stepGroups;
+        stepGroups = validationGroup.requested();
+        return () -> stepGroups = prevStepGroups;
+    }
+
+    /**
+     * A cascaded bean is entered: the conversions of its own relationships apply even when they equal the ones of
+     * the relationship cascading to it.
+     *
+     * @return The closeable restoring the conversions of the relationship cascading
+     */
+    public ValidationCloseable enteringCascadedBean() {
+        List<AnnotationValue<ConvertGroup>> prevAppliedConversions = appliedConversions;
+        appliedConversions = List.of();
+        return () -> appliedConversions = prevAppliedConversions;
+    }
+
+    private List<Class<?>> requestedGroups() {
+        return stepGroups == null ? definedGroups : stepGroups;
     }
 
     public ValidationCloseable convertGroups(@NonNull AnnotationMetadata annotationMetadata) {
@@ -378,7 +431,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         if (ctx.isDefault()) {
             return defaultValidator.findGroupSequencesCache.computeIfAbsent(beanIntrospection, bi -> List.copyOf(findGroupSequences(ctx, bi)));
         } else {
@@ -426,7 +479,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * the default group is not validated
      */
     public Map<Class<?>, List<ValidationGroup>> findIsolatedGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         if (!hasDefaultGroup(ctx.definedGroups)
             || defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class).length > 0) {
             return Map.of();
@@ -459,7 +512,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         List<ValidationGroup> dest = new ArrayList<>();
         for (Class<Object> group : classGroupSequence) {
             if (group == defaultGroupType) {
-                dest.add(new ValidationGroup(true, true, List.of(Default.class)));
+                dest.add(new ValidationGroup(true, true, List.of(Default.class), List.of(Default.class)));
             } else {
                 int start = dest.size();
                 findGroups(ctx, dest, List.of(group), new HashSet<>());
@@ -467,7 +520,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                 for (int i = start; i < dest.size(); i++) {
                     ValidationGroup step = dest.get(i);
                     if (!step.isSequence()) {
-                        dest.set(i, new ValidationGroup(true, false, step.groups()));
+                        dest.set(i, new ValidationGroup(true, false, step.groups(), List.of(Default.class)));
+                    } else {
+                        dest.set(i, new ValidationGroup(true, step.isRedefinedDefaultGroupSequence(), step.groups(), List.of(Default.class)));
                     }
                 }
             }
@@ -476,7 +531,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences() {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, definedGroups);
+        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         if (ctx.isDefault()) {
             return defaultValidator.findGroupSequencesCache.computeIfAbsent(null, ignored -> List.copyOf(findGroupSequences(ctx)));
         } else {
@@ -509,7 +564,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
             .toList();
         if (groupSequence.isEmpty()) {
-            dest.add(new ValidationGroup(false, false, ctx.exact() ? exactGroups(ctx, requestedGroup) : List.of(group)));
+            dest.add(new ValidationGroup(false, false, ctx.exact() ? exactGroups(ctx, requestedGroup) : List.of(group), List.of(requestedGroup)));
             return;
         }
         int start = dest.size();
@@ -522,7 +577,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         // every group the sequence expanded to, wherever the destination started
         for (int i = start; i < dest.size(); i++) {
             ValidationGroup vg = dest.get(i);
-            dest.set(i, new ValidationGroup(true, true, vg.groups));
+            dest.set(i, new ValidationGroup(true, true, vg.groups, vg.requested));
         }
     }
 
@@ -589,11 +644,13 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         if (!anySequence) {
             List<ValidationGroup> subList = dest.subList(start, dest.size());
             List<Class<?>> copy = new ArrayList<>();
+            List<Class<?>> requested = new ArrayList<>();
             for (ValidationGroup validationGroup : subList) {
                 copy.addAll(validationGroup.groups);
+                requested.addAll(validationGroup.requested);
             }
             subList.clear();
-            dest.add(new ValidationGroup(false, false, copy));
+            dest.add(new ValidationGroup(false, false, copy, requested));
         }
     }
 
@@ -667,7 +724,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     DefaultConstraintValidatorContext<R> copy() {
-        return new DefaultConstraintValidatorContext<>(defaultValidator, beanIntrospection, validationContext, rootBean, executableReturnValue, new ValidationPath(currentPath), new LinkedHashSet<>(overallViolations), executableParameterValues, currentGroups);
+        DefaultConstraintValidatorContext<R> copy = new DefaultConstraintValidatorContext<>(defaultValidator, beanIntrospection, validationContext, rootBean, executableReturnValue, new ValidationPath(currentPath), new LinkedHashSet<>(overallViolations), executableParameterValues, currentGroups);
+        copy.rootClass = rootClass;
+        copy.stepGroups = stepGroups;
+        return copy;
     }
 
     @Internal
@@ -683,9 +743,19 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         void close();
     }
 
+    /**
+     * A step of the validation.
+     *
+     * @param isSequence Whether the step belongs to a sequence, a violation then ending it
+     * @param isRedefinedDefaultGroupSequence Whether the sequence is the default group sequence a bean redefines
+     * @param groups The groups validated
+     * @param requested The groups requested the step stands for, before any conversion: the groups the beans
+     *                  cascaded to are validated in. The default group for every step of a redefined default
+     *                  group sequence
+     */
     @Internal
     record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence,
-                           List<Class<?>> groups) {
+                           List<Class<?>> groups, List<Class<?>> requested) {
     }
 
     /**

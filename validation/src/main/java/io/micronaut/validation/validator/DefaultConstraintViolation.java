@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.Internal;
 import org.jspecify.annotations.Nullable;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Path;
+import jakarta.validation.ValidationException;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
 import java.util.Objects;
@@ -104,7 +105,10 @@ record DefaultConstraintViolation<T>(
 
     @Override
     public <U> U unwrap(Class<U> type) {
-        throw new UnsupportedOperationException("Unwrapping is unsupported by this implementation");
+        if (type != null && type.isInstance(this)) {
+            return type.cast(this);
+        }
+        throw new ValidationException("Unwrapping to " + type + " is unsupported by this implementation");
     }
 
     /**

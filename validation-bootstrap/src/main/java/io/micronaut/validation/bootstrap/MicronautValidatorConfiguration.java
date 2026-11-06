@@ -125,7 +125,13 @@ public final class MicronautValidatorConfiguration
     private BootstrapConfiguration bootstrapConfiguration() {
         BootstrapConfiguration configuration = bootstrapConfiguration;
         if (configuration == null) {
-            configuration = BootstrapServiceDiscovery.configurationLoaders(classLoader)
+            var loaders = BootstrapServiceDiscovery.configurationLoaders(classLoader);
+            if (loaders.isEmpty() && !ignoreXmlConfiguration && classLoader.getResource("META-INF/validation.xml") != null) {
+                // a file the provider would silently drop: the configuration it holds must not be lost unnoticed
+                throw new ValidationException("META-INF/validation.xml is present but micronaut-validation-xml, which reads it, is not on the class path:"
+                    + " add it, or call ignoreXmlConfiguration()");
+            }
+            configuration = loaders
                 .stream()
                 .map(loader -> loader.load(classLoader))
                 .flatMap(Optional::stream)
@@ -179,6 +185,9 @@ public final class MicronautValidatorConfiguration
 
     @Override
     public MicronautValidatorConfiguration addValueExtractor(ValueExtractor<?> extractor) {
+        if (extractor == null) {
+            throw new IllegalArgumentException("The value extractor cannot be null");
+        }
         defaults.addValueExtractor(extractor);
         valueExtractors.add(extractor);
         return this;
@@ -186,6 +195,9 @@ public final class MicronautValidatorConfiguration
 
     @Override
     public MicronautValidatorConfiguration addMapping(InputStream stream) {
+        if (stream == null) {
+            throw new IllegalArgumentException("The constraint mapping stream cannot be null");
+        }
         // the stream belongs to the caller, which closes it
         try {
             mappingStreams.add(stream.readAllBytes());
@@ -512,11 +524,43 @@ public final class MicronautValidatorConfiguration
         }
         for (ValidationProvider<?> provider : validationProviders()) {
             if (provider.getClass().getName().equals(defaultProviderClassName)) {
-                return Optional.of(provider.createGenericConfiguration(new DefaultBootstrapState())
-                    .buildValidatorFactory());
+                return Optional.of(delegate(provider.createGenericConfiguration(new DefaultBootstrapState())).buildValidatorFactory());
             }
         }
         throw new ValidationException("Configured validation provider is not available: " + defaultProviderClassName);
+    }
+
+    /**
+     * The configuration of the provider the XML names, given what was configured here: the other provider keeps
+     * its own defaults for anything not configured.
+     */
+    private Configuration<?> delegate(Configuration<?> configuration) {
+        if (ignoreXmlConfiguration) {
+            configuration.ignoreXmlConfiguration();
+        }
+        if (messageInterpolatorConfigured && messageInterpolator != null) {
+            configuration.messageInterpolator(messageInterpolator);
+        }
+        if (traversableResolverConfigured && traversableResolver != null) {
+            configuration.traversableResolver(traversableResolver);
+        }
+        if (constraintValidatorFactoryConfigured && constraintValidatorFactory != null) {
+            configuration.constraintValidatorFactory(constraintValidatorFactory);
+        }
+        if (parameterNameProviderConfigured && parameterNameProvider != null) {
+            configuration.parameterNameProvider(parameterNameProvider);
+        }
+        if (clockProviderConfigured && clockProvider != null) {
+            configuration.clockProvider(clockProvider);
+        }
+        for (ValueExtractor<?> extractor : valueExtractors) {
+            configuration.addValueExtractor(extractor);
+        }
+        for (byte[] mapping : mappingStreams) {
+            configuration.addMapping(new java.io.ByteArrayInputStream(mapping));
+        }
+        properties.forEach(configuration::addProperty);
+        return configuration;
     }
 
     private List<ValidationProvider<?>> validationProviders() {

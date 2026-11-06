@@ -95,7 +95,8 @@ final class InternalConstraintValidators {
         if (value instanceof BigDecimal decimalValue) {
             return decimalValue;
         }
-        return new BigDecimal(value.toString());
+        // the digits of the number, not of how it prints: 100.0 has no fraction
+        return new BigDecimal(value.toString()).stripTrailingZeros();
     };
 
     final DigitsValidator<CharSequence> digitsValidatorCharSequence =
@@ -114,6 +115,10 @@ final class InternalConstraintValidators {
                 return intValue.compareTo(BigInteger.valueOf(max)) <= 0;
             } else if (value instanceof BigDecimal decimalValue) {
                 return decimalValue.compareTo(BigDecimal.valueOf(max)) <= 0;
+            } else if (isFloatingPoint(value)) {
+                // compared without truncating the fraction; NaN is not a number below the bound
+                double d = value.doubleValue();
+                return !Double.isNaN(d) && d <= max;
             }
             return value.longValue() <= max;
         };
@@ -155,6 +160,10 @@ final class InternalConstraintValidators {
                 return intValue.compareTo(BigInteger.valueOf(max)) >= 0;
             } else if (value instanceof BigDecimal decimalValue) {
                 return decimalValue.compareTo(BigDecimal.valueOf(max)) >= 0;
+            } else if (isFloatingPoint(value)) {
+                // compared without truncating the fraction; NaN is not a number above the bound
+                double d = value.doubleValue();
+                return !Double.isNaN(d) && d >= max;
             }
             return value.longValue() >= max;
         };
@@ -439,10 +448,29 @@ final class InternalConstraintValidators {
             result = decimalValue.compareTo(bigDecimal);
         } else if (value instanceof BigInteger intValue) {
             result = new BigDecimal(intValue).compareTo(bigDecimal);
+        } else if (isFloatingPoint(value)) {
+            double d = value.doubleValue();
+            if (Double.isNaN(d)) {
+                // NaN is within no bound: reported as a violation
+                throw new NumberFormatException("NaN");
+            }
+            if (Double.isInfinite(d)) {
+                // an infinity lies beyond any bound, on its side
+                result = d > 0 ? 1 : -1;
+            } else {
+                result = BigDecimal.valueOf(d).compareTo(bigDecimal);
+            }
         } else {
-            result = BigDecimal.valueOf(value.doubleValue()).compareTo(bigDecimal);
+            // integral: exact, a long beyond 2^53 is not rounded through a double
+            result = BigDecimal.valueOf(value.longValue()).compareTo(bigDecimal);
         }
         return result;
+    }
+
+    private static boolean isFloatingPoint(Number value) {
+        return value instanceof Double || value instanceof Float
+            || value instanceof java.util.concurrent.atomic.DoubleAdder
+            || value instanceof java.util.concurrent.atomic.DoubleAccumulator;
     }
 
     public static @Nullable LocalDateTime toLocalDateTime(@Nullable Calendar calendar) {

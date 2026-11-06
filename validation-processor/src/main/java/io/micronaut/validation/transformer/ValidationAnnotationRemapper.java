@@ -138,6 +138,8 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                     ConstraintDefinitionMetadata.retain(type, visitorContext, builder);
                     if (visitorContext.getLanguage() == VisitorContext.Language.JAVA) {
                         JavaComposition.retainDirectCompositions(type, builder);
+                    } else {
+                        retainDeclaredCompositions(type, visitorContext, builder);
                     }
                     builder.member(ValidationAnnotationUtil.REPORT_AS_SINGLE_VIOLATION,
                         type.hasDeclaredAnnotation(ReportAsSingleViolation.class));
@@ -196,6 +198,34 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             }
         }
         return false;
+    }
+
+    /**
+     * The constraints a constraint type declares itself, as the frontends other than javac read them: the
+     * retained composition can hold the constraints those compose too, which are not composing this one.
+     * Nothing is written when none is found, the composition then read as it is retained.
+     */
+    private static void retainDeclaredCompositions(ClassElement type, VisitorContext context, AnnotationValueBuilder<?> occurrence) {
+        AnnotationMetadata metadata = type.getAnnotationMetadata();
+        Set<String> names = new LinkedHashSet<>();
+        for (String name : metadata.getDeclaredAnnotationNames()) {
+            addConstraint(name, context, names);
+            for (AnnotationValue<?> declared : metadata.getDeclaredAnnotationValuesByName(name)) {
+                // the repetitions a container holds
+                for (AnnotationValue<?> contained : declared.getAnnotations(AnnotationMetadata.VALUE_MEMBER)) {
+                    addConstraint(contained.getAnnotationName(), context, names);
+                }
+            }
+        }
+        if (!names.isEmpty()) {
+            occurrence.member(ValidationAnnotationUtil.DIRECT_COMPOSING_CONSTRAINTS, names.toArray(String[]::new));
+        }
+    }
+
+    private static void addConstraint(String name, VisitorContext context, Set<String> names) {
+        if (context.getClassElement(name).map(element -> element.hasDeclaredAnnotation(Constraint.class)).orElse(false)) {
+            names.add(name);
+        }
     }
 
     private static AnnotationValue<?> retainedValue(AnnotationValue<?> value) {
