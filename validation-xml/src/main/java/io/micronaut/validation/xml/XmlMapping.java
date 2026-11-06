@@ -49,11 +49,25 @@ final class XmlMapping {
                                 boolean includeExistingValidators) {
     }
 
+    /**
+     * The mapping of a property: a {@code <field>} or a {@code <getter>}, or both merged, in which case
+     * {@code declarations} keeps each of them, since each constrains the value it reads itself.
+     *
+     * @param metadata The constraints the mapping declares
+     * @param annotationsIgnored Whether the annotations of the declaration are ignored
+     * @param source The declaration mapped
+     * @param elementClass The type of the declaration
+     * @param containerElements The mappings of its type arguments
+     * @param field Whether the declaration is the field, or else the getter
+     * @param declarations The field and the getter mapped apart, empty when only one of them is
+     */
     record PropertyMapping(AnnotationMetadata metadata,
                            boolean annotationsIgnored,
                            ValidationDeclaration source,
                            Class<?> elementClass,
-                           List<ContainerElementMapping> containerElements) {
+                           List<ContainerElementMapping> containerElements,
+                           boolean field,
+                           List<PropertyMapping> declarations) {
     }
 
     record ExecutableKey(String name, List<Class<?>> parameterTypes) {

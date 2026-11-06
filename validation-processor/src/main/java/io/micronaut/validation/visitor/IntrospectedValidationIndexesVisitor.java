@@ -36,7 +36,6 @@ import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
 import io.micronaut.validation.validator.metadata.ValidationField;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 
 import org.jspecify.annotations.NonNull;
@@ -184,9 +183,15 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             .flatMap(property -> property.getField().stream())
             .map(field -> field.getDeclaringType().getName() + "." + field.getName())
             .collect(Collectors.toSet()) : Set.of();
-        element.getFields().forEach(field -> field.annotate(ValidationField.class, builder -> builder
-            .member("property", propertyFields.contains(field.getDeclaringType().getName() + "." + field.getName()))
-            .member("reflection", field.isReflectionRequired(accessType))));
+        // a field generated code reaches is read itself; only one it cannot reach falls back to its getter, which
+        // stands in for the field without the reflection provider
+        element.getFields().forEach(field -> {
+            boolean reflection = field.isReflectionRequired(accessType);
+            field.annotate(ValidationField.class, builder -> builder
+                .member("property", reflection
+                    && propertyFields.contains(field.getDeclaringType().getName() + "." + field.getName()))
+                .member("reflection", reflection));
+        });
     }
 
     private static void configureIntrospection(ClassElement element, VisitorContext context) {

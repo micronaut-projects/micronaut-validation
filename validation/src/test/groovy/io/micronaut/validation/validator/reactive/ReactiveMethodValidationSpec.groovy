@@ -19,6 +19,31 @@ class ReactiveMethodValidationSpec extends Specification {
     @AutoCleanup
     ApplicationContext applicationContext = ApplicationContext.run()
 
+    void "test the constraints of a publisher argument apply to the publisher itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        bookService.rxNullArgument(Mono.just("ok"))
+
+        then:
+        ConstraintViolationException e = thrown()
+        e.constraintViolations.size() == 1
+        e.constraintViolations.first().propertyPath.toString() == 'rxNullArgument.title'
+    }
+
+    void "test the constraints of a returned publisher apply to the publisher itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        Mono.from(bookService.rxNullReturn()).block()
+
+        then:
+        ConstraintViolationException e = thrown()
+        e.constraintViolations.size() == 1
+    }
+
     void "test reactive return type validation"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)

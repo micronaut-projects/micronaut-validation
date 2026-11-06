@@ -94,8 +94,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private Object executableReturnValue;
     private List<Class<?>> currentGroups;
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
-    // whether the current groups are the result of a conversion, not merely validated below one
-    private boolean currentGroupsConverted;
+    // whether the current groups are the result of a conversion: each then lists the groups it extends
+    // itself, see FindGroupContext#exact, and a constraint is in a group it names exactly
+    private boolean currentGroupsExact;
     private List<AnnotationValue<ConvertGroup>> appliedConversions = List.of();
     private boolean hasCurrentViolations = false;
 
@@ -193,10 +194,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             return true;
         }
         // loops rather than streams: this runs for every constraint of every validated element
-        boolean converted = currentGroupsConverted;
+        boolean exact = currentGroupsExact;
         if (constraintGroups.isEmpty()) {
             for (Class<?> group : currentGroups) {
-                if (group == Default.class || (!converted && Default.class.isAssignableFrom(group))) {
+                if (group == Default.class || (!exact && Default.class.isAssignableFrom(group))) {
                     return true;
                 }
             }
@@ -207,7 +208,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
         for (Class<?> group : currentGroups) {
             for (Class<?> constraintGroup : constraintGroups) {
-                if (constraintGroup == group || (!converted && constraintGroup.isAssignableFrom(group))) {
+                if (constraintGroup == group || (!exact && constraintGroup.isAssignableFrom(group))) {
                     return true;
                 }
             }
@@ -295,9 +296,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     public GroupsValidation withGroupSequence(@NonNull ValidationGroup validationGroup) {
         List<Class<?>> prevGroups = currentGroups;
         boolean prevViolations = hasCurrentViolations;
-        boolean prevConverted = currentGroupsConverted;
+        boolean prevExact = currentGroupsExact;
         currentGroups = validationGroup.groups();
-        currentGroupsConverted = !convertedGroups.isEmpty();
+        currentGroupsExact = !convertedGroups.isEmpty();
         int violationsBefore = overallViolations.size();
         hasCurrentViolations = false;
 
@@ -319,7 +320,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             @Override
             public void close() {
                 currentGroups = prevGroups;
-                currentGroupsConverted = prevConverted;
+                currentGroupsExact = prevExact;
                 hasCurrentViolations = prevViolations;
             }
         };
@@ -385,16 +386,23 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         }
     }
 
-    private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx, BeanIntrospection<?> beanIntrospection) {
+    private static List<ValidationGroup> findGroupSequences(FindGroupContext requested, BeanIntrospection<?> beanIntrospection) {
+        // a cascade validates the bean in the groups it converted to: a group converted to the default group
+        // expands to the default group sequence the bean redefines, as a requested default group does
+        FindGroupContext ctx = requested.convertedGroups().isEmpty() ? requested : new FindGroupContext(
+            requested.defaultValidator(),
+            Map.of(),
+            requested.definedGroups().stream().<Class<?>>map(group -> convertGroup(requested.convertedGroups(), group)).distinct().toList(),
+            true);
         // a requested group extending the default group validates its constraints itself, without the redefinition
         if (!ctx.definedGroups.contains(Default.class)
             || ctx.definedGroups.stream().anyMatch(group -> group != Default.class && Default.class.isAssignableFrom(group))) {
-            return findGroupSequences(ctx);
+            return findGroupSequences(requested);
         }
         Class<Object>[] classGroupSequence = ctx.defaultValidator.beanAnnotationMetadata(beanIntrospection).classValues(GroupSequence.class);
         Class<?> defaultGroupType = beanIntrospection.getBeanType();
         if (classGroupSequence.length == 0) {
-            return findGroupSequences(ctx);
+            return findGroupSequences(requested);
         }
         validateDefaultGroupSequence(defaultGroupType, classGroupSequence);
         // the other groups requested with the default group first: a failed step of the redefined sequence ends
@@ -482,28 +490,26 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         return dest;
     }
 
-    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
-        if (ctx.convertedGroups != null) {
-            group = convertGroup(ctx.convertedGroups, group);
-        }
+    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> requestedGroup, Set<Class<?>> processedGroups) {
+        Class<?> group = convertGroup(ctx.convertedGroups, requestedGroup);
         if (!processedGroups.add(group)) {
             throw new GroupDefinitionException("Cyclical group: " + group);
         }
         // the groups being expanded, not every group seen: two sequences may share a group without a cycle
         try {
-            expandGroup(ctx, dest, group, processedGroups);
+            expandGroup(ctx, dest, requestedGroup, group, processedGroups);
         } finally {
             processedGroups.remove(group);
         }
     }
 
-    private static void expandGroup(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> group, Set<Class<?>> processedGroups) {
+    private static void expandGroup(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> requestedGroup, Class<?> group, Set<Class<?>> processedGroups) {
         List<Class<?>> groupSequence = ctx.defaultValidator.getBeanIntrospector()
             .findIntrospection(group).stream()
             .<Class<?>>flatMap(introspection -> Arrays.stream(introspection.classValues(GroupSequence.class)))
             .toList();
         if (groupSequence.isEmpty()) {
-            dest.add(new ValidationGroup(false, false, List.of(group)));
+            dest.add(new ValidationGroup(false, false, ctx.exact() ? exactGroups(ctx, requestedGroup) : List.of(group)));
             return;
         }
         int start = dest.size();
@@ -517,6 +523,49 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         for (int i = start; i < dest.size(); i++) {
             ValidationGroup vg = dest.get(i);
             dest.set(i, new ValidationGroup(true, true, vg.groups));
+        }
+    }
+
+    /**
+     * The groups a group stands for below a conversion, listed one by one since they are matched exactly: the
+     * group and each group it extends, every one converted on its own, a group converted to standing for itself
+     * and the groups it extends. A group extending the default group keeps its own constraints when the
+     * default group is converted, as in the reference implementation.
+     */
+    private static List<Class<?>> exactGroups(FindGroupContext ctx, Class<?> group) {
+        List<Class<?>> groups = new ArrayList<>();
+        for (Class<?> inherited : inheritedGroups(ctx, group)) {
+            Class<?> converted = convertGroup(ctx.convertedGroups, inherited);
+            if (converted == inherited) {
+                if (!groups.contains(inherited)) {
+                    groups.add(inherited);
+                }
+            } else {
+                for (Class<?> target : inheritedGroups(ctx, converted)) {
+                    if (!groups.contains(target)) {
+                        groups.add(target);
+                    }
+                }
+            }
+        }
+        return List.copyOf(groups);
+    }
+
+    /** The group and the groups it extends, transitively. */
+    private static List<Class<?>> inheritedGroups(FindGroupContext ctx, Class<?> group) {
+        List<Class<?>> groups = new ArrayList<>();
+        addInheritedGroups(ctx.defaultValidator.reflectionSupport(), group, groups);
+        return groups;
+    }
+
+    private static void addInheritedGroups(ReflectionSupport reflectionSupport, Class<?> group, List<Class<?>> groups) {
+        if (!groups.contains(group)) {
+            groups.add(group);
+            if (reflectionSupport.canResolveHierarchy(group)) {
+                for (Class<?> inherited : reflectionSupport.interfaces(group)) {
+                    addInheritedGroups(reflectionSupport, inherited, groups);
+                }
+            }
         }
     }
 
@@ -639,11 +688,22 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
                            List<Class<?>> groups) {
     }
 
+    /**
+     * @param defaultValidator The validator
+     * @param convertedGroups The conversions applying to the groups
+     * @param definedGroups The groups requested
+     * @param exact Whether the groups are validated below a conversion: each lists then the groups it extends
+     */
     private record FindGroupContext(
         DefaultValidator defaultValidator,
         Map<Class<?>, Class<?>> convertedGroups,
-        List<Class<?>> definedGroups
+        List<Class<?>> definedGroups,
+        boolean exact
     ) {
+        FindGroupContext(DefaultValidator defaultValidator, Map<Class<?>, Class<?>> convertedGroups, List<Class<?>> definedGroups) {
+            this(defaultValidator, convertedGroups, definedGroups, !convertedGroups.isEmpty());
+        }
+
         boolean isDefault() {
             return definedGroups == DEFAULT_GROUPS && convertedGroups.isEmpty();
         }

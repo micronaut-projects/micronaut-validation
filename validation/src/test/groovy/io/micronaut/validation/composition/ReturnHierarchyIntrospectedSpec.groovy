@@ -13,9 +13,9 @@ import spock.lang.Specification
  */
 class ReturnHierarchyIntrospectedSpec extends Specification {
 
-    private static Set<String> violated(Object bean) {
+    private static Set<String> violated(Object bean, Class<?> declaringType = bean.getClass()) {
         def validator = new DefaultValidator(new DefaultValidatorConfiguration())
-        def method = bean.getClass().getMethod("place")
+        def method = declaringType.getMethod("place")
         return validator.forExecutables()
             .validateReturnValue(bean, method, bean.place())
             .collect { it.getConstraintDescriptor().getType().simpleName }
@@ -32,6 +32,12 @@ class ReturnHierarchyIntrospectedSpec extends Specification {
     void "an introspected interface's return constraint adds up"() {
         expect:
         violated(new ReturnHierarchyIntrospected.FromInterface()) == ["NotBlank", "Size"] as Set
+    }
+
+    void "the method of a super type validates the constraints the runtime type adds"() {
+        expect:
+        violated(new ReturnHierarchyIntrospected.FromInterface(), ReturnHierarchyIntrospected.Placer) == ["NotBlank", "Size"] as Set
+        violated(new ReturnHierarchyIntrospected.FromSuperClass(), ReturnHierarchyIntrospected.AbstractPlacer) == ["NotBlank", "Size"] as Set
     }
 
     void "an introspected super class's return constraint adds up"() {

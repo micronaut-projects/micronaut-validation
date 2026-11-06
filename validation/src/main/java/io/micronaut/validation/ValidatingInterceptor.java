@@ -24,6 +24,7 @@ import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.ReflectionSupport;
@@ -141,12 +142,23 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                 InterceptedMethod interceptedMethod = InterceptedMethod.of(context, conversionService);
                 try {
                     return switch (interceptedMethod.resultType()) {
-                        case PUBLISHER -> interceptedMethod.handleResult(
-                            reactiveValidator.validatePublisher(
-                                context.getReturnType(),
-                                interceptedMethod.interceptResultAsPublisher(),
-                                getValidationGroups(context))
-                        );
+                        case PUBLISHER -> {
+                            var publisher = interceptedMethod.interceptResultAsPublisher();
+                            if (reactiveValidator instanceof DefaultValidator defaultValidator) {
+                                // the constraints of the publisher itself apply to the publisher, before any value it emits
+                                Set<ConstraintViolation<Object>> containerViolations = defaultValidator.validateReturnedContainer(
+                                    context.getTarget(), executableMethod, publisher, getValidationGroups(context));
+                                if (!containerViolations.isEmpty()) {
+                                    throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
+                                }
+                            }
+                            yield interceptedMethod.handleResult(
+                                reactiveValidator.validatePublisher(
+                                    context.getReturnType(),
+                                    publisher,
+                                    getValidationGroups(context))
+                            );
+                        }
                         case COMPLETION_STAGE -> interceptedMethod.handleResult(
                             reactiveValidator.validateCompletionStage(
                                 (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),

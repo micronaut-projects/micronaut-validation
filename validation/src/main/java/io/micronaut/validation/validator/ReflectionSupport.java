@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanConstructor;
@@ -170,8 +171,9 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
-     * Reads through the generated property accessor when property access was selected.
-     * A differently typed getter cannot supply the value of a field declaration.
+     * Reads through the generated property accessor when property access was selected for a field generated code
+     * cannot reach. A field it reaches is read itself, and a differently typed getter cannot supply the value of a
+     * field declaration.
      *
      * @param member The declaration
      * @param property The generated property
@@ -181,7 +183,9 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
-        if (member.getAnnotationMetadata().booleanValue(ValidationField.class, "property").orElse(false)
+        AnnotationMetadata metadata = member.getAnnotationMetadata();
+        if (metadata.booleanValue(ValidationField.class, "property").orElse(false)
+            && metadata.booleanValue(ValidationField.class, "reflection").orElse(false)
             && member.asArgument().equalsStructure(property.asArgument())) {
             return property.get(bean);
         }

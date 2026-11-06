@@ -87,14 +87,22 @@ final class ValidatorDeclarations {
         ));
     }
 
-    /** A constructor as its introspection describes it, computed once per constructor. */
+    /**
+     * A constructor as its introspection describes it, computed once per constructor. A caller describing the
+     * constructor with other metadata, such as arguments alone, gets its own description: it neither reuses the
+     * cached one nor replaces it.
+     */
     ConfiguredExecutable configuredConstructor(Class<?> beanType, AnnotationMetadata annotationMetadata, Argument<?>[] arguments) {
         ExecutableHierarchy.Key key = new ExecutableHierarchy.Key(beanType, "<init>", List.of(Argument.toClassArray(arguments)));
-        return configuredExecutables.computeIfAbsent(key, ignored -> new ConfiguredExecutable(
-            annotationMetadata,
-            arguments,
-            Argument.of(beanType, annotationMetadata)
-        ));
+        ConfiguredExecutable configured = configuredExecutables.get(key);
+        if (configured != null && configured.annotationMetadata() == annotationMetadata && configured.arguments() == arguments) {
+            return configured;
+        }
+        configured = new ConfiguredExecutable(annotationMetadata, arguments, Argument.of(beanType, annotationMetadata));
+        if (annotationMetadata != AnnotationMetadata.EMPTY_METADATA) {
+            configuredExecutables.put(key, configured);
+        }
+        return configured;
     }
 
     ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {

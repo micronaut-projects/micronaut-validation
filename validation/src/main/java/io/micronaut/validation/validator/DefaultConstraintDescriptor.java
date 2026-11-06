@@ -83,6 +83,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final Set<Class<? extends Payload>> payload;
     private final List<Class<? extends ConstraintValidator<T, ?>>> validatedBy;
     private final boolean constraintValidatorClassesDefined;
+    private final boolean builtInValidators;
 
     @Nullable
     private final ConstraintTarget validationAppliesTo;
@@ -213,7 +214,10 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         this.defaultMessage = defaultMessage;
         this.groups = groups;
         this.payload = payload;
-        this.validatedBy = validatedBy;
+        this.builtInValidators = validatedBy.contains(ConstraintValidatorOverrides.BuiltIn.class);
+        this.validatedBy = builtInValidators
+            ? validatedBy.stream().filter(validator -> (Object) validator != ConstraintValidatorOverrides.BuiltIn.class).toList()
+            : validatedBy;
         this.constraintValidatorClassesDefined = constraintValidatorClassesDefined;
         this.validationAppliesTo = validationAppliesTo;
         this.annotationValue = annotationValue;
@@ -305,6 +309,13 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
 
     boolean hasDefinedConstraintValidatorClasses() {
         return constraintValidatorClassesDefined;
+    }
+
+    /**
+     * @return Whether a configuration redefining the validators of a built-in constraint kept the built-in ones
+     */
+    boolean includesBuiltInValidators() {
+        return builtInValidators;
     }
 
     @Override

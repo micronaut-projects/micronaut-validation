@@ -862,6 +862,59 @@ class ValidatorSpec extends Specification {
         violations[0].leafBean.is(bean)
     }
 
+    void "test violations do not hash the validated graph"() {
+        given:
+        def items = new ArrayList<Object>()
+        items.add(items)
+        items.add(null)
+        items.add(null)
+
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.SelfContaining(items))
+
+        then:
+        violations.size() == 2
+    }
+
+    void "test a field constraint reads the field its generated code reaches"() {
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.MaskedField())
+
+        then:
+        violations*.propertyPath*.toString().sort() == ['packaged', 'value']
+    }
+
+    void "test a group converted to the default group runs the default sequence the bean redefines"() {
+        when:
+        def violations = validator.validate(
+            new ValidatorSpecClasses.ConvertedToDefault(new ValidatorSpecClasses.SequencedChild("ab")),
+            ValidatorSpecClasses.External)
+
+        then:
+        violations*.propertyPath*.toString() == ['child.name']
+    }
+
+    void "test a group converted to validates the groups it extends"() {
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.ConvertedToDerived(new ValidatorSpecClasses.BaseGroupChild(null)))
+
+        then:
+        violations*.propertyPath*.toString() == ['child.name']
+    }
+
+    void "test a legacy valid map keeps the constraints of its keys"() {
+        given:
+        def pantry = new HashMap<String, ValidatorSpecClasses.Ingredient>()
+        pantry.put(null, new ValidatorSpecClasses.Ingredient("salt"))
+        pantry.put("pepper", new ValidatorSpecClasses.Ingredient(""))
+
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.ValidMapWithKeys(pantry))
+
+        then:
+        violations*.propertyPath*.toString().sort() == ['pantry[]<map key>', 'pantry[pepper].name']
+    }
+
     void "test a non-numeric string fails Min and Max instead of throwing"() {
         when:
         def violations = validator.validate(new NumericText(value: "abc"))

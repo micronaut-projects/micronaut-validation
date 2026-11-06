@@ -5,6 +5,7 @@ import jakarta.inject.Singleton;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Null;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -52,6 +53,17 @@ class BookService {
 
     @Executable
     Mono<@Valid Book> rxValidMono(Mono<@Valid Book> book) { return book; }
+
+    @Executable
+    Publisher<String> rxNullArgument(@Null Publisher<String> title) {
+        return Mono.just("ok");
+    }
+
+    @Executable
+    @Null
+    Publisher<String> rxNullReturn() {
+        return Mono.just("ok");
+    }
 
     @Executable
     Publisher<@Valid Book> rxReturnInvalid(Publisher<@Valid Book> book) {

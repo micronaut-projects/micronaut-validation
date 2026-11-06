@@ -66,6 +66,10 @@ public final class XmlConstraintMappingConfigurer implements ConstraintMappingCo
                 if (validators.isEmpty()) {
                     validators.addAll(reflectionSupport.declaredValidators(constraintType));
                 }
+                if (validators.isEmpty()) {
+                    // a built-in constraint declares no validator: the existing ones are those of the provider
+                    validators.add(ConstraintValidatorOverrides.BuiltIn.class);
+                }
             }
             validators.addAll(definition.validatorClasses());
             return List.copyOf(validators);

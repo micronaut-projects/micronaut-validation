@@ -21,13 +21,16 @@ import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
+import io.micronaut.validation.validator.metadata.SeparatedPropertyDeclarations;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -49,13 +52,19 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
     XmlBeanIntrospection(Class<T> beanType, AnnotationMetadata metadata,
                          Map<String, ValidationDeclaration> properties,
+                         Map<String, List<Member>> members,
                          Collection<ValidationDeclaration> methods,
                          Collection<ValidationDeclaration> constructors,
                          @Nullable BeanIntrospection<T> original) {
         this.beanType = beanType;
         this.metadata = metadata;
         this.properties = properties.entrySet().stream()
-            .<BeanProperty<T, Object>>map(entry -> new XmlBeanProperty(entry.getKey(), entry.getValue())).toList();
+            .<BeanProperty<T, Object>>map(entry -> {
+                List<Member> separated = members.get(entry.getKey());
+                return separated == null
+                    ? new XmlBeanProperty(entry.getKey(), entry.getValue())
+                    : new XmlSeparatedBeanProperty(entry.getKey(), entry.getValue(), separated);
+            }).toList();
         this.methods = methods.stream().<BeanMethod<T, Object>>map(XmlBeanMethod::new).toList();
         this.constructors = constructors.stream().<BeanConstructor<T>>map(XmlBeanConstructor::new).toList();
         this.original = original;
@@ -148,7 +157,77 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
         return "XML metadata cannot instantiate " + beanType.getName();
     }
 
-    private final class XmlBeanProperty implements BeanProperty<T, Object> {
+    /**
+     * A declaration of a property a mapping configures apart from the other declaration of the property.
+     *
+     * @param declaration The configured declaration
+     * @param field Whether it is the field, or else the getter
+     */
+    record Member(ValidationDeclaration declaration, boolean field) {
+    }
+
+    /** A property whose field and getter are both mapped: each is validated against the value it reads. */
+    private final class XmlSeparatedBeanProperty extends XmlBeanProperty implements SeparatedPropertyDeclarations {
+        private final List<BeanPropertyMember<T, ?>> members;
+
+        private XmlSeparatedBeanProperty(String name, ValidationDeclaration source, List<Member> members) {
+            super(name, source);
+            this.members = members.stream().<BeanPropertyMember<T, ?>>map(XmlBeanPropertyMember::new).toList();
+        }
+
+        @Override
+        public List<BeanPropertyMember<T, ?>> getMembers() {
+            return members;
+        }
+    }
+
+    private final class XmlBeanPropertyMember implements BeanPropertyMember<T, Object> {
+        private final Member member;
+        private final Argument<Object> argument;
+
+        @SuppressWarnings("unchecked")
+        private XmlBeanPropertyMember(Member member) {
+            this.member = member;
+            this.argument = (Argument<Object>) member.declaration().argument();
+        }
+
+        @Override
+        public String getName() {
+            return member.declaration().name();
+        }
+
+        @Override
+        public ElementType getElementType() {
+            return member.field() ? ElementType.FIELD : ElementType.METHOD;
+        }
+
+        @Override
+        public Class<?> getDeclaringType() {
+            return member.declaration().declaringType();
+        }
+
+        @Override
+        public Argument<Object> asArgument() {
+            return argument;
+        }
+
+        @Override
+        public AnnotationMetadata getAnnotationMetadata() {
+            return argument.getAnnotationMetadata();
+        }
+
+        @Override
+        public boolean isReadable() {
+            return true;
+        }
+
+        @Override
+        public @Nullable Object read(T bean) {
+            return member.declaration().read(bean);
+        }
+    }
+
+    private class XmlBeanProperty implements BeanProperty<T, Object> {
         private final String name;
         private final ValidationDeclaration source;
         private final Argument<Object> argument;

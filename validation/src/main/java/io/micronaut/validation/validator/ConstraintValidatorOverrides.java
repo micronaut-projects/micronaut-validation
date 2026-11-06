@@ -43,4 +43,13 @@ public interface ConstraintValidatorOverrides {
      * @return The validators of the constraint as configured, or null when it is not redefined
      */
     @Nullable List<Class<?>> validatorsOf(Class<? extends Annotation> constraintType, List<Class<?>> declared);
+
+    /**
+     * In a list of configured validators, stands for the validators the provider has built in for the constraint:
+     * a built-in constraint declares none, and a configuration including the existing validators keeps them.
+     */
+    final class BuiltIn {
+        private BuiltIn() {
+        }
+    }
 }

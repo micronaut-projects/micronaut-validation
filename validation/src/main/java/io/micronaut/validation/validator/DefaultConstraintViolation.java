@@ -21,7 +21,6 @@ import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Path;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
-import java.util.Arrays;
 import java.util.Objects;
 
 /**
@@ -108,6 +107,12 @@ record DefaultConstraintViolation<T>(
         throw new UnsupportedOperationException("Unwrapping is unsupported by this implementation");
     }
 
+    /**
+     * Two violations are the same when they carry the same message, template, path and constraint for the same
+     * instances: the root bean, leaf bean and invalid value compare by identity, as in the reference
+     * implementation. Comparing them by value would walk the validated object graph for every violation, and
+     * recurse without end on a graph containing itself.
+     */
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -117,14 +122,21 @@ record DefaultConstraintViolation<T>(
             return false;
         }
         DefaultConstraintViolation<?> that = (DefaultConstraintViolation<?>) o;
-        return Objects.equals(rootBean, that.rootBean) && Objects.equals(rootBeanClass, that.rootBeanClass) && Objects.equals(leafBean, that.leafBean) && Objects.equals(invalidValue, that.invalidValue) && Objects.equals(message, that.message) && Objects.equals(messageTemplate, that.messageTemplate) && Objects.equals(path, that.path) && Objects.equals(constraintDescriptor, that.constraintDescriptor) && Arrays.equals(executableParameterValues, that.executableParameterValues) && Objects.equals(executableReturnValue, that.executableReturnValue);
+        return rootBean == that.rootBean
+            && leafBean == that.leafBean
+            && invalidValue == that.invalidValue
+            && Objects.equals(message, that.message)
+            && Objects.equals(messageTemplate, that.messageTemplate)
+            && Objects.equals(path, that.path)
+            && Objects.equals(constraintDescriptor, that.constraintDescriptor);
     }
 
     @Override
     public int hashCode() {
-        int result = Objects.hash(rootBean, rootBeanClass, leafBean, invalidValue, message, messageTemplate, path, constraintDescriptor, executableReturnValue);
-        result = 31 * result + Arrays.hashCode(executableParameterValues);
-        return result;
+        int result = Objects.hash(message, messageTemplate, path, constraintDescriptor);
+        result = 31 * result + System.identityHashCode(rootBean);
+        result = 31 * result + System.identityHashCode(leafBean);
+        return 31 * result + System.identityHashCode(invalidValue);
     }
 
     @Override

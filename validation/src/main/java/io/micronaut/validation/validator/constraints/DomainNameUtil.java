@@ -91,7 +91,8 @@ public final class DomainNameUtil {
             return false;
         }
 
-        // the length is checked first: the nested pattern recurses per character and overflows the stack on a long domain
+        // the pattern recurses per character, so it matches the converted domain, whose length is bounded: the
+        // original can be any length, since the conversion drops characters such as the soft hyphen
         String asciiString;
         try {
             asciiString = IDN.toASCII(domain);
@@ -102,7 +103,7 @@ public final class DomainNameUtil {
             return false;
         }
 
-        Matcher matcher = pattern.matcher(domain);
+        Matcher matcher = pattern.matcher(asciiString);
         return matcher.matches();
     }
 

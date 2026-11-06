@@ -46,6 +46,7 @@ import static io.micronaut.validation.xml.XmlMapping.ContainerElementMapping;
 import static io.micronaut.validation.xml.XmlMapping.ExecutableKey;
 import static io.micronaut.validation.xml.XmlMapping.ExecutableMapping;
 import static io.micronaut.validation.xml.XmlMapping.ParameterMapping;
+import static io.micronaut.validation.xml.XmlMapping.PropertyMapping;
 import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
 
 /**
@@ -138,11 +139,15 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
                     Arrays.stream(constructor.getArguments()).<Argument<?>>map(argument -> unconfigured(argument, ignored)).toList(), null));
             }
         }
+        Map<String, List<XmlBeanIntrospection.Member>> members = new LinkedHashMap<>();
         mapping.properties().forEach((name, property) -> {
-            var source = property.source();
-            var argument = configured(source.argument(), property.metadata(), property.annotationsIgnored(), property.containerElements());
-            properties.put(name, new ValidationDeclaration(source.declaringType(), source.name(), argument,
-                argument.getAnnotationMetadata(), List.of(), source.reader()));
+            properties.put(name, configuredDeclaration(property));
+            if (!property.declarations().isEmpty()) {
+                // a field and a getter both mapped each constrain the value they read
+                members.put(name, property.declarations().stream()
+                    .map(declaration -> new XmlBeanIntrospection.Member(configuredDeclaration(declaration), declaration.field()))
+                    .toList());
+            }
         });
         mapping.methods().forEach((key, executable) -> methods.put(key, configuredDeclaration(executable)));
         mapping.constructors().forEach((key, executable) -> constructors.put(key, configuredDeclaration(executable)));
@@ -154,7 +159,14 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
         } else {
             metadata = ConfiguredMetadata.merge(original.getAnnotationMetadata(), mapping.classMetadata());
         }
-        return new XmlBeanIntrospection<>(beanType, metadata, properties, methods.values(), constructors.values(), original);
+        return new XmlBeanIntrospection<>(beanType, metadata, properties, members, methods.values(), constructors.values(), original);
+    }
+
+    private static ValidationDeclaration configuredDeclaration(PropertyMapping property) {
+        var source = property.source();
+        var argument = configured(source.argument(), property.metadata(), property.annotationsIgnored(), property.containerElements());
+        return new ValidationDeclaration(source.declaringType(), source.name(), argument,
+            argument.getAnnotationMetadata(), List.of(), source.reader());
     }
 
     /** An element no mapping names: as declared, or stripped of its annotations where the bean ignores them. */

@@ -264,7 +264,9 @@ final class XmlMappingParser {
             booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored),
             source,
             source.argument().getType(),
-            parseContainerElements(element, defaultPackage, propertyType)
+            parseContainerElements(element, defaultPackage, propertyType),
+            ELEMENT_FIELD.equals(elementName),
+            List.of()
         );
         // a <field> and a <getter> of the same name both apply to the property the mapping decorates: neither
         // replaces the other
@@ -280,7 +282,9 @@ final class XmlMappingParser {
             first.annotationsIgnored() && second.annotationsIgnored(),
             first.source(),
             first.elementClass(),
-            List.copyOf(containerElements));
+            List.copyOf(containerElements),
+            first.field(),
+            List.of(first, second));
     }
 
     private void validatePropertyConfiguredOnce(Class<?> beanType,
