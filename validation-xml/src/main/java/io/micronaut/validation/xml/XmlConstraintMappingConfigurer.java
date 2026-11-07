@@ -20,14 +20,13 @@ import io.micronaut.validation.bootstrap.ConstraintMappingConfigurer;
 import io.micronaut.validation.validator.ConstraintValidatorOverrides;
 import io.micronaut.validation.validator.DefaultValidatorConfiguration;
 import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.xml.XmlMapping.ConstraintDefinition;
 
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static io.micronaut.validation.xml.XmlMapping.ConstraintDefinition;
 
 /**
  * Applies XML constraint mappings to a validator configuration: the mapped beans through an

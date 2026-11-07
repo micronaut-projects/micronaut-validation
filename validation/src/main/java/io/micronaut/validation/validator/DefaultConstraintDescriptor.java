@@ -63,7 +63,7 @@ import java.util.Set;
  * @since 1.2
  */
 @Internal
-class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T>, MessageAttributes.Source {
+final class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDescriptor<T>, MessageAttributes.Source {
 
     private static final String CONSTRAINT_ANNOTATION = Constraint.class.getName();
 
@@ -95,134 +95,33 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
     private final Set<DefaultConstraintDescriptor<Annotation>> composingConstraints;
     private final boolean reportAsSingleViolation;
 
-    DefaultConstraintDescriptor(@NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
-        this(ReflectionSupport.get(), constraintType, annotationValue, annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(ReflectionSupport reflectionSupport, @NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
-        this(reflectionSupport, constraintType,
-            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
-            Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS))),
-            (Set) Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD))),
-            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)),
-                ValidationEnumValues.target(annotationValue),
-            annotationValue,
-            annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(@NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy) {
-        this(ReflectionSupport.get(), constraintType, annotationValue, annotationMetadata, validatedBy);
-    }
-
-    DefaultConstraintDescriptor(ReflectionSupport reflectionSupport, @NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy) {
-        this(reflectionSupport, constraintType,
-            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
-            Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS))),
-            (Set) Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD))),
-            validatedBy,
-            true,
-                ValidationEnumValues.target(annotationValue),
-            annotationValue,
-            annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(@NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                boolean constraintValidatorClassesDefined) {
-        this(ReflectionSupport.get(), constraintType, annotationValue, annotationMetadata, validatedBy, constraintValidatorClassesDefined);
-    }
-
-    DefaultConstraintDescriptor(ReflectionSupport reflectionSupport, @NonNull Class<T> constraintType,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                boolean constraintValidatorClassesDefined) {
-        this(reflectionSupport, constraintType,
-            annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null),
-            annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE),
-            Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS))),
-            (Set) Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD))),
-            validatedBy,
-            constraintValidatorClassesDefined,
-                ValidationEnumValues.target(annotationValue),
-            annotationValue,
-            annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(@NonNull Class<T> type,
-                                @Nullable String message,
-                                @Nullable String defaultMessage,
-                                @NonNull Set<Class<?>> groups,
-                                @NonNull Set<Class<? extends Payload>> payload,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                @Nullable ConstraintTarget validationAppliesTo,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
-        this(ReflectionSupport.get(), type, message, defaultMessage, groups, payload, validatedBy, validationAppliesTo, annotationValue, annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(ReflectionSupport reflectionSupport, @NonNull Class<T> type,
-                                @Nullable String message,
-                                @Nullable String defaultMessage,
-                                @NonNull Set<Class<?>> groups,
-                                @NonNull Set<Class<? extends Payload>> payload,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                @Nullable ConstraintTarget validationAppliesTo,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
-        this(reflectionSupport, type, message, defaultMessage, groups, payload, validatedBy, !validatedBy.isEmpty(), validationAppliesTo, annotationValue, annotationMetadata);
-    }
-
-    @SuppressWarnings("java:S107")
-    DefaultConstraintDescriptor(@NonNull Class<T> type,
-                                @Nullable String message,
-                                @Nullable String defaultMessage,
-                                @NonNull Set<Class<?>> groups,
-                                @NonNull Set<Class<? extends Payload>> payload,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                boolean constraintValidatorClassesDefined,
-                                @Nullable ConstraintTarget validationAppliesTo,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
-        this(ReflectionSupport.get(), type, message, defaultMessage, groups, payload, validatedBy, constraintValidatorClassesDefined, validationAppliesTo, annotationValue, annotationMetadata);
-    }
-
-    DefaultConstraintDescriptor(ReflectionSupport reflectionSupport, @NonNull Class<T> type,
-                                @Nullable String message,
-                                @Nullable String defaultMessage,
-                                @NonNull Set<Class<?>> groups,
-                                @NonNull Set<Class<? extends Payload>> payload,
-                                @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
-                                boolean constraintValidatorClassesDefined,
-                                @Nullable ConstraintTarget validationAppliesTo,
-                                @NonNull AnnotationValue<T> annotationValue,
-                                @NonNull AnnotationMetadata annotationMetadata) {
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The constraint type
+     * @param annotationValue The occurrence of the constraint
+     * @param annotationMetadata The metadata of the constrained element
+     * @param validatedBy The validators of the constraint
+     * @param constraintValidatorClassesDefined Whether the validators are defined, by the constraint or a configuration
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private DefaultConstraintDescriptor(ReflectionSupport reflectionSupport,
+                                        @NonNull Class<T> type,
+                                        @NonNull AnnotationValue<T> annotationValue,
+                                        @NonNull AnnotationMetadata annotationMetadata,
+                                        @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
+                                        boolean constraintValidatorClassesDefined) {
         this.type = type;
         this.reflectionSupport = reflectionSupport;
-        this.message = message;
-        this.defaultMessage = defaultMessage;
-        this.groups = groups;
-        this.payload = payload;
+        this.message = annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null);
+        this.defaultMessage = annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE);
+        this.groups = Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS)));
+        this.payload = (Set) Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD)));
         this.builtInValidators = validatedBy.contains(ConstraintValidatorOverrides.BuiltIn.class);
         this.validatedBy = builtInValidators
             ? validatedBy.stream().filter(validator -> (Object) validator != ConstraintValidatorOverrides.BuiltIn.class).toList()
             : validatedBy;
         this.constraintValidatorClassesDefined = constraintValidatorClassesDefined;
-        this.validationAppliesTo = validationAppliesTo;
+        this.validationAppliesTo = ValidationEnumValues.target(annotationValue);
         this.annotationValue = annotationValue;
         this.annotationMetadata = annotationMetadata;
         annotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_ERROR).ifPresent(error -> {
@@ -232,10 +131,34 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             throw new ConstraintDefinitionException(error);
         });
         this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
-        // the marker is a stereotype of the constraint where the metadata retains it, and read from
-        // the type
-        // only for a constraint the annotation processor never compiled
+        // a stereotype where the metadata retains it, read from the type only for a constraint never compiled
         this.reportAsSingleViolation = isReportedAsSingleViolation(annotationValue, type);
+    }
+
+    /**
+     * The descriptor of an occurrence of a constraint.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The constraint type
+     * @param annotationValue The occurrence of the constraint
+     * @param annotationMetadata The metadata of the constrained element
+     * @param validatorOverrides The validators a configuration defines for the constraint, {@code null} for the ones
+     * the occurrence records
+     * @param <T> The constraint type
+     * @return The descriptor
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    static <T extends Annotation> DefaultConstraintDescriptor<T> of(ReflectionSupport reflectionSupport,
+                                                                   Class<T> type,
+                                                                   AnnotationValue<T> annotationValue,
+                                                                   AnnotationMetadata annotationMetadata,
+                                                                   @Nullable List<Class<? extends ConstraintValidator<T, ?>>> validatorOverrides) {
+        if (validatorOverrides != null) {
+            return new DefaultConstraintDescriptor<>(reflectionSupport, type, annotationValue, annotationMetadata, validatorOverrides, true);
+        }
+        List<Class<? extends ConstraintValidator<T, ?>>> validatedBy =
+            (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
+        return new DefaultConstraintDescriptor<>(reflectionSupport, type, annotationValue, annotationMetadata, validatedBy, !validatedBy.isEmpty());
     }
 
     /**
@@ -505,11 +428,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         List<AnnotationValue<?>> retained = parentAnnotationValue.getStereotypes();
-        // the tree is what the processor built only when the constraint contract is in it: every
-        // constraint it
-        // compiled retains the contract that marks it, so anything else - no tree, or one another
-        // caller put
-        // together - is a constraint the processors never saw
+        // the tree is the processor's only when the constraint contract is in it: every constraint it compiled
+        // retains the contract, so anything else - no tree, or one another caller built - was never compiled
         if (retained != null && containsConstraintContract(retained)) {
             return retainedComposingConstraints(constraintType, retained, parentAnnotationValue, annotationMetadata);
         }
@@ -654,9 +574,8 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         String name = composing.getAnnotationName();
-        // the values the tree carries are the ones the composing annotation sets, the overrides of
-        // the composed
-        // one already applied; the reserved member holding the subtree is not one of them
+        // the values the composing annotation sets, the overrides of the composed one applied; the reserved
+        // member holding the subtree is not one of them
         Map<CharSequence, Object> values = new LinkedHashMap<>(composing.getValues());
         values.remove(AnnotationUtil.STEREOTYPES_MEMBER);
         Map<CharSequence, Object> defaultValues = composing.getDefaultValues() == null ? Map.of() : composing.getDefaultValues();
@@ -680,10 +599,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
             new AnnotationValue<>(name, values, defaultValues, composing.getRetentionPolicy(), composing.getStereotypes()),
             annotationType
         );
-        List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-        return validators.isEmpty()
-            ? new DefaultConstraintDescriptor<>(reflectionSupport, (Class<Annotation>) annotationType, annotationValue, annotationMetadata)
-            : new DefaultConstraintDescriptor<>(reflectionSupport, (Class<Annotation>) annotationType, annotationValue, annotationMetadata, validators, true);
+        return of(reflectionSupport, (Class<Annotation>) annotationType, annotationValue, annotationMetadata, null);
     }
 
     /**
@@ -698,12 +614,7 @@ class DefaultConstraintDescriptor<T extends Annotation> implements ConstraintDes
         AnnotationMetadata annotationMetadata) {
         Set<DefaultConstraintDescriptor<Annotation>> composingConstraints = new LinkedHashSet<>();
         for (ReflectionSupport.ComposingConstraint composing : reflectionSupport.composingConstraints(constraintType, parentAnnotationValue)) {
-            Class<Annotation> annotationType = (Class<Annotation>) composing.type();
-            AnnotationValue<Annotation> annotationValue = composing.value();
-            List<Class<? extends ConstraintValidator<Annotation, ?>>> validators = (List) List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY));
-            composingConstraints.add(validators.isEmpty()
-                ? new DefaultConstraintDescriptor<>(reflectionSupport, annotationType, annotationValue, annotationMetadata)
-                : new DefaultConstraintDescriptor<>(reflectionSupport, annotationType, annotationValue, annotationMetadata, validators, true));
+            composingConstraints.add(of(reflectionSupport, (Class<Annotation>) composing.type(), composing.value(), annotationMetadata, null));
         }
         return Collections.unmodifiableSet(composingConstraints);
     }

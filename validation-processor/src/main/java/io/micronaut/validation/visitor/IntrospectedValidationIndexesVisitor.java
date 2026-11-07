@@ -16,8 +16,6 @@
 package io.micronaut.validation.visitor;
 
 import io.micronaut.context.annotation.Executable;
-
-
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
@@ -34,10 +32,8 @@ import io.micronaut.inject.utils.JsonWriter;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
-
 import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
-
 import org.jspecify.annotations.NonNull;
 
 import java.io.IOException;
@@ -112,8 +108,7 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             .toList();
         boolean describeAll = Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION));
         if (!participates(element) && !describeAll && targets.stream().noneMatch(IntrospectedValidationIndexesVisitor::participates)) {
-            // an introspection of a type that takes no part in validation - a serialization DTO, an entity
-            // without constraints - is left as its author declared it: other modules read it too. A type
+            // other modules read the introspection of a type validation ignores: it is left as declared. A type
             // constrained only by an XML mapping asks for the option
             return;
         }
@@ -202,14 +197,13 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             .flatMap(property -> property.getField().stream())
             .map(field -> field.getDeclaringType().getName() + "." + field.getName())
             .collect(Collectors.toSet()) : Set.of();
-        // a field generated code reaches is read itself; only one it cannot reach falls back to its getter, which
-        // stands in for the field without the reflection provider
+        // only a field generated code cannot reach falls back to its getter, avoiding the reflection provider
         element.getFields().forEach(field -> {
             boolean reflection = field.isReflectionRequired(accessType);
             field.annotate(ValidationField.class, builder -> builder
-                .member("property", reflection
+                .member(ValidationField.MEMBER_PROPERTY, reflection
                     && propertyFields.contains(field.getDeclaringType().getName() + "." + field.getName()))
-                .member("reflection", reflection));
+                .member(ValidationField.MEMBER_REFLECTION, reflection));
         });
     }
 
@@ -219,6 +213,8 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             ? List.of() : introspected.getAnnotations("indexed", Introspected.IndexedAnnotation.class);
         boolean constrainedConstructors = element.getEnclosedElements(ElementQuery.CONSTRUCTORS).stream()
             .anyMatch(ValidationVisitor::requiresValidation);
+        // annotating over the existing @Introspected keeps the members it already has: replace it to append the
+        // indexes and to override its members
         element.removeAnnotation(Introspected.class);
         element.annotate(Introspected.class, builder -> {
             if (introspected != null) {

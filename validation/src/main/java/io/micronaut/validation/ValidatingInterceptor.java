@@ -24,7 +24,6 @@ import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.validation.validator.DefaultValidator;
 import io.micronaut.validation.validator.ExecutableMethodValidator;
 import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.ReflectionSupport;
@@ -145,46 +144,30 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                     return switch (interceptedMethod.resultType()) {
                         case PUBLISHER -> {
                             var publisher = interceptedMethod.interceptResultAsPublisher();
-                            if (reactiveValidator instanceof DefaultValidator defaultValidator) {
-                                // the constraints of the publisher itself apply to the publisher, before any value it emits
-                                Set<ConstraintViolation<Object>> containerViolations = defaultValidator.validateReturnedContainer(
-                                    context.getTarget(), executableMethod, publisher, getValidationGroups(context));
-                                if (!containerViolations.isEmpty()) {
-                                    throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
-                                }
-                                // each value is an element of the return value of the method invoked on the target
-                                yield interceptedMethod.handleResult(defaultValidator.validateReturnedPublisher(
-                                    context.getTarget(), executableMethod, (Publisher<Object>) publisher, getValidationGroups(context)));
+                            // the constraints of the publisher itself apply to the publisher, before any value it emits
+                            Set<ConstraintViolation<Object>> containerViolations = reactiveValidator.validateReturnedContainer(
+                                context.getTarget(), executableMethod, publisher, getValidationGroups(context));
+                            if (!containerViolations.isEmpty()) {
+                                throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
                             }
-                            yield interceptedMethod.handleResult(
-                                reactiveValidator.validatePublisher(
-                                    context.getReturnType(),
-                                    publisher,
-                                    getValidationGroups(context))
-                            );
+                            // each value is an element of the return value of the method invoked on the target
+                            yield interceptedMethod.handleResult(reactiveValidator.validateReturnedPublisher(
+                                context.getTarget(), executableMethod, (Publisher<Object>) publisher, getValidationGroups(context)));
                         }
                         case COMPLETION_STAGE -> {
-                            if (reactiveValidator instanceof DefaultValidator defaultValidator) {
-                                // the stage as returned: its own constraints first, a null one among them
-                                Object result = context.proceed();
-                                Set<ConstraintViolation<Object>> containerViolations = defaultValidator.validateReturnedContainer(
-                                    context.getTarget(), executableMethod, result, getValidationGroups(context));
-                                if (!containerViolations.isEmpty()) {
-                                    throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
-                                }
-                                if (!(result instanceof CompletionStage<?> stage)) {
-                                    // nothing completes: the method returned no stage, which is passed on as it is
-                                    yield result;
-                                }
-                                yield interceptedMethod.handleResult(defaultValidator.validateReturnedCompletionStage(
-                                    context.getTarget(), executableMethod, (CompletionStage<Object>) stage, getValidationGroups(context)));
+                            // the stage as returned: its own constraints first, a null one among them
+                            Object result = context.proceed();
+                            Set<ConstraintViolation<Object>> containerViolations = reactiveValidator.validateReturnedContainer(
+                                context.getTarget(), executableMethod, result, getValidationGroups(context));
+                            if (!containerViolations.isEmpty()) {
+                                throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
                             }
-                            yield interceptedMethod.handleResult(
-                                reactiveValidator.validateCompletionStage(
-                                    (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage(),
-                                    (Argument<Object>) context.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT),
-                                    getValidationGroups(context))
-                            );
+                            if (!(result instanceof CompletionStage<?> stage)) {
+                                // the method returned no stage, which is passed on as it is
+                                yield result;
+                            }
+                            yield interceptedMethod.handleResult(reactiveValidator.validateReturnedCompletionStage(
+                                context.getTarget(), executableMethod, (CompletionStage<Object>) stage, getValidationGroups(context)));
                         }
                         case SYNCHRONOUS ->
                             hasReturnValueValidation(executableMethod)
@@ -205,20 +188,10 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     }
 
     /**
-     * Whether the return value of a method can produce a violation at all.
-     *
-     * <p>Validating a return value is not free even when there is nothing on it to validate: the
-     * validator resolves the group sequences first, which asks for a {@link io.micronaut.core.beans.BeanIntrospection}
-     * of the validation group, and the default group has none. On a runtime where an introspection
-     * miss is expensive that cost is paid by every advised call. Measured on a Pyronaut application,
-     * where a miss walks the classpath, it was about a tenth of request time on a route whose only
-     * reason to be advised was a constrained parameter.
-     *
-     * <p>A return value with no constraint and no {@link Valid} cannot be violated: without
-     * {@code @Valid} the validator does not cascade into the returned object's own constraints, so
-     * there is nothing for it to find. The whole annotation hierarchy is consulted rather than the
-     * declared metadata, which errs towards validating: anything unrecognised keeps the previous
-     * behaviour.
+     * Whether the return value of a method can produce a violation at all: one with no constraint and no
+     * {@link Valid} cannot. Validating it anyway resolves the group sequences, an introspection lookup of the
+     * default group that misses, which is expensive on some runtimes. The stereotypes are consulted, which errs
+     * towards validating.
      *
      * @param executableMethod The method
      * @return Whether its return value is validated

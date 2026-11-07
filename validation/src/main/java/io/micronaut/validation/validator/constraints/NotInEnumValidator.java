@@ -20,6 +20,7 @@ import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.NotInEnum;
 import io.micronaut.validation.validator.DefaultConstraintValidatorContext;
 import io.micronaut.validation.validator.ReflectionSupport;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.inject.Singleton;
 import org.jspecify.annotations.NonNull;
@@ -52,8 +53,8 @@ public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
 
-            var constants = annotationMetadata.contains("$enumValues")
-                ? List.of(annotationMetadata.stringValues("$enumValues"))
+            var constants = annotationMetadata.contains(ValidationAnnotationUtil.ENUM_VALUES)
+                ? List.of(annotationMetadata.stringValues(ValidationAnnotationUtil.ENUM_VALUES))
                 : ValidationMetadataSupport.enumConstants(context instanceof DefaultConstraintValidatorContext<?> validationContext
                     ? validationContext.reflectionSupport() : ReflectionSupport.get(), enumClass).stream().map(Enum::name).toList();
             if (constants.isEmpty()) {

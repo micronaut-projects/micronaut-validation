@@ -29,6 +29,12 @@ import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
+import io.micronaut.validation.xml.XmlMapping.BeanMapping;
+import io.micronaut.validation.xml.XmlMapping.ContainerElementMapping;
+import io.micronaut.validation.xml.XmlMapping.ExecutableKey;
+import io.micronaut.validation.xml.XmlMapping.ExecutableMapping;
+import io.micronaut.validation.xml.XmlMapping.ParameterMapping;
+import io.micronaut.validation.xml.XmlMapping.PropertyMapping;
 
 import java.io.InputStream;
 import java.util.Arrays;
@@ -40,14 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
-
-import static io.micronaut.validation.xml.XmlMapping.BeanMapping;
-import static io.micronaut.validation.xml.XmlMapping.ContainerElementMapping;
-import static io.micronaut.validation.xml.XmlMapping.ExecutableKey;
-import static io.micronaut.validation.xml.XmlMapping.ExecutableMapping;
-import static io.micronaut.validation.xml.XmlMapping.ParameterMapping;
-import static io.micronaut.validation.xml.XmlMapping.PropertyMapping;
-import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
 
 /**
  * The introspector of a validator configured by XML constraint mappings: it decorates the introspector the
@@ -130,14 +128,14 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
                 methods.put(new ExecutableKey(method.getName(), signature), new ValidationDeclaration(beanType, method.getName(),
                     unconfigured(method.getReturnType().asArgument(), ignored),
                     ignored ? AnnotationMetadata.EMPTY_METADATA : method.getAnnotationMetadata(),
-                    Arrays.stream(method.getArguments()).<Argument<?>>map(argument -> unconfigured(argument, ignored)).toList(), null));
+                    Arrays.stream(method.getArguments()).<Argument<?>>map(argument -> unconfigured(argument, ignored)).toList(), ValidationDeclaration.Reader.NONE));
             }
             for (var constructor : original.getConstructors()) {
                 var signature = List.of(Argument.toClassArray(constructor.getArguments()));
                 AnnotationMetadata metadata = ignored ? AnnotationMetadata.EMPTY_METADATA : constructor.getAnnotationMetadata();
-                constructors.put(new ExecutableKey(simpleName(beanType), signature), new ValidationDeclaration(beanType, "<init>",
+                constructors.put(new ExecutableKey(XmlMappingSupport.simpleName(beanType), signature), new ValidationDeclaration(beanType, "<init>",
                     Argument.of(beanType, metadata), metadata,
-                    Arrays.stream(constructor.getArguments()).<Argument<?>>map(argument -> unconfigured(argument, ignored)).toList(), null));
+                    Arrays.stream(constructor.getArguments()).<Argument<?>>map(argument -> unconfigured(argument, ignored)).toList(), ValidationDeclaration.Reader.NONE));
             }
         }
         Map<String, List<XmlBeanIntrospection.Member>> members = new LinkedHashMap<>();

@@ -24,6 +24,7 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.util.CopyOnWriteMap;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import jakarta.validation.ParameterNameProvider;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 
 /**
  * What the validator knows about the declarations it validates: the hierarchies of the executables,
@@ -60,6 +62,7 @@ final class ValidatorDeclarations {
     private final Set<ExecutableHierarchy.Key> checkedReturnValueDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
     private final Map<ExecutableHierarchy.Key, ConfiguredExecutable> configuredExecutables = new ConcurrentHashMap<>();
+    private final Map<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> defaultGroupSequences = CopyOnWriteMap.create(16 * 1024);
 
     ValidatorDeclarations(BeanIntrospector beanIntrospector, boolean strictConstraintDefinitions, ReflectionSupport reflectionSupport) {
         this(beanIntrospector, strictConstraintDefinitions, reflectionSupport, null);
@@ -71,6 +74,13 @@ final class ValidatorDeclarations {
         this.reflectionSupport = reflectionSupport;
         this.beanIntrospector = beanIntrospector;
         this.strictConstraintDefinitions = strictConstraintDefinitions;
+    }
+
+    /**
+     * @return The provider of the application naming the parameters, null for the names compiled into the metadata
+     */
+    @Nullable ParameterNameProvider parameterNameProvider() {
+        return parameterNameProvider;
     }
 
     ReflectionSupport reflectionSupport() {
@@ -85,6 +95,7 @@ final class ValidatorDeclarations {
         checkedReturnValueDeclarations.clear();
         superIntrospectionsCache.clear();
         configuredExecutables.clear();
+        defaultGroupSequences.clear();
     }
 
     /**
@@ -146,11 +157,8 @@ final class ValidatorDeclarations {
      * failing every validation of it.
      */
     void checkParameterDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
-        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
-        if (!checkedParameterDeclarations.contains(key)) {
-            ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy);
-            checkedParameterDeclarations.add(key);
-        }
+        checkOnce(checkedParameterDeclarations, ExecutableHierarchy.Key.of(method),
+            () -> ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy));
     }
 
     /**
@@ -158,11 +166,8 @@ final class ValidatorDeclarations {
      * failing every validation of it.
      */
     void checkReturnValueDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
-        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
-        if (!checkedReturnValueDeclarations.contains(key)) {
-            ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, hierarchy);
-            checkedReturnValueDeclarations.add(key);
-        }
+        checkOnce(checkedReturnValueDeclarations, ExecutableHierarchy.Key.of(method),
+            () -> ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, hierarchy));
     }
 
     /**
@@ -170,31 +175,42 @@ final class ValidatorDeclarations {
      * type is validated.
      */
     void checkBeanDeclarations(BeanIntrospection<?> introspection) {
-        if (checkedBeanDeclarations.contains(introspection)) {
-            // checked once, published only after every check completed: no monitor on the validation path
-            return;
-        }
-        synchronized (checkedBeanDeclarations) {
-            if (!checkedBeanDeclarations.contains(introspection)) {
-                for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
-                    ExecutableHierarchy.checkGroupConversions(reflectionSupport, property.asArgument());
-                }
-                // Publish success only after every check completes. Concurrent callers must wait.
-                checkedBeanDeclarations.add(introspection);
+        checkOnce(checkedBeanDeclarations, introspection, () -> {
+            for (BeanProperty<?, ?> property : introspection.getBeanProperties()) {
+                ExecutableHierarchy.checkGroupConversions(reflectionSupport, property.asArgument());
             }
+        });
+    }
+
+    /** A constraint definition is checked until a check succeeds. */
+    void checkConstraintDefinition(Class<? extends Annotation> constraintType, AnnotationValue<?> occurrence) {
+        if (strictConstraintDefinitions) {
+            checkOnce(checkedConstraintDefinitions, constraintType,
+                () -> reflectionSupport.checkConstraintDefinition(constraintType, occurrence));
         }
     }
 
-    /** A constraint definition is checked once after a successful check, never while in progress. */
-    void checkConstraintDefinition(Class<? extends Annotation> constraintType, AnnotationValue<?> occurrence) {
-        if (strictConstraintDefinitions) {
-            synchronized (checkedConstraintDefinitions) {
-                if (!checkedConstraintDefinitions.contains(constraintType)) {
-                    reflectionSupport.checkConstraintDefinition(constraintType, occurrence);
-                    checkedConstraintDefinitions.add(constraintType);
-                }
-            }
+    /**
+     * Runs a check until it succeeds once: the key is recorded only after the check completes, so a failed
+     * check fails every call, and callers racing on the first check each run it.
+     */
+    private static <K> void checkOnce(Set<K> checked, K key, Runnable check) {
+        if (!checked.contains(key)) {
+            check.run();
+            checked.add(key);
         }
+    }
+
+    /**
+     * The group sequences the default group expands to for a bean, computed once per bean.
+     *
+     * @param introspection The bean, null for a value without one
+     * @param resolver Computes the sequences
+     * @return The sequences
+     */
+    List<DefaultConstraintValidatorContext.ValidationGroup> defaultGroupSequences(@Nullable BeanIntrospection<?> introspection,
+                                                                                Function<@Nullable BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> resolver) {
+        return defaultGroupSequences.computeIfAbsent(introspection, resolver);
     }
 
     /**

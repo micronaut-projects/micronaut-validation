@@ -32,7 +32,6 @@ import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
-import org.jspecify.annotations.NullMarked;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -58,7 +57,6 @@ import java.util.Set;
  * @since 5.0.0
  */
 @Internal
-@NullMarked
 public final class ExecutableHierarchy {
 
     private ExecutableHierarchy() {
@@ -372,9 +370,9 @@ public final class ExecutableHierarchy {
         }
         Map<Class<?>, Class<?>> seen = new HashMap<>();
         for (AnnotationValue<ConvertGroup> conversion : conversions) {
-            Class<?> from = conversion.classValue("from").orElse(Default.class);
-            Class<?> to = conversion.classValue("to")
-                .orElseThrow(() -> new ConstraintDeclarationException("Group conversion is missing a target group"));
+            GroupConversion groupConversion = GroupConversion.of(conversion);
+            Class<?> from = groupConversion.from();
+            Class<?> to = groupConversion.requireTo();
             if (isGroupSequence(reflectionSupport, from)) {
                 throw new ConstraintDeclarationException("Group conversion source cannot be a group sequence: " + from.getName());
             }

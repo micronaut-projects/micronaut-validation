@@ -15,10 +15,10 @@
  */
 package io.micronaut.validation.transformer;
 
-import io.micronaut.core.annotation.Internal;
 import io.micronaut.context.annotation.AliasFor;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.annotation.NamedAnnotationTransformer;
 import io.micronaut.inject.visitor.VisitorContext;
 import jakarta.validation.OverridesAttribute;

@@ -79,12 +79,10 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
         if (constraint == null || target == null || unresolved(constraint) || unresolved(target)) {
             return;
         }
-        // the introspection records what the validator binds in ConstraintValidator - the constraint and the
-        // validated type - and the validation target it declares. Without one it can only be read from the class
-        // every constructor is described: the one without parameters a validator is created with need not be the primary
+        // the introspection records the constraint, the validated type and the validation target without reflection;
+        // every constructor is described: the no-argument one a validator is created with need not be the primary
         element.annotate(Introspected.class, builder -> builder.member("constructors", true));
-        // whether initialize(A) is implemented below the no-op default of the interface: a validator keeping
-        // the default is passed no annotation instance, which would need reflection to build
+        // a validator keeping the no-op initialize(A) is passed no annotation instance, which would need reflection
         boolean initializes = element.getEnclosedElements(ElementQuery.ALL_METHODS
                 .onlyConcrete()
                 .named("initialize")

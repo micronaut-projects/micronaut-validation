@@ -28,10 +28,8 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.ConstraintDefinitionException;
-import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.valueextraction.ValueExtractor;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -55,7 +53,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @since 5.3.0
  */
 @Internal
-@NullMarked
 final class CompileTimeSupport implements ReflectionSupport {
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
@@ -113,10 +110,8 @@ final class CompileTimeSupport implements ReflectionSupport {
     public <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
         Class<T> declaringType = (Class<T>) method.getDeclaringClass();
         Optional<ExecutableMethod<T, Object>> found = locator.findExecutableMethod(declaringType, method.getName(), method.getParameterTypes());
-        // the locator answers for any bean of the type, a sub type overriding the method included,
-        // and falls
-        // back to a match on the name alone: only the method the type of the method declares is the
-        // one named
+        // the locator answers for any bean of the type, a sub type overriding the method included, and falls
+        // back to a match on the name alone: only the method the declaring type declares is the one named
         if (found.isPresent()
             && found.get().getDeclaringType() == declaringType
             && Arrays.equals(found.get().getArgumentTypes(), method.getParameterTypes())) {
@@ -131,10 +126,8 @@ final class CompileTimeSupport implements ReflectionSupport {
                 }
             }
         }
-        throw new ValidationException("No metadata describes the method " + method.getName() + Arrays.toString(method.getParameterTypes())
-            + " of " + declaringType.getName() + ": the type is neither a bean nor introspected with the method listed as"
-                        + " executable, and the micronaut-validation-reflection module, which would"
-                        + " describe it reflectively, is not present");
+        throw ReflectionSupport.reflectionRequired("the method " + method.getName() + Arrays.toString(method.getParameterTypes())
+            + " of " + declaringType.getName() + ", which is neither a bean nor introspected with the method listed as executable");
     }
 
     @Override
@@ -147,10 +140,8 @@ final class CompileTimeSupport implements ReflectionSupport {
                 }
             }
         }
-        throw new ValidationException("No metadata describes the constructor " + constructor.getDeclaringClass().getName() + Arrays.toString(parameterTypes)
-            + ": the type is not introspected with that constructor, and the"
-                        + " micronaut-validation-reflection module, which would describe it"
-                        + " reflectively, is not present");
+        throw ReflectionSupport.reflectionRequired("the constructor " + constructor.getDeclaringClass().getName() + Arrays.toString(parameterTypes)
+            + ", which the introspection of the type does not list");
     }
 
     @Override
@@ -178,10 +169,6 @@ final class CompileTimeSupport implements ReflectionSupport {
         });
     }
 
-    /**
-     * Reads inherited bindings from generated introspection type arguments, retaining their
-     * declaration-owned validation annotations.
-     */
     /**
      * The builder registered where the application is, then where this module and the annotation type are.
      */
@@ -238,7 +225,7 @@ final class CompileTimeSupport implements ReflectionSupport {
         if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
             return typeArgumentIndex;
         }
-        throw missing(
+        throw ReflectionSupport.reflectionRequired(
                 "container-variable mappings from "
                         + declaredType.getName()
                         + " to "
@@ -247,7 +234,7 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public <T> T instantiate(Class<T> type) {
-        throw missing("a constructor of " + type.getName() + ", which is neither introspected nor a bean");
+        throw ReflectionSupport.reflectionRequired("a constructor of " + type.getName() + ", which is neither introspected nor a bean");
     }
 
     @Override
@@ -257,7 +244,7 @@ final class CompileTimeSupport implements ReflectionSupport {
             // processor never checked, needs no reading of its class
             return;
         }
-        throw missing("the members " + constraintType.getName() + " declares, which the constraint definition"
+        throw ReflectionSupport.reflectionRequired("the members " + constraintType.getName() + " declares, which the constraint definition"
             + " rules are checked against");
     }
 
@@ -272,7 +259,7 @@ final class CompileTimeSupport implements ReflectionSupport {
                 return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
             }
         }
-        throw missing("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
+        throw ReflectionSupport.reflectionRequired("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
     }
 
     /**
@@ -366,7 +353,7 @@ final class CompileTimeSupport implements ReflectionSupport {
                 }
             }
         }
-        throw missing("the parameter names of " + executable.getName() + " of "
+        throw ReflectionSupport.reflectionRequired("the parameter names of " + executable.getName() + " of "
             + executable.getDeclaringClass().getName());
     }
 
@@ -382,22 +369,9 @@ final class CompileTimeSupport implements ReflectionSupport {
                     ExecutableHierarchy.mergeMetadata(
                             List.of(argument.getAnnotationMetadata(), declared)));
         }
-        throw missing(
+        throw ReflectionSupport.reflectionRequired(
                 "the extractor signature "
                         + extractorType.getName()
                         + " declares, for an instance registered through the configuration API");
-    }
-
-    /**
-     * The generated metadata does not describe what was asked for, and reading it means reading the
-     * class, which is what the reflection module is for.
-     */
-    private static ValidationException missing(String what) {
-        return new ValidationException(
-                "No generated metadata describes "
-                        + what
-                        + ": reading it means reading the class, and the"
-                        + " micronaut-validation-reflection module, which would read it, is not"
-                        + " present");
     }
 }

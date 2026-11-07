@@ -17,7 +17,6 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
@@ -32,6 +31,7 @@ import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
 import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.ref.Cleaner;
 import java.util.ArrayList;

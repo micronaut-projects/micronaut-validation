@@ -32,18 +32,20 @@ final class ArgumentValidationMetadata {
      * constraint or the cascade itself.
      *
      * @param reflectionSupport The access provider captured by the validator factory
+     * @param containerArgument The argument
+     * @param <E> The argument type
+     * @return Whether it is validated
      */
     static <E> boolean isValidated(ReflectionSupport reflectionSupport, Argument<E> containerArgument) {
         return reflectionSupport.prepareArgument(containerArgument).getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
     }
 
     /**
-     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
-     * it carries a constraint or a cascade, and an argument read reflectively carries the
-     * constraint or the cascade itself.
+     * Whether a type argument of an argument is validated.
      *
      * @param reflectionSupport The access provider captured by the validator factory
-     * @param reflectionSupport The access provider captured by the validator factory
+     * @param argument The argument
+     * @return Whether a type argument is validated
      */
     static boolean hasValidatedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
         for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {
@@ -55,13 +57,11 @@ final class ArgumentValidationMetadata {
     }
 
     /**
-     * Whether an argument is validated: the processor marks one with {@code ValidatedElement} when
-     * it carries a constraint or a cascade, and an argument read reflectively carries the
-     * constraint or the cascade itself.
+     * Whether a validated type argument of an argument, at any depth, is cascaded with {@link Valid}.
      *
      * @param reflectionSupport The access provider captured by the validator factory
-     * @param reflectionSupport The access provider captured by the validator factory
-     * @param reflectionSupport The access provider captured by the validator factory
+     * @param argument The argument
+     * @return Whether a type argument is cascaded
      */
     static boolean hasCascadedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
         for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {

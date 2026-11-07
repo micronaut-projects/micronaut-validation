@@ -193,6 +193,7 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
      * @return The extractors
      * @since 5.3.0
      */
+    @Override
     @SuppressWarnings("unchecked")
     public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType,
                                                                      Function<ValueExtractorDefinition<?>, @Nullable Integer> declaredTypeArgument) {

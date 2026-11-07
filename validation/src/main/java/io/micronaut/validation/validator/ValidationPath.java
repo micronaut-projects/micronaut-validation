@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
@@ -156,6 +155,15 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
             popPath.close();
             contextualPath.close();
         };
+    }
+
+    /**
+     * @param type A type
+     * @return The name of the type without its package and enclosing types, the name of its constructor nodes
+     */
+    static String simpleName(Class<?> type) {
+        String name = type.getName();
+        return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
     }
 
     @SuppressWarnings("unchecked")
@@ -487,7 +495,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
      */
     private static final class DefaultContainerElementNode extends DefaultNode implements ContainerElementNode {
 
-        public DefaultContainerElementNode(@Nullable String name, @NonNull ContainerContext containerContext) {
+        public DefaultContainerElementNode(@Nullable String name, ContainerContext containerContext) {
             super(name, containerContext);
         }
 

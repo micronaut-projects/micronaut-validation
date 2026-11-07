@@ -119,12 +119,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         constraintValidatorContext.addViolation(new DefaultConstraintViolation<>(
             constraintValidatorContext.getRootBean(),
             constraintValidatorContext.getRootClass(),
-            constraintValidatorContext.leafBean,
-            constraintValidatorContext.validatedValue,
+            constraintValidatorContext.leafBean(),
+            constraintValidatorContext.validatedValue(),
             messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
                 constraintValidatorContext,
                 constraintValidatorContext.currentConstraint(),
-                constraintValidatorContext.validatedValue
+                constraintValidatorContext.validatedValue()
             )),
             messageTemplate,
             // the bean node is left out only for a node added in its place: a class-level violation reported

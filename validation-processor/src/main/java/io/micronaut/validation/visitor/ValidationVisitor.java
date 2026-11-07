@@ -20,12 +20,8 @@ import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Vetoed;
 import io.micronaut.inject.ast.AnnotationElement;
-import jakarta.validation.executable.ExecutableType;
-import jakarta.validation.executable.ValidateOnExecution;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
@@ -39,11 +35,15 @@ import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.executable.ExecutableType;
+import jakarta.validation.executable.ValidateOnExecution;
+import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Map;
 import java.util.stream.Stream;
 
 /**
@@ -108,7 +108,51 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             || classElement.isAssignable("jakarta.validation.groups.Default"))) {
             classElement.annotate(Introspected.class);
         }
+        introspectGroups(classElement.getAnnotationMetadata(), context);
         recordGroups(classElement.getAnnotationMetadata());
+    }
+
+    /**
+     * Introspects the groups the annotations of an element and of its type arguments name, so that the validator
+     * reads the sequence a group declares without reflection.
+     */
+    private static void introspectGroups(TypedElement element, VisitorContext context, Set<Object> visited) {
+        introspectGroups(element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata(), context);
+        // only types are tracked: a Groovy member of a primitive type has no native type
+        if (element instanceof ClassElement type && (type.isPrimitive() || !visited.add(type.getNativeType()))) {
+            return;
+        }
+        ClassElement generic = element.getGenericType();
+        if (generic != element) {
+            introspectGroups(generic, context, visited);
+        }
+        generic.getTypeArguments().values().forEach(argument -> introspectGroups(argument, context, visited));
+    }
+
+    private static void introspectGroups(AnnotationMetadata metadata, VisitorContext context) {
+        for (String name : metadata.getAnnotationNames()) {
+            for (AnnotationValue<?> value : metadata.getAnnotationValuesByName(name)) {
+                introspectGroups(value, context);
+                // the repetitions a container holds
+                value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).forEach(contained -> introspectGroups(contained, context));
+            }
+        }
+    }
+
+    private static void introspectGroups(AnnotationValue<?> annotation, VisitorContext context) {
+        for (var group : annotation.annotationClassValues("groups")) {
+            context.getClassElement(group.getName()).filter(ClassElement::isInterface)
+                .filter(type -> !type.getName().startsWith("jakarta.validation.") && !type.hasDeclaredAnnotation(Introspected.class))
+                .ifPresent(type -> type.annotate(Introspected.class));
+        }
+    }
+
+    private static void introspectGroups(MethodElement element, VisitorContext context) {
+        introspectGroups(element.getMethodAnnotationMetadata(), context);
+        introspectGroups(element.getGenericReturnType(), context, new HashSet<>());
+        for (ParameterElement parameter : element.getParameters()) {
+            introspectGroups(parameter, context, new HashSet<>());
+        }
     }
 
     /**
@@ -231,6 +275,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
+        introspectGroups(element, context);
         if (!visited.add(element)) {
             return;
         }
@@ -244,15 +289,18 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null || element.isStatic()) {
+        if (classElement == null) {
+            return;
+        }
+        introspectGroups(element, context);
+        if (element.isStatic()) {
             return;
         }
         if (!visited.add(element)) {
             return;
         }
         var overridden = element.getOverriddenMethods();
-        // what the override declares itself, before the inherited annotations are copied in: only a method validation
-        // concerns, here or in a parent, is checked against what it inherits
+        // what the override declares itself, recorded before the inherited annotations are copied in
         if (!overridden.isEmpty() && (requiresValidation(element) || overridden.stream().anyMatch(ValidationVisitor::requiresValidation))) {
             var declared = Stream.of(element.getParameters()).map(parameter -> declaredTypeUse(parameter, new HashSet<>()))
                 .toArray(AnnotationValue<?>[]::new);
@@ -271,11 +319,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation && !inheritedValidation) {
             return;
         }
-        // a vetoed method is not validated when it is invoked: it asks for no validation advice. It is
-        // described all the same - the specification describes every constrained method, whether or not
-        // anything validates it - so being described and being validated are decided apart
+        // a method @ValidateOnExecution leaves out is vetoed: still described, but not validated when invoked
         if (!isPrivate && !validatedOnExecution(element)) {
-            // @ValidateOnExecution leaves the method out: it is described, not validated when invoked
             element.annotate(Vetoed.class);
         }
         boolean vetoed = element.hasStereotype(Vetoed.class);
@@ -285,8 +330,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             }
             throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
         }
-        // the specification describes every constrained method: a bean method of the introspection
-        // is what a MethodDescriptor is read from, and only an executable method becomes one
+        // a MethodDescriptor is read from an executable bean method of the introspection
         element.annotate(Executable.class);
         if (classElement.isInterface() || classElement.isAbstract()) {
             classElement.annotate(Introspected.class);
@@ -360,6 +404,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
+        introspectGroups(element, context, new HashSet<>());
         if (!visited.add(element)) {
             return;
         }
@@ -497,8 +542,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         for (int i = 0; i < methodParameters.length; ++i) {
             inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
         }
-        // Core merges method annotations itself. Only nested type-use annotations need
-        // supplementation; copying the return declaration would make it local to an override.
+        // core merges method annotations; copying the return declaration would make it local to the override
         Map<String, ClassElement> local = method.getGenericReturnType().getTypeArguments();
         Map<String, ClassElement> inherited = parent.getGenericReturnType().getTypeArguments();
         for (var entry : local.entrySet()) {

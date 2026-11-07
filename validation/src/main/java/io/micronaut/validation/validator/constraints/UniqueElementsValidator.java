@@ -16,13 +16,11 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.UniqueElements;
 import jakarta.inject.Singleton;
 
-import org.jspecify.annotations.NullMarked;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -30,13 +28,12 @@ import java.util.Set;
 /** Validator for the {@link UniqueElements} constraint. */
 @Singleton
 @Introspected
-@NullMarked
 public class UniqueElementsValidator implements ConstraintValidator<UniqueElements, Object> {
 
     @Override
     public boolean isValid(@Nullable Object value,
-                           @NonNull AnnotationValue<UniqueElements> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<UniqueElements> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (value == null) {
             return true; // Ignore null values
         }

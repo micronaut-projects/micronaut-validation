@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.io.service.SoftServiceLoader;
-import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.ref.WeakReference;
@@ -24,7 +23,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 /** Optional provider discovery without retaining an application class loader. */
-@NullMarked
 final class ReflectionSupportServiceDiscovery {
     private static volatile List<Provider> providers = List.of();
 

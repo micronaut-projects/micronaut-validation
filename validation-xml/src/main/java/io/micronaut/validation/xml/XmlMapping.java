@@ -31,8 +31,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-import static io.micronaut.validation.xml.XmlMappingSupport.localName;
-
 /** Parsed constraint mappings shared by the parser and metadata adapter. */
 final class XmlMapping {
     private XmlMapping() { }
@@ -110,7 +108,7 @@ final class XmlMapping {
                 if (!(node instanceof Element element)) {
                     continue;
                 }
-                switch (localName(element)) {
+                switch (XmlMappingSupport.localName(element)) {
                     case "parameter" -> {
                         ParameterMapping parameter = parameters.get(parameterIndex);
                         resolvedParameters.add(parameter.withContainerElements(

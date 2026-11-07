@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.NonNull;
 import io.micronaut.core.async.publisher.Publishers;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.type.Argument;
@@ -56,9 +55,9 @@ final class ReactiveValidation {
     @SuppressWarnings({"unchecked", "rawtypes"})
     static <T> Publisher<T> validatePublisher(DefaultValidator validator,
                                               ConversionService conversionService,
-                                              @NonNull ReturnType<?> returnType,
-                                              @NonNull Publisher<T> publisher,
-                                              @NonNull Class<?>... groups) {
+                                              ReturnType<?> returnType,
+                                              Publisher<T> publisher,
+                                              Class<?>... groups) {
         if (returnType.getTypeParameters().length == 0) {
             return publisher;
         }
@@ -162,14 +161,14 @@ final class ReactiveValidation {
     }
 
     private static <B, E> Set<? extends ConstraintViolation<?>> validateReturnedValue(DefaultValidator validator,
-                                                                                    B bean,
-                                                                                    ExecutableMethod<?, Object> method,
-                                                                                    Object container,
-                                                                                    String nodeName,
-                                                                                    ValidationPath.ContainerContext containerContext,
-                                                                                    Argument<E> valueArgument,
-                                                                                    E value,
-                                                                                    Class<?>[] groups) {
+                                                                                      B bean,
+                                                                                      ExecutableMethod<?, Object> method,
+                                                                                      Object container,
+                                                                                      String nodeName,
+                                                                                      ValidationPath.ContainerContext containerContext,
+                                                                                      Argument<E> valueArgument,
+                                                                                      E value,
+                                                                                      Class<?>[] groups) {
         DefaultConstraintValidatorContext<B> context = new DefaultConstraintValidatorContext<>(validator, null, bean, BeanValidationContext.fromGroups(groups));
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored = context.withExecutableReturnValue(container);
              ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addMethodNode(method);
@@ -177,7 +176,7 @@ final class ReactiveValidation {
              ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addContainerElementNode(nodeName, containerContext)) {
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
                 try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    validator.visitElement(context, bean, valueArgument, value, true);
+                    validator.traversal().visitElement(context, bean, valueArgument, value, true);
                     if (validation.isFailed()) {
                         break;
                     }
@@ -189,11 +188,11 @@ final class ReactiveValidation {
 
     private static <T, E> Set<? extends ConstraintViolation<?>> validatePublisherValue(DefaultValidator validator,
                                                                                        Argument<T> publisherArgument,
-                                                                                @NonNull T publisher,
-                                                                                Class<?>[] groups,
-                                                                                Argument<E> valueArgument,
-                                                                                E value,
-                                                                                boolean canCascade
+                                                                                       T publisher,
+                                                                                       Class<?>[] groups,
+                                                                                       Argument<E> valueArgument,
+                                                                                       E value,
+                                                                                       boolean canCascade
     ) {
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(validator, null, publisher, BeanValidationContext.fromGroups(groups));
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addReturnValueNode()) {
@@ -201,7 +200,7 @@ final class ReactiveValidation {
                 ValidationPath.DefaultContainerContext.ofIterableContainer(publisherArgument.getType()))) {
                 for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
                     try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
-                        validator.visitElement(context, publisher, valueArgument, value, canCascade);
+                        validator.traversal().visitElement(context, publisher, valueArgument, value, canCascade);
                     }
                 }
             }
@@ -210,12 +209,12 @@ final class ReactiveValidation {
     }
 
     static <R, E> void instrumentPublisherArgumentWithValidation(DefaultValidator validator,
-                                                                 @NonNull DefaultConstraintValidatorContext<R> context,
-                                                                  @NonNull Object[] argumentValues,
-                                                                  int argumentIndex,
-                                                                  @NonNull Argument<E> publisherArgument,
-                                                                  E parameterValue,
-                                                                  boolean canCascade) {
+                                                                 DefaultConstraintValidatorContext<R> context,
+                                                                 Object[] argumentValues,
+                                                                 int argumentIndex,
+                                                                 Argument<E> publisherArgument,
+                                                                 E parameterValue,
+                                                                 boolean canCascade) {
         final Publisher<?> publisher = Publishers.convertPublisher(validator.conversionService(), parameterValue, Publisher.class);
         // the context of the call, copied for every value: a subscription, or a value of one, never sees the
         // violations or the path another left
@@ -238,11 +237,11 @@ final class ReactiveValidation {
     }
 
     private static <R, E> Set<? extends ConstraintViolation<?>> validatePublishedValue(DefaultValidator validator,
-                                                      @NonNull DefaultConstraintValidatorContext<R> context,
-                                               @NonNull Argument<E> publisherArgument,
-                                               E value,
-                                               @NonNull Object publisherInstance,
-                                               boolean canCascade) {
+                                                                                       DefaultConstraintValidatorContext<R> context,
+                                                                                       Argument<E> publisherArgument,
+                                                                                       E value,
+                                                                                       Object publisherInstance,
+                                                                                       boolean canCascade) {
         Argument<?>[] typeParameters = publisherArgument.getTypeParameters();
 
         if (typeParameters.length == 0) {
@@ -253,7 +252,7 @@ final class ReactiveValidation {
 
         try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
             .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(value.getClass()))) {
-            validator.visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, publisherInstance, canCascade);
+            validator.traversal().visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, publisherInstance, canCascade);
         }
         return context.getOverallViolations();
     }
@@ -268,7 +267,7 @@ final class ReactiveValidation {
                                               boolean canCascade) {
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath()
             .addContainerElementNode("<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class))) {
-            validator.visitElement(context, context.getRootBean(), argument, value, canCascade);
+            validator.traversal().visitElement(context, context.getRootBean(), argument, value, canCascade);
         }
     }
 
@@ -277,12 +276,12 @@ final class ReactiveValidation {
      * at this exact time, the validation is applied to the completion stage.
      */
     static <T, E> void instrumentCompletionStageArgumentWithValidation(DefaultValidator validator,
-                                                                       @NonNull DefaultConstraintValidatorContext<T> context,
-                                                                        @NonNull Object[] argumentValues,
-                                                                        int argumentIndex,
-                                                                        @NonNull Argument<E> completionStageArgument,
-                                                                        E parameterValue,
-                                                                        boolean canCascade) {
+                                                                       DefaultConstraintValidatorContext<T> context,
+                                                                       Object[] argumentValues,
+                                                                       int argumentIndex,
+                                                                       Argument<E> completionStageArgument,
+                                                                       E parameterValue,
+                                                                       boolean canCascade) {
         final CompletionStage<Object> completionStage = (CompletionStage<Object>) parameterValue;
 
         Argument<Object> valueArgument = (Argument<Object>) completionStageArgument.getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT);
@@ -292,9 +291,9 @@ final class ReactiveValidation {
 
     static <T, E> CompletionStage<E> instrumentCompletionStage(DefaultValidator validator,
                                                                DefaultConstraintValidatorContext<T> context,
-                                                                CompletionStage<E> completionStage,
-                                                                Argument<E> argument,
-                                                                boolean canCascade) {
+                                                               CompletionStage<E> completionStage,
+                                                               Argument<E> argument,
+                                                               boolean canCascade) {
         return completionStage.thenApply(value -> {
 
             validateCompletedValue(validator, context, argument, value, canCascade);

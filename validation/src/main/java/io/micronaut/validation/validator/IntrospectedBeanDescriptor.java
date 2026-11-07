@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanMethod;
@@ -46,6 +45,7 @@ import jakarta.validation.metadata.ParameterDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.metadata.Scope;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
@@ -56,7 +56,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -76,15 +75,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private final IntrospectedExecutableDescriptors executables;
     @Nullable
     private final ValidatorDeclarations declarations;
-
-    /**
-     * Default constructor.
-     *
-     * @param beanIntrospection The bean introspection
-     */
-    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection) {
-        this(ReflectionSupport.get(), beanIntrospection, ConstraintValidatorOverrides.NONE, null);
-    }
 
     IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
                                ConstraintValidatorOverrides validatorOverrides,
@@ -327,38 +317,16 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
                                                                AnnotationValue<? extends Annotation> annotationValue,
                                                                AnnotationMetadata annotationMetadata) {
-        Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> validatorClasses = constraintValidatorClasses(
-            (Class<Annotation>) type,
-            (AnnotationValue<Annotation>) annotationValue
-        );
-        return validatorClasses
-            .map(classes -> new DefaultConstraintDescriptor(reflectionSupport,
-                type,
-                annotationValue,
-                annotationMetadata,
-                classes,
-                true
-            ))
-            .orElseGet(() -> new DefaultConstraintDescriptor(reflectionSupport,
-                type,
-                annotationValue,
-                annotationMetadata
-            ));
-    }
-
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    private Optional<List<Class<? extends ConstraintValidator<Annotation, ?>>>> constraintValidatorClasses(
-        Class<Annotation> constraintType,
-        AnnotationValue<Annotation> annotationValue) {
-        return Optional.ofNullable((List) validatorOverrides.validatorsOf(constraintType,
-            List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY))));
+        List validatorClasses = validatorOverrides.validatorsOf((Class<Annotation>) type,
+            List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)));
+        return DefaultConstraintDescriptor.of(reflectionSupport, (Class<Annotation>) type, (AnnotationValue<Annotation>) annotationValue,
+            annotationMetadata, validatorClasses);
     }
 
     private ClassLoader currentClassLoader() {
         return reflectionSupport.classLoader();
     }
 
-    /** Internal implementation of {@link PropertyDescriptor}. */
     /**
      * A property. Its constraints are those of its metadata; when the introspection knows the members of the
      * property — an introspection separating the declarations does — the finder can look at the local element only,

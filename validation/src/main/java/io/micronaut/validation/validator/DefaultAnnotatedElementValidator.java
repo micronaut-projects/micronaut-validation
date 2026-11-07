@@ -18,19 +18,19 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArrayUtils;
+import io.micronaut.core.util.SupplierUtil;
 import io.micronaut.inject.annotation.AnnotatedElementValidator;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import io.micronaut.validation.validator.constraints.ConstraintValidator;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
 import jakarta.validation.ValidationException;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * Default implementation of {@link AnnotatedElementValidator}. Used for discovery via
@@ -44,27 +44,30 @@ public class DefaultAnnotatedElementValidator extends DefaultValidator implement
 
     /** Default constructor. */
     public DefaultAnnotatedElementValidator() {
-        super(new DefaultValidatorConfiguration().setConstraintValidatorRegistry(new LocalConstraintValidators()));
+        this(new DefaultValidatorConfiguration());
+    }
+
+    private DefaultAnnotatedElementValidator(DefaultValidatorConfiguration configuration) {
+        super(configuration.setConstraintValidatorRegistry(new LocalConstraintValidators(configuration.getReflectionSupport())));
     }
 
     /** Local constraint validator lookup using service loader. */
     private static final class LocalConstraintValidators extends DefaultConstraintValidators {
-        private final ReflectionSupport reflectionSupport = ReflectionSupport.get();
+        private final ReflectionSupport reflectionSupport;
 
-        private @Nullable Map<ValidatorKey, ConstraintValidator<?, ?>> validatorMap;
+        private final Supplier<Map<ValidatorKey, ConstraintValidator<?, ?>>> validatorMap = SupplierUtil.memoized(this::initializeValidatorMap);
+
+        private LocalConstraintValidators(ReflectionSupport reflectionSupport) {
+            this.reflectionSupport = reflectionSupport;
+        }
 
         @Override
-        protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
+        protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(Class<A> constraintType, Class<T> targetType) {
             return findConstraintValidatorFromServiceLoader(constraintType, targetType);
         }
 
         private <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidatorFromServiceLoader(Class<A> constraintType, Class<T> targetType) {
-            Map<ValidatorKey, ConstraintValidator<?, ?>> validators = validatorMap;
-            if (validators == null) {
-                validators = initializeValidatorMap();
-                validatorMap = validators;
-            }
-            return validators.entrySet().stream()
+            return validatorMap.get().entrySet().stream()
                 .filter(entry -> {
                     final ValidatorKey key = entry.getKey();
                     final Class<?>[] left = {constraintType, targetType};

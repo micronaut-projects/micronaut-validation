@@ -86,6 +86,19 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
+     * The exception reporting that the generated metadata does not describe what a call needs: reading it from the
+     * class is what the {@code micronaut-validation-reflection} module is for.
+     *
+     * @param what What the generated metadata does not describe
+     * @return The exception
+     * @since 5.3.0
+     */
+    static ValidationException reflectionRequired(String what) {
+        return new ValidationException("No generated metadata describes " + what
+            + ": reading it from the class requires micronaut-validation-reflection");
+    }
+
+    /**
      * Resolves the access provider once for an application loader.
      * @param loader The application loader
      * @return The access provider
@@ -162,10 +175,9 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      */
     default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
         if (member.getAnnotationMetadata()
-                .booleanValue(ValidationField.class, "reflection")
+                .booleanValue(ValidationField.class, ValidationField.MEMBER_REFLECTION)
                 .orElse(false)) {
-            throw new ValidationException("Cannot read field " + member.getDeclaringType().getName()
-                + "." + member.getName() + ": direct field access requires micronaut-validation-reflection");
+            throw reflectionRequired("an accessor of the field " + member.getDeclaringType().getName() + "." + member.getName());
         }
         return member.read(bean);
     }
@@ -184,8 +196,8 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      */
     default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
         AnnotationMetadata metadata = member.getAnnotationMetadata();
-        if (metadata.booleanValue(ValidationField.class, "property").orElse(false)
-            && metadata.booleanValue(ValidationField.class, "reflection").orElse(false)
+        if (metadata.booleanValue(ValidationField.class, ValidationField.MEMBER_PROPERTY).orElse(false)
+            && metadata.booleanValue(ValidationField.class, ValidationField.MEMBER_REFLECTION).orElse(false)
             && member.asArgument().equalsStructure(property.asArgument())) {
             return property.get(bean);
         }
@@ -202,18 +214,12 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The declaration, or null when absent
      */
     default @Nullable ValidationDeclaration declaration(
-            Class<?> type, String kind, String name, List<Class<?>> parameters) {
+            Class<?> type, ValidationDeclaration.Kind kind, String name, List<Class<?>> parameters) {
         var introspection = introspector().findIntrospection(type).orElse(null);
         if (introspection == null) {
-            throw new ValidationException(
-                    "No generated declaration for "
-                            + type.getName()
-                            + "."
-                            + name
-                            + ": add micronaut-validation-reflection");
+            throw reflectionRequired("the declaration " + type.getName() + "." + name);
         }
-        var declaration = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
-        return declaration;
+        return ValidationDeclaration.generated(this, introspection, kind, name, parameters);
     }
 
     /**
@@ -275,13 +281,6 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
-     * Returns a caller-supplied signature, or requests optional member lookup.
-     *
-     * @param executable The generated executable
-     * @return The Jakarta signature
-     * @since 5.3.0
-     */
-    /**
      * Rejects a reference that stands for no Java method - a lifecycle interception of a bean declaring no
      * callback, a route to a handler function - which no reflection can name by its {@link Method} either.
      *
@@ -317,11 +316,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
             return supplied.suppliedMethod();
         }
         checkTargetMethod(executable);
-        throw new ValidationException(
-                "Runtime method lookup requires micronaut-validation-reflection: "
-                        + executable.getDeclaringType().getName()
-                        + "."
-                        + executable.getMethodName());
+        throw reflectionRequired("the Java method " + executable.getDeclaringType().getName() + "." + executable.getMethodName());
     }
 
     /**

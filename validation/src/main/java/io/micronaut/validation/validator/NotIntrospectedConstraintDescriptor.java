@@ -50,10 +50,6 @@ public final class NotIntrospectedConstraintDescriptor<E> implements ConstraintD
     private final Argument<E> notIntrospectedArgument;
     private final @Nullable E elementValue;
 
-    NotIntrospectedConstraintDescriptor(Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
-        this(ReflectionSupport.get(), notIntrospectedArgument, elementValue);
-    }
-
     NotIntrospectedConstraintDescriptor(ReflectionSupport reflectionSupport, Argument<E> notIntrospectedArgument, @Nullable E elementValue) {
         this.reflectionSupport = reflectionSupport;
         this.notIntrospectedArgument = notIntrospectedArgument;

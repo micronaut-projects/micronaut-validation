@@ -104,11 +104,10 @@ public final class ConstraintValidatorTargetResolver {
     /**
      * Reads validation target metadata from annotation metadata.
      *
-     * @param reflectionSupport The access provider captured by the validator factory
      * @param annotationMetadata The annotation metadata
      * @return Supported validation targets
      */
-    public static Set<ValidationTarget> validationTargets(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata) {
+    public static Set<ValidationTarget> validationTargets(AnnotationMetadata annotationMetadata) {
         return ValidationEnumValues.targets(annotationMetadata);
     }
 
@@ -188,7 +187,7 @@ public final class ConstraintValidatorTargetResolver {
         // the introspection of a validator records what it declares; a validator without one is
         // read
         return reflectionSupport.introspector().findIntrospection(validatorType)
-            .map(introspection -> validationTargets(reflectionSupport, introspection.getAnnotationMetadata()))
+            .map(introspection -> validationTargets(introspection.getAnnotationMetadata()))
             .orElseGet(() -> reflectionSupport.supportedValidationTargets(validatorType));
     }
 

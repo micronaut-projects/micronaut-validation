@@ -18,7 +18,6 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
@@ -29,7 +28,6 @@ import jakarta.validation.ConstraintTarget;
 import jakarta.validation.Valid;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
-import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
@@ -41,6 +39,7 @@ import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.ParameterDescriptor;
 import jakarta.validation.metadata.ReturnValueDescriptor;
 import jakarta.validation.metadata.Scope;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
 import java.util.ArrayList;
@@ -76,15 +75,9 @@ final class IntrospectedExecutableDescriptors {
 
     /**
      * @param constraints The factory of the constraint descriptors of an annotation metadata
+     * @param declarations The declarations of the validator, {@code null} for a descriptor built outside one
+     * @param reflectionSupport The access provider captured by the validator factory
      */
-    IntrospectedExecutableDescriptors(Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints) {
-        this(constraints, null);
-    }
-
-    IntrospectedExecutableDescriptors(Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints, @Nullable ValidatorDeclarations declarations) {
-        this(constraints, declarations, declarations == null ? ReflectionSupport.get() : declarations.reflectionSupport());
-    }
-
     IntrospectedExecutableDescriptors(Function<AnnotationMetadata, Set<ConstraintDescriptor<?>>> constraints,
             @Nullable ValidatorDeclarations declarations, ReflectionSupport reflectionSupport) {
         this.constraints = constraints;
@@ -153,9 +146,9 @@ final class IntrospectedExecutableDescriptors {
         }
         Map<Class<?>, Class<?>> groups = new LinkedHashMap<>();
         for (AnnotationValue<ConvertGroup> conversion : conversions) {
-            Class<?> from = conversion.classValue("from").orElse(Default.class);
-            Class<?> to = conversion.classValue("to")
-                .orElseThrow(() -> new ConstraintDeclarationException("Group conversion is missing a target group"));
+            GroupConversion groupConversion = GroupConversion.of(conversion);
+            Class<?> from = groupConversion.from();
+            Class<?> to = groupConversion.requireTo();
             Class<?> previous = groups.putIfAbsent(from, to);
             if (previous != null) {
                 throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
@@ -167,11 +160,6 @@ final class IntrospectedExecutableDescriptors {
     }
 
     /** Whether a constraint declared on an executable applies to the given target. */
-    private static String simpleName(Class<?> type) {
-        String name = type.getName();
-        return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
-    }
-
     private boolean targets(ConstraintDescriptor<?> descriptor, ConstraintTarget target) {
         ConstraintTarget validationAppliesTo = descriptor.getValidationAppliesTo();
         if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT) {
@@ -725,7 +713,7 @@ final class IntrospectedExecutableDescriptors {
             this(method, declarations == null ? null : declarations.resolveHierarchy(method));
         }
 
-        private IntrospectedMethodDescriptor(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+        private IntrospectedMethodDescriptor(BeanMethod<?, ?> method, ExecutableHierarchy.@Nullable Resolved hierarchy) {
             super(method.getName(),
                 hierarchy == null ? method.getAnnotationMetadata() : hierarchy.annotationMetadata(),
                 hierarchy == null ? method.getArguments() : hierarchy.arguments(),
@@ -742,7 +730,7 @@ final class IntrospectedExecutableDescriptors {
          * hierarchy knows it, the parameters of a method overriding nothing, none for an inherited method or an
          * override whose own declaration is not known apart.
          */
-        private static Argument<?> @Nullable [] localArguments(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+        private static Argument<?> @Nullable [] localArguments(BeanMethod<?, ?> method, ExecutableHierarchy.@Nullable Resolved hierarchy) {
             if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()
                 || !ValidationMetadataSupport.declares(method.getDeclaringBean(), method.getName(), Argument.toClassArray(method.getArguments()))) {
                 return null;
@@ -758,7 +746,7 @@ final class IntrospectedExecutableDescriptors {
          * hierarchy knows it, the whole metadata of a method the bean type declares, nothing for an
          * inherited method.
          */
-        private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, @Nullable ExecutableHierarchy.Resolved hierarchy) {
+        private static AnnotationMetadata declaredMetadata(BeanMethod<?, ?> method, ExecutableHierarchy.@Nullable Resolved hierarchy) {
             if (method.getDeclaringType() != method.getDeclaringBean().getBeanType()
                 || !ValidationMetadataSupport.declares(method.getDeclaringBean(), method.getName(), Argument.toClassArray(method.getArguments()))) {
                 // inherited as is: the described type declares nothing on it
@@ -782,7 +770,7 @@ final class IntrospectedExecutableDescriptors {
 
         IntrospectedConstructorDescriptor(BeanConstructor<?> constructor) {
             super(
-                    simpleName(constructor.getDeclaringBeanType()),
+                    ValidationPath.simpleName(constructor.getDeclaringBeanType()),
                 constructor.getAnnotationMetadata(),
                 constructor.getArguments(),
                 Argument.of(constructor.getDeclaringBeanType()),

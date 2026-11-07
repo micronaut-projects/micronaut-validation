@@ -171,7 +171,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         return new ConstraintValidatorEntry(
             constructor.instantiate(),
             ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, beanIntrospection),
-            ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, beanIntrospection),
+            ConstraintValidatorTargetResolver.validationTargets(beanIntrospection),
             null);
     }
 
@@ -189,8 +189,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
         return new ConstraintValidatorEntry(
                 instance,
                 arguments.size() == 2 ? arguments.get(1).getType() : Object.class,
-                ConstraintValidatorTargetResolver.validationTargets(reflectionSupport,
-                        definition.getAnnotationMetadata()),
+                ConstraintValidatorTargetResolver.validationTargets(definition.getAnnotationMetadata()),
                 registration);
     }
 

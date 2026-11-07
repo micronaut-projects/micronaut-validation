@@ -152,7 +152,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             return ReflectionSupport.super.readMember(member, bean);
         }
         if (member.getAnnotationMetadata().booleanValue(
-                ValidationField.class, "reflection").orElse(false)) {
+                ValidationField.class, ValidationField.MEMBER_REFLECTION).orElse(false)) {
             try {
                 return accessibleField(member.getDeclaringType(), member.getName()).get(bean);
             } catch (ReflectiveOperationException | SecurityException e) {
@@ -216,7 +216,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public @Nullable ValidationDeclaration declaration(
-            Class<?> type, String kind, String name, List<Class<?>> parameters) {
+            Class<?> type, ValidationDeclaration.Kind kind, String name, List<Class<?>> parameters) {
         var introspection = BeanIntrospector.forClassLoader(type.getClassLoader()).findIntrospection(type).orElse(null);
         if (introspection != null) {
             var generated = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
@@ -228,7 +228,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             return ReflectionSupport.super.declaration(type, kind, name, parameters);
         }
         try {
-            if (kind.equals("constructor")) {
+            if (kind == ValidationDeclaration.Kind.CONSTRUCTOR) {
                 Constructor<?> constructor =
                         type.getDeclaredConstructor(parameters.toArray(Class<?>[]::new));
                 return declaration(constructor, name, Argument.of(type));
@@ -236,7 +236,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             for (Class<?> current = type;
                     current != null && current != Object.class;
                     current = current.getSuperclass()) {
-                if (kind.equals("field")) {
+                if (kind == ValidationDeclaration.Kind.FIELD) {
                     try {
                         var field = current.getDeclaredField(name);
                         field.trySetAccessible();
@@ -260,7 +260,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                 }
                 for (Method method : current.getDeclaredMethods()) {
                     boolean matches =
-                            kind.equals("getter")
+                            kind == ValidationDeclaration.Kind.GETTER
                                     ? method.getParameterCount() == 0
                                             && (method.getName()
                                                             .equals(
@@ -298,7 +298,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                                 value,
                                 declaration.metadata(),
                                 declaration.parameters(),
-                                kind.equals("getter")
+                                kind == ValidationDeclaration.Kind.GETTER
                                         ? bean -> {
                                             try {
                                                 return method.invoke(bean);
@@ -307,7 +307,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                                                         "Cannot invoke XML getter " + method, e);
                                             }
                                         }
-                                        : null);
+                                        : ValidationDeclaration.Reader.NONE);
                     }
                 }
             }
@@ -329,7 +329,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
                 value,
                 ReflectionAnnotations.metadataOf(executable),
                 parameters,
-                null);
+                ValidationDeclaration.Reader.NONE);
     }
 
     @Override

@@ -17,7 +17,6 @@ package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.NonNull;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 
 import java.util.List;
@@ -39,8 +38,7 @@ public final class ConfiguredMetadata {
      * @param levels The levels, the one to win last
      * @return The merged metadata
      */
-    @NonNull
-    public static AnnotationMetadata merge(@NonNull List<AnnotationMetadata> levels) {
+    public static AnnotationMetadata merge(List<AnnotationMetadata> levels) {
         List<AnnotationMetadata> present = levels.stream().filter(level -> !level.isEmpty()).toList();
         if (present.isEmpty()) {
             return AnnotationMetadata.EMPTY_METADATA;
@@ -60,8 +58,7 @@ public final class ConfiguredMetadata {
      * @param second The second level, winning where the same annotation is repeated
      * @return The merged metadata
      */
-    @NonNull
-    public static AnnotationMetadata merge(@NonNull AnnotationMetadata first, @NonNull AnnotationMetadata second) {
+    public static AnnotationMetadata merge(AnnotationMetadata first, AnnotationMetadata second) {
         return merge(List.of(first, second));
     }
 }

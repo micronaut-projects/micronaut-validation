@@ -15,14 +15,13 @@
  */
 package io.micronaut.validation.transformer;
 
-import io.micronaut.core.annotation.Internal;
 import io.micronaut.annotation.processing.visitor.ElementProvider;
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
-import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Retainable;
 import io.micronaut.inject.annotation.AnnotationRemapper;
 import io.micronaut.inject.ast.AnnotationElement;
@@ -30,11 +29,14 @@ import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.EnumElement;
 import io.micronaut.inject.processing.JavaModelUtils;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.annotation.InEnum;
+import io.micronaut.validation.annotation.NotInEnum;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
 import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 
 import java.lang.annotation.Inherited;
 import java.util.ArrayList;
@@ -47,7 +49,9 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
 
 /**
- * The validation annotations remapper.
+ * The validation annotations remapper: it retains on each constraint occurrence what the validator reads of its
+ * definition. It applies to every package because a constraint is any annotation meta-annotated with
+ * {@link Constraint}.
  *
  * @author Denis Stepanov
  */
@@ -61,11 +65,6 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
 
     @Override
     public List<AnnotationValue<?>> remap(AnnotationValue<?> annotation, VisitorContext visitorContext) {
-        for (var group : annotation.annotationClassValues("groups")) {
-            visitorContext.getClassElement(group.getName()).filter(ClassElement::isInterface)
-                .filter(type -> !type.getName().startsWith("jakarta.validation."))
-                .ifPresent(type -> type.annotate(Introspected.class));
-        }
         var contained = annotation.getAnnotations(AnnotationMetadata.VALUE_MEMBER);
         if (!contained.isEmpty()) {
             var rewritten = contained.stream().map(value -> visitorContext.getClassElement(value.getAnnotationName())
@@ -84,16 +83,14 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             annotation = annotation.mutate().member(AnnotationMetadata.VALUE_MEMBER, rewritten).build();
         }
         if (annotation.getAnnotationName().equals(Constraint.class.getName())) {
-            // marking the contract itself makes every constraint annotation retainable, so an annotation
-            // composing one keeps that occurrence attributed to it
+            // makes every constraint retainable, so a composing occurrence stays attributed to its composition
             return List.of(
                     annotation.mutate().stereotype(
                             AnnotationValue.builder(Retainable.class).build()
                     ).build());
         }
         if (annotation.getAnnotationName().equals(ReportAsSingleViolation.class.getName())) {
-            // the marker says a composition reports one violation rather than the ones it composes, and it is
-            // read per constraint: retaining it keeps it on the occurrence, where the metadata answers for it
+            // read per constraint: retained, it stays on the occurrence
             return List.of(
                     annotation.mutate().stereotype(
                             AnnotationValue.builder(Retainable.class).build()
@@ -112,11 +109,11 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                 AnnotationValue<?> constraintAnnotationValue = optionalConstraint.get();
                 AnnotationValueBuilder<?> builder = annotation.mutate()
                     .member(ValidationAnnotationUtil.CONSTRAINT_TYPE, new AnnotationClassValue<>(annotation.getAnnotationName()));
-                if (annotation.getAnnotationName().equals("io.micronaut.validation.annotation.InEnum")
-                    || annotation.getAnnotationName().equals("io.micronaut.validation.annotation.NotInEnum")) {
+                if (annotation.getAnnotationName().equals(InEnum.class.getName())
+                    || annotation.getAnnotationName().equals(NotInEnum.class.getName())) {
                     annotation.stringValue("value").flatMap(visitorContext::getClassElement)
                         .filter(EnumElement.class::isInstance).map(EnumElement.class::cast)
-                        .ifPresent(type -> builder.member("$enumValues", type.values().toArray(String[]::new)));
+                        .ifPresent(type -> builder.member(ValidationAnnotationUtil.ENUM_VALUES, type.values().toArray(String[]::new)));
                 }
                 AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
                 builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);
@@ -126,7 +123,7 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                         visitorContext.getClassElement(validator.getName()).ifPresent(type -> {
                             var declared = type.getAnnotationMetadata().stringValues(SupportedValidationTarget.class);
                             if (declared.length == 0) {
-                                targets.add("ANNOTATED_ELEMENT");
+                                targets.add(ValidationTarget.ANNOTATED_ELEMENT.name());
                             } else {
                                 targets.addAll(List.of(declared));
                             }
@@ -135,6 +132,7 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                     builder.member(ValidationAnnotationUtil.VALIDATION_TARGETS, targets.toArray(String[]::new));
                 }
                 visitorContext.getClassElement(annotation.getAnnotationName()).ifPresent(type -> {
+                    // also reports an invalid definition: only the remapper sees every use, a library constraint's included
                     ConstraintDefinitionMetadata.retain(type, visitorContext, builder);
                     if (visitorContext.getLanguage() == VisitorContext.Language.JAVA) {
                         JavaComposition.retainDirectCompositions(type, builder);

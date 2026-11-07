@@ -32,6 +32,15 @@ import java.lang.annotation.ElementType;
 @Target(ElementType.FIELD)
 public @interface ValidationField {
     /**
+     * The name of the {@link #reflection()} member.
+     */
+    String MEMBER_REFLECTION = "reflection";
+    /**
+     * The name of the {@link #property()} member.
+     */
+    String MEMBER_PROPERTY = "property";
+
+    /**
      * Identifies fields whose direct access requires the reflection companion.
      *
      * @return Whether generated access requires reflection

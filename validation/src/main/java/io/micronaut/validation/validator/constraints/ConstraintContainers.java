@@ -18,15 +18,15 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.core.annotation.NonNull;
-import io.micronaut.core.annotation.Nullable;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -52,7 +52,7 @@ public final class ConstraintContainers {
      * @param classLoader The loader of the constraint types
      * @return Whether there is a constraint
      */
-    public static boolean hasConstraints(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
+    public static boolean hasConstraints(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
         if (annotationMetadata.hasStereotype(Constraint.class)) {
             return true;
         }
@@ -72,7 +72,7 @@ public final class ConstraintContainers {
      * @param annotationMetadata The metadata
      * @return Whether there is a constraint
      */
-    public static boolean hasConstraints(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata) {
+    public static boolean hasConstraints(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata) {
         return hasConstraints(reflectionSupport, annotationMetadata, reflectionSupport.classLoader());
     }
 
@@ -94,34 +94,48 @@ public final class ConstraintContainers {
      * @param classLoader The loader of the constraint types
      * @return The constraint types
      */
-    public static Set<Class<? extends Annotation>> constraintTypes(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
-        // the names are resolved one by one instead of by
-        // AnnotationMetadata#getAnnotationTypesByStereotype:
-        // the shared registry of the annotation types keeps the first class seen under a name, and
-        // a type
-        // deployed several times in different class loaders — the archives of a test suite — has to
-        // be the
-        // one of the loader asking
+    public static Set<Class<? extends Annotation>> constraintTypes(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
+        // resolved one by one rather than by AnnotationMetadata#getAnnotationTypesByStereotype, whose shared
+        // registry keeps the first class seen under a name: a type deployed in several class loaders, as the
+        // archives of a test suite are, has to be the one of the loader asking
         Set<Class<? extends Annotation>> types = new LinkedHashSet<>();
-        var names = constraintNames(reflectionSupport, annotationMetadata, classLoader);
-        var declared = annotationMetadata.getDeclaredAnnotationNames();
-        boolean hasDeclared = names.stream().anyMatch(name -> isDeclared(annotationMetadata, declared, name));
+        List<String> names = constraintNames(reflectionSupport, annotationMetadata, classLoader);
+        Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
+        boolean hasDeclared = false;
+        for (String name : names) {
+            if (isDeclared(annotationMetadata, declared, name)) {
+                hasDeclared = true;
+                break;
+            }
+        }
         for (String name : names) {
             if (hasDeclared && !isDeclared(annotationMetadata, declared, name)) {
                 continue;
             }
-            var values = annotationMetadata.getAnnotationValuesByName(name);
-            if (values.isEmpty()) {
-                values = annotationMetadata.getAnnotationNames().stream()
-                    .flatMap(containerName -> annotationMetadata.getAnnotationValuesByName(containerName).stream())
-                    .flatMap(container -> container.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream())
-                    .filter(value -> value.getAnnotationName().equals(name)).toList();
-            }
-            AnnotationValue<?> occurrence =
-                    values.isEmpty() ? AnnotationValue.builder(name).build() : values.getFirst();
-            types.add(constraintType(reflectionSupport, occurrence, classLoader));
+            AnnotationValue<?> occurrence = firstOccurrence(annotationMetadata, name);
+            types.add(constraintType(reflectionSupport, occurrence != null ? occurrence : AnnotationValue.builder(name).build(), classLoader));
         }
         return types;
+    }
+
+    /**
+     * The first occurrence of a constraint, declared or inside a container.
+     */
+    private static @Nullable AnnotationValue<?> firstOccurrence(AnnotationMetadata annotationMetadata, String name) {
+        List<? extends AnnotationValue<?>> values = annotationMetadata.getAnnotationValuesByName(name);
+        if (!values.isEmpty()) {
+            return values.getFirst();
+        }
+        for (String containerName : annotationMetadata.getAnnotationNames()) {
+            for (AnnotationValue<?> container : annotationMetadata.getAnnotationValuesByName(containerName)) {
+                for (AnnotationValue<Annotation> value : container.getAnnotations(AnnotationMetadata.VALUE_MEMBER)) {
+                    if (value.getAnnotationName().equals(name)) {
+                        return value;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /**
@@ -133,7 +147,7 @@ public final class ConstraintContainers {
      * @param classLoader The loader of the constraint types
      * @return The constraint names
      */
-    public static List<String> constraintNames(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata, @NonNull ClassLoader classLoader) {
+    public static List<String> constraintNames(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, ClassLoader classLoader) {
         List<String> names = new ArrayList<>(annotationMetadata.getAnnotationNamesByStereotype(Constraint.class));
         for (String name : annotationMetadata.getAnnotationNames()) {
             Class<? extends Annotation> contained = containedConstraintType(reflectionSupport, annotationMetadata, name, classLoader);
@@ -153,8 +167,8 @@ public final class ConstraintContainers {
      * @param constraintType The constraint type
      * @return The values, empty when the constraint is absent
      */
-    public static List<? extends AnnotationValue<? extends Annotation>> values(ReflectionSupport reflectionSupport, @NonNull AnnotationMetadata annotationMetadata,
-                                                                              @NonNull Class<? extends Annotation> constraintType) {
+    public static List<? extends AnnotationValue<? extends Annotation>> values(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata,
+                                                                              Class<? extends Annotation> constraintType) {
         List<? extends AnnotationValue<? extends Annotation>> values = annotationMetadata.getAnnotationValuesByType(constraintType);
         if (values.isEmpty()) {
             values = annotationMetadata.getDeclaredAnnotationValuesByType(constraintType);
@@ -171,7 +185,11 @@ public final class ConstraintContainers {
                 }
             }
         }
-        return values.stream().map(value -> withValidators(reflectionSupport, value, constraintType)).toList();
+        List<AnnotationValue<? extends Annotation>> withValidators = new ArrayList<>(values.size());
+        for (AnnotationValue<? extends Annotation> value : values) {
+            withValidators.add(withValidators(reflectionSupport, value, constraintType));
+        }
+        return Collections.unmodifiableList(withValidators);
     }
 
     /**
@@ -185,8 +203,8 @@ public final class ConstraintContainers {
      * @return The value with the validators of the constraint definition, the given one when it has
      * them
      */
-    public static AnnotationValue<? extends Annotation> withValidators(ReflectionSupport reflectionSupport, @NonNull AnnotationValue<? extends Annotation> value,
-                                                                      @NonNull Class<? extends Annotation> constraintType) {
+    public static AnnotationValue<? extends Annotation> withValidators(ReflectionSupport reflectionSupport, AnnotationValue<? extends Annotation> value,
+                                                                      Class<? extends Annotation> constraintType) {
         if (value.contains(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)) {
             return value;
         }
@@ -198,8 +216,7 @@ public final class ConstraintContainers {
      * of one type, whatever its name — {@code X.List} by convention, though a container is free to
      * be named otherwise.
      */
-    @Nullable
-    private static Class<? extends Annotation> containedConstraintType(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
+    private static @Nullable Class<? extends Annotation> containedConstraintType(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, String containerName, ClassLoader classLoader) {
         AnnotationValue<?> container = annotationMetadata.getAnnotation(containerName);
         if (container == null) {
             return null;

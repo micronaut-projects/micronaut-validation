@@ -17,16 +17,16 @@ package io.micronaut.validation.transformer;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
-import io.micronaut.inject.ast.ClassElement;
-import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.AnnotationElement;
 import io.micronaut.inject.ast.AnnotationMemberElement;
+import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.visitor.VisitorContext;
-import io.micronaut.validation.visitor.ValidationVisitor;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.visitor.ValidationVisitor;
 import jakarta.validation.Constraint;
 import jakarta.validation.OverridesAttribute;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -153,8 +153,8 @@ final class ConstraintDefinitionMetadata {
                         + type.getName() + " with " + validator.getName();
                 }
                 List<String> targets = List.of(validator.stringValues(SupportedValidationTarget.class));
-                generic |= targets.isEmpty() || targets.contains("ANNOTATED_ELEMENT");
-                if (targets.contains("PARAMETERS")) {
+                generic |= targets.isEmpty() || targets.contains(ValidationTarget.ANNOTATED_ELEMENT.name());
+                if (targets.contains(ValidationTarget.PARAMETERS.name())) {
                     crossParameter++;
                     var arguments = validator.getTypeArguments("jakarta.validation.ConstraintValidator");
                     var value = arguments.get("T");
@@ -203,8 +203,7 @@ final class ConstraintDefinitionMetadata {
     }
 
     /**
-     * The members of an annotation interface: listed by core for every compiler (micronaut-core#13924), with their
-     * own metadata and defaults, and read as its declared methods where the element does not list them.
+     * The members of an annotation interface, with their own metadata and defaults.
      */
     private static Map<String, Member> members(ClassElement type) {
         var members = new LinkedHashMap<String, Member>();
@@ -213,10 +212,6 @@ final class ConstraintDefinitionMetadata {
                 members.put(member.getName(), new Member(member.getName(), member.getType(), member.getAnnotationMetadata(),
                     member.getDefaultValue().orElse(null)));
             }
-        }
-        if (members.isEmpty()) {
-            type.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared()).forEach(method -> members.put(method.getName(),
-                new Member(method.getName(), method.getReturnType(), method.getAnnotationMetadata(), null)));
         }
         return members;
     }

@@ -23,6 +23,7 @@ import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.ConversionServiceAware;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.util.SupplierUtil;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
@@ -48,13 +49,13 @@ import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
 import jakarta.validation.valueextraction.ValueExtractor;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
 import java.lang.reflect.Type;
 import java.util.Collection;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * The default configuration for the validator.
@@ -82,17 +83,15 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Nullable
     private ClockProvider clockProvider;
 
-    @Nullable
-    private ClockProvider defaultClockProvider;
+    private final Supplier<ClockProvider> defaultClockProvider = SupplierUtil.memoized(DefaultClockProvider::new);
 
     @Nullable
     private TraversableResolver traversableResolver;
 
-    @Nullable
-    private TraversableResolver defaultTraversableResolver;
+    private final Supplier<TraversableResolver> defaultTraversableResolver = SupplierUtil.memoized(TraverseAll::new);
 
-    @Nullable
-    private MessageInterpolator defaultMessageInterpolator;
+    private final Supplier<MessageInterpolator> defaultMessageInterpolator =
+        SupplierUtil.memoized(() -> new DefaultMessageInterpolator(new DefaultMessages(), null));
 
     @Nullable
     private MessageInterpolator messageInterpolator;
@@ -133,7 +132,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ConstraintValidatorRegistry getConstraintValidatorRegistry() {
         if (constraintValidatorRegistry == null) {
             constraintValidatorRegistry = new DefaultConstraintValidators();
@@ -149,7 +147,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return getInternalConstraintValidatorFactory();
     }
 
-    final InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
+    @Override
+    @Internal
+    public final InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
             constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null, reflectionSupport);
         }
@@ -232,7 +232,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ValueExtractorRegistry getValueExtractorRegistry() {
         if (valueExtractorRegistry == null) {
             valueExtractorRegistry = new DefaultValueExtractors();
@@ -253,7 +252,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ClockProvider getClockProvider() {
         if (clockProvider == null) {
             return getDefaultClockProvider();
@@ -263,10 +261,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ClockProvider getDefaultClockProvider() {
-        if (defaultClockProvider == null) {
-            defaultClockProvider = new DefaultClockProvider();
-        }
-        return defaultClockProvider;
+        return defaultClockProvider.get();
     }
 
     /**
@@ -282,16 +277,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public TraversableResolver getDefaultTraversableResolver() {
-        if (defaultTraversableResolver == null) {
-            defaultTraversableResolver = new TraverseAll();
-        }
-        return defaultTraversableResolver;
+        return defaultTraversableResolver.get();
     }
 
     @Override
-    @NonNull
     public TraversableResolver getTraversableResolver() {
         if (traversableResolver == null) {
             return getDefaultTraversableResolver();
@@ -311,7 +301,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
-    @NonNull
     @Override
     public MessageInterpolator getMessageInterpolator() {
         if (messageInterpolator == null) {
@@ -320,13 +309,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return messageInterpolator;
     }
 
-    @NonNull
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
-        if (defaultMessageInterpolator == null) {
-            defaultMessageInterpolator = new DefaultMessageInterpolator(new DefaultMessages(), null);
-        }
-        return defaultMessageInterpolator;
+        return defaultMessageInterpolator.get();
     }
 
     /**
@@ -341,7 +326,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
-    @NonNull
     @Override
     public ParameterNameProvider getParameterNameProvider() {
         if (parameterNameProvider == null) {
@@ -350,7 +334,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return parameterNameProvider;
     }
 
-    @NonNull
     @Override
     public ParameterNameProvider getDefaultParameterNameProvider() {
         if (defaultParameterNameProvider == null) {
@@ -375,7 +358,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ExecutionHandleLocator getExecutionHandleLocator() {
         if (executionHandleLocator == null) {
             executionHandleLocator = ExecutionHandleLocator.EMPTY;
@@ -529,7 +511,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         }
     }
 
-    @NonNull
     @Override
     public Validator getValidator() {
         return new DefaultValidator(this);

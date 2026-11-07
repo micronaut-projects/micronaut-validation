@@ -20,12 +20,20 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
+import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
-import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import io.micronaut.validation.xml.XmlMapping.BeanMapping;
+import io.micronaut.validation.xml.XmlMapping.ConstraintDefinition;
+import io.micronaut.validation.xml.XmlMapping.ContainerElementMapping;
+import io.micronaut.validation.xml.XmlMapping.ElementMapping;
+import io.micronaut.validation.xml.XmlMapping.ExecutableKey;
+import io.micronaut.validation.xml.XmlMapping.ExecutableMapping;
+import io.micronaut.validation.xml.XmlMapping.ParameterMapping;
+import io.micronaut.validation.xml.XmlMapping.PropertyMapping;
 import jakarta.validation.Constraint;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
@@ -49,27 +57,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-
-import static io.micronaut.validation.xml.XmlMapping.BeanMapping;
-import static io.micronaut.validation.xml.XmlMapping.ConstraintDefinition;
-import static io.micronaut.validation.xml.XmlMapping.ContainerElementMapping;
-import static io.micronaut.validation.xml.XmlMapping.ElementMapping;
-import static io.micronaut.validation.xml.XmlMapping.ExecutableKey;
-import static io.micronaut.validation.xml.XmlMapping.ExecutableMapping;
-import static io.micronaut.validation.xml.XmlMapping.ParameterMapping;
-import static io.micronaut.validation.xml.XmlMapping.PropertyMapping;
-import static io.micronaut.validation.xml.XmlMappingSupport.booleanAttribute;
-import static io.micronaut.validation.xml.XmlMappingSupport.child;
-import static io.micronaut.validation.xml.XmlMappingSupport.children;
-import static io.micronaut.validation.xml.XmlMappingSupport.localName;
-import static io.micronaut.validation.xml.XmlMappingSupport.requireAttribute;
-import static io.micronaut.validation.xml.XmlMappingSupport.simpleName;
-import static io.micronaut.validation.xml.XmlMappingSupport.singleValue;
-import static io.micronaut.validation.xml.XmlMappingSupport.text;
-import static io.micronaut.validation.xml.XmlMappingSupport.textOfChild;
-import static io.micronaut.validation.xml.XmlMappingSupport.validateMappingStructure;
-import static io.micronaut.validation.xml.XmlMappingSupport.validateRootElements;
-import static io.micronaut.validation.xml.XmlMappingSupport.validateVersion;
 
 /** Parses and validates constraint mapping documents before metadata is exposed. */
 final class XmlMappingParser {
@@ -130,10 +117,10 @@ final class XmlMappingParser {
         try {
             Document document = SecureXmlDocumentBuilder.parse(inputStream);
             Element root = document.getDocumentElement();
-            validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
-            validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
-            validateMappingStructure(root);
-            String defaultPackage = textOfChild(root, "default-package");
+            XmlMappingSupport.validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
+            XmlMappingSupport.validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
+            XmlMappingSupport.validateMappingStructure(root);
+            String defaultPackage = XmlMappingSupport.textOfChild(root, "default-package");
             Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
             for (var definition : mappingConstraintDefinitions.entrySet()) {
                 if (constraintDefinitions.putIfAbsent(definition.getKey(), definition.getValue())
@@ -145,7 +132,7 @@ final class XmlMappingParser {
             NodeList children = root.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
                 Node node = children.item(i);
-                if (node instanceof Element element && "bean".equals(localName(element))) {
+                if (node instanceof Element element && "bean".equals(XmlMappingSupport.localName(element))) {
                     parseBean(element, defaultPackage);
                 }
             }
@@ -159,21 +146,21 @@ final class XmlMappingParser {
         NodeList children = root.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element definition) || !"constraint-definition".equals(localName(definition))) {
+            if (!(node instanceof Element definition) || !"constraint-definition".equals(XmlMappingSupport.localName(definition))) {
                 continue;
             }
-            String annotationName = resolveClassName(requireAttribute(definition, ELEMENT_ANNOTATION), defaultPackage);
-            Element validatedBy = child(definition, "validated-by");
+            String annotationName = resolveClassName(XmlMappingSupport.requireAttribute(definition, ELEMENT_ANNOTATION), defaultPackage);
+            Element validatedBy = XmlMappingSupport.child(definition, "validated-by");
             if (validatedBy == null) {
                 continue;
             }
-            boolean includeExistingValidators = booleanAttribute(validatedBy, "include-existing-validators", true);
+            boolean includeExistingValidators = XmlMappingSupport.booleanAttribute(validatedBy, "include-existing-validators", true);
             List<Class<?>> validators = new ArrayList<>();
             NodeList validatorNodes = validatedBy.getChildNodes();
             for (int j = 0; j < validatorNodes.getLength(); j++) {
                 Node validatorNode = validatorNodes.item(j);
-                if (validatorNode instanceof Element value && ELEMENT_VALUE.equals(localName(value))) {
-                    validators.add(loadClass(resolveClassName(text(value), defaultPackage)));
+                if (validatorNode instanceof Element value && ELEMENT_VALUE.equals(XmlMappingSupport.localName(value))) {
+                    validators.add(loadClass(resolveClassName(XmlMappingSupport.text(value), defaultPackage)));
                 }
             }
             definitions.put(annotationName, new ConstraintDefinition(List.copyOf(validators), includeExistingValidators));
@@ -182,8 +169,8 @@ final class XmlMappingParser {
     }
 
     private void parseBean(Element bean, String defaultPackage) {
-        Class<?> beanType = loadClass(resolveClassName(requireAttribute(bean, "class"), defaultPackage));
-        boolean beanAnnotationsIgnored = booleanAttribute(bean, ATTRIBUTE_IGNORE_ANNOTATIONS, true);
+        Class<?> beanType = loadClass(resolveClassName(XmlMappingSupport.requireAttribute(bean, "class"), defaultPackage));
+        boolean beanAnnotationsIgnored = XmlMappingSupport.booleanAttribute(bean, ATTRIBUTE_IGNORE_ANNOTATIONS, true);
         MutableAnnotationMetadata classMetadata = new MutableAnnotationMetadata();
         boolean classAnnotationsIgnored = beanAnnotationsIgnored;
         Map<String, PropertyMapping> properties = new LinkedHashMap<>();
@@ -198,7 +185,7 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            String elementName = localName(element);
+            String elementName = XmlMappingSupport.localName(element);
             switch (elementName) {
                 case "class" -> classAnnotationsIgnored = parseClassMetadata(element, defaultPackage, beanAnnotationsIgnored, classMetadata);
                 case ELEMENT_FIELD, ELEMENT_GETTER -> parseProperty(
@@ -231,7 +218,7 @@ final class XmlMappingParser {
                                        MutableAnnotationMetadata classMetadata) {
         parseGroupSequence(element, defaultPackage, classMetadata);
         parseConstraints(element, defaultPackage, classMetadata);
-        return booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
+        return XmlMappingSupport.booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
     }
 
     private void parseProperty(Class<?> beanType,
@@ -244,8 +231,9 @@ final class XmlMappingParser {
                                Set<String> configuredFields,
                                Set<String> configuredGetters,
                                Set<String> configuredGetterMethods) {
-        String propertyName = requireAttribute(element, "name");
-        ValidationDeclaration source = findPropertySource(beanType, elementName, propertyName);
+        String propertyName = XmlMappingSupport.requireAttribute(element, "name");
+        ValidationDeclaration source = findPropertySource(beanType,
+            ELEMENT_FIELD.equals(elementName) ? ValidationDeclaration.Kind.FIELD : ValidationDeclaration.Kind.GETTER, propertyName);
         if (source == null) {
             throw new ValidationException("Unknown " + elementName + " in validation XML: " + beanType.getName() + "." + propertyName
                 + ". A type declaring no constraint is described for an XML mapping when compiled with the annotation"
@@ -254,14 +242,14 @@ final class XmlMappingParser {
         validatePropertyConfiguredOnce(beanType, elementName, propertyName, methods, configuredFields, configuredGetters, configuredGetterMethods);
         MutableAnnotationMetadata propertyMetadata = new MutableAnnotationMetadata();
         parseConstraints(element, defaultPackage, propertyMetadata);
-        if (child(element, "valid") != null) {
+        if (XmlMappingSupport.child(element, "valid") != null) {
             propertyMetadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
         }
         parseGroupConversions(element, defaultPackage, propertyMetadata);
         Argument<?> propertyType = source.argument();
         var mapping = new PropertyMapping(
             propertyMetadata,
-            booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored),
+            XmlMappingSupport.booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored),
             source,
             source.argument().getType(),
             parseContainerElements(element, defaultPackage, propertyType),
@@ -325,14 +313,14 @@ final class XmlMappingParser {
                                   boolean beanAnnotationsIgnored,
                                   Map<ExecutableKey, ExecutableMapping> constructors) {
         ExecutableMapping constructor = parseExecutable(
-                        simpleName(beanType), element, defaultPackage, beanAnnotationsIgnored);
+                        XmlMappingSupport.simpleName(beanType), element, defaultPackage, beanAnnotationsIgnored);
         ValidationDeclaration source = findConstructor(beanType, constructor.parameterTypes());
         if (source == null) {
             throw new ValidationException("Unknown constructor in validation XML: " + beanType.getName() + constructor.parameterTypes());
         }
         constructor = constructor.withSource(source)
             .withContainerElements(element, defaultPackage, this);
-        ExecutableKey key = new ExecutableKey(simpleName(beanType), constructor.parameterTypes());
+        ExecutableKey key = new ExecutableKey(XmlMappingSupport.simpleName(beanType), constructor.parameterTypes());
         if (constructors.putIfAbsent(key, constructor) != null) {
             throw new ValidationException("Constructor configured more than once in validation XML: " + beanType.getName() + constructor.parameterTypes());
         }
@@ -344,7 +332,7 @@ final class XmlMappingParser {
                              boolean beanAnnotationsIgnored,
                              Set<String> configuredGetterMethods,
                              Map<ExecutableKey, ExecutableMapping> methods) {
-        String methodName = requireAttribute(element, "name");
+        String methodName = XmlMappingSupport.requireAttribute(element, "name");
         ExecutableMapping method = parseExecutable(methodName, element, defaultPackage, beanAnnotationsIgnored);
         ValidationDeclaration source = findMethod(beanType, methodName, method.parameterTypes());
         if (source == null) {
@@ -363,29 +351,29 @@ final class XmlMappingParser {
 
     @Nullable
     private ValidationDeclaration findPropertySource(
-            Class<?> beanType, String elementName, String propertyName) {
-        return reflectionSupport.declaration(beanType, elementName, propertyName, List.of());
+            Class<?> beanType, ValidationDeclaration.Kind kind, String propertyName) {
+        return reflectionSupport.declaration(beanType, kind, propertyName, List.of());
     }
 
     private Set<String> getterMethodNames(Class<?> beanType, String propertyName) {
-        ValidationDeclaration getter = findPropertySource(beanType, ELEMENT_GETTER, propertyName);
+        ValidationDeclaration getter = findPropertySource(beanType, ValidationDeclaration.Kind.GETTER, propertyName);
         return getter == null ? Set.of() : Set.of(getter.name());
     }
 
     @Nullable
     private ValidationDeclaration findConstructor(
             Class<?> beanType, List<Class<?>> parameters) {
-        return reflectionSupport.declaration(beanType, "constructor", simpleName(beanType), parameters);
+        return reflectionSupport.declaration(beanType, ValidationDeclaration.Kind.CONSTRUCTOR, XmlMappingSupport.simpleName(beanType), parameters);
     }
 
     @Nullable
     private ValidationDeclaration findMethod(
             Class<?> beanType, String name, List<Class<?>> parameters) {
-        return reflectionSupport.declaration(beanType, "method", name, parameters);
+        return reflectionSupport.declaration(beanType, ValidationDeclaration.Kind.METHOD, name, parameters);
     }
 
     private ExecutableMapping parseExecutable(String name, Element executable, String defaultPackage, boolean beanAnnotationsIgnored) {
-        boolean executableAnnotationsIgnored = booleanAttribute(executable, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
+        boolean executableAnnotationsIgnored = XmlMappingSupport.booleanAttribute(executable, ATTRIBUTE_IGNORE_ANNOTATIONS, beanAnnotationsIgnored);
         List<ParameterMapping> parameters = new ArrayList<>();
         ElementMapping crossParameter = ElementMapping.empty(executableAnnotationsIgnored);
         ElementMapping returnValue = ElementMapping.empty(executableAnnotationsIgnored);
@@ -395,15 +383,15 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (localName(element)) {
+            switch (XmlMappingSupport.localName(element)) {
                 case "parameter" -> {
                     MutableAnnotationMetadata parameterMetadata = new MutableAnnotationMetadata();
                     parseElementMetadata(element, defaultPackage, parameterMetadata);
-                    Class<?> parameterType = loadClass(resolveClassName(requireAttribute(element, "type"), defaultPackage));
+                    Class<?> parameterType = loadClass(resolveClassName(XmlMappingSupport.requireAttribute(element, "type"), defaultPackage));
                     parameters.add(new ParameterMapping(
                         parameterType,
                         parameterMetadata,
-                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
+                        XmlMappingSupport.booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     ));
                 }
@@ -412,7 +400,7 @@ final class XmlMappingParser {
                     parseConstraints(element, defaultPackage, crossParameterMetadata);
                     crossParameter = new ElementMapping(
                         crossParameterMetadata,
-                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
+                        XmlMappingSupport.booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     );
                 }
@@ -421,7 +409,7 @@ final class XmlMappingParser {
                     parseElementMetadata(element, defaultPackage, returnValueMetadata);
                     returnValue = new ElementMapping(
                         returnValueMetadata,
-                        booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
+                        XmlMappingSupport.booleanAttribute(element, ATTRIBUTE_IGNORE_ANNOTATIONS, executableAnnotationsIgnored),
                         List.of()
                     );
                 }
@@ -437,7 +425,7 @@ final class XmlMappingParser {
                                       String defaultPackage,
                                       MutableAnnotationMetadata metadata) {
         parseConstraints(element, defaultPackage, metadata);
-        if (child(element, "valid") != null) {
+        if (XmlMappingSupport.child(element, "valid") != null) {
             metadata.addDeclaredAnnotation(Valid.class.getName(), Map.of());
             metadata.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
         }
@@ -447,7 +435,7 @@ final class XmlMappingParser {
     private void parseGroupSequence(Element parent,
                                     String defaultPackage,
                                     MutableAnnotationMetadata metadata) {
-        Element groupSequence = child(parent, "group-sequence");
+        Element groupSequence = XmlMappingSupport.child(parent, "group-sequence");
         if (groupSequence != null) {
             metadata.addDeclaredAnnotation(
                 GroupSequence.class.getName(),
@@ -462,10 +450,10 @@ final class XmlMappingParser {
         NodeList children = parent.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element constraint) || !"constraint".equals(localName(constraint))) {
+            if (!(node instanceof Element constraint) || !"constraint".equals(XmlMappingSupport.localName(constraint))) {
                 continue;
             }
-            String annotationName = resolveClassName(requireAttribute(constraint, ELEMENT_ANNOTATION), defaultPackage);
+            String annotationName = resolveClassName(XmlMappingSupport.requireAttribute(constraint, ELEMENT_ANNOTATION), defaultPackage);
             Class<? extends Annotation> annotationType = (Class<? extends Annotation>) loadClass(annotationName);
             Map<CharSequence, Object> values = constraintValues(constraint, annotationType, defaultPackage);
             validateMandatoryAnnotationMembers(annotationType, values);
@@ -480,11 +468,11 @@ final class XmlMappingParser {
     private void parseGroupConversions(Element parent,
                                        String defaultPackage,
                                        MutableAnnotationMetadata metadata) {
-        for (Element convertGroup : children(parent, "convert-group")) {
+        for (Element convertGroup : XmlMappingSupport.children(parent, "convert-group")) {
             Class<?> from = convertGroup.hasAttribute("from")
                 ? loadClass(resolveClassName(convertGroup.getAttribute("from"), defaultPackage))
                 : Default.class;
-            Class<?> to = loadClass(resolveClassName(requireAttribute(convertGroup, "to"), defaultPackage));
+            Class<?> to = loadClass(resolveClassName(XmlMappingSupport.requireAttribute(convertGroup, "to"), defaultPackage));
             metadata.addDeclaredRepeatable(
                 ConvertGroup.List.class.getName(),
                 AnnotationValue.builder(ConvertGroup.class)
@@ -497,7 +485,7 @@ final class XmlMappingParser {
 
     List<ContainerElementMapping> parseContainerElements(Element parent,
                                                                 String defaultPackage, Argument<?> containerType) {
-        List<Element> containerElementTypes = children(parent, "container-element-type");
+        List<Element> containerElementTypes = XmlMappingSupport.children(parent, "container-element-type");
         if (containerElementTypes.isEmpty()) {
             return List.of();
         }
@@ -574,12 +562,12 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (localName(element)) {
-                case ATTRIBUTE_MESSAGE -> values.put(ATTRIBUTE_MESSAGE, text(element));
+            switch (XmlMappingSupport.localName(element)) {
+                case ATTRIBUTE_MESSAGE -> values.put(ATTRIBUTE_MESSAGE, XmlMappingSupport.text(element));
                 case ATTRIBUTE_GROUPS -> values.put(ATTRIBUTE_GROUPS, classValues(element, defaultPackage));
                 case ATTRIBUTE_PAYLOAD -> values.put(ATTRIBUTE_PAYLOAD, classValues(element, defaultPackage));
                 case "element" -> {
-                    String name = requireAttribute(element, "name");
+                    String name = XmlMappingSupport.requireAttribute(element, "name");
                     if (RESERVED_CONSTRAINT_ELEMENT_NAMES.contains(name)) {
                         throw new ValidationException(
                                 "Reserved annotation member cannot be configured as an XML element:"
@@ -613,7 +601,7 @@ final class XmlMappingParser {
             if (targetType.isArray()) {
                 return arrayValue(targetType.getComponentType(), element, defaultPackage);
             }
-            String value = singleValue(element);
+            String value = XmlMappingSupport.singleValue(element);
             Object scalarValue = scalarValue(targetType, value);
             if (scalarValue != null) {
                 return scalarValue;
@@ -634,7 +622,7 @@ final class XmlMappingParser {
                                                         + value));
             }
             if (targetType.isAnnotation()) {
-                Element annotationElement = child(element, ELEMENT_ANNOTATION);
+                Element annotationElement = XmlMappingSupport.child(element, ELEMENT_ANNOTATION);
                 if (annotationElement == null) {
                     throw new ValidationException("Missing nested annotation value for " + targetType.getName());
                 }
@@ -690,7 +678,7 @@ final class XmlMappingParser {
     }
 
     private Object arrayValue(Class<?> componentType, Element element, String defaultPackage) {
-        List<Element> valueElements = children(element, componentType.isAnnotation() ? ELEMENT_ANNOTATION : ELEMENT_VALUE);
+        List<Element> valueElements = XmlMappingSupport.children(element, componentType.isAnnotation() ? ELEMENT_ANNOTATION : ELEMENT_VALUE);
         if (componentType.isAnnotation()) {
             AnnotationValue<?>[] values = valueElements.stream()
                 .map(value -> annotationValue((Class<? extends Annotation>) componentType, value, defaultPackage))
@@ -760,7 +748,7 @@ final class XmlMappingParser {
         NodeList children = annotation.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (node instanceof Element element && "element".equals(localName(element))) {
+            if (node instanceof Element element && "element".equals(XmlMappingSupport.localName(element))) {
                 String name = element.getAttribute("name");
                 values.put(name, annotationMemberValue(annotationType, name, element, defaultPackage));
             }
@@ -770,8 +758,8 @@ final class XmlMappingParser {
 
     private Class<?>[] classValues(Element parent, String defaultPackage) {
         List<Class<?>> values = new ArrayList<>();
-        for (Element value : children(parent, ELEMENT_VALUE)) {
-            values.add(loadClass(resolveClassName(text(value), defaultPackage)));
+        for (Element value : XmlMappingSupport.children(parent, ELEMENT_VALUE)) {
+            values.add(loadClass(resolveClassName(XmlMappingSupport.text(value), defaultPackage)));
         }
         return values.toArray(Class<?>[]::new);
     }

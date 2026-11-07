@@ -19,10 +19,9 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospectionReference;
 import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.util.SupplierUtil;
 import io.micronaut.inject.beans.AbstractInitializableBeanIntrospection;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
-import org.jspecify.annotations.Nullable;
-
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -31,6 +30,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /**
  * The introspections the annotation processors generated, and no other. An introspector also serves what its
@@ -54,10 +54,11 @@ final class GeneratedBeanIntrospector implements BeanIntrospector {
     // the names the references of the class loaders of bean types the delegate does not see describe: names only,
     // so that nothing held here keeps a class loader from being collected
     private final Map<ClassLoader, Set<String>> loaderNames = Collections.synchronizedMap(new WeakHashMap<>());
-    private volatile @Nullable Map<String, BeanIntrospectionReference<?>> references;
+    private final Supplier<Map<String, BeanIntrospectionReference<?>>> references;
 
     private GeneratedBeanIntrospector(BeanIntrospector delegate) {
         this.delegate = delegate;
+        this.references = SupplierUtil.memoized(() -> index(delegate));
     }
 
     /**
@@ -87,7 +88,7 @@ final class GeneratedBeanIntrospector implements BeanIntrospector {
 
     @Override
     public <T> Optional<BeanIntrospection<T>> findIntrospection(Class<T> beanType) {
-        if (!isGenerated(references(), beanType)) {
+        if (!isGenerated(references.get(), beanType)) {
             ClassLoader classLoader = beanType.getClassLoader();
             if (classLoader == null || !loaderNames.computeIfAbsent(classLoader,
                 // the names alone: a key set view would keep the references, and through them the loader, alive
@@ -97,15 +98,6 @@ final class GeneratedBeanIntrospector implements BeanIntrospector {
         }
         // what the delegate serves for a registered type is still one the processors generated
         return delegate.findIntrospection(beanType).filter(AbstractInitializableBeanIntrospection.class::isInstance);
-    }
-
-    private Map<String, BeanIntrospectionReference<?>> references() {
-        Map<String, BeanIntrospectionReference<?>> found = references;
-        if (found == null) {
-            found = index(delegate);
-            references = found;
-        }
-        return found;
     }
 
     private static boolean isGenerated(Map<String, BeanIntrospectionReference<?>> references, Class<?> beanType) {

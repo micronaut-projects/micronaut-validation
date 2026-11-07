@@ -20,6 +20,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
@@ -178,5 +179,16 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     @Internal
     default ReflectionSupport getReflectionSupport() {
         return ReflectionSupport.get();
+    }
+
+    /**
+     * Internal to the validator: an implementation keeps the default.
+     *
+     * @return The constraint validator factory the validator resolves validators through
+     * @since 5.3.0
+     */
+    @Internal
+    default InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
+        return DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(getConstraintValidatorFactory(), getReflectionSupport());
     }
 }
