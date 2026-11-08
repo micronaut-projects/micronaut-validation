@@ -6,8 +6,8 @@ arquillian-container = "1.10.2.Final"
 javax-annotation-api = "1.3.2"
 jakarta-validation-tck = "3.0.1"
 
-micronaut = "5.2.21"
-micronaut-platform = "5.2.4"
+micronaut = "5.2.22"
+micronaut-platform = "5.2.5"
 micronaut-reactor = "4.3.0"
 micronaut-rxjava3 = "4.1.0"
 micronaut-kotlin = "5.1.0"
@@ -47,4 +47,4 @@ jmh-generator-annprocess = { module = "org.openjdk.jmh:jmh-generator-annprocess"
 gradle-micronaut = { module = "io.micronaut.gradle:micronaut-gradle-plugin", version.ref = "micronaut-gradle-plugin" }
 
 [plugins]
-jmh = { id = "me.champeau.jmh", version = "0.7.3" }
+jmh = { id = "me.champeau.jmh", version = "0.7.4" }
