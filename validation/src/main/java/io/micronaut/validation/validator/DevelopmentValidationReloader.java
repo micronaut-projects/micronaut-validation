@@ -28,7 +28,6 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.inject.BeanDefinition;
-import io.micronaut.inject.BeanDefinitionReference;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.validation.Validated;
@@ -132,8 +131,8 @@ final class DevelopmentValidationReloader {
      * constraint, {@link Validated} or {@link GroupSequence} of a class leaves a class that no longer looks
      * validated, while the caches still hold what was resolved from the one it replaces. The one it replaces is
      * read from the metadata the context was compiled with, the introspections and bean definitions validation
-     * resolved from, which a change applied in place leaves as they were. It is looked up by name: nothing of a
-     * previous class is kept.</p>
+     * resolved from, which a change applied in place leaves as they were: the introspection of the class, and the bean
+     * definitions the event says the change touches. Nothing of a previous class is kept.</p>
      *
      * @param change The class change
      * @param beanContext The context
@@ -150,7 +149,12 @@ final class DevelopmentValidationReloader {
             String className = classChange.className();
             if (className.endsWith("$Introspection")
                 || isValidated(className, change.newLoader())
-                || wasValidated(className, beanContext)) {
+                || wasIntrospected(className)) {
+                return true;
+            }
+        }
+        for (BeanDefinition<?> definition : beanContext.getAllBeanDefinitions()) {
+            if (change.affectsDefinition(definition) && validatesMethods(definition)) {
                 return true;
             }
         }
@@ -158,25 +162,13 @@ final class DevelopmentValidationReloader {
     }
 
     /**
-     * Whether the class a change replaces was validated, as the context was compiled: it has an introspection,
-     * or a bean definition of it validates its methods. The references are matched by name: only the definitions
-     * and the introspection of that name are loaded.
+     * Whether the class a change replaces was introspected, as the context was compiled. The introspection is looked
+     * up by the name of the class it introspects: only the introspection of that name is loaded.
      *
      * @param className The changed class
-     * @param beanContext The context
-     * @return Whether validation resolved something from the class it replaces
+     * @return Whether validation can have resolved something from its introspection
      */
-    private static boolean wasValidated(String className, BeanContext beanContext) {
-        // the compiled definitions of a class are named after it: $Outer$Inner$Definition, and $Outer$Inner$Definition$...
-        // for its proxy, so that the references are matched without loading a bean type
-        int lastDot = className.lastIndexOf('.');
-        String definition = className.substring(0, lastDot + 1) + '$' + className.substring(lastDot + 1) + "$Definition";
-        for (BeanDefinitionReference<?> reference : beanContext.getBeanDefinitionReferences()) {
-            String name = reference.getBeanDefinitionName();
-            if ((name.equals(definition) || name.startsWith(definition + '$')) && validatesMethods(reference)) {
-                return true;
-            }
-        }
+    private static boolean wasIntrospected(String className) {
         try {
             return !BeanIntrospector.SHARED.findIntrospections(reference -> className.equals(reference.getName())).isEmpty();
         } catch (RuntimeException | LinkageError e) {
@@ -205,18 +197,11 @@ final class DevelopmentValidationReloader {
     /**
      * Whether a compiled bean definition validates its methods, as the processor marks them.
      *
-     * @param reference The reference to the definition
+     * @param definition The definition
      * @return Whether the interceptor validates a method of it
      */
-    private static boolean validatesMethods(BeanDefinitionReference<?> reference) {
+    private static boolean validatesMethods(BeanDefinition<?> definition) {
         try {
-            if (requiresValidation(reference.getAnnotationMetadata())) {
-                return true;
-            }
-            BeanDefinition<?> definition = reference.load();
-            if (definition == null) {
-                return false;
-            }
             if (requiresValidation(definition.getAnnotationMetadata())) {
                 return true;
             }
@@ -227,7 +212,7 @@ final class DevelopmentValidationReloader {
             }
             return false;
         } catch (RuntimeException | LinkageError e) {
-            // a definition of that name that no longer loads: what it was is unknown, so it counts
+            // a method that no longer resolves: what it was is unknown, so it counts
             return true;
         }
     }
