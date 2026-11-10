@@ -1,0 +1,21 @@
+plugins {
+    id 'io.micronaut.build.internal.validation-base'
+    id 'java'
+}
+
+dependencies {
+    testImplementation platform(mn.micronaut.core.bom)
+    testImplementation projects.micronautValidation
+    testImplementation mn.micronaut.dev.tck
+    // the reload harness compiles the application under test with the processors on the test classpath
+    testImplementation mn.micronaut.inject.java
+    testImplementation projects.micronautValidationProcessor
+    testImplementation platform(mnTest.micronaut.test.bom)
+    testImplementation mnTest.junit.jupiter.api
+    testRuntimeOnly mnTest.junit.jupiter.engine
+    testRuntimeOnly libs.junit.platform.launcher
+}
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+}
