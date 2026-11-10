@@ -20,10 +20,10 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
-import io.micronaut.validation.validator.ExecutableHierarchy;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import io.micronaut.validation.xml.XmlMapping.BeanMapping;
@@ -58,7 +58,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Parses and validates constraint mapping documents before metadata is exposed. */
+/**
+ * Parses and validates constraint mapping documents before metadata is exposed.
+ *
+ * @since 5.3.0
+ */
 final class XmlMappingParser {
     private static final String ELEMENT_ANNOTATION = "annotation";
     private static final String ELEMENT_FIELD = "field";
@@ -265,7 +269,7 @@ final class XmlMappingParser {
         var containerElements = new ArrayList<>(first.containerElements());
         containerElements.addAll(second.containerElements());
         return new PropertyMapping(
-            ExecutableHierarchy.mergeMetadata(List.of(first.metadata(), second.metadata())),
+            ConfiguredMetadata.merge(List.of(first.metadata(), second.metadata())),
             // the annotations of the property are ignored only when both declarations ignore them
             first.annotationsIgnored() && second.annotationsIgnored(),
             first.source(),
@@ -611,15 +615,9 @@ final class XmlMappingParser {
             }
             if (targetType.isEnum()) {
                 return ValidationMetadataSupport.enumConstants(reflectionSupport, targetType).stream()
-                        .filter(constant -> constant.name().equals(value))
-                        .findFirst()
-                        .orElseThrow(
-                                () ->
-                                        new ValidationException(
-                                                "Unknown enum constant "
-                                                        + targetType.getName()
-                                                        + "."
-                                                        + value));
+                    .filter(constant -> constant.name().equals(value))
+                    .findFirst()
+                    .orElseThrow(() -> new ValidationException("Unknown enum constant " + targetType.getName() + "." + value));
             }
             if (targetType.isAnnotation()) {
                 Element annotationElement = XmlMappingSupport.child(element, ELEMENT_ANNOTATION);

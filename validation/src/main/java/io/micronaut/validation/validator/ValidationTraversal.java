@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -43,6 +44,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 
@@ -73,6 +75,11 @@ final class ValidationTraversal {
     private final ConstraintEvaluator constraints;
     // by property: an introspection, an XML decorated one too, hands out the same property instances for its life
     private final Map<BeanProperty<?, ?>, PropertyPlan> propertyPlans = new ConcurrentHashMap<>();
+    // the extractors of a container type as this validator compares them: the comparison depends on its introspector
+    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> valueExtractors = new ConcurrentHashMap<>();
+    // the type argument of a declared container an extractor extracts, and the argument a super type binds
+    private final Map<ExtractedArgumentKey, Optional<Integer>> extractedTypeArgumentIndexes = new ConcurrentHashMap<>();
+    private final Map<ExtractedArgumentKey, Optional<Argument<?>>> boundTypeArguments = new ConcurrentHashMap<>();
 
     ValidationTraversal(DefaultValidator validator,
                         ReflectionSupport reflectionSupport,
@@ -92,6 +99,9 @@ final class ValidationTraversal {
 
     void clear() {
         propertyPlans.clear();
+        valueExtractors.clear();
+        extractedTypeArgumentIndexes.clear();
+        boundTypeArguments.clear();
     }
 
     <R, T> void doValidate(DefaultConstraintValidatorContext<R> context,
@@ -115,17 +125,19 @@ final class ValidationTraversal {
                 }
                 cascadePerStep |= step.isSequence();
             }
-            // what the type and its super types declare, read once for every step
-            List<BeanIntrospection<?>> superIntrospections = declarations.superIntrospections(introspection);
+            // what the type and its super types declare, read once per type
+            ValidatorDeclarations.BeanPlan beanPlan = declarations.beanPlan(introspection);
             AnnotationMetadata annotationMetadata = introspection.getAnnotationMetadata();
-            ClassLoader classLoader = reflectionSupport.classLoader();
-            boolean ownClassConstraints = !declarations.inheritsAllConstraints(annotationMetadata, superIntrospections, classLoader);
-            List<BeanIntrospection<?>> constrainedSuperIntrospections = new ArrayList<>(superIntrospections.size());
-            for (BeanIntrospection<?> superIntrospection : superIntrospections) {
-                if (!isolated.containsKey(superIntrospection.getBeanType())
-                    && declarations.declaresConstraints(superIntrospection.getAnnotationMetadata(), classLoader)) {
-                    constrainedSuperIntrospections.add(superIntrospection);
+            boolean ownClassConstraints = beanPlan.ownClassConstraints();
+            List<BeanIntrospection<?>> constrainedSuperIntrospections = beanPlan.constrainedSuperIntrospections();
+            if (!isolated.isEmpty()) {
+                List<BeanIntrospection<?>> notIsolated = new ArrayList<>(constrainedSuperIntrospections.size());
+                for (BeanIntrospection<?> superIntrospection : constrainedSuperIntrospections) {
+                    if (!isolated.containsKey(superIntrospection.getBeanType())) {
+                        notIsolated.add(superIntrospection);
+                    }
                 }
+                constrainedSuperIntrospections = notIsolated;
             }
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : steps) {
                 if (cascadePerStep) {
@@ -136,7 +148,7 @@ final class ValidationTraversal {
 
                     if (ownClassConstraints) {
                         try (ValidationPath.ContextualPath ignore2 = context.getCurrentPath().addBeanNode()) {
-                            visitElement(context, object, Argument.of(introspection.getBeanType(), annotationMetadata), annotationMetadata, object, false, false, false);
+                            visitElement(context, object, Argument.of(introspection.getBeanType(), annotationMetadata), annotationMetadata, object, false, Cascade.UNCHECKED);
                         }
                     }
                     // the class-level constraints of the super types, each type its own violations
@@ -155,39 +167,59 @@ final class ValidationTraversal {
             }
             // the constraints a super type redefining the default group sequence declares follow that sequence
             for (Map.Entry<Class<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> entry : isolated.entrySet()) {
-                boolean isolatedCanCascade = true;
-                for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : entry.getValue()) {
-                    try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                        for (BeanIntrospection<?> superIntrospection : declarations.superIntrospections(introspection)) {
-                            if (superIntrospection.getBeanType() == entry.getKey()
-                                && declarations.declaresConstraints(superIntrospection.getAnnotationMetadata(), reflectionSupport.classLoader())) {
-                                visitDeclaredSuperTypeConstraints(context, object, superIntrospection);
-                            }
-                        }
-                        for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
-                            visitProperty(context, introspection, object, property, isolatedCanCascade, type -> type == entry.getKey());
-                        }
-                        if (validation.isFailed()) {
-                            break;
+                context.validateInGroups(entry.getValue(), isolatedCanCascade -> {
+                    for (BeanIntrospection<?> superIntrospection : beanPlan.constrainedSuperIntrospections()) {
+                        if (superIntrospection.getBeanType() == entry.getKey()) {
+                            visitDeclaredSuperTypeConstraints(context, object, superIntrospection);
                         }
                     }
-                    isolatedCanCascade = false;
-                }
+                    for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
+                        visitProperty(context, introspection, object, property, isolatedCanCascade, type -> type == entry.getKey());
+                    }
+                });
             }
         }
     }
 
+    @SuppressWarnings({"unchecked", "rawtypes"})
     private <E> List<ValueExtractorDefinition<E>> findValueExtractors(Class<E> containerType) {
-        // the extractors compared by the type argument of the container each extracts
-        return valueExtractorRegistry.findValueExtractors(containerType, definition -> {
-            try {
-                return ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport, beanIntrospector,
-                    containerType, definition.containerType(), definition.typeArgumentIndex());
-            } catch (ValidationException e) {
-                // a runtime type without metadata, a JDK collection: its extractors meet by their own argument
-                return definition.typeArgumentIndex();
-            }
-        });
+        List<ValueExtractorDefinition<?>> found = valueExtractors.get(containerType);
+        if (found == null) {
+            // the extractors compared by the type argument of the container each extracts
+            found = (List) valueExtractorRegistry.findValueExtractors(containerType, definition -> {
+                try {
+                    return extractedTypeArgumentIndex(containerType, definition);
+                } catch (ValidationException e) {
+                    // a runtime type without metadata, a JDK collection: its extractors meet by their own argument
+                    return definition.typeArgumentIndex();
+                }
+            });
+            valueExtractors.put(containerType, found);
+        }
+        return (List) found;
+    }
+
+    private @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, ValueExtractorDefinition<?> definition) {
+        ExtractedArgumentKey key = new ExtractedArgumentKey(declaredType, definition.containerType(), definition.typeArgumentIndex());
+        Optional<Integer> index = extractedTypeArgumentIndexes.get(key);
+        if (index == null) {
+            // a failed resolution is not cached: it throws again
+            index = Optional.ofNullable(ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport,
+                beanIntrospector, declaredType, definition.containerType(), definition.typeArgumentIndex()));
+            extractedTypeArgumentIndexes.put(key, index);
+        }
+        return index.orElse(null);
+    }
+
+    private @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, ValueExtractorDefinition<?> definition, int typeArgumentIndex) {
+        ExtractedArgumentKey key = new ExtractedArgumentKey(declaredType, definition.containerType(), typeArgumentIndex);
+        Optional<Argument<?>> bound = boundTypeArguments.get(key);
+        if (bound == null) {
+            bound = Optional.ofNullable(ContainerTypeArguments.resolveBoundTypeArgument(reflectionSupport,
+                beanIntrospector, declaredType, definition.containerType(), typeArgumentIndex));
+            boundTypeArguments.put(key, bound);
+        }
+        return bound.orElse(null);
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -196,7 +228,7 @@ final class ValidationTraversal {
                                                           BeanIntrospection<?> superIntrospection) {
         AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
         try (ValidationPath.ContextualPath ignore = context.getCurrentPath().addBeanNode()) {
-            visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, false, false);
+            visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, Cascade.UNCHECKED);
         }
     }
 
@@ -247,14 +279,14 @@ final class ValidationTraversal {
                 return;
             }
             AnnotationMetadata annotationMetadata = property.getAnnotationMetadata();
-            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(annotationMetadata)) {
+            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(plan.conversions())) {
                 Object propertyValue;
                 try {
                     propertyValue = property.get(object);
                 } catch (Exception e) {
                     throw new ValidationException("Failed to get the value of property: " + propertyName, e);
                 }
-                visitElement(context, object, plan.argument(), annotationMetadata, propertyValue, canCascade, false, true);
+                visitElement(context, object, plan.argument(), annotationMetadata, propertyValue, canCascade, Cascade.CHECKED);
             }
         }
     }
@@ -270,12 +302,14 @@ final class ValidationTraversal {
             return plan;
         }
         return propertyPlans.computeIfAbsent(property, p -> {
-            Argument<Object> argument = argumentWithMetadata(property.asArgument(), property.getAnnotationMetadata());
-            boolean validated = isValidated(property.getAnnotationMetadata(), argument);
+            AnnotationMetadata propertyMetadata = property.getAnnotationMetadata();
+            Argument<Object> argument = argumentWithMetadata(property.asArgument(), propertyMetadata);
+            List<AnnotationValue<ConvertGroup>> conversions = propertyMetadata.getAnnotationValuesByType(ConvertGroup.class);
+            boolean validated = isValidated(propertyMetadata, argument, conversions);
             if (!reflectionSupport.separatesDeclarations(introspection)
                 && !(property instanceof SeparatedPropertyDeclarations)) {
                 // a description merging the declarations into the property validates the property alone
-                return new PropertyPlan(argument, validated, List.of());
+                return new PropertyPlan(argument, validated, conversions, List.of());
             }
             // a generated introspection reports members only where the type asked for them and merges what they
             // declare into the property: walking them twice would validate them twice
@@ -290,9 +324,9 @@ final class ValidationTraversal {
                     || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, typed);
                 members.add(new MemberPlan((BeanPropertyMember) member,
                     (Argument<Object>) typed.withName(property.getName()).withAnnotationMetadata(memberMetadata),
-                    cascaded));
+                    cascaded, memberMetadata.getAnnotationValuesByType(ConvertGroup.class)));
             }
-            return new PropertyPlan(argument, validated, List.copyOf(members));
+            return new PropertyPlan(argument, validated, conversions, List.copyOf(members));
         });
     }
 
@@ -311,14 +345,14 @@ final class ValidationTraversal {
                     return;
                 }
                 AnnotationMetadata memberMetadata = member.getAnnotationMetadata();
-                try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(memberMetadata)) {
+                try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(plan.conversions())) {
                     Object value;
                     try {
                         value = reflectionSupport.readMember(member, property, object);
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }
-                    visitElement(context, object, plan.argument(), memberMetadata, value, canCascade, false, true);
+                    visitElement(context, object, plan.argument(), memberMetadata, value, canCascade, Cascade.CHECKED);
                 }
             }
         }
@@ -327,17 +361,17 @@ final class ValidationTraversal {
     private boolean isValidatedMember(BeanPropertyMember<?, ?> member) {
         AnnotationMetadata annotationMetadata = member.getAnnotationMetadata();
         return !annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)
-            && isValidated(annotationMetadata, member.asArgument());
+            && isValidated(annotationMetadata, member.asArgument(), annotationMetadata.getAnnotationValuesByType(ConvertGroup.class));
     }
 
     /**
      * Whether an element declares constraints, a cascade, constrained type arguments or group conversions.
      */
-    private boolean isValidated(AnnotationMetadata annotationMetadata, Argument<?> argument) {
+    private boolean isValidated(AnnotationMetadata annotationMetadata, Argument<?> argument, List<AnnotationValue<ConvertGroup>> conversions) {
         return ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, reflectionSupport.classLoader())
             || annotationMetadata.hasStereotype(Valid.class)
             || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, argument)
-            || !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
+            || !conversions.isEmpty();
     }
 
     <R, T> boolean isNotReachable(DefaultConstraintValidatorContext<R> context, @Nullable T object) {
@@ -387,7 +421,7 @@ final class ValidationTraversal {
                              Argument<E> elementArgument,
                              @Nullable E elementValue,
                              boolean canCascade) {
-        visitElement(context, bean, elementArgument, elementArgument.getAnnotationMetadata(), elementValue, canCascade, false, true);
+        visitElement(context, bean, elementArgument, elementArgument.getAnnotationMetadata(), elementValue, canCascade, Cascade.CHECKED);
     }
 
     /**
@@ -399,9 +433,7 @@ final class ValidationTraversal {
      * @param annotationMetadata The metadata declaring the constraints of the element
      * @param elementValue The value
      * @param canCascade Whether the element may cascade in the groups being validated
-     * @param legacyCascade Whether the element cascades without a {@link Valid} of its own, an element of a
-     *                      container marked the legacy way
-     * @param checkCascadable Whether the traversable resolver is asked before cascading
+     * @param cascade How the element cascades
      * @param <R> The root bean type
      * @param <E> The element type
      */
@@ -411,9 +443,8 @@ final class ValidationTraversal {
                              AnnotationMetadata annotationMetadata,
                              @Nullable E elementValue,
                              boolean canCascade,
-                             boolean legacyCascade,
-                             boolean checkCascadable) {
-        boolean cascaded = canCascade && (legacyCascade || annotationMetadata.hasStereotype(Valid.class));
+                             Cascade cascade) {
+        boolean cascaded = canCascade && (cascade == Cascade.LEGACY || annotationMetadata.hasStereotype(Valid.class));
         List<DefaultConstraintDescriptor<Annotation>> elementConstraints = constraints.getConstraints(context, annotationMetadata);
 
         if (visitContainer(context, leftBean, elementArgument, annotationMetadata, elementValue, elementConstraints, canCascade)) {
@@ -424,7 +455,7 @@ final class ValidationTraversal {
 
         if (cascaded && elementValue != null) {
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(elementArgument.getAnnotationMetadata())) {
-                propagateValidation(context, leftBean, elementArgument, elementValue, checkCascadable);
+                propagateValidation(context, leftBean, elementArgument, elementValue, cascade != Cascade.UNCHECKED);
             }
         }
     }
@@ -536,12 +567,7 @@ final class ValidationTraversal {
             boolean legacy = isLegacyValid && !legacyKeys;
 
             Integer typeArgumentIndex = valueExtractorDefinition.typeArgumentIndex();
-            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport,
-                beanIntrospector,
-                containerArgument.getType(),
-                valueExtractorDefinition.containerType(),
-                typeArgumentIndex
-            );
+            Integer declaredTypeArgumentIndex = extractedTypeArgumentIndex(containerArgument.getType(), valueExtractorDefinition);
             Argument<Object> containerValueArgument;
             boolean unwrapping = false;
             Argument[] typeParameters = containerArgument.getTypeParameters();
@@ -550,7 +576,7 @@ final class ValidationTraversal {
             } else {
                 // a container without type arguments of its own binds the extracted one in a generic super type
                 Argument<?> bound = typeArgumentIndex == null ? null
-                    : ContainerTypeArguments.resolveBoundTypeArgument(reflectionSupport, beanIntrospector, containerArgument.getType(), valueExtractorDefinition.containerType(), typeArgumentIndex);
+                    : boundTypeArgument(containerArgument.getType(), valueExtractorDefinition, typeArgumentIndex);
                 unwrapping = typeArgumentIndex == null;
                 if (bound != null) {
                     containerValueArgument = (Argument<Object>) bound;
@@ -619,12 +645,7 @@ final class ValidationTraversal {
                                                      List<? extends ValueExtractorDefinition<?>> valueExtractorDefinitions,
                                                      int typeArgumentIndex) {
         for (ValueExtractorDefinition<?> valueExtractorDefinition : valueExtractorDefinitions) {
-            Integer declaredTypeArgumentIndex = ContainerTypeArguments.resolveExtractedTypeArgumentIndex(reflectionSupport,
-                beanIntrospector,
-                declaredType,
-                valueExtractorDefinition.containerType(),
-                valueExtractorDefinition.typeArgumentIndex()
-            );
+            Integer declaredTypeArgumentIndex = extractedTypeArgumentIndex(declaredType, valueExtractorDefinition);
             if (Objects.equals(declaredTypeArgumentIndex, typeArgumentIndex)) {
                 return true;
             }
@@ -732,8 +753,26 @@ final class ValidationTraversal {
                 ? context.withUnwrappedContainer(context.reportedContainerType(containerType))
                 : () -> { }) {
                 // the type arguments are those of an argument prepared once: their metadata is cached by identity
-                visitElement(context, leftBean, valueArgument, valueArgument.getAnnotationMetadata(), value, canCascade, legacy, true);
+                visitElement(context, leftBean, valueArgument, valueArgument.getAnnotationMetadata(), value, canCascade, legacy ? Cascade.LEGACY : Cascade.CHECKED);
             }
         }
+    }
+
+    /**
+     * How an element cascades.
+     */
+    enum Cascade {
+        /** With a {@link Valid} of its own, the traversable resolver asked first. */
+        CHECKED,
+        /** With a {@link Valid} of its own, the traversable resolver not asked: a parameter or a return value. */
+        UNCHECKED,
+        /**
+         * Without a {@link Valid} of its own, the traversable resolver asked first: an element of a container
+         * marked the legacy way.
+         */
+        LEGACY
+    }
+
+    private record ExtractedArgumentKey(Class<?> declaredType, Class<?> extractorContainerType, @Nullable Integer typeArgumentIndex) {
     }
 }

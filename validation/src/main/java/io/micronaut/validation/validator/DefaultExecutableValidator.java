@@ -31,7 +31,6 @@ import io.micronaut.core.type.ReturnType;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
-import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.Valid;
@@ -89,12 +88,12 @@ final class DefaultExecutableValidator {
         requireNonNull("object", object);
         requireNonNull("method", method);
         final BeanValidationContext beanValidationContext = requireNonNull("context", validationContext);
-        final ValidatorDeclarations.ConfiguredExecutable configured = configuredParameters(method);
-        final Argument<?>[] arguments = configured.arguments();
+        final ValidatorDeclarations.ExecutablePlan plan = parametersPlan(method);
+        final Argument<?>[] arguments = plan.configured().arguments();
         if (arguments.length != parameterValues.length) {
             throw new IllegalArgumentException("The method parameter array must have exactly " + arguments.length + " elements.");
         }
-        return validateMethodParameters(object, method, configured, parameterValues, beanValidationContext);
+        return validateMethodParameters(object, method, plan, parameterValues, beanValidationContext);
     }
 
     @SuppressWarnings("unchecked")
@@ -104,14 +103,14 @@ final class DefaultExecutableValidator {
         requireNonNull("parameterValues", argumentValues);
         requireNonNull("groups", groups);
 
-        final ValidatorDeclarations.ConfiguredExecutable configured = configuredParameters(method);
-        final Argument<?>[] arguments = configured.arguments();
+        final ValidatorDeclarations.ExecutablePlan plan = parametersPlan(method);
+        final Argument<?>[] arguments = plan.configured().arguments();
         if (arguments.length != argumentValues.size()) {
             throw new IllegalArgumentException("The method parameter array must have exactly " + arguments.length + " elements.");
         }
 
         Object[] parameters = argumentValues.stream().map(ArgumentValue::getValue).toArray();
-        Set<ConstraintViolation<T>> violations = validateMethodParameters(object, method, configured, parameters, BeanValidationContext.fromGroups(groups));
+        Set<ConstraintViolation<T>> violations = validateMethodParameters(object, method, plan, parameters, BeanValidationContext.fromGroups(groups));
         // a publisher or a completion stage is validated as it delivers: the argument becomes the instrumented one
         int index = 0;
         for (MutableArgumentValue<?> argumentValue : argumentValues) {
@@ -123,21 +122,21 @@ final class DefaultExecutableValidator {
         return violations;
     }
 
-    private ValidatorDeclarations.ConfiguredExecutable configuredParameters(ExecutableMethod<?, ?> method) {
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(method);
-        declarations.checkParameterDeclarations(method, hierarchy);
-        return declarations.configuredExecutable(method, hierarchy);
+    private ValidatorDeclarations.ExecutablePlan parametersPlan(ExecutableMethod<?, ?> method) {
+        final ValidatorDeclarations.ExecutablePlan plan = declarations.executablePlan(method);
+        declarations.checkParameterDeclarations(plan);
+        return plan;
     }
 
     private <T> Set<ConstraintViolation<T>> validateMethodParameters(T object,
                                                                     ExecutableMethod<?, ?> method,
-                                                                    ValidatorDeclarations.ConfiguredExecutable configured,
+                                                                    ValidatorDeclarations.ExecutablePlan plan,
                                                                     Object[] parameters,
                                                                     BeanValidationContext validationContext) {
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(validator, null, object, validationContext);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameters);
              ValidationPath.ContextualPath ignored = context.getCurrentPath().addMethodNode(method)) {
-            validateParametersInternal(context, object, configured.annotationMetadata(), parameters, configured.arguments(), getParameterNames(method));
+            validateParametersInternal(context, object, plan.crossParameterArgument(), parameters, plan.configured().arguments(), getParameterNames(method, plan));
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
     }
@@ -153,7 +152,7 @@ final class DefaultExecutableValidator {
         if (object != null && object.getClass() != declaringType && declaringType.isInstance(object)) {
             Class<Object> receiverType = (Class<Object>) object.getClass();
             Class<?>[] parameterTypes = method.getParameterTypes();
-            BeanIntrospection<Object> introspection = beanIntrospector.findIntrospection(receiverType).orElse(null);
+            BeanIntrospection<Object> introspection = validator.getBeanIntrospection(receiverType);
             if (introspection != null) {
                 for (BeanMethod<Object, Object> beanMethod : introspection.getBeanMethods()) {
                     if (beanMethod.getName().equals(method.getName())
@@ -171,26 +170,18 @@ final class DefaultExecutableValidator {
     <T> Set<ConstraintViolation<T>> validateReturnValue(T bean, ExecutableMethod<?, Object> executableMethod, @Nullable Object returnValue, @Nullable BeanValidationContext validationContext) {
         requireNonNull("object", bean);
         requireNonNull("method", executableMethod);
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        declarations.checkReturnValueDeclarations(executableMethod, hierarchy);
-        final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
+        final ValidatorDeclarations.ExecutablePlan plan = declarations.executablePlan(executableMethod);
+        declarations.checkReturnValueDeclarations(plan);
+        final Argument<Object> returnArgument = (Argument<Object>) plan.configured().returnArgument();
         final DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(validator, null, bean, requireNonNull("validationContext", validationContext));
 
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue);
              ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod);
              ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
-            boolean canCascade = true;
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(bean)) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    traversal.visitElement(context, bean, returnArgument, returnArgument.getAnnotationMetadata(), returnValue, canCascade, false, false);
-                    if (validation.isFailed()) {
-                        return context.getOverallViolations();
-                    }
-                }
-                canCascade = false;
-            }
+            context.validateInGroups(context.findGroupSequences(bean), canCascade ->
+                traversal.visitElement(context, bean, returnArgument, returnArgument.getAnnotationMetadata(), returnValue, canCascade, ValidationTraversal.Cascade.UNCHECKED));
         }
-        return context.getOverallViolations();
+        return Collections.unmodifiableSet(context.getOverallViolations());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
@@ -199,7 +190,7 @@ final class DefaultExecutableValidator {
         requireNonNull("groups", groups);
 
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
-        final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
+        final BeanIntrospection<? extends T> introspection = validator.getBeanIntrospection(declaringClass);
         final BeanConstructor<? extends T> beanConstructor = reflectionSupport.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         return validateConstructorParameters(
             declaringClass,
@@ -256,7 +247,7 @@ final class DefaultExecutableValidator {
         ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredConstructor(beanType, constructorMetadata, constructorArguments);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues);
              ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(ValidationPath.simpleName(beanType), beanType, constructorArguments)) {
-            validateParametersInternal(context, null, configured.annotationMetadata(), parameterValues, configured.arguments(), parameterNames);
+            validateParametersInternal(context, null, declarations.crossParameterArgument(configured.annotationMetadata()), parameterValues, configured.arguments(), parameterNames);
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
     }
@@ -267,7 +258,7 @@ final class DefaultExecutableValidator {
         requireNonNull("createdObject", createdObject);
         requireNonNull("groups", groups);
         final Class<? extends T> declaringClass = constructor.getDeclaringClass();
-        final BeanIntrospection<? extends T> introspection = beanIntrospector.findIntrospection(declaringClass).orElse(null);
+        final BeanIntrospection<? extends T> introspection = validator.getBeanIntrospection(declaringClass);
         final BeanConstructor<? extends T> beanConstructor = reflectionSupport.beanConstructor((BeanIntrospection) introspection, (Constructor) constructor);
         // the constraints of a constructor apply to the object it creates: the root bean is null, like for its parameters
         final DefaultConstraintValidatorContext<T> context = introspection == null
@@ -280,52 +271,35 @@ final class DefaultExecutableValidator {
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(createdObject);
              ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addConstructorNode(ValidationPath.simpleName(declaringClass), declaringClass, beanConstructor.getArguments());
              ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
-            boolean canCascade = true;
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(createdObject)) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    traversal.visitElement(context, createdObject, returnArgument, constructorMetadata, createdObject, canCascade, false, false);
-                    if (validation.isFailed()) {
-                        return context.getOverallViolations();
-                    }
-                }
-                canCascade = false;
-            }
+            context.validateInGroups(context.findGroupSequences(createdObject), canCascade ->
+                traversal.visitElement(context, createdObject, returnArgument, constructorMetadata, createdObject, canCascade, ValidationTraversal.Cascade.UNCHECKED));
         }
-        return context.getOverallViolations();
+        return Collections.unmodifiableSet(context.getOverallViolations());
     }
 
     <T> Publisher<Object> validateReturnedPublisher(T bean, ExecutableMethod<?, Object> executableMethod, Publisher<Object> publisher, Class<?>... groups) {
         requireNonNull("publisher", publisher);
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        final Argument<?> returnArgument = declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
+        final Argument<?> returnArgument = declarations.executablePlan(executableMethod).configured().returnArgument();
         return ReactiveValidation.validateReturnedPublisher(validator, conversionService, bean, executableMethod, returnArgument, publisher, groups);
     }
 
     <T> CompletionStage<Object> validateReturnedCompletionStage(T bean, ExecutableMethod<?, Object> executableMethod, CompletionStage<Object> completionStage, Class<?>... groups) {
         requireNonNull("completionStage", completionStage);
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        final Argument<?> returnArgument = declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
+        final Argument<?> returnArgument = declarations.executablePlan(executableMethod).configured().returnArgument();
         return ReactiveValidation.validateReturnedCompletionStage(validator, bean, executableMethod, returnArgument, completionStage, groups);
     }
 
     @SuppressWarnings("unchecked")
     <T> Set<ConstraintViolation<T>> validateReturnedContainer(T bean, ExecutableMethod<?, Object> executableMethod, @Nullable Object container, Class<?>... groups) {
-        final ExecutableHierarchy.Resolved hierarchy = declarations.resolveHierarchy(executableMethod);
-        final Argument<Object> returnArgument = (Argument<Object>) declarations.configuredExecutable(executableMethod, hierarchy).returnArgument();
+        final Argument<Object> returnArgument = (Argument<Object>) declarations.executablePlan(executableMethod).configured().returnArgument();
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(validator, null, bean, BeanValidationContext.fromGroups(groups));
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(container);
              ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod);
              ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(bean)) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    constraints.validateConstraints(context, bean, returnArgument, container);
-                    if (validation.isFailed()) {
-                        break;
-                    }
-                }
-            }
+            context.validateInGroups(context.findGroupSequences(bean), canCascade ->
+                constraints.validateConstraints(context, bean, returnArgument, container));
         }
-        return context.getOverallViolations();
+        return Collections.unmodifiableSet(context.getOverallViolations());
     }
 
     <T> Publisher<T> validatePublisher(ReturnType<?> returnType, Publisher<T> publisher, Class<?>... groups) {
@@ -342,14 +316,8 @@ final class DefaultExecutableValidator {
         // the groups are active only while the value is validated, so the whole sequence runs once it completes
         return completionStage.thenApply(value -> {
             DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(validator, null, null, BeanValidationContext.fromGroups(groups));
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    ReactiveValidation.validateCompletedValue(validator, context, argument, value, true);
-                    if (validation.isFailed()) {
-                        break;
-                    }
-                }
-            }
+            context.validateInGroups(context.findGroupSequences(), canCascade ->
+                ReactiveValidation.validateCompletedValue(validator, context, argument, value, true));
             if (!context.getOverallViolations().isEmpty()) {
                 throw validator.constraintViolationException(context.getOverallViolations());
             }
@@ -360,67 +328,71 @@ final class DefaultExecutableValidator {
     @SuppressWarnings("unchecked")
     private <T> void validateParametersInternal(DefaultConstraintValidatorContext<T> context,
                                                 @Nullable T bean,
-                                                AnnotationMetadata methodAnnotationMetadata,
+                                                @Nullable Argument<Object[]> crossParameterArgument,
                                                 Object[] parameters,
                                                 Argument<?>[] arguments,
                                                 @Nullable List<String> parameterNames) {
-        boolean canCascade = true;
-        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences(bean)) {
-            try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-
-                if (ConstraintContainers.hasConstraints(reflectionSupport, methodAnnotationMetadata, reflectionSupport.classLoader())) {
-                    try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addCrossParameterNode()) {
-                        constraints.validateConstraints(context, bean, Argument.of(Object[].class, methodAnnotationMetadata), parameters);
-                    }
-                }
-
-                for (int parameterIndex = 0; parameterIndex < arguments.length; parameterIndex++) {
-                    Argument<Object> argument = (Argument<Object>) arguments[parameterIndex];
-                    if (!ArgumentValidationMetadata.isValidated(reflectionSupport, argument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, argument)) {
-                        continue;
-                    }
-                    try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addParameterNode(parameterName(argument, parameterNames, parameterIndex), parameterIndex);
-                         DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(argument.getAnnotationMetadata())) {
-                        final Class<Object> parameterType = argument.getType();
-                        final Object parameterValue = parameters[parameterIndex];
-                        final boolean hasValue = parameterValue != null;
-                        final boolean isPublisher = hasValue && Publishers.isConvertibleToPublisher(parameterType);
-                        final boolean isCompletionStage = hasValue && CompletionStage.class.isAssignableFrom(parameterType);
-                        if (isPublisher || isCompletionStage) {
-                            // the constraints of the container itself apply now, the values it holds as they arrive
-                            constraints.validateConstraints(context, bean, argument, parameterValue);
-                        }
-                        if (isPublisher) {
-                            ReactiveValidation.instrumentPublisherArgumentWithValidation(validator, context, parameters, parameterIndex, argument, parameterValue, canCascade);
-                        } else if (isCompletionStage) {
-                            ReactiveValidation.instrumentCompletionStageArgumentWithValidation(validator, context, parameters, parameterIndex, argument, parameterValue, canCascade);
-                        } else {
-                            traversal.visitElement(context, bean, argument, argument.getAnnotationMetadata(), parameterValue, canCascade, false, false);
-                        }
-                    }
-                }
-
-                if (validation.isFailed()) {
-                    return;
+        context.validateInGroups(context.findGroupSequences(bean), canCascade -> {
+            if (crossParameterArgument != null) {
+                try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addCrossParameterNode()) {
+                    constraints.validateConstraints(context, bean, crossParameterArgument, parameters);
                 }
             }
-            canCascade = false;
-        }
+
+            for (int parameterIndex = 0; parameterIndex < arguments.length; parameterIndex++) {
+                Argument<Object> argument = (Argument<Object>) arguments[parameterIndex];
+                if (!ArgumentValidationMetadata.isValidated(reflectionSupport, argument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, argument)) {
+                    continue;
+                }
+                try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addParameterNode(parameterName(argument, parameterNames, parameterIndex), parameterIndex);
+                     DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(argument.getAnnotationMetadata())) {
+                    final Class<Object> parameterType = argument.getType();
+                    final Object parameterValue = parameters[parameterIndex];
+                    final boolean hasValue = parameterValue != null;
+                    final boolean isPublisher = hasValue && Publishers.isConvertibleToPublisher(parameterType);
+                    final boolean isCompletionStage = hasValue && CompletionStage.class.isAssignableFrom(parameterType);
+                    if (isPublisher || isCompletionStage) {
+                        // the constraints of the container itself apply now, the values it holds as they arrive
+                        constraints.validateConstraints(context, bean, argument, parameterValue);
+                    }
+                    if (isPublisher) {
+                        ReactiveValidation.instrumentPublisherArgumentWithValidation(validator, context, parameters, parameterIndex, argument, parameterValue, canCascade);
+                    } else if (isCompletionStage) {
+                        ReactiveValidation.instrumentCompletionStageArgumentWithValidation(validator, context, parameters, parameterIndex, argument, parameterValue, canCascade);
+                    } else {
+                        traversal.visitElement(context, bean, argument, argument.getAnnotationMetadata(), parameterValue, canCascade, ValidationTraversal.Cascade.UNCHECKED);
+                    }
+                }
+            }
+        });
     }
 
     private @Nullable List<String> getParameterNames(MethodReference<?, ?> method) {
+        if (declarations.parameterNameProvider() == null) {
+            return null;
+        }
+        return method instanceof ExecutableMethod<?, ?> executableMethod
+            ? getParameterNames(method, declarations.executablePlan(executableMethod))
+            : getParameterNames(method, null);
+    }
+
+    private @Nullable List<String> getParameterNames(MethodReference<?, ?> method, ValidatorDeclarations.@Nullable ExecutablePlan plan) {
         ParameterNameProvider parameterNameProvider = declarations.parameterNameProvider();
         if (parameterNameProvider == null) {
             return null;
         }
-        Method targetMethod;
+        // the Java method is resolved once per method: no Java method without the reflection module, the names
+        // compiled into the metadata then stand
+        Method targetMethod = plan == null ? targetMethod(method) : plan.targetMethod(() -> targetMethod(method));
+        return targetMethod == null ? null : parameterNameProvider.getParameterNames(targetMethod);
+    }
+
+    private @Nullable Method targetMethod(MethodReference<?, ?> method) {
         try {
-            targetMethod = reflectionSupport.targetMethod(method);
+            return reflectionSupport.targetMethod(method);
         } catch (ValidationException e) {
-            // no Java method without the reflection module: the names compiled into the metadata stand
             return null;
         }
-        return parameterNameProvider.getParameterNames(targetMethod);
     }
 
     private @Nullable List<String> getParameterNames(Constructor<?> constructor) {

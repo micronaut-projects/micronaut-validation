@@ -65,4 +65,15 @@ public final class ValidationAnnotationUtil {
     private ValidationAnnotationUtil() {
     }
 
+    /**
+     * Whether a type belongs to the platform or the specification APIs, which declare no constraints of the
+     * application and are never introspected: a hierarchy walk leaves them aside.
+     *
+     * @param typeName The name of the type
+     * @return Whether its package is under {@code java.}, {@code javax.} or {@code jakarta.}
+     * @since 5.3.0
+     */
+    public static boolean isPlatformType(String typeName) {
+        return typeName.startsWith("java.") || typeName.startsWith("javax.") || typeName.startsWith("jakarta.");
+    }
 }

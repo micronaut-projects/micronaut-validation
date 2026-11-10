@@ -37,6 +37,7 @@ import java.util.List;
  * @param metadata The declaration annotations
  * @param parameters The executable arguments
  * @param reader The declaration-specific value access, {@link Reader#NONE} for an executable
+ * @since 5.3.0
  */
 @Internal
 public record ValidationDeclaration(

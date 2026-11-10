@@ -33,7 +33,7 @@ import java.util.concurrent.CompletionStage;
 /**
  * The validation of the elements emitted by a reactive return value.
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 final class ReactiveValidation {
@@ -174,14 +174,8 @@ final class ReactiveValidation {
              ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addMethodNode(method);
              ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addReturnValueNode();
              ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addContainerElementNode(nodeName, containerContext)) {
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    validator.traversal().visitElement(context, bean, valueArgument, value, true);
-                    if (validation.isFailed()) {
-                        break;
-                    }
-                }
-            }
+            context.validateInGroups(context.findGroupSequences(), firstStep ->
+                validator.traversal().visitElement(context, bean, valueArgument, value, true));
         }
         return context.getOverallViolations();
     }

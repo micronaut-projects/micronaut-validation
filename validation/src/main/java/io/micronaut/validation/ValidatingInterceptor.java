@@ -249,6 +249,6 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     }
 
     private Class<?>[] getValidationGroups(MethodInvocationContext<Object, Object> context) {
-      return context.classValues(Validated.class, "groups");
+        return context.classValues(Validated.class, "groups");
     }
 }

@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.messages;
 
 import io.micronaut.context.MessageSource;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.ArgumentUtils;
 import jakarta.inject.Inject;
@@ -72,11 +71,11 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
         this(messageSource, Optional::empty);
     }
 
-    private String interpolate(@NonNull String template, MessageSource.@NonNull MessageContext context) {
+    private String interpolate(String template, MessageSource.MessageContext context) {
         return interpolate(template, context, 0);
     }
 
-    private String interpolate(@NonNull String template, MessageSource.@NonNull MessageContext context, int depth) {
+    private String interpolate(String template, MessageSource.MessageContext context, int depth) {
         ArgumentUtils.requireNonNull("template", template);
         ArgumentUtils.requireNonNull("context", context);
 

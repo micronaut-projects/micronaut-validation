@@ -27,7 +27,6 @@ import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.valueextraction.ValueExtractor;
 import jakarta.validation.valueextraction.ValueExtractorDeclarationException;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -54,7 +53,6 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> internalValueExtractors = new HashMap<>();
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> localValueExtractors = new HashMap<>();
     private final Map<Class<?>, List<ValueExtractorDefinition<?>>> matchingValueExtractors = new ConcurrentHashMap<>();
-    private final Map<Class<?>, List<ValueExtractorDefinition<?>>> matchingDeclaredValueExtractors = new ConcurrentHashMap<>();
 
     /**
      * Default constructor.
@@ -143,7 +141,6 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
         }
         valueExtractorDefinitions.add(valueExtractorDefinition);
         matchingValueExtractors.clear();
-        matchingDeclaredValueExtractors.clear();
     }
 
     private static void copyValueExtractors(Map<Class<?>, List<ValueExtractorDefinition<?>>> source,
@@ -171,9 +168,8 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
     }
 
     @SuppressWarnings("unchecked")
-    @NonNull
     @Override
-    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType) {
+    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(Class<T> targetType) {
         List<ValueExtractorDefinition<?>> valueExtractorDefinitions = matchingValueExtractors.get(targetType);
         if (valueExtractorDefinitions == null) {
             valueExtractorDefinitions = findMaximallySpecificValueExtractors(targetType);
@@ -195,14 +191,10 @@ public final class DefaultValueExtractors implements ValueExtractorRegistry {
      */
     @Override
     @SuppressWarnings("unchecked")
-    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType,
+    public <T> List<ValueExtractorDefinition<T>> findValueExtractors(Class<T> targetType,
                                                                      Function<ValueExtractorDefinition<?>, @Nullable Integer> declaredTypeArgument) {
-        List<ValueExtractorDefinition<?>> valueExtractorDefinitions = matchingDeclaredValueExtractors.get(targetType);
-        if (valueExtractorDefinitions == null) {
-            valueExtractorDefinitions = findMaximallySpecificValueExtractors(targetType, declaredTypeArgument);
-            matchingDeclaredValueExtractors.put(targetType, valueExtractorDefinitions);
-        }
-        return (List) valueExtractorDefinitions;
+        // not cached: the answer depends on the caller's mapping, a caller caches what it is answered
+        return (List) findMaximallySpecificValueExtractors(targetType, declaredTypeArgument);
     }
 
     private List<ValueExtractorDefinition<?>> findMaximallySpecificValueExtractors(Class<?> targetType) {

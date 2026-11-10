@@ -28,7 +28,11 @@ import org.jspecify.annotations.Nullable;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/** Reads fixed Jakarta enum contracts without reflective enum conversion. */
+/**
+ * Reads fixed Jakarta enum contracts without reflective enum conversion.
+ *
+ * @since 5.3.0
+ */
 @Internal
 public final class ValidationEnumValues {
     private ValidationEnumValues() { }

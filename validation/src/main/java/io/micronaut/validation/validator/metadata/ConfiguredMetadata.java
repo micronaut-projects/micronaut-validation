@@ -24,7 +24,7 @@ import java.util.List;
 /**
  * Merges the annotation metadata of an element with the one a configuration, such as an XML mapping, adds to it.
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 public final class ConfiguredMetadata {

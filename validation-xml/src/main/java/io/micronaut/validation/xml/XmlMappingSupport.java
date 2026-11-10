@@ -37,7 +37,11 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/** XML structure checks and DOM access shared by validation XML readers. */
+/**
+ * XML structure checks and DOM access shared by validation XML readers.
+ *
+ * @since 5.3.0
+ */
 final class XmlMappingSupport {
 
     private static final Map<String, Optional<Schema>> SCHEMAS = new ConcurrentHashMap<>();

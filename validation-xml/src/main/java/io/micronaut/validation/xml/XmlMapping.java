@@ -31,7 +31,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
-/** Parsed constraint mappings shared by the parser and metadata adapter. */
+/**
+ * Parsed constraint mappings shared by the parser and metadata adapter.
+ *
+ * @since 5.3.0
+ */
 final class XmlMapping {
     private XmlMapping() { }
 

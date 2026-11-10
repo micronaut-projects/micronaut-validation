@@ -59,8 +59,8 @@ final class ConstraintEvaluator {
     private final ConstraintValidatorInstances validatorInstances;
     private final ValidatorDeclarations declarations;
     private final MessageInterpolator messageInterpolator;
-    // The constraints of an element, by the identity of its metadata: the metadata of the walked elements is
-    // prepared once, so the keys are few. Dropped whole past MAX_CACHED_CONSTRAINTS rather than copied on insert.
+    // The constraints of an element, by its metadata: the metadata of the walked elements is prepared once and an
+    // annotation metadata does not override equals, so the keys compare by identity and are few. Dropped whole past MAX_CACHED_CONSTRAINTS rather than copied on insert.
     private final ConcurrentMap<AnnotationMetadata, List<DefaultConstraintDescriptor<Annotation>>> constraintCache =
         new ConcurrentHashMap<>();
 
@@ -119,86 +119,90 @@ final class ConstraintEvaluator {
         ValidationPath.DefaultMethodNode executableNode = executableNode(context.getCurrentPath());
         for (DefaultConstraintDescriptor<Annotation> constraint : constraints) {
             context.beginConstraint(constraint, leftBean, elementValue);
-            ConstraintTarget validationAppliesTo = constraint.getValidationAppliesTo();
-            if (constraint.hasDefinedConstraintValidatorClasses() || validationAppliesTo != null) {
-                boolean onExecutable = executableNode != null
-                    && (constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE);
-                ConstraintValidatorTargetResolver.checkTargetDeclaration(reflectionSupport,
-                    constraint.getType(),
-                    constraint.getConstraintValidatorClasses(),
-                    validationAppliesTo,
-                    onExecutable,
-                    executableNode != null && executableNode.getMethodReference().getArguments().length > 0,
-                    executableNode instanceof ValidationPath.DefaultConstructorNode
-                        || (executableNode != null && executableNode.getMethodReference().getReturnType().getType() != void.class)
-                );
-            }
-            if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT && validationAppliesTo != constraintTarget) {
-                continue;
-            }
-            Class<Annotation> constraintType = constraint.getType();
-            List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
-            ConstraintValidator<Annotation, E> validator = constraint.hasDefinedConstraintValidatorClasses()
-                ? (ConstraintValidator<Annotation, E>) constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget)
-                : null;
-            if (validator == null && constraint.hasDefinedConstraintValidatorClasses()) {
-                if ((constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE)
-                    && !ConstraintValidatorTargetResolver.supportsTarget(reflectionSupport, validatorClasses, constraintTarget)) {
-                    // a constraint declared on an executable whose validators do not validate this phase
+            // ended on every path, a skipped constraint and a failed one included
+            try {
+                ConstraintTarget validationAppliesTo = constraint.getValidationAppliesTo();
+                if (constraint.hasDefinedConstraintValidatorClasses() || validationAppliesTo != null) {
+                    boolean onExecutable = executableNode != null
+                        && (constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE);
+                    ConstraintValidatorTargetResolver.checkTargetDeclaration(reflectionSupport,
+                        constraint.getType(),
+                        constraint.getConstraintValidatorClasses(),
+                        validationAppliesTo,
+                        onExecutable,
+                        executableNode != null && executableNode.getMethodReference().getArguments().length > 0,
+                        executableNode instanceof ValidationPath.DefaultConstructorNode
+                            || (executableNode != null && executableNode.getMethodReference().getReturnType().getType() != void.class)
+                    );
+                }
+                if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT && validationAppliesTo != constraintTarget) {
                     continue;
                 }
-                Class<?> validatedBy = ConstraintValidatorTargetResolver.resolve(reflectionSupport, constraintType, validatorClasses, elementArgument.getType(), constraintTarget);
-                if (validatedBy != null) {
-                    Class<jakarta.validation.ConstraintValidator<Annotation, E>> validatedByConstraint = (Class<jakarta.validation.ConstraintValidator<Annotation, E>>) validatedBy;
-                    jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = validatorInstances.get(validatedByConstraint, elementArgument.getType(), constraintTarget, constraint);
-                    if (constraintValidator != null) {
-                        validator = constraintValidator instanceof ConstraintValidator<Annotation, E> cv
-                            ? cv
-                            : new JakartaConstraintValidatorAdapter<>(constraintValidator);
+                Class<Annotation> constraintType = constraint.getType();
+                List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
+                ConstraintValidator<Annotation, E> validator = constraint.hasDefinedConstraintValidatorClasses()
+                    ? (ConstraintValidator<Annotation, E>) constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget)
+                    : null;
+                if (validator == null && constraint.hasDefinedConstraintValidatorClasses()) {
+                    if ((constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE)
+                        && !ConstraintValidatorTargetResolver.supportsTarget(reflectionSupport, validatorClasses, constraintTarget)) {
+                        // a constraint declared on an executable whose validators do not validate this phase
+                        continue;
                     }
-                }
-                if (validator == null && constraint.includesBuiltInValidators()) {
-                    // no configured validator handles the type: the built-in ones kept next to them may
+                    Class<?> validatedBy = ConstraintValidatorTargetResolver.resolve(reflectionSupport, constraintType, validatorClasses, elementArgument.getType(), constraintTarget);
+                    if (validatedBy != null) {
+                        Class<jakarta.validation.ConstraintValidator<Annotation, E>> validatedByConstraint = (Class<jakarta.validation.ConstraintValidator<Annotation, E>>) validatedBy;
+                        jakarta.validation.ConstraintValidator<Annotation, E> constraintValidator = validatorInstances.get(validatedByConstraint, elementArgument.getType(), constraintTarget, constraint);
+                        if (constraintValidator != null) {
+                            validator = constraintValidator instanceof ConstraintValidator<Annotation, E> cv
+                                ? cv
+                                : new JakartaConstraintValidatorAdapter<>(constraintValidator);
+                        }
+                    }
+                    if (validator == null && constraint.includesBuiltInValidators()) {
+                        // no configured validator handles the type: the built-in ones kept next to them may
+                        validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
+                    }
+                    if (validator == null) {
+                        if (!validatorClasses.isEmpty()) {
+                            throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
+                        }
+                        continue;
+                    }
+                    // resolved once for the type and the target: the resolution, the instance lookup and the adapter
+                    constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget, validator);
+                } else if (validator == null) {
+                    if (constraintTarget == ConstraintTarget.PARAMETERS) {
+                        continue;
+                    }
                     validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
                 }
-                if (validator == null) {
-                    if (!validatorClasses.isEmpty()) {
-                        throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
+                if (validator == null || validator == ConstraintValidator.VALID) {
+                    if (validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint)) {
+                        continue;
                     }
-                    continue;
+                    throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
                 }
-                // resolved once for the type and the target: the resolution, the instance lookup and the adapter
-                constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget, validator);
-            } else if (validator == null) {
-                if (constraintTarget == ConstraintTarget.PARAMETERS) {
-                    continue;
-                }
-                validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
-            }
-            if (validator == null || validator == ConstraintValidator.VALID) {
-                if (validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint)) {
-                    continue;
-                }
-                throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
-            }
-            try {
-                int reportedBefore = context.reportedViolations();
-                if (!validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
-                    if (!context.isDefaultConstraintViolationDisabled()) {
-                        context.addViolation(createConstraintViolation(context, leftBean, elementValue, constraint));
-                    } else if (context.reportedViolations() == reportedBefore) {
-                        // this validator reported nothing, whatever the constraints before it did
-                        throw new ValidationException("Default violation is disabled and no violations were added");
+                try {
+                    int reportedBefore = context.reportedViolations();
+                    if (!validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
+                        if (!context.isDefaultConstraintViolationDisabled()) {
+                            context.addViolation(createConstraintViolation(context, leftBean, elementValue, constraint));
+                        } else if (context.reportedViolations() == reportedBefore) {
+                            // this validator reported nothing, whatever the constraints before it did
+                            throw new ValidationException("Default violation is disabled and no violations were added");
+                        }
                     }
+                } catch (ValidationException e) {
+                    throw e;
+                } catch (Exception e) {
+                    throw new ValidationException("Cannot call 'isValid' on: " + validator.getClass().getName(), e);
                 }
-            } catch (ValidationException e) {
-                throw e;
-            } catch (Exception e) {
-                throw new ValidationException("Cannot call 'isValid' on: " + validator.getClass().getName(), e);
-            }
 
-            validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
-            context.endConstraint();
+                validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
+            } finally {
+                context.endConstraint();
+            }
         }
     }
 
@@ -210,7 +214,7 @@ final class ConstraintEvaluator {
         if (!constraint.hasComposingConstraints()) {
             return false;
         }
-        List<DefaultConstraintDescriptor<Annotation>> composingConstraints = List.copyOf(constraint.getComposingConstraintDescriptors());
+        List<DefaultConstraintDescriptor<Annotation>> composingConstraints = constraint.composingConstraintList();
         if (constraint.isReportAsSingleViolation()) {
             // violations keep their report order: the composing ones, past the size before, give way to the composed one
             Set<ConstraintViolation<R>> violations = context.getOverallViolations();
@@ -236,7 +240,7 @@ final class ConstraintEvaluator {
                                                                 @Nullable Object leftBean,
                                                                 @Nullable Object elementValue,
                                                                 ConstraintDescriptor<Annotation> constraint) {
-        final String contextTemplate = context.getMessageTemplate().orElse(null);
+        final String contextTemplate = context.getMessageTemplate();
         final String messageTemplate = contextTemplate != null ? contextTemplate : constraint.getMessageTemplate();
         final String message;
         try {

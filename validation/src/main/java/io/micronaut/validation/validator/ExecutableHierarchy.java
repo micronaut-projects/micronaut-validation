@@ -26,6 +26,7 @@ import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.GroupSequence;
@@ -54,7 +55,7 @@ import java.util.Set;
  * separates the declarations - the reflection module provides one - marks its declarations
  * {@link Declaration#exact() exact}, and resolves the hierarchy through {@link ReflectionSupport}.</p>
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 public final class ExecutableHierarchy {
@@ -109,7 +110,7 @@ public final class ExecutableHierarchy {
         return new Resolved(local,
             declared,
             List.copyOf(inherited),
-            mergeMetadata(levels.stream().map(Declaration::annotationMetadata).toList()),
+            ConfiguredMetadata.merge(levels.stream().map(Declaration::annotationMetadata).toList()),
             arguments,
             mergeArgument(levels.stream().map(Declaration::returnArgument).toList()));
     }
@@ -123,7 +124,7 @@ public final class ExecutableHierarchy {
         List<Declaration> declarations = new ArrayList<>(levels.size());
         for (Class<?> level : levels.subList(Math.min(1, levels.size()), levels.size())) {
             String typeName = level.getName();
-            if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
+            if (ValidationAnnotationUtil.isPlatformType(typeName)) {
                 continue;
             }
             Optional<Declaration> declared = declaredBy(introspector, level, name, parameterTypes);
@@ -179,7 +180,7 @@ public final class ExecutableHierarchy {
     @SuppressWarnings("unchecked")
     private static Optional<Declaration> declaredBy(BeanIntrospector introspector, Class<?> type, String name, Class<?>[] parameterTypes) {
         String typeName = type.getName();
-        if (typeName.startsWith("java.") || typeName.startsWith("jakarta.")) {
+        if (ValidationAnnotationUtil.isPlatformType(typeName)) {
             return Optional.empty();
         }
         return introspector.findIntrospection((Class<Object>) type)
@@ -196,7 +197,7 @@ public final class ExecutableHierarchy {
                         found = method;
                         break;
                     }
-                    if (found == null && erasesTo(declared, parameterTypes)) {
+                    if (found == null && erasesTo(method.getArguments(), declared, parameterTypes)) {
                         found = method;
                     }
                 }
@@ -209,13 +210,14 @@ public final class ExecutableHierarchy {
      * Whether a generic declaration, its parameter types erased, can be the one a method of the given parameter
      * types overrides: a parameter a type variable declares erases to a super type of the overriding one.
      */
-    private static boolean erasesTo(Class<?>[] declared, Class<?>[] parameterTypes) {
+    private static boolean erasesTo(Argument<?>[] arguments, Class<?>[] declared, Class<?>[] parameterTypes) {
         if (declared.length != parameterTypes.length) {
             return false;
         }
         for (int i = 0; i < declared.length; i++) {
             Class<?> overriding = parameterTypes[i];
-            if (declared[i] != overriding && (overriding.isPrimitive() || !declared[i].isAssignableFrom(overriding))) {
+            if (declared[i] != overriding
+                && (!arguments[i].isTypeVariable() || overriding.isPrimitive() || !declared[i].isAssignableFrom(overriding))) {
                 return false;
             }
         }
@@ -240,28 +242,8 @@ public final class ExecutableHierarchy {
                 .map(level -> level.getTypeParameters()[index])
                 .toList());
         }
-        AnnotationMetadata metadata = mergeMetadata(levels.stream().map(Argument::getAnnotationMetadata).toList());
+        AnnotationMetadata metadata = ConfiguredMetadata.merge(levels.stream().map(Argument::getAnnotationMetadata).toList());
         return local.withTypeParameters(typeParameters).withAnnotationMetadata(metadata);
-    }
-
-    /**
-     * Merges the levels of metadata of a hierarchy into one, every annotation of it declared: the empty
-     * levels are left out, one level is answered as it is, several are read as a hierarchy the last one wins.
-     *
-     * @param levels The levels, the one to win last
-     * @return The merged metadata
-     */
-    public static AnnotationMetadata mergeMetadata(List<AnnotationMetadata> levels) {
-        List<AnnotationMetadata> present = levels.stream().filter(level -> !level.isEmpty()).toList();
-        if (present.isEmpty()) {
-            return AnnotationMetadata.EMPTY_METADATA;
-        }
-        if (present.size() == 1) {
-            return present.get(0);
-        }
-        // the generated metadata of a type is shared: the levels are read as they are, not copied into a
-        // mutable metadata that would then alter their annotation values
-        return new AnnotationMetadataHierarchy(true, present.toArray(AnnotationMetadata[]::new));
     }
 
     /**
@@ -583,7 +565,7 @@ public final class ExecutableHierarchy {
                 || methodMetadata.getAnnotationNames().stream().allMatch(returnMetadata::hasAnnotation)) {
                 return returnArgument;
             }
-            AnnotationMetadata metadata = mergeMetadata(List.of(methodMetadata, returnMetadata));
+            AnnotationMetadata metadata = ConfiguredMetadata.merge(List.of(methodMetadata, returnMetadata));
             return returnArgument.withAnnotationMetadata(metadata);
         }
 

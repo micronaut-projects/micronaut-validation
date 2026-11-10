@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator;
 
-import org.jspecify.annotations.NonNull;
 import io.micronaut.core.beans.BeanProperty;
 import io.micronaut.core.util.ArrayUtils;
 import java.util.List;
@@ -42,7 +41,7 @@ public interface BeanValidationContext {
      * @param groups The groups
      * @return The context
      */
-    static @NonNull BeanValidationContext fromGroups(Class<?>... groups) {
+    static BeanValidationContext fromGroups(Class<?>... groups) {
         if (ArrayUtils.isEmpty(groups)) {
             return DEFAULT;
         } else {
@@ -63,7 +62,7 @@ public interface BeanValidationContext {
      * @param <T> The object type
      */
     default <T> boolean isPropertyValidated(
-        @NonNull T object, @NonNull BeanProperty<T, Object> property) {
+        T object, BeanProperty<T, Object> property) {
         return true;
     }
 }

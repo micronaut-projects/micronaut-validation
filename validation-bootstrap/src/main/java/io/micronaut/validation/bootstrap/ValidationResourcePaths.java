@@ -22,6 +22,7 @@ import java.util.regex.Pattern;
 
 /**
  * Internal classpath resource path validation for bootstrap XML entries.
+ * @since 5.3.0
  */
 final class ValidationResourcePaths {
 

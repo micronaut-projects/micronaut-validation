@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanWrapper;
 import io.micronaut.core.type.Argument;
@@ -442,7 +441,7 @@ final class InternalConstraintValidators {
      * @param bigDecimal The big decimal
      * @return The result
      */
-    private static int compareNumber(@NonNull Number value, @NonNull BigDecimal bigDecimal) {
+    private static int compareNumber(Number value, BigDecimal bigDecimal) {
         int result;
         if (value instanceof BigDecimal decimalValue) {
             result = decimalValue.compareTo(bigDecimal);

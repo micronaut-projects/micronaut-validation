@@ -34,7 +34,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-/** Owns initialized instances and prevents release while validation is in progress. */
+/**
+ * Owns initialized instances and prevents release while validation is in progress.
+ *
+ * @since 5.3.0
+ */
 @Internal
 final class ConstraintValidatorInstances implements AutoCloseable {
     private final InternalConstraintValidatorFactory factory;
@@ -164,13 +168,10 @@ final class ConstraintValidatorInstances implements AutoCloseable {
         }
         // a validator without an initialize method keeps no state of a constraint: one instance may serve several
         if (!(instance instanceof ConstraintValidator<?, ?>)
-                && initializes(type)
-                && initializedValidators.values().stream()
-                        .anyMatch(existing -> existing == instance)) {
-            throw new ValidationException(
-                    "ConstraintValidatorFactory reused an initialized instance for a different"
-                            + " constraint: "
-                            + type.getName());
+            && initializes(type)
+            && initializedValidators.values().stream().anyMatch(existing -> existing == instance)) {
+            throw new ValidationException("ConstraintValidatorFactory reused an initialized instance for a different constraint: "
+                + type.getName());
         }
         try {
             if (!(instance instanceof ConstraintValidator<?, ?>) && initializes(type)) {

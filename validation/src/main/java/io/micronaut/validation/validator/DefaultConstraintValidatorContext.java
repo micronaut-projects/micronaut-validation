@@ -23,9 +23,8 @@ import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.GroupDefinitionException;
-import jakarta.validation.GroupSequence;
 import jakarta.validation.ValidationException;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
@@ -38,15 +37,12 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -57,8 +53,7 @@ import java.util.Set;
 @Internal
 public final class DefaultConstraintValidatorContext<R> implements ConstraintValidatorContext {
 
-    private static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
-    private static final Class<?>[] EMPTY_GROUPS = new Class<?>[0];
+    static final List<Class<?>> DEFAULT_GROUPS = Collections.singletonList(Default.class);
 
     private boolean disableDefaultConstraintViolation;
     // the reports added so far, counted rather than read off the violations: equal reports are kept once
@@ -94,7 +89,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private List<Class<?>> currentGroups;
     private Map<Class<?>, Class<?>> convertedGroups = Collections.emptyMap();
     // whether the current groups are the result of a conversion: each then lists the groups it extends
-    // itself, see FindGroupContext#exact, and a constraint is in a group it names exactly
+    // itself, see GroupSequences.FindGroupContext#exact, and a constraint is in a group it names exactly
     private boolean currentGroupsExact;
     private List<AnnotationValue<ConvertGroup>> appliedConversions = List.of();
     private boolean hasCurrentViolations = false;
@@ -171,20 +166,9 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         sanityCheckGroups(definedGroups);
         List<Class<?>> groups = new ArrayList<>();
         for (Class<?> group : definedGroups) {
-            addInheritedGroups(group, groups);
+            GroupSequences.addInheritedGroups(reflectionSupport, group, groups);
         }
         return List.copyOf(groups);
-    }
-
-    private void addInheritedGroups(Class<?> group, List<Class<?>> groups) {
-        if (!groups.contains(group)) {
-            groups.add(group);
-            if (reflectionSupport.canResolveHierarchy(group)) {
-                for (Class<?> inherited : reflectionSupport.interfaces(group)) {
-                    addInheritedGroups(inherited, groups);
-                }
-            }
-        }
     }
 
     private static void sanityCheckGroups(List<Class<?>> groups) {
@@ -350,6 +334,27 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
+     * Validates the steps in turn, each in its groups, until a step fails; only the first step cascades.
+     *
+     * @param steps The steps, see {@link #findGroupSequences()}
+     * @param validation Validates a step, told whether it may cascade
+     * @return Whether a step failed
+     */
+    boolean validateInGroups(List<ValidationGroup> steps, GroupStep validation) {
+        boolean canCascade = true;
+        for (ValidationGroup step : steps) {
+            try (GroupsValidation groups = withGroupSequence(step)) {
+                validation.validate(canCascade);
+                if (groups.isFailed()) {
+                    return true;
+                }
+            }
+            canCascade = false;
+        }
+        return false;
+    }
+
+    /**
      * The beans cascaded to while a step of a requested sequence is validated are validated in the groups of the
      * step only, as the reference implementation does: each step of the sequence cascades in its own groups.
      *
@@ -379,7 +384,16 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public ValidationCloseable convertGroups(AnnotationMetadata annotationMetadata) {
-        List<AnnotationValue<ConvertGroup>> conversions = annotationMetadata.getAnnotationValuesByType(ConvertGroup.class);
+        return convertGroups(annotationMetadata.getAnnotationValuesByType(ConvertGroup.class));
+    }
+
+    /**
+     * Applies the group conversions of a relationship to the beans it cascades to.
+     *
+     * @param conversions The conversions, read off the metadata of the relationship
+     * @return The closeable restoring the previous conversions
+     */
+    ValidationCloseable convertGroups(List<AnnotationValue<ConvertGroup>> conversions) {
         if (conversions.isEmpty() || conversions.equals(appliedConversions)) {
             // the conversions of the relationship being cascaded, met again on its way in, are applied once
             return () -> {
@@ -395,11 +409,12 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             GroupConversion conversion = GroupConversion.of(value);
             Class<?> to = conversion.to();
             if (to == null) {
-                throw new NoSuchElementException("No value present");
+                throw new ConstraintDeclarationException("The group conversion from " + conversion.from().getName() + " names no target group");
             }
             Class<?> previous = newConvertGroups.putIfAbsent(conversion.from(), to);
             if (previous != null) {
-                throw new IllegalStateException("Duplicate key " + conversion.from() + " (attempted merging values " + previous + " and " + to + ")");
+                throw new ConstraintDeclarationException("The group " + conversion.from().getName() + " is converted more than once, to "
+                    + previous.getName() + " and " + to.getName());
             }
         }
         for (Class<?> group : prevGroups) {
@@ -411,7 +426,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         // the conversions of the relationships cascaded so far, followed by this one: a group the previous
         // relationships converted is converted again, a group they left is converted from its original
         Map<Class<?>, Class<?>> composed = new HashMap<>(newConvertGroups);
-        prevConvertedGroups.forEach((from, to) -> composed.put(from, convertGroup(newConvertGroups, to)));
+        prevConvertedGroups.forEach((from, to) -> composed.put(from, newConvertGroups.getOrDefault(to, to)));
         convertedGroups = composed;
         // only the cascaded bean is validated in the converted groups: the groups of the constraints declared
         // next to the conversion stay the ones requested
@@ -446,61 +461,12 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
+        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         if (ctx.isDefault()) {
-            return defaultValidator.declarations().defaultGroupSequences(beanIntrospection, bi -> List.copyOf(findGroupSequences(ctx, bi)));
+            return defaultValidator.declarations().defaultGroupSequences(beanIntrospection, bi -> List.copyOf(GroupSequences.findGroupSequences(ctx, bi)));
         } else {
-            return findGroupSequences(ctx, beanIntrospection);
+            return GroupSequences.findGroupSequences(ctx, beanIntrospection);
         }
-    }
-
-    private static List<ValidationGroup> findGroupSequences(FindGroupContext requested, BeanIntrospection<?> beanIntrospection) {
-        // a cascade validates the bean in the groups it converted to: a group converted to the default group
-        // expands to the default group sequence the bean redefines, as a requested default group does
-        FindGroupContext ctx = requested;
-        if (!requested.convertedGroups().isEmpty()) {
-            List<Class<?>> converted = new ArrayList<>(requested.definedGroups().size());
-            for (Class<?> group : requested.definedGroups()) {
-                Class<?> convertedGroup = convertGroup(requested.convertedGroups(), group);
-                if (!converted.contains(convertedGroup)) {
-                    converted.add(convertedGroup);
-                }
-            }
-            ctx = new FindGroupContext(requested.defaultValidator(), Map.of(), List.copyOf(converted), true);
-        }
-        // a requested group extending the default group validates its constraints itself, without the redefinition
-        if (!ctx.definedGroups.contains(Default.class) || extendsDefaultGroup(ctx.definedGroups)) {
-            return findGroupSequences(requested);
-        }
-        Class<Object>[] classGroupSequence = beanIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
-        Class<?> defaultGroupType = beanIntrospection.getBeanType();
-        if (classGroupSequence.length == 0) {
-            return findGroupSequences(requested);
-        }
-        validateDefaultGroupSequence(defaultGroupType, classGroupSequence);
-        // the other groups requested with the default group first: a failed step of the redefined sequence ends
-        // the validation of the bean
-        List<ValidationGroup> dest = new ArrayList<>();
-        List<Class<?>> others = new ArrayList<>(ctx.definedGroups.size());
-        for (Class<?> group : ctx.definedGroups) {
-            if (group != Default.class) {
-                others.add(group);
-            }
-        }
-        if (!others.isEmpty()) {
-            findGroups(ctx, dest, others, new HashSet<>());
-        }
-        dest.addAll(expandDefaultGroupSequence(ctx, defaultGroupType, classGroupSequence));
-        return dest;
-    }
-
-    private static boolean extendsDefaultGroup(List<Class<?>> groups) {
-        for (Class<?> group : groups) {
-            if (group != Default.class && Default.class.isAssignableFrom(group)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
@@ -513,181 +479,28 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * the default group is not validated
      */
     public Map<Class<?>, List<ValidationGroup>> findIsolatedGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
-        if (!hasDefaultGroup(ctx.definedGroups)
-            || beanIntrospection.getAnnotationMetadata().classValues(GroupSequence.class).length > 0) {
+        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
+        if (!hasDefaultGroup(ctx.definedGroups())) {
+            return Map.of();
+        }
+        ValidatorDeclarations.BeanPlan plan = defaultValidator.declarations().beanPlan(beanIntrospection);
+        if (plan.redefinesDefaultGroupSequence() || plan.superSequenceRedefinitions().isEmpty()) {
             return Map.of();
         }
         Map<Class<?>, List<ValidationGroup>> isolated = new LinkedHashMap<>();
-        for (BeanIntrospection<?> superIntrospection : defaultValidator.declarations().superIntrospections(beanIntrospection)) {
-            Class<?> superType = superIntrospection.getBeanType();
-            Class<Object>[] classGroupSequence = superIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
-            if (!superType.isInterface() && classGroupSequence.length > 0) {
-                validateDefaultGroupSequence(superType, classGroupSequence);
-                isolated.put(superType, expandDefaultGroupSequence(ctx, superType, classGroupSequence));
-            }
-        }
+        plan.superSequenceRedefinitions().forEach((superType, classGroupSequence) -> {
+            GroupSequences.validateDefaultGroupSequence(superType, classGroupSequence);
+            isolated.put(superType, GroupSequences.expandDefaultGroupSequence(ctx, superType, classGroupSequence));
+        });
         return isolated;
     }
 
-    private static void validateDefaultGroupSequence(Class<?> defaultGroupType,
-                                                     Class<Object>[] classGroupSequence) {
-        boolean containsDefaultGroupType = false;
-        for (Class<?> group : classGroupSequence) {
-            if (group == Default.class) {
-                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
-            }
-            containsDefaultGroupType |= group == defaultGroupType;
-        }
-        if (!containsDefaultGroupType) {
-            throw new GroupDefinitionException("Group sequence is missing default group defined by the class of: " + defaultGroupType);
-        }
-    }
-
-    private static List<ValidationGroup> expandDefaultGroupSequence(FindGroupContext ctx,
-                                                                    Class<?> defaultGroupType,
-                                                                    Class<Object>[] classGroupSequence) {
-        List<ValidationGroup> dest = new ArrayList<>();
-        for (Class<Object> group : classGroupSequence) {
-            if (group == defaultGroupType) {
-                dest.add(new ValidationGroup(true, true, List.of(Default.class), List.of(Default.class)));
-            } else {
-                int start = dest.size();
-                findGroups(ctx, dest, List.of(group), new HashSet<>());
-                // every group of the redefined default sequence is a step of it: a violation stops the sequence
-                for (int i = start; i < dest.size(); i++) {
-                    ValidationGroup step = dest.get(i);
-                    if (!step.isSequence()) {
-                        dest.set(i, new ValidationGroup(true, false, step.groups(), List.of(Default.class)));
-                    } else {
-                        dest.set(i, new ValidationGroup(true, step.isRedefinedDefaultGroupSequence(), step.groups(), List.of(Default.class)));
-                    }
-                }
-            }
-        }
-        return dest;
-    }
-
     public List<ValidationGroup> findGroupSequences() {
-        FindGroupContext ctx = new FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
+        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         if (ctx.isDefault()) {
-            return defaultValidator.declarations().defaultGroupSequences(null, ignored -> List.copyOf(findGroupSequences(ctx)));
+            return defaultValidator.declarations().defaultGroupSequences(null, ignored -> List.copyOf(GroupSequences.findGroupSequences(ctx)));
         } else {
-            return findGroupSequences(ctx);
-        }
-    }
-
-    private static List<ValidationGroup> findGroupSequences(FindGroupContext ctx) {
-        List<ValidationGroup> dest = new ArrayList<>();
-        findGroups(ctx, dest, ctx.definedGroups, new HashSet<>());
-        return dest;
-    }
-
-    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> requestedGroup, Set<Class<?>> processedGroups) {
-        Class<?> group = convertGroup(ctx.convertedGroups, requestedGroup);
-        if (!processedGroups.add(group)) {
-            throw new GroupDefinitionException("Cyclical group: " + group);
-        }
-        // the groups being expanded, not every group seen: two sequences may share a group without a cycle
-        try {
-            expandGroup(ctx, dest, requestedGroup, group, processedGroups);
-        } finally {
-            processedGroups.remove(group);
-        }
-    }
-
-    private static void expandGroup(FindGroupContext ctx, List<ValidationGroup> dest, Class<?> requestedGroup, Class<?> group, Set<Class<?>> processedGroups) {
-        Class<?>[] groupSequence = ctx.defaultValidator.getBeanIntrospector().findIntrospection(group)
-            .map(introspection -> (Class<?>[]) introspection.classValues(GroupSequence.class))
-            .orElse(EMPTY_GROUPS);
-        if (groupSequence.length == 0) {
-            dest.add(new ValidationGroup(false, false, ctx.exact() ? exactGroups(ctx, requestedGroup) : List.of(group), List.of(requestedGroup)));
-            return;
-        }
-        int start = dest.size();
-        for (Class<?> g : groupSequence) {
-            if (g == Default.class) {
-                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
-            }
-            findGroups(ctx, dest, g, processedGroups);
-        }
-        // every group the sequence expanded to, wherever the destination started
-        for (int i = start; i < dest.size(); i++) {
-            ValidationGroup vg = dest.get(i);
-            dest.set(i, new ValidationGroup(true, true, vg.groups, vg.requested));
-        }
-    }
-
-    /**
-     * The groups a group stands for below a conversion, listed one by one since they are matched exactly: the
-     * group and each group it extends, every one converted on its own, a group converted to standing for itself
-     * and the groups it extends. A group extending the default group keeps its own constraints when the
-     * default group is converted, as in the reference implementation.
-     */
-    private static List<Class<?>> exactGroups(FindGroupContext ctx, Class<?> group) {
-        List<Class<?>> groups = new ArrayList<>();
-        for (Class<?> inherited : inheritedGroups(ctx, group)) {
-            Class<?> converted = convertGroup(ctx.convertedGroups, inherited);
-            if (converted == inherited) {
-                if (!groups.contains(inherited)) {
-                    groups.add(inherited);
-                }
-            } else {
-                for (Class<?> target : inheritedGroups(ctx, converted)) {
-                    if (!groups.contains(target)) {
-                        groups.add(target);
-                    }
-                }
-            }
-        }
-        return List.copyOf(groups);
-    }
-
-    /** The group and the groups it extends, transitively. */
-    private static List<Class<?>> inheritedGroups(FindGroupContext ctx, Class<?> group) {
-        List<Class<?>> groups = new ArrayList<>();
-        addInheritedGroups(ctx.defaultValidator.reflectionSupport(), group, groups);
-        return groups;
-    }
-
-    private static void addInheritedGroups(ReflectionSupport reflectionSupport, Class<?> group, List<Class<?>> groups) {
-        if (!groups.contains(group)) {
-            groups.add(group);
-            if (reflectionSupport.canResolveHierarchy(group)) {
-                for (Class<?> inherited : reflectionSupport.interfaces(group)) {
-                    addInheritedGroups(reflectionSupport, inherited, groups);
-                }
-            }
-        }
-    }
-
-    private static Class<?> convertGroup(Map<Class<?>, Class<?>> convertedGroups, Class<?> group) {
-        Class<?> newGroup = convertedGroups.get(group);
-        if (newGroup == null) {
-            return group;
-        }
-        return newGroup;
-    }
-
-    private static void findGroups(FindGroupContext ctx, List<ValidationGroup> dest, List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
-        int start = dest.size();
-        for (Class<?> g : groupSequence) {
-            findGroups(ctx, dest, g, processedGroups);
-        }
-        boolean anySequence = false;
-        for (int i = start; i < dest.size() && !anySequence; i++) {
-            anySequence |= dest.get(i).isSequence;
-        }
-        if (!anySequence) {
-            List<ValidationGroup> subList = dest.subList(start, dest.size());
-            List<Class<?>> copy = new ArrayList<>();
-            List<Class<?>> requested = new ArrayList<>();
-            for (ValidationGroup validationGroup : subList) {
-                copy.addAll(validationGroup.groups);
-                requested.addAll(validationGroup.requested);
-            }
-            subList.clear();
-            dest.add(new ValidationGroup(false, false, copy, requested));
+            return GroupSequences.findGroupSequences(ctx);
         }
     }
 
@@ -765,7 +578,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
 
     @Override
     public String getDefaultConstraintMessageTemplate() {
-        return getMessageTemplate().orElse(currentConstraint().getMessageTemplate());
+        String template = messageTemplate;
+        return template != null ? template : currentConstraint().getMessageTemplate();
     }
 
     /**
@@ -798,8 +612,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         this.messageTemplate = messageTemplate;
     }
 
-    Optional<String> getMessageTemplate() {
-        return Optional.ofNullable(messageTemplate);
+    /**
+     * @return The template the validator of the current constraint set, null for the template of the constraint
+     */
+    @Nullable String getMessageTemplate() {
+        return messageTemplate;
     }
 
     DefaultConstraintValidatorContext<R> copy() {
@@ -807,6 +624,18 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         copy.rootClass = rootClass;
         copy.stepGroups = stepGroups;
         return copy;
+    }
+
+    /**
+     * Validates in the groups of a step.
+     */
+    @FunctionalInterface
+    interface GroupStep {
+
+        /**
+         * @param canCascade Whether the step may cascade: the first step alone does
+         */
+        void validate(boolean canCascade);
     }
 
     @Internal
@@ -835,26 +664,5 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     @Internal
     record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence,
                            List<Class<?>> groups, List<Class<?>> requested) {
-    }
-
-    /**
-     * @param defaultValidator The validator
-     * @param convertedGroups The conversions applying to the groups
-     * @param definedGroups The groups requested
-     * @param exact Whether the groups are validated below a conversion: each lists then the groups it extends
-     */
-    private record FindGroupContext(
-        DefaultValidator defaultValidator,
-        Map<Class<?>, Class<?>> convertedGroups,
-        List<Class<?>> definedGroups,
-        boolean exact
-    ) {
-        FindGroupContext(DefaultValidator defaultValidator, Map<Class<?>, Class<?>> convertedGroups, List<Class<?>> definedGroups) {
-            this(defaultValidator, convertedGroups, definedGroups, !convertedGroups.isEmpty());
-        }
-
-        boolean isDefault() {
-            return definedGroups == DEFAULT_GROUPS && convertedGroups.isEmpty();
-        }
     }
 }

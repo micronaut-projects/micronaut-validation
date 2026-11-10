@@ -35,7 +35,7 @@ import java.util.List;
  * not, and what it binds is read from the class, which {@link ReflectionSupport} decides: the reflection
  * module reads it, and without that module the validator says so rather than reading it here.</p>
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 final class ContainerTypeArguments {

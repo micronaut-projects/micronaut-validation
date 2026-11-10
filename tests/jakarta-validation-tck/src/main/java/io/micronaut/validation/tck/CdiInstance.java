@@ -48,6 +48,7 @@ import java.util.Set;
  * @param type               The requested bean type
  * @param injectedValues     The values already injected into the test instance, by type
  * @param <T>                The requested bean type
+ * @since 5.3.0
  */
 @Internal
 record CdiInstance<T>(

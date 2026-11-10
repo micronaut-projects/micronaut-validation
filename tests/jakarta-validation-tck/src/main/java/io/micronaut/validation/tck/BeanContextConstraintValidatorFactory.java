@@ -37,6 +37,7 @@ import java.util.Optional;
  *
  * @param applicationContext The bean context of the deployment
  * @param delegate           The factory of the validator under test
+ * @since 5.3.0
  */
 @Internal
 record BeanContextConstraintValidatorFactory(

@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import org.jspecify.annotations.NonNull;
 
 import jakarta.validation.ValidationException;
 import java.lang.annotation.Annotation;
@@ -37,10 +36,9 @@ public interface ConstraintValidatorRegistry {
      * @param <T> The target type
      * @return The validator
      */
-    @NonNull
     <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidator(
-            @NonNull Class<A> constraintType,
-            @NonNull Class<T> targetType);
+            Class<A> constraintType,
+            Class<T> targetType);
 
     /**
      * Finds a constraint validator for the given type and target type.
@@ -51,10 +49,9 @@ public interface ConstraintValidatorRegistry {
      * @return The validator
      * @throws ValidationException if no validator is present
      */
-    @NonNull
     default <A extends Annotation, T> ConstraintValidator<A, T> getConstraintValidator(
-            @NonNull Class<A> constraintType,
-            @NonNull Class<T> targetType) {
+            Class<A> constraintType,
+            Class<T> targetType) {
         return findConstraintValidator(constraintType, targetType)
                 .orElseThrow(() -> new ValidationException("No constraint validator present able to validate constraint [" + constraintType + "] on type: " + targetType));
     }

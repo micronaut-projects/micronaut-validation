@@ -71,19 +71,13 @@ final class DefaultBeanDefinitionValidator {
         DefaultConstraintValidatorContext<T> context = new DefaultConstraintValidatorContext<>(validator, null, value, BeanValidationContext.DEFAULT);
 
         final Class<?> rootClass = injectionPoint.getDeclaringBean().getBeanType();
-        boolean canCascade = true;
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(
                 rootClass.getName(), rootClass, injectionPoint.getDeclaringBean().getConstructor().getArguments());
              ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addPropertyNode(argument.getName());
              DefaultConstraintValidatorContext.ValidationCloseable ignore4 = context.convertGroups(argument.getAnnotationMetadata())) {
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    traversal.visitElement(context, null, argument, value, canCascade);
-                    if (validation.isFailed()) {
-                        failOnError(resolutionContext, context.getOverallViolations(), rootClass);
-                    }
-                }
-                canCascade = false;
+            if (context.validateInGroups(context.findGroupSequences(), canCascade ->
+                traversal.visitElement(context, null, argument, value, canCascade))) {
+                failOnError(resolutionContext, context.getOverallViolations(), rootClass);
             }
         }
 
@@ -144,15 +138,9 @@ final class DefaultBeanDefinitionValidator {
         final ReturnType<Object> returnType = (ReturnType<Object>) executableMethod.getReturnType();
         try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addPropertyNode(executableMethod.getName());
              DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(executableMethod.getAnnotationMetadata())) {
-            boolean canCascade = true;
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    traversal.visitElement(context, bean, returnType.asArgument(), value, canCascade);
-                    if (validation.isFailed()) {
-                        failOnError(resolutionContext, context.getOverallViolations(), beanType);
-                    }
-                }
-                canCascade = false;
+            if (context.validateInGroups(context.findGroupSequences(), canCascade ->
+                traversal.visitElement(context, bean, returnType.asArgument(), value, canCascade))) {
+                failOnError(resolutionContext, context.getOverallViolations(), beanType);
             }
         }
     }

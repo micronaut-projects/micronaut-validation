@@ -52,7 +52,10 @@ import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.ElementType;
+import java.lang.reflect.GenericArrayType;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
+import java.lang.reflect.WildcardType;
 import java.util.Collection;
 import java.util.Optional;
 import java.util.function.Supplier;
@@ -571,7 +574,20 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Deprecated(since = "5.3.0", forRemoval = true)
     public static Class<?> getClassFromType(Type type) {
-        return SignatureErasure.erase(type);
+        // a signature the caller holds, taken apart without reading a class
+        if (type instanceof Class<?> classType) {
+            return classType;
+        }
+        if (type instanceof ParameterizedType parameterizedType) {
+            return getClassFromType(parameterizedType.getRawType());
+        }
+        if (type instanceof GenericArrayType) {
+            return Object[].class;
+        }
+        if (type instanceof WildcardType wildcardType) {
+            return getClassFromType(wildcardType.getUpperBounds()[0]);
+        }
+        throw new IllegalArgumentException("Unknown type: " + type);
     }
 
     private record DelegatingInternalConstraintValidatorFactory(

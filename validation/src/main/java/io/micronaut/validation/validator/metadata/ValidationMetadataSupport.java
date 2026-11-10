@@ -56,11 +56,16 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Resolves standard metadata before requesting optional runtime discovery. */
+/**
+ * Resolves standard metadata before requesting optional runtime discovery.
+ *
+ * @since 5.3.0
+ */
 @Internal
 public final class ValidationMetadataSupport {
     /** The name of an entry of {@link #DECLARED_PARAMETERS}: the type-use annotations a parameter declares. */
@@ -69,7 +74,7 @@ public final class ValidationMetadataSupport {
     /** Parameters before the existing visitor supplements inherited type-use annotations. */
     public static final String DECLARED_PARAMETERS = "io.micronaut.validation.internal.DeclaredParameters";
 
-    private static final List<Class<? extends Annotation>> STANDARD_CONSTRAINTS = List.of(
+    private static final Map<String, Class<? extends Annotation>> STANDARD_CONSTRAINTS = byName(
         AssertFalse.class, AssertTrue.class,
         DecimalMax.class, DecimalMin.class,
         Digits.class, Email.class,
@@ -89,12 +94,16 @@ public final class ValidationMetadataSupport {
      * @return Its API class literal, or null
      */
     public static @Nullable Class<? extends Annotation> standardConstraint(String name) {
-        for (var type : STANDARD_CONSTRAINTS) {
-            if (type.getName().equals(name)) {
-                return type;
-            }
+        return STANDARD_CONSTRAINTS.get(name);
+    }
+
+    @SafeVarargs
+    private static Map<String, Class<? extends Annotation>> byName(Class<? extends Annotation>... types) {
+        var byName = new HashMap<String, Class<? extends Annotation>>();
+        for (var type : types) {
+            byName.put(type.getName(), type);
         }
-        return null;
+        return Map.copyOf(byName);
     }
 
     /**

@@ -20,7 +20,11 @@ import io.micronaut.el.ELExpressionSource;
 
 import java.util.List;
 
-/** Loads compiled expressions without discovering interpreter method executors. */
+/**
+ * Loads compiled expressions without discovering interpreter method executors.
+ *
+ * @since 5.3.0
+ */
 final class ElExpressionSources {
     private ElExpressionSources() { }
 

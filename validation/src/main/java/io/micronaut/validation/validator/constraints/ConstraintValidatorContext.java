@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator.constraints;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ClockProvider;
@@ -40,7 +39,7 @@ public interface ConstraintValidatorContext extends jakarta.validation.Constrain
      * @since 2.0
      */
     @Override
-    @NonNull ClockProvider getClockProvider();
+    ClockProvider getClockProvider();
 
     /**
      * In case of using this constraint validator with {@code jakarta.validation.ConstraintValidator} returns null, because JRS-303 doesn't

@@ -36,20 +36,18 @@ import java.util.concurrent.ConcurrentHashMap;
 @Internal
 final class ReflectionContainerTypeArguments {
 
-    private static final ClassValue<Map<Key, Optional<Argument<?>>>> BOUND_TYPE_ARGUMENTS =
-            new ClassValue<>() {
-                @Override
-                protected Map<Key, Optional<Argument<?>>> computeValue(Class<?> type) {
-                    return new ConcurrentHashMap<>();
-                }
-            };
-    private static final ClassValue<Map<Key, Optional<Integer>>> EXTRACTED_TYPE_ARGUMENT_INDEXES =
-            new ClassValue<>() {
-                @Override
-                protected Map<Key, Optional<Integer>> computeValue(Class<?> type) {
-                    return new ConcurrentHashMap<>();
-                }
-            };
+    private static final ClassValue<Map<Key, Optional<Argument<?>>>> BOUND_TYPE_ARGUMENTS = new ClassValue<>() {
+        @Override
+        protected Map<Key, Optional<Argument<?>>> computeValue(Class<?> type) {
+            return new ConcurrentHashMap<>();
+        }
+    };
+    private static final ClassValue<Map<Key, Optional<Integer>>> EXTRACTED_TYPE_ARGUMENT_INDEXES = new ClassValue<>() {
+        @Override
+        protected Map<Key, Optional<Integer>> computeValue(Class<?> type) {
+            return new ConcurrentHashMap<>();
+        }
+    };
 
     private ReflectionContainerTypeArguments() { }
 
@@ -62,35 +60,25 @@ final class ReflectionContainerTypeArguments {
     @Nullable
     static Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         return BOUND_TYPE_ARGUMENTS.get(declaredType)
-                .computeIfAbsent(
-                        new Key(containerType, typeArgumentIndex),
-                        key ->
-                                Optional.ofNullable(
-                                        readBoundTypeArgument(
-                                                declaredType, key.containerType(), key.typeArgumentIndex()))).orElse(null);
+            .computeIfAbsent(new Key(containerType, typeArgumentIndex),
+                key -> Optional.ofNullable(readBoundTypeArgument(declaredType, key.containerType(), key.typeArgumentIndex())))
+            .orElse(null);
     }
 
     @Nullable
     private static Argument<?> readBoundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        Argument<?> resolved =
-                ReflectionArguments.resolveGenericToArgument(declaredType, containerType);
-        Argument<?>[] parameters =
-                resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
-        return typeArgumentIndex >= 0 && typeArgumentIndex < parameters.length
-                ? parameters[typeArgumentIndex]
-                : null;
+        Argument<?> resolved = ReflectionArguments.resolveGenericToArgument(declaredType, containerType);
+        Argument<?>[] parameters = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
+        return typeArgumentIndex >= 0 && typeArgumentIndex < parameters.length ? parameters[typeArgumentIndex] : null;
     }
 
     /** Which of a type's own type arguments carries the one an extractor extracts. */
     @Nullable
     static Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
         return EXTRACTED_TYPE_ARGUMENT_INDEXES.get(declaredType)
-                .computeIfAbsent(
-                        new Key(extractorContainerType, extractorTypeArgumentIndex),
-                        key ->
-                                Optional.ofNullable(
-                                        readExtractedTypeArgumentIndex(
-                                                declaredType, key.containerType(), key.typeArgumentIndex()))).orElse(null);
+            .computeIfAbsent(new Key(extractorContainerType, extractorTypeArgumentIndex),
+                key -> Optional.ofNullable(readExtractedTypeArgumentIndex(declaredType, key.containerType(), key.typeArgumentIndex())))
+            .orElse(null);
     }
 
     @Nullable

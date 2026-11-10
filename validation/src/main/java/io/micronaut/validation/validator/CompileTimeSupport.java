@@ -27,6 +27,7 @@ import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.GroupSequence;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import jakarta.validation.ConstraintDefinitionException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.valueextraction.ValueExtractor;
@@ -108,6 +109,17 @@ final class CompileTimeSupport implements ReflectionSupport {
     @Override
     @SuppressWarnings("unchecked")
     public <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
+        ExecutableMethod<T, Object> described = describedExecutableMethod(locator, introspector, method);
+        if (described != null) {
+            return described;
+        }
+        throw ReflectionSupport.reflectionRequired("the method " + method.getName() + Arrays.toString(method.getParameterTypes())
+            + " of " + method.getDeclaringClass().getName() + ", which is neither a bean nor introspected with the method listed as executable");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
         Class<T> declaringType = (Class<T>) method.getDeclaringClass();
         Optional<ExecutableMethod<T, Object>> found = locator.findExecutableMethod(declaringType, method.getName(), method.getParameterTypes());
         // the locator answers for any bean of the type, a sub type overriding the method included, and falls
@@ -126,22 +138,30 @@ final class CompileTimeSupport implements ReflectionSupport {
                 }
             }
         }
-        throw ReflectionSupport.reflectionRequired("the method " + method.getName() + Arrays.toString(method.getParameterTypes())
-            + " of " + declaringType.getName() + ", which is neither a bean nor introspected with the method listed as executable");
+        return null;
     }
 
     @Override
     public <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
-        Class<?>[] parameterTypes = constructor.getParameterTypes();
+        BeanConstructor<T> described = describedBeanConstructor(introspection, constructor);
+        if (described != null) {
+            return described;
+        }
+        throw ReflectionSupport.reflectionRequired("the constructor " + constructor.getDeclaringClass().getName()
+            + Arrays.toString(constructor.getParameterTypes()) + ", which the introspection of the type does not list");
+    }
+
+    @Override
+    public <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
         if (introspection != null) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
             for (BeanConstructor<T> candidate : introspection.getConstructors()) {
                 if (Arrays.equals(Argument.toClassArray(candidate.getArguments()), parameterTypes)) {
                     return candidate;
                 }
             }
         }
-        throw ReflectionSupport.reflectionRequired("the constructor " + constructor.getDeclaringClass().getName() + Arrays.toString(parameterTypes)
-            + ", which the introspection of the type does not list");
+        return null;
     }
 
     @Override
@@ -185,16 +205,12 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        BeanIntrospection<?> introspection =
-                introspector.findIntrospection(declaredType).orElse(null);
+        BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
         if (introspection == null) {
             return null;
         }
-        List<Argument<?>> arguments =
-                introspection.getTypeArguments(containerType);
-        return typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size()
-                ? arguments.get(typeArgumentIndex)
-                : null;
+        List<Argument<?>> arguments = introspection.getTypeArguments(containerType);
+        return typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size() ? arguments.get(typeArgumentIndex) : null;
     }
 
     /**
@@ -204,13 +220,11 @@ final class CompileTimeSupport implements ReflectionSupport {
      * without generated mappings require the optional reflection provider.
      */
     @Override
-    public @Nullable Integer extractedTypeArgumentIndex(
-            Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         if (declaredType == containerType) {
             return typeArgumentIndex;
         }
-        BeanIntrospection<?> introspection =
-                introspector.findIntrospection(declaredType).orElse(null);
+        BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
         if (introspection != null) {
             int index = ContainerTypeArguments.generatedIndex(introspection, containerType, typeArgumentIndex);
             if (index != ContainerTypeArguments.UNKNOWN) {
@@ -225,11 +239,8 @@ final class CompileTimeSupport implements ReflectionSupport {
         if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
             return typeArgumentIndex;
         }
-        throw ReflectionSupport.reflectionRequired(
-                "container-variable mappings from "
-                        + declaredType.getName()
-                        + " to "
-                        + containerType.getName());
+        throw ReflectionSupport.reflectionRequired("container-variable mappings from " + declaredType.getName()
+            + " to " + containerType.getName());
     }
 
     @Override
@@ -250,11 +261,9 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
-        BeanIntrospection<?> introspection =
-                introspector.findIntrospection(type).orElse(null);
+        BeanIntrospection<?> introspection = introspector.findIntrospection(type).orElse(null);
         if (introspection != null) {
-            List<Argument<?>> arguments =
-                    introspection.getTypeArguments(superType);
+            List<Argument<?>> arguments = introspection.getTypeArguments(superType);
             if (!arguments.isEmpty()) {
                 return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
             }
@@ -325,53 +334,45 @@ final class CompileTimeSupport implements ReflectionSupport {
 
     @Override
     public List<String> parameterNames(Executable executable) {
-        BeanIntrospection<?> introspection =
-                introspector
-                        .findIntrospection(executable.getDeclaringClass())
-                        .orElse(null);
-        if (introspection != null) {
-            if (executable instanceof Method method) {
-                for (var candidate : introspection.getBeanMethods()) {
-                    if (candidate.getName().equals(method.getName())
-                            && Arrays.equals(
-                                    Argument.toClassArray(candidate.getArguments()),
-                                    method.getParameterTypes())) {
-                        return Arrays.stream(candidate.getArguments())
-                                .map(Argument::getName)
-                                .toList();
-                    }
-                }
-            } else {
-                for (var candidate : introspection.getConstructors()) {
-                    if (Arrays.equals(
-                            Argument.toClassArray(candidate.getArguments()),
-                            executable.getParameterTypes())) {
-                        return Arrays.stream(candidate.getArguments())
-                                .map(Argument::getName)
-                                .toList();
-                    }
-                }
-            }
+        List<String> described = describedParameterNames(executable);
+        if (described != null) {
+            return described;
         }
         throw ReflectionSupport.reflectionRequired("the parameter names of " + executable.getName() + " of "
             + executable.getDeclaringClass().getName());
     }
 
     @Override
-    public Argument<?> valueExtractorArgument(Class<?> extractorType) {
-        Argument<?> argument =
-                genericSuperArgument(
-                        extractorType, ValueExtractor.class);
-        if (argument != null) {
-            AnnotationMetadata declared =
-                    introspector.getIntrospection(extractorType).getAnnotationMetadata();
-            return argument.withAnnotationMetadata(
-                    ExecutableHierarchy.mergeMetadata(
-                            List.of(argument.getAnnotationMetadata(), declared)));
+    public @Nullable List<String> describedParameterNames(Executable executable) {
+        BeanIntrospection<?> introspection = introspector.findIntrospection(executable.getDeclaringClass()).orElse(null);
+        if (introspection == null) {
+            return null;
         }
-        throw ReflectionSupport.reflectionRequired(
-                "the extractor signature "
-                        + extractorType.getName()
-                        + " declares, for an instance registered through the configuration API");
+        if (executable instanceof Method method) {
+            for (var candidate : introspection.getBeanMethods()) {
+                if (candidate.getName().equals(method.getName())
+                    && Arrays.equals(Argument.toClassArray(candidate.getArguments()), method.getParameterTypes())) {
+                    return Arrays.stream(candidate.getArguments()).map(Argument::getName).toList();
+                }
+            }
+        } else {
+            for (var candidate : introspection.getConstructors()) {
+                if (Arrays.equals(Argument.toClassArray(candidate.getArguments()), executable.getParameterTypes())) {
+                    return Arrays.stream(candidate.getArguments()).map(Argument::getName).toList();
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public Argument<?> valueExtractorArgument(Class<?> extractorType) {
+        Argument<?> argument = genericSuperArgument(extractorType, ValueExtractor.class);
+        if (argument != null) {
+            AnnotationMetadata declared = introspector.getIntrospection(extractorType).getAnnotationMetadata();
+            return argument.withAnnotationMetadata(ConfiguredMetadata.merge(List.of(argument.getAnnotationMetadata(), declared)));
+        }
+        throw ReflectionSupport.reflectionRequired("the extractor signature " + extractorType.getName()
+            + " declares, for an instance registered through the configuration API");
     }
 }

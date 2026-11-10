@@ -37,7 +37,7 @@ import java.util.Set;
  * predating {@code @Repeatable}. The generated metadata stores such a container as an ordinary
  * annotation, the contained constraints are read from its {@code value}.
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 public final class ConstraintContainers {

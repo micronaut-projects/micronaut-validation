@@ -18,12 +18,7 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.InEnum;
-import io.micronaut.validation.validator.DefaultConstraintValidatorContext;
-import io.micronaut.validation.validator.ReflectionSupport;
-import io.micronaut.validation.validator.ValidationAnnotationUtil;
-import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.inject.Singleton;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -33,10 +28,12 @@ import java.util.List;
 @Introspected
 public class InEnumValidator implements ConstraintValidator<InEnum, Object> {
 
+    private final EnumConstantNames enumConstantNames = new EnumConstantNames();
+
     @Override
     public boolean isValid(@Nullable Object value,
-                           @NonNull AnnotationValue<InEnum> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<InEnum> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (value == null) {
             return true;
         }
@@ -55,10 +52,7 @@ public class InEnumValidator implements ConstraintValidator<InEnum, Object> {
             return true;
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
-            var constants = annotationMetadata.contains(ValidationAnnotationUtil.ENUM_VALUES)
-                ? List.of(annotationMetadata.stringValues(ValidationAnnotationUtil.ENUM_VALUES))
-                : ValidationMetadataSupport.enumConstants(context instanceof DefaultConstraintValidatorContext<?> validationContext
-                    ? validationContext.reflectionSupport() : ReflectionSupport.get(), enumClass).stream().map(Enum::name).toList();
+            List<String> constants = enumConstantNames.names(annotationMetadata, enumClass, context);
             if (constants.isEmpty()) {
                 return true; // Invalid enum class, pass validation
             }

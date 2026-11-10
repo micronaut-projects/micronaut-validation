@@ -37,7 +37,6 @@ import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.executable.ExecutableType;
 import jakarta.validation.executable.ValidateOnExecution;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
@@ -93,7 +92,6 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         return 10; // Should run before ConfigurationReaderVisitor
     }
 
-    @NonNull
     @Override
     public VisitorKind getVisitorKind() {
         return VisitorKind.ISOLATING;

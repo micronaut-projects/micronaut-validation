@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.extractors;
 
 import jakarta.validation.valueextraction.ValueExtractor;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.List;
@@ -49,8 +48,7 @@ public interface ValueExtractorRegistry {
      * @param <T> The target type
      * @return The extractor
      */
-    @NonNull
-    <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType);
+    <T> List<ValueExtractorDefinition<T>> findValueExtractors(Class<T> targetType);
 
     /**
      * Finds the maximally specific {@link ValueExtractor}s for the given type, comparing the extractors by the type
@@ -63,8 +61,7 @@ public interface ValueExtractorRegistry {
      * @return The extractors
      * @since 5.3.0
      */
-    @NonNull
-    default <T> List<ValueExtractorDefinition<T>> findValueExtractors(@NonNull Class<T> targetType,
+    default <T> List<ValueExtractorDefinition<T>> findValueExtractors(Class<T> targetType,
                                                                       Function<ValueExtractorDefinition<?>, @Nullable Integer> declaredTypeArgument) {
         return findValueExtractors(targetType);
     }

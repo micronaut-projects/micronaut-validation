@@ -15,8 +15,10 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
+import jakarta.validation.groups.ConvertGroup;
 
 import java.util.List;
 
@@ -25,9 +27,11 @@ import java.util.List;
  *
  * @param argument The argument of the property, with its metadata
  * @param validated Whether the property as a whole declares something to validate
+ * @param conversions The group conversions the property declares
  * @param members The members validated on their own, empty when the property is validated as a whole
+ * @since 5.3.0
  */
-record PropertyPlan(Argument<Object> argument, boolean validated, List<MemberPlan> members) {
+record PropertyPlan(Argument<Object> argument, boolean validated, List<AnnotationValue<ConvertGroup>> conversions, List<MemberPlan> members) {
 
     /**
      * The prepared validation of a member of a property.
@@ -35,7 +39,9 @@ record PropertyPlan(Argument<Object> argument, boolean validated, List<MemberPla
      * @param member The member
      * @param argument Its argument, with its own metadata and the type-use annotations of its type
      * @param cascaded Whether it cascades the value
+     * @param conversions The group conversions the member declares
      */
-    record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded) {
+    record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded,
+                      List<AnnotationValue<ConvertGroup>> conversions) {
     }
 }

@@ -29,6 +29,7 @@ import java.lang.reflect.Method;
  *
  * @param <T> The declaring bean type
  * @param <R> The return type
+ * @since 5.3.0
  */
 final class CallerSuppliedExecutable<T, R> implements ExecutableMethod<T, R> {
     private final ExecutableMethod<T, R> delegate;

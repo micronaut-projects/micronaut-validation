@@ -334,6 +334,25 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method);
 
     /**
+     * The executable method the generated metadata describes, without the error {@link #executableMethod} raises
+     * where it describes none: an implementation reading the method otherwise asks this first.
+     *
+     * @param locator The locator of the executable methods of the beans
+     * @param introspector The introspector
+     * @param method The method
+     * @param <T> The declaring type
+     * @return The executable method, null when nothing generated describes it
+     * @since 5.3.0
+     */
+    default <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
+        try {
+            return executableMethod(locator, introspector, method);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
+
+    /**
      * The constructor a caller names, with its arguments and annotation metadata: one the
      * introspection describes, else what the implementation can read from the constructor itself.
      *
@@ -344,6 +363,24 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @throws jakarta.validation.ValidationException When nothing describes the constructor
      */
     <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor);
+
+    /**
+     * The bean constructor the introspection describes, without the error {@link #beanConstructor} raises where it
+     * describes none.
+     *
+     * @param introspection The introspection of the declaring type, can be {@code null}
+     * @param constructor The constructor
+     * @param <T> The declaring type
+     * @return The bean constructor, null when the introspection does not list it
+     * @since 5.3.0
+     */
+    default <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
+        try {
+            return beanConstructor(introspection, constructor);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
 
     /**
      * The hierarchy of an executable: the declarations it overrides or implements, read from the
@@ -510,6 +547,22 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     List<String> parameterNames(Executable executable);
+
+    /**
+     * The parameter names the generated metadata records, without the error {@link #parameterNames} raises where
+     * it records none.
+     *
+     * @param executable The executable
+     * @return The names, null when nothing generated records them
+     * @since 5.3.0
+     */
+    default @Nullable List<String> describedParameterNames(Executable executable) {
+        try {
+            return parameterNames(executable);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
 
     /**
      * The occurrence of a constraint with the validators its annotation type declares, for an

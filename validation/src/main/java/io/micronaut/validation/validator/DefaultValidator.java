@@ -260,14 +260,8 @@ public class DefaultValidator
         }
 
         DefaultConstraintValidatorContext<T> constraintValidationContext = new DefaultConstraintValidatorContext<>(this, introspection, object, context);
-        for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : constraintValidationContext.findGroupSequences(introspection)) {
-            try (DefaultConstraintValidatorContext.GroupsValidation validation = constraintValidationContext.withGroupSequence(groupSequence)) {
-                traversal.visitProperty(constraintValidationContext, introspection, object, property.get(), false);
-                if (validation.isFailed()) {
-                    break;
-                }
-            }
-        }
+        constraintValidationContext.validateInGroups(constraintValidationContext.findGroupSequences(introspection), firstStep ->
+            traversal.visitProperty(constraintValidationContext, introspection, object, property.get(), false));
         return Collections.unmodifiableSet(constraintValidationContext.getOverallViolations());
     }
 
@@ -296,17 +290,11 @@ public class DefaultValidator
             if (traversal.isNotReachable(constraintContext, null)) {
                 return Collections.unmodifiableSet(constraintContext.getOverallViolations());
             }
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : constraintContext.findGroupSequences(introspection)) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = constraintContext.withGroupSequence(groupSequence)) {
-                    AnnotationMetadata annotationMetadata = beanProperty.getAnnotationMetadata();
-                    Argument<Object> propertyArgument = beanProperty.asArgument();
-                    propertyArgument = Argument.of(propertyArgument.getType(), annotationMetadata, propertyArgument.getTypeParameters());
-                    traversal.visitElement(constraintContext, null, propertyArgument, value, false);
-                    if (validation.isFailed()) {
-                        break;
-                    }
-                }
-            }
+            AnnotationMetadata annotationMetadata = beanProperty.getAnnotationMetadata();
+            Argument<Object> declared = beanProperty.asArgument();
+            Argument<Object> propertyArgument = Argument.of(declared.getType(), annotationMetadata, declared.getTypeParameters());
+            constraintContext.validateInGroups(constraintContext.findGroupSequences(introspection), firstStep ->
+                traversal.visitElement(constraintContext, null, propertyArgument, value, false));
         }
         return Collections.unmodifiableSet(constraintContext.getOverallViolations());
     }
@@ -322,17 +310,9 @@ public class DefaultValidator
         final DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, value, BeanValidationContext.DEFAULT);
 
         Argument<Object> type = value != null ? Argument.of((Class<Object>) value.getClass(), element.getAnnotationMetadata()) : Argument.OBJECT_ARGUMENT;
-        boolean canCascade = true;
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(element.getName())) {
-            for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                try (DefaultConstraintValidatorContext.GroupsValidation validation = context.withGroupSequence(groupSequence)) {
-                    traversal.visitElement(context, element, type, value, canCascade);
-                    if (validation.isFailed()) {
-                        break;
-                    }
-                }
-                canCascade = false;
-            }
+            context.validateInGroups(context.findGroupSequences(), canCascade ->
+                traversal.visitElement(context, element, type, value, canCascade));
         }
         List<String> messages = new ArrayList<>(context.getOverallViolations().size());
         for (ConstraintViolation<Object> violation : context.getOverallViolations()) {
@@ -369,9 +349,10 @@ public class DefaultValidator
         if (clazz == null) {
             throw new IllegalArgumentException();
         }
-        return beanIntrospector.findIntrospection(clazz)
-            .map(introspection -> (BeanDescriptor) new IntrospectedBeanDescriptor(introspection, validatorOverrides, declarations))
-            .orElseGet(() -> new EmptyDescriptor(clazz));
+        BeanIntrospection<?> introspection = getBeanIntrospection(clazz);
+        return introspection == null
+            ? new EmptyDescriptor(clazz)
+            : new IntrospectedBeanDescriptor(introspection, validatorOverrides, declarations);
     }
 
     @Override

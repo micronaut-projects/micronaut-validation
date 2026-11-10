@@ -21,7 +21,11 @@ import io.micronaut.validation.validator.constraints.ConstraintValidator;
 
 import java.util.List;
 
-/** Service-discovery adapter used by compile-time annotation validation. */
+/**
+ * Service-discovery adapter used by compile-time annotation validation.
+ *
+ * @since 5.3.0
+ */
 @Internal
 final class ConstraintValidatorServiceDiscovery {
     private ConstraintValidatorServiceDiscovery() { }

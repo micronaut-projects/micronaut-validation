@@ -20,7 +20,6 @@ import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.util.StringUtils;
 import io.micronaut.validation.annotation.URL;
 import jakarta.inject.Singleton;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.net.MalformedURLException;
@@ -45,8 +44,8 @@ public class URLValidator extends AbstractPatternValidator<URL> {
 
     @Override
     public boolean isValid(@Nullable CharSequence value,
-                           @NonNull AnnotationValue<URL> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<URL> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (StringUtils.isEmpty(value)) {
             return true;
         }

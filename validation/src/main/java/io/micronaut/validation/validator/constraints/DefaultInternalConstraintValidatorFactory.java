@@ -30,7 +30,6 @@ import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.Collections;
@@ -166,7 +165,7 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
             .findFirst();
     }
 
-    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(@NonNull BeanIntrospection<T> beanIntrospection,
+    private <T extends ConstraintValidator<?, ?>> ConstraintValidatorEntry instantiateConstraintValidatorEntry(BeanIntrospection<T> beanIntrospection,
                                                                                                          BeanConstructor<T> constructor) {
         return new ConstraintValidatorEntry(
             constructor.instantiate(),

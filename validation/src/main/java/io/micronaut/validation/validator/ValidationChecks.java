@@ -20,7 +20,11 @@ import io.micronaut.core.util.StringUtils;
 
 import org.jspecify.annotations.Nullable;
 
-/** Jakarta validation preconditions, preserving the specified exception categories. */
+/**
+ * Jakarta validation preconditions, preserving the specified exception categories.
+ *
+ * @since 5.3.0
+ */
 @Internal
 final class ValidationChecks {
     private ValidationChecks() { }

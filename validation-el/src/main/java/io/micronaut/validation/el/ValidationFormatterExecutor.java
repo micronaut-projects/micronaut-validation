@@ -25,7 +25,11 @@ import org.jspecify.annotations.Nullable;
 import java.util.Arrays;
 import java.util.Objects;
 
-/** Direct dispatch for the locale-aware formatter required by Jakarta Validation. */
+/**
+ * Direct dispatch for the locale-aware formatter required by Jakarta Validation.
+ *
+ * @since 5.3.0
+ */
 @Internal
 public final class ValidationFormatterExecutor implements ELMethodExecutor {
     /** Creates the executor discovered by the EL interpreter. */

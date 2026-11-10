@@ -40,6 +40,7 @@ import java.util.Optional;
  * XML declarations exposed through the same arguments and metadata as a generated introspection.
  *
  * @param <T> The bean type
+ * @since 5.3.0
  */
 @Internal
 final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {

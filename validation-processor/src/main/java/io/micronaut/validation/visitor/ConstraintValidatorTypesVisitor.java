@@ -24,7 +24,6 @@ import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
-import org.jspecify.annotations.NonNull;
 
 import java.util.Map;
 import java.util.Set;
@@ -57,7 +56,6 @@ public final class ConstraintValidatorTypesVisitor implements TypeElementVisitor
         return Set.of("io.micronaut.core.annotation.Introspected");
     }
 
-    @NonNull
     @Override
     public VisitorKind getVisitorKind() {
         return VisitorKind.ISOLATING;

@@ -27,7 +27,6 @@ import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
-import org.jspecify.annotations.NonNull;
 
 
 /**
@@ -51,63 +50,53 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     /**
      * @return The constraint registry to use.
      */
-    @NonNull
     ConstraintValidatorRegistry getConstraintValidatorRegistry();
 
     /**
      * @return The constraint factory to use.
      * @since 4.3.0
      */
-    @NonNull
     ConstraintValidatorFactory getConstraintValidatorFactory();
 
     /**
      * @return The value extractor registry
      */
-    @NonNull
     ValueExtractorRegistry getValueExtractorRegistry();
 
     /**
      * @return The clock provider
      */
-    @NonNull
     ClockProvider getClockProvider();
 
     /**
      * @return The default clock provider
      */
-    @NonNull
     ClockProvider getDefaultClockProvider();
 
     /**
      * @return The traversable resolver to use
      */
-    @NonNull
     TraversableResolver getTraversableResolver();
 
     /**
      * @return The default traversable resolver to use
      */
-    @NonNull
     TraversableResolver getDefaultTraversableResolver();
 
     /**
      * @return The message interpolator
      */
-    @NonNull
     MessageInterpolator getMessageInterpolator();
 
     /**
      * @return The default message interpolator
      */
-    @NonNull
     MessageInterpolator getDefaultMessageInterpolator();
 
     /**
      * @return The parameter name provider
      * @since 5.3.0
      */
-    @NonNull
     default ParameterNameProvider getParameterNameProvider() {
         return getDefaultParameterNameProvider();
     }
@@ -116,7 +105,6 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * @return The default parameter name provider
      * @since 5.3.0
      */
-    @NonNull
     default ParameterNameProvider getDefaultParameterNameProvider() {
         return new DefaultParameterNameProvider();
     }
@@ -125,7 +113,6 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * The execution handler locator to use.
      * @return The locator
      */
-    @NonNull
     ExecutionHandleLocator getExecutionHandleLocator();
 
     /**

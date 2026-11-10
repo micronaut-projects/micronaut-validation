@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.constraints.Size;
@@ -31,7 +30,7 @@ import jakarta.validation.constraints.Size;
 @FunctionalInterface
 public interface SizeValidator<T> extends ConstraintValidator<Size, T> {
     @Override
-    default boolean isValid(@Nullable T value, @NonNull AnnotationValue<Size> annotationMetadata, @NonNull ConstraintValidatorContext context) {
+    default boolean isValid(@Nullable T value, AnnotationValue<Size> annotationMetadata, ConstraintValidatorContext context) {
         if (value == null) {
             return true; // null considered valid according to spec
         }
@@ -46,5 +45,5 @@ public interface SizeValidator<T> extends ConstraintValidator<Size, T> {
      * @param value The value
      * @return The size
      */
-    int getSize(@NonNull T value);
+    int getSize(T value);
 }

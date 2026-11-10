@@ -27,12 +27,15 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CopyOnWriteMap;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.ParameterNameProvider;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -44,7 +47,7 @@ import java.util.function.Function;
  * the super types of the beans, and the declaration and definition rules checked once per
  * declaration.
  *
- * @since 5.0.0
+ * @since 5.3.0
  */
 @Internal
 final class ValidatorDeclarations {
@@ -54,13 +57,11 @@ final class ValidatorDeclarations {
     private final @Nullable ParameterNameProvider parameterNameProvider;
     private final BeanIntrospector beanIntrospector;
     private final boolean strictConstraintDefinitions;
-    private final Map<ExecutableHierarchy.Key, ExecutableHierarchy.Resolved> executableHierarchies = new ConcurrentHashMap<>();
+    private final Map<ExecutableHierarchy.Key, ExecutablePlan> executablePlans = new ConcurrentHashMap<>();
     private final Set<Class<?>> checkedConstraintDefinitions = ConcurrentHashMap.newKeySet();
     private final Set<BeanIntrospection<?>> checkedBeanDeclarations = ConcurrentHashMap.newKeySet();
-    // the methods whose hierarchy declares its parameters, or its return value, as a hierarchy may: checked once
-    private final Set<ExecutableHierarchy.Key> checkedParameterDeclarations = ConcurrentHashMap.newKeySet();
-    private final Set<ExecutableHierarchy.Key> checkedReturnValueDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
+    private final Map<BeanIntrospection<?>, BeanPlan> beanPlans = new ConcurrentHashMap<>();
     private final Map<ExecutableHierarchy.Key, ConfiguredExecutable> configuredExecutables = new ConcurrentHashMap<>();
     private final Map<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> defaultGroupSequences = CopyOnWriteMap.create(16 * 1024);
 
@@ -88,12 +89,11 @@ final class ValidatorDeclarations {
     }
 
     void clear() {
-        executableHierarchies.clear();
+        executablePlans.clear();
         checkedConstraintDefinitions.clear();
         checkedBeanDeclarations.clear();
-        checkedParameterDeclarations.clear();
-        checkedReturnValueDeclarations.clear();
         superIntrospectionsCache.clear();
+        beanPlans.clear();
         configuredExecutables.clear();
         defaultGroupSequences.clear();
     }
@@ -120,13 +120,37 @@ final class ValidatorDeclarations {
         return reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
     }
 
-    /** A method with what it inherits, computed once per method. */
-    ConfiguredExecutable configuredExecutable(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
-        return configuredExecutables.computeIfAbsent(ExecutableHierarchy.Key.of(method), key -> new ConfiguredExecutable(
-            hierarchy.annotationMetadata(),
-            hierarchy.arguments(),
-            hierarchy.returnArgument()
-        ));
+    /**
+     * What validating a method reads from its hierarchy, prepared once per method.
+     *
+     * @param method The method
+     * @return The plan
+     */
+    ExecutablePlan executablePlan(ExecutableMethod<?, ?> method) {
+        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
+        ExecutablePlan plan = executablePlans.get(key);
+        if (plan != null) {
+            return plan;
+        }
+        return executablePlans.computeIfAbsent(key, k -> {
+            ExecutableHierarchy.Resolved hierarchy = reflectionSupport.resolveHierarchy(beanIntrospector,
+                ExecutableHierarchy.Declaration.of(method), method.getMethodName());
+            ConfiguredExecutable configured = new ConfiguredExecutable(hierarchy.annotationMetadata(), hierarchy.arguments(), hierarchy.returnArgument());
+            return new ExecutablePlan(hierarchy, configured, crossParameterArgument(configured.annotationMetadata()));
+        });
+    }
+
+    /**
+     * The argument the cross-parameter constraints of an executable validate the parameters as, null without such
+     * constraints.
+     *
+     * @param annotationMetadata The executable annotations
+     * @return The argument or null
+     */
+    @Nullable Argument<Object[]> crossParameterArgument(AnnotationMetadata annotationMetadata) {
+        return ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, reflectionSupport.classLoader())
+            ? Argument.of(Object[].class, annotationMetadata)
+            : null;
     }
 
     /**
@@ -148,26 +172,29 @@ final class ValidatorDeclarations {
     }
 
     ExecutableHierarchy.Resolved resolveHierarchy(ExecutableMethod<?, ?> method) {
-        return executableHierarchies.computeIfAbsent(ExecutableHierarchy.Key.of(method),
-            key -> reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method), method.getMethodName()));
+        return executablePlan(method).hierarchy();
     }
 
     /**
      * The parameters a hierarchy declares are checked the first time the method is validated, a failed check
      * failing every validation of it.
      */
-    void checkParameterDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
-        checkOnce(checkedParameterDeclarations, ExecutableHierarchy.Key.of(method),
-            () -> ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, hierarchy));
+    void checkParameterDeclarations(ExecutablePlan plan) {
+        if (!plan.parametersChecked) {
+            ExecutableHierarchy.checkParameterDeclarations(reflectionSupport, plan.hierarchy());
+            plan.parametersChecked = true;
+        }
     }
 
     /**
      * The return value a hierarchy declares is checked the first time the method is validated, a failed check
      * failing every validation of it.
      */
-    void checkReturnValueDeclarations(ExecutableMethod<?, ?> method, ExecutableHierarchy.Resolved hierarchy) {
-        checkOnce(checkedReturnValueDeclarations, ExecutableHierarchy.Key.of(method),
-            () -> ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, hierarchy));
+    void checkReturnValueDeclarations(ExecutablePlan plan) {
+        if (!plan.returnValueChecked) {
+            ExecutableHierarchy.checkReturnValueDeclarations(reflectionSupport, plan.hierarchy());
+            plan.returnValueChecked = true;
+        }
     }
 
     /**
@@ -261,11 +288,48 @@ final class ValidatorDeclarations {
 
     private void addSuperIntrospection(Class<?> type, Set<Class<?>> visited, List<BeanIntrospection<?>> found) {
         String name = type.getName();
-        if (name.startsWith("java.") || name.startsWith("jakarta.") || name.startsWith("javax.")) {
+        if (ValidationAnnotationUtil.isPlatformType(name)) {
             return;
         }
         visited.add(type);
         beanIntrospector.findIntrospection(type).ifPresent(found::add);
+    }
+
+    /**
+     * What validating a bean reads from its type and its super types, prepared once per bean type.
+     *
+     * @param introspection The bean
+     * @return The plan
+     */
+    BeanPlan beanPlan(BeanIntrospection<?> introspection) {
+        BeanPlan plan = beanPlans.get(introspection);
+        if (plan != null) {
+            return plan;
+        }
+        return beanPlans.computeIfAbsent(introspection, i -> {
+            ClassLoader classLoader = reflectionSupport.classLoader();
+            List<BeanIntrospection<?>> supers = superIntrospections(i);
+            AnnotationMetadata annotationMetadata = i.getAnnotationMetadata();
+            List<BeanIntrospection<?>> constrainedSupers = new ArrayList<>(supers.size());
+            Map<Class<?>, Class<Object>[]> redefinitions = new LinkedHashMap<>();
+            for (BeanIntrospection<?> superIntrospection : supers) {
+                if (declaresConstraints(superIntrospection.getAnnotationMetadata(), classLoader)) {
+                    constrainedSupers.add(superIntrospection);
+                }
+                Class<?> superType = superIntrospection.getBeanType();
+                Class<Object>[] sequence = superIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
+                if (!superType.isInterface() && sequence.length > 0) {
+                    redefinitions.put(superType, sequence);
+                }
+            }
+            return new BeanPlan(
+                supers,
+                !inheritsAllConstraints(annotationMetadata, supers, classLoader),
+                List.copyOf(constrainedSupers),
+                annotationMetadata.classValues(GroupSequence.class).length > 0,
+                Collections.unmodifiableMap(redefinitions)
+            );
+        });
     }
 
     /**
@@ -303,6 +367,22 @@ final class ValidatorDeclarations {
     }
 
     /**
+     * What validating a bean reads from its type and its super types.
+     *
+     * @param superIntrospections The introspections of the super types, see {@link #superIntrospections(BeanIntrospection)}
+     * @param ownClassConstraints Whether the type declares class-level constraints its super types do not
+     * @param constrainedSuperIntrospections The super types declaring class-level constraints themselves
+     * @param redefinesDefaultGroupSequence Whether the type redefines the default group sequence
+     * @param superSequenceRedefinitions The default group sequences the super classes redefine, by the class
+     */
+    record BeanPlan(List<BeanIntrospection<?>> superIntrospections,
+                    boolean ownClassConstraints,
+                    List<BeanIntrospection<?>> constrainedSuperIntrospections,
+                    boolean redefinesDefaultGroupSequence,
+                    Map<Class<?>, Class<Object>[]> superSequenceRedefinitions) {
+    }
+
+    /**
      * An executable as the metadata providers configure it, computed once per executable.
      *
      * @param annotationMetadata The executable annotations
@@ -310,5 +390,48 @@ final class ValidatorDeclarations {
      * @param returnArgument The return value
      */
     record ConfiguredExecutable(AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument) {
+    }
+
+    /**
+     * What validating a method reads from its hierarchy, prepared once per method. A check is recorded only after
+     * it completes, so a failed check fails every validation of the method.
+     */
+    static final class ExecutablePlan {
+
+        private final ExecutableHierarchy.Resolved hierarchy;
+        private final ConfiguredExecutable configured;
+        private final @Nullable Argument<Object[]> crossParameterArgument;
+        private volatile boolean parametersChecked;
+        private volatile boolean returnValueChecked;
+        // the Java method a parameter name provider is handed, resolved once: absent without the reflection module
+        private volatile java.lang.reflect.@Nullable Method targetMethod;
+        private volatile boolean targetMethodResolved;
+
+        ExecutablePlan(ExecutableHierarchy.Resolved hierarchy, ConfiguredExecutable configured, @Nullable Argument<Object[]> crossParameterArgument) {
+            this.hierarchy = hierarchy;
+            this.configured = configured;
+            this.crossParameterArgument = crossParameterArgument;
+        }
+
+        ExecutableHierarchy.Resolved hierarchy() {
+            return hierarchy;
+        }
+
+        ConfiguredExecutable configured() {
+            return configured;
+        }
+
+        /** @return The argument the cross-parameter constraints validate the parameters as, null without any */
+        @Nullable Argument<Object[]> crossParameterArgument() {
+            return crossParameterArgument;
+        }
+
+        java.lang.reflect.@Nullable Method targetMethod(java.util.function.Supplier<java.lang.reflect.@Nullable Method> resolver) {
+            if (!targetMethodResolved) {
+                targetMethod = resolver.get();
+                targetMethodResolved = true;
+            }
+            return targetMethod;
+        }
     }
 }

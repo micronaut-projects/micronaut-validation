@@ -33,6 +33,7 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Reads application message resources without constructing class-based resource bundles
  * reflectively.
+ * @since 5.3.0
  */
 @Internal
 final class ValidationMessageBundleLoader {
@@ -51,11 +52,8 @@ final class ValidationMessageBundleLoader {
         var bundles = candidates(locale);
         // As with ResourceBundle, use the default locale only when the requested locale
         // has no bundle other than root. A missing key does not select a different locale.
-        if (!locale.equals(Locale.ROOT)
-                && !bundles.localized()
-                && !locale.equals(Locale.getDefault())) {
-            var fallback =
-                    candidates(Locale.getDefault());
+        if (!locale.equals(Locale.ROOT) && !bundles.localized() && !locale.equals(Locale.getDefault())) {
+            var fallback = candidates(Locale.getDefault());
             if (fallback.localized()) {
                 bundles = fallback;
             }
@@ -88,15 +86,11 @@ final class ValidationMessageBundleLoader {
         for (Locale candidate : candidates) {
             String bundleName = control.toBundleName("ValidationMessages", candidate);
             if (loader.getResource(control.toResourceName(bundleName, "class")) != null) {
-                var introspections =
-                        BeanIntrospector.forClassLoader(loader)
-                                .findIntrospections(
-                                        reference -> reference.getName().equals(bundleName));
-                ResourceBundle bundle =
-                        introspections.isEmpty()
-                                ? reflectionSupport
-                                        .messageBundle("ValidationMessages", candidate, loader)
-                                : (ResourceBundle) introspections.iterator().next().instantiate();
+                var introspections = BeanIntrospector.forClassLoader(loader)
+                    .findIntrospections(reference -> reference.getName().equals(bundleName));
+                ResourceBundle bundle = introspections.isEmpty()
+                    ? reflectionSupport.messageBundle("ValidationMessages", candidate, loader)
+                    : (ResourceBundle) introspections.iterator().next().instantiate();
                 bundles.add(bundle);
                 localized |= !candidate.equals(Locale.ROOT);
                 continue;

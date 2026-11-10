@@ -41,7 +41,6 @@ import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ValidateUnwrappedValue;
 import jakarta.validation.valueextraction.Unwrapping;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
@@ -72,7 +71,6 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
     private static final String ATTRIBUTE_PAYLOAD = "payload";
     private static final String ATTRIBUTE_VALIDATION_APPLIES_TO = "validationAppliesTo";
 
-    @NonNull
     private final Class<T> type;
     private final ReflectionSupport reflectionSupport;
     @Nullable
@@ -93,6 +91,8 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
     private final AnnotationValue<T> annotationValue;
     private final AnnotationMetadata annotationMetadata;
     private final Set<DefaultConstraintDescriptor<Annotation>> composingConstraints;
+    // the composing constraints in their order, which every validation of the constraint walks
+    private final List<DefaultConstraintDescriptor<Annotation>> composingConstraintList;
     private final boolean reportAsSingleViolation;
 
     /**
@@ -105,10 +105,10 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private DefaultConstraintDescriptor(ReflectionSupport reflectionSupport,
-                                        @NonNull Class<T> type,
-                                        @NonNull AnnotationValue<T> annotationValue,
-                                        @NonNull AnnotationMetadata annotationMetadata,
-                                        @NonNull List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
+                                        Class<T> type,
+                                        AnnotationValue<T> annotationValue,
+                                        AnnotationMetadata annotationMetadata,
+                                        List<Class<? extends ConstraintValidator<T, ?>>> validatedBy,
                                         boolean constraintValidatorClassesDefined) {
         this.type = type;
         this.reflectionSupport = reflectionSupport;
@@ -131,6 +131,7 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
             throw new ConstraintDefinitionException(error);
         });
         this.composingConstraints = composingConstraints(type, annotationValue, annotationMetadata);
+        this.composingConstraintList = List.copyOf(composingConstraints);
         // a stereotype where the metadata retains it, read from the type only for a constraint never compiled
         this.reportAsSingleViolation = isReportedAsSingleViolation(annotationValue, type);
     }
@@ -394,8 +395,8 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
         return reportAsSingleViolation;
     }
 
-    Set<DefaultConstraintDescriptor<Annotation>> getComposingConstraintDescriptors() {
-        return composingConstraints;
+    List<DefaultConstraintDescriptor<Annotation>> composingConstraintList() {
+        return composingConstraintList;
     }
 
     boolean hasComposingConstraints() {

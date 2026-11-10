@@ -34,7 +34,6 @@ import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
-import org.jspecify.annotations.NonNull;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -86,7 +85,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         return Set.of(DESCRIBE_ALL_OPTION);
     }
 
-    @NonNull
     @Override
     public VisitorKind getVisitorKind() {
         return VisitorKind.ISOLATING;

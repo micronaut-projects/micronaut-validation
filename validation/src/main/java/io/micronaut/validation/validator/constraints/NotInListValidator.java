@@ -17,7 +17,6 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.NotInList;
@@ -32,8 +31,8 @@ public class NotInListValidator implements ConstraintValidator<NotInList, Object
 
     @Override
     public boolean isValid(@Nullable Object value,
-                           @NonNull AnnotationValue<NotInList> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<NotInList> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (value == null) {
             return true;
         }

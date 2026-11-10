@@ -36,7 +36,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/** Retains definition diagnostics and attributes requiring concrete runtime values. */
+/**
+ * Retains definition diagnostics and attributes requiring concrete runtime values.
+ *
+ * @since 5.3.0
+ */
 final class ConstraintDefinitionMetadata {
     static final String STRICT_OPTION = ValidationVisitor.STRICT_DEFINITIONS_OPTION;
 

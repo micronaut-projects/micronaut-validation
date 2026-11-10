@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.constraints.Digits;
@@ -32,7 +31,7 @@ import java.math.BigDecimal;
 @FunctionalInterface
 public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
     @Override
-    default boolean isValid(@Nullable T value, @NonNull AnnotationValue<Digits> annotationMetadata, @NonNull ConstraintValidatorContext context) {
+    default boolean isValid(@Nullable T value, AnnotationValue<Digits> annotationMetadata, ConstraintValidatorContext context) {
         if (value == null) {
             // null valid according to spec
             return true;
@@ -66,5 +65,5 @@ public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
      * @param value The value
      * @return The big decimal
      */
-    BigDecimal getBigDecimal(@NonNull T value);
+    BigDecimal getBigDecimal(T value);
 }

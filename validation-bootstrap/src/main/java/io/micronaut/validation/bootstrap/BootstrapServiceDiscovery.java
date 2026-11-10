@@ -23,7 +23,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
 
-/** Service registration lookup for optional validation modules. */
+/**
+ * Service registration lookup for optional validation modules.
+ *
+ * @since 5.3.0
+ */
 @Internal
 final class BootstrapServiceDiscovery {
     private BootstrapServiceDiscovery() { }

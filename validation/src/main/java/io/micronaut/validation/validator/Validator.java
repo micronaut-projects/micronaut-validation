@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 
@@ -50,11 +49,11 @@ public interface Validator extends jakarta.validation.Validator {
      * @return The validator
      */
     @Override
-    @NonNull ExecutableMethodValidator forExecutables();
+    ExecutableMethodValidator forExecutables();
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validate(
-        @NonNull T object,
+    <T> Set<ConstraintViolation<T>> validate(
+        T object,
         Class<?>... groups
     );
 
@@ -70,9 +69,9 @@ public interface Validator extends jakarta.validation.Validator {
      * @throws ValidationException      if a non recoverable error happens
      *                                  during the validation process
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validate(
-        @NonNull T object,
-        @NonNull BeanValidationContext validationContext
+    <T> Set<ConstraintViolation<T>> validate(
+        T object,
+        BeanValidationContext validationContext
     );
 
     /**
@@ -84,9 +83,9 @@ public interface Validator extends jakarta.validation.Validator {
      * @param <T>           The object type
      * @return The constraint violations
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validate(
-        @NonNull BeanIntrospection<T> introspection,
-        @NonNull T object, @Nullable Class<?>... groups);
+    <T> Set<ConstraintViolation<T>> validate(
+        BeanIntrospection<T> introspection,
+        T object, @Nullable Class<?>... groups);
 
     /**
      * Validate the given introspection and object.
@@ -97,15 +96,15 @@ public interface Validator extends jakarta.validation.Validator {
      * @param <T>           The object type
      * @return The constraint violations
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validate(
-        @NonNull BeanIntrospection<T> introspection,
-        @NonNull T object,
-        @NonNull BeanValidationContext context);
+    <T> Set<ConstraintViolation<T>> validate(
+        BeanIntrospection<T> introspection,
+        T object,
+        BeanValidationContext context);
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateProperty(
-        @NonNull T object,
-        @NonNull String propertyName,
+    <T> Set<ConstraintViolation<T>> validateProperty(
+        T object,
+        String propertyName,
         Class<?>... groups
     );
 
@@ -124,16 +123,16 @@ public interface Validator extends jakarta.validation.Validator {
      * @throws ValidationException      if a non recoverable error happens
      *                                  during the validation process
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateProperty(
-        @NonNull T object,
-        @NonNull String propertyName,
+    <T> Set<ConstraintViolation<T>> validateProperty(
+        T object,
+        String propertyName,
         BeanValidationContext context
     );
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateValue(
-        @NonNull Class<T> beanType,
-        @NonNull String propertyName,
+    <T> Set<ConstraintViolation<T>> validateValue(
+        Class<T> beanType,
+        String propertyName,
         @Nullable Object value,
         Class<?>... groups
     );
@@ -158,9 +157,9 @@ public interface Validator extends jakarta.validation.Validator {
      * @throws ValidationException if a non recoverable error happens
      *         during the validation process
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateValue(
-        @NonNull Class<T> beanType,
-        @NonNull String propertyName,
+    <T> Set<ConstraintViolation<T>> validateValue(
+        Class<T> beanType,
+        String propertyName,
         @Nullable Object value,
         BeanValidationContext context
     );
@@ -172,7 +171,7 @@ public interface Validator extends jakarta.validation.Validator {
      *
      * @return The validator.
      */
-    static @NonNull Validator getInstance() {
+    static Validator getInstance() {
         return new DefaultValidator(
             new DefaultValidatorConfiguration()
         );

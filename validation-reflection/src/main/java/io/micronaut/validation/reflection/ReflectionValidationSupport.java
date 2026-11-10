@@ -371,21 +371,31 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public Argument<?> prepareArgument(Argument<?> argument) {
         Argument<?>[] parameters = argument.getTypeParameters();
-        Argument<?>[] prepared = new Argument<?>[parameters.length];
-        boolean validated = argument.getAnnotationMetadata().hasAnnotation(ValidatedElement.class)
-            || argument.getAnnotationMetadata().hasStereotype(Constraint.class)
-            || argument.getAnnotationMetadata().hasAnnotation(Valid.class);
-        for (int i = 0; i < parameters.length; i++) {
-            prepared[i] = prepareArgument(parameters[i]);
-            validated |= prepared[i].getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
-        }
+        // copied only once a level changes: an argument already marked at every level is answered as it is
+        Argument<?>[] prepared = null;
         var metadata = argument.getAnnotationMetadata();
-        if (validated && !metadata.hasAnnotation(ValidatedElement.class)) {
+        boolean marked = metadata.hasAnnotation(ValidatedElement.class);
+        boolean validated = marked
+            || metadata.hasStereotype(Constraint.class)
+            || metadata.hasAnnotation(Valid.class);
+        for (int i = 0; i < parameters.length; i++) {
+            Argument<?> preparedParameter = prepareArgument(parameters[i]);
+            if (preparedParameter != parameters[i]) {
+                if (prepared == null) {
+                    prepared = parameters.clone();
+                }
+                prepared[i] = preparedParameter;
+            }
+            validated |= preparedParameter.getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
+        }
+        if (validated && !marked) {
             var marker = new MutableAnnotationMetadata();
             marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             metadata = ConfiguredMetadata.merge(metadata, marker);
+        } else if (prepared == null) {
+            return argument;
         }
-        return argument.withTypeParameters(prepared).withAnnotationMetadata(metadata);
+        return argument.withTypeParameters(prepared == null ? parameters : prepared).withAnnotationMetadata(metadata);
     }
 
     @Override
@@ -442,20 +452,14 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
-        try {
-            return generated.executableMethod(locator, introspector, method);
-        } catch (ValidationException missing) {
-            return ReflectionExecutables.executableMethod(locator, introspector, method);
-        }
+        ExecutableMethod<T, Object> described = generated.describedExecutableMethod(locator, introspector, method);
+        return described != null ? described : ReflectionExecutables.executableMethod(locator, introspector, method);
     }
 
     @Override
     public <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
-        try {
-            return generated.beanConstructor(introspection, constructor);
-        } catch (ValidationException missing) {
-            return ReflectionExecutables.beanConstructor(introspection, constructor);
-        }
+        BeanConstructor<T> described = generated.describedBeanConstructor(introspection, constructor);
+        return described != null ? described : ReflectionExecutables.beanConstructor(introspection, constructor);
     }
 
     @Override
@@ -475,8 +479,8 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     private boolean hasGeneratedHierarchy(Class<?> type) {
         var hierarchy = ValidationMetadataSupport.hierarchy(introspector, type);
-        return hierarchy != null && hierarchy.getTypes().stream().allMatch(declared -> declared.getName().startsWith("java.")
-            || declared.getName().startsWith("jakarta.") || introspector.findIntrospection(declared).isPresent());
+        return hierarchy != null && hierarchy.getTypes().stream().allMatch(declared -> ValidationAnnotationUtil.isPlatformType(declared.getName())
+            || introspector.findIntrospection(declared).isPresent());
     }
 
     private static MethodHierarchy.Declaration toCore(ExecutableHierarchy.Declaration declaration) {
@@ -605,11 +609,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public List<String> parameterNames(Executable executable) {
-        try {
-            return generated.parameterNames(executable);
-        } catch (ValidationException missing) {
-            // Only signatures absent from generated executable metadata need class-file names.
+        List<String> described = generated.describedParameterNames(executable);
+        if (described != null) {
+            return described;
         }
+        // only signatures absent from generated executable metadata need class-file names
         Parameter[] parameters = executable.getParameters();
         List<String> names = new ArrayList<>(parameters.length);
         for (int i = 0; i < parameters.length; i++) {

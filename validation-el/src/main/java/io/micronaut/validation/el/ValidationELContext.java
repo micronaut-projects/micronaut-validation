@@ -31,7 +31,11 @@ import jakarta.el.ResourceBundleELResolver;
 import jakarta.el.VariableMapper;
 import org.jspecify.annotations.Nullable;
 
-/** EL context whose property access uses generated metadata and container resolvers only. */
+/**
+ * EL context whose property access uses generated metadata and container resolvers only.
+ *
+ * @since 5.3.0
+ */
 @Introspected(classes = Class.class, includes = {"name", "simpleName"})
 final class ValidationELContext extends ELContext {
     private final ELResolver resolver;

@@ -22,7 +22,11 @@ import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Optional provider discovery without retaining an application class loader. */
+/**
+ * Optional provider discovery without retaining an application class loader.
+ *
+ * @since 5.3.0
+ */
 final class ReflectionSupportServiceDiscovery {
     private static volatile List<Provider> providers = List.of();
 

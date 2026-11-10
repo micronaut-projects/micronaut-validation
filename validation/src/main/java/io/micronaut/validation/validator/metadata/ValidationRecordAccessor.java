@@ -21,7 +21,11 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Marks a record accessor, whose component constraints belong to the field during bean validation. */
+/**
+ * Marks a record accessor, whose component constraints belong to the field during bean validation.
+ *
+ * @since 5.3.0
+ */
 @Internal
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

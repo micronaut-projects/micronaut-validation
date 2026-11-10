@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ValidationException;
@@ -47,7 +46,7 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
      * @return The pattern
      * @throws ValidationException When the metadata specifies no pattern
      */
-    java.util.regex.Pattern getPattern(@NonNull AnnotationValue<?> annotationMetadata) {
+    java.util.regex.Pattern getPattern(AnnotationValue<?> annotationMetadata) {
         final String pattern = annotationMetadata.get("regexp", String.class)
             .orElseThrow(() -> new ValidationException("No pattern specified"));
         return compile(pattern, annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS));
@@ -59,7 +58,7 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
      * @param annotationMetadata The metadata
      * @return The pattern, {@code null} when the metadata specifies none that restricts the value
      */
-    java.util.regex.@Nullable Pattern getOptionalPattern(@NonNull AnnotationValue<?> annotationMetadata) {
+    java.util.regex.@Nullable Pattern getOptionalPattern(AnnotationValue<?> annotationMetadata) {
         final String pattern = annotationMetadata.get("regexp", String.class).orElse(".*");
         final Pattern.Flag[] flags = annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS);
         if (pattern.equals(".*") && flags.length == 0) {

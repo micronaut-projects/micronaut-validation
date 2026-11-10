@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.extractors;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
 import jakarta.validation.constraints.NotNull;
@@ -37,8 +36,8 @@ import jakarta.validation.valueextraction.ValueExtractorDefinitionException;
  *
  * @author Denis Stepanov
  */
-public record ValueExtractorDefinition<T>(@NonNull Class<T> containerType,
-                                          @NonNull Class<Object> valueType,
+public record ValueExtractorDefinition<T>(Class<T> containerType,
+                                          Class<Object> valueType,
                                           @Nullable Integer typeArgumentIndex,
                                           boolean unwrapByDefault,
                                           ValueExtractor<T> valueExtractor) {

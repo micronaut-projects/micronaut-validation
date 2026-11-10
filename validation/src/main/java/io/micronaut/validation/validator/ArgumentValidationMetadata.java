@@ -21,7 +21,11 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.validation.annotation.ValidatedElement;
 import jakarta.validation.Valid;
 
-/** Queries declaration and nested type annotations without erasing argument structure. */
+/**
+ * Queries declaration and nested type annotations without erasing argument structure.
+ *
+ * @since 5.3.0
+ */
 @Internal
 final class ArgumentValidationMetadata {
     private ArgumentValidationMetadata() { }
