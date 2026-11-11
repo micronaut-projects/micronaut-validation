@@ -16,9 +16,9 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
@@ -30,7 +30,6 @@ import io.micronaut.core.type.TypeHierarchy;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
-import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ValidationException;
 import jakarta.validation.ConstraintDefinitionException;
@@ -39,9 +38,11 @@ import jakarta.validation.groups.Default;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Executable;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -174,9 +175,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
-        if (member.getAnnotationMetadata()
-                .booleanValue(ValidationField.class, ValidationField.MEMBER_REFLECTION)
-                .orElse(false)) {
+        if (member.isReflectionRequired()) {
             throw reflectionRequired("an accessor of the field " + member.getDeclaringType().getName() + "." + member.getName());
         }
         return member.read(bean);
@@ -195,13 +194,36 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
-        AnnotationMetadata metadata = member.getAnnotationMetadata();
-        if (metadata.booleanValue(ValidationField.class, ValidationField.MEMBER_PROPERTY).orElse(false)
-            && metadata.booleanValue(ValidationField.class, ValidationField.MEMBER_REFLECTION).orElse(false)
+        if (member.isReflectionRequired()
+            && member.getElementType() == ElementType.FIELD
+            && hasGeneratedGetter(property)
             && member.asArgument().equalsStructure(property.asArgument())) {
             return property.get(bean);
         }
         return readMember(member, bean);
+    }
+
+    /**
+     * Whether a property lists a getter the generated dispatch reads without reflection.
+     */
+    private static boolean hasGeneratedGetter(BeanProperty<?, ?> property) {
+        if (property.isWriteOnly()) {
+            return false;
+        }
+        for (BeanPropertyMember<?, ?> candidate : property.getMembers()) {
+            if (candidate.getElementType() == ElementType.METHOD && candidate.isReadable()) {
+                return !candidate.isReflectionRequired();
+            }
+        }
+        // an unannotated getter is not listed as a member: the property reads it when the introspection reads
+        // properties through methods, a record or the default access kind
+        BeanIntrospection<?> introspection = property.getDeclaringBean();
+        if (introspection.getBeanType().isRecord()) {
+            return true;
+        }
+        Introspected.AccessKind[] kinds = introspection.getAnnotationMetadata()
+            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class);
+        return kinds.length == 0 || Arrays.asList(kinds).contains(Introspected.AccessKind.METHOD);
     }
 
     /**

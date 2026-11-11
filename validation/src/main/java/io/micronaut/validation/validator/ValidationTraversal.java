@@ -28,7 +28,6 @@ import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.metadata.SeparatedPropertyDeclarations;
-import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.Valid;
@@ -360,7 +359,7 @@ final class ValidationTraversal {
 
     private boolean isValidatedMember(BeanPropertyMember<?, ?> member) {
         AnnotationMetadata annotationMetadata = member.getAnnotationMetadata();
-        return !annotationMetadata.hasAnnotation(ValidationRecordAccessor.class)
+        return !member.isSynthetic()
             && isValidated(annotationMetadata, member.asArgument(), annotationMetadata.getAnnotationValuesByType(ConvertGroup.class));
     }
 

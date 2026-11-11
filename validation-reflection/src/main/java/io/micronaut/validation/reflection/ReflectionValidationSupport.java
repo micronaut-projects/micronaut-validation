@@ -41,7 +41,6 @@ import io.micronaut.validation.validator.metadata.ValidationEnumValues;
 import io.micronaut.validation.validator.metadata.AnnotationMember;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
-import io.micronaut.validation.validator.metadata.ValidationField;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintDefinitionException;
@@ -79,13 +78,6 @@ import java.util.Set;
  */
 @Internal
 public final class ReflectionValidationSupport implements ReflectionSupport {
-
-    private static final ClassValue<java.util.Map<String, java.lang.reflect.Field>> ACCESSIBLE_FIELDS = new ClassValue<>() {
-        @Override
-        protected java.util.Map<String, java.lang.reflect.Field> computeValue(Class<?> type) {
-            return new java.util.concurrent.ConcurrentHashMap<>();
-        }
-    };
 
     private final BeanIntrospector introspector;
     private final ClassLoader classLoader;
@@ -147,35 +139,9 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
-        if (!ReflectiveValidation.isEnabled()
-            && !member.getAnnotationMetadata().hasAnnotation(ReflectiveAccess.class)) {
-            return ReflectionSupport.super.readMember(member, bean);
-        }
-        if (member.getAnnotationMetadata().booleanValue(
-                ValidationField.class, ValidationField.MEMBER_REFLECTION).orElse(false)) {
-            try {
-                return accessibleField(member.getDeclaringType(), member.getName()).get(bean);
-            } catch (ReflectiveOperationException | SecurityException e) {
-                throw new ValidationException("Cannot read field " + member.getDeclaringType().getName() + "." + member.getName(), e);
-            }
-        }
+        // with the module present the generated dispatch may read a member reflectively, as it decided at compile
+        // time, even while the reflective description is turned off
         return member.read(bean);
-    }
-
-    /**
-     * A field made accessible, looked up once per type and name: a field is read on every validation of its bean.
-     * The cache belongs to the type, so it never keeps the class loader of the type alive.
-     */
-    private static java.lang.reflect.Field accessibleField(Class<?> type, String name) throws NoSuchFieldException {
-        java.lang.reflect.Field field = ACCESSIBLE_FIELDS.get(type).get(name);
-        if (field == null) {
-            field = type.getDeclaredField(name);
-            if (!field.trySetAccessible()) {
-                throw new ValidationException("Cannot access field " + type.getName() + "." + name);
-            }
-            ACCESSIBLE_FIELDS.get(type).put(name, field);
-        }
-        return field;
     }
 
     @Override

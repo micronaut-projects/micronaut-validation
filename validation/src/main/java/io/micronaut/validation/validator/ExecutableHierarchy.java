@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.beans.BeanTypeHierarchy;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
@@ -33,6 +34,7 @@ import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -76,14 +78,18 @@ public final class ExecutableHierarchy {
      */
     public static Resolved resolve(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Declaration local, String name) {
         Class<?>[] parameterTypes = Argument.toClassArray(local.arguments());
-        List<Class<?>> levels = ValidationMetadataSupport.declaringLevels(introspector, local.declaringType(), name, parameterTypes);
-        // the declaring levels the introspection lists, an unconstrained one included; the super types walked
-        // otherwise
-        List<Declaration> inherited = levels != null
-            ? inherited(introspector, local, levels, name, parameterTypes)
-            : inherited(reflectionSupport, introspector, local.declaringType(), name, parameterTypes);
-        Declaration declared = declaredBy(introspector, local.declaringType(), name, parameterTypes).orElse(local);
-        return merge(local, declared, inherited);
+        BeanTypeHierarchy hierarchy = ValidationMetadataSupport.hierarchy(introspector, local.declaringType());
+        BeanMethod<?, ?> method = hierarchy == null ? null : ValidationMetadataSupport.declaredMethod(hierarchy, name, parameterTypes);
+        if (hierarchy == null || method == null) {
+            // the super types walked when the introspection does not describe the hierarchy
+            List<Declaration> inherited = inherited(reflectionSupport, introspector, local.declaringType(), name, parameterTypes);
+            Declaration declared = declaredBy(introspector, null, local.declaringType(), name, parameterTypes).orElse(local);
+            return merge(local, declared, inherited);
+        }
+        // the declaring levels the introspection lists, an unconstrained one included, each declaration read by core
+        List<Class<?>> levels = hierarchy.getDeclaringTypes(method);
+        Declaration declared = declaredBy(introspector, hierarchy, local.declaringType(), name, parameterTypes).orElse(local);
+        return merge(local, declared, inherited(introspector, hierarchy, local, levels, name, parameterTypes));
     }
 
     /**
@@ -119,15 +125,15 @@ public final class ExecutableHierarchy {
      * The declarations of the levels an introspection lists for a method, the type declaring it aside: a level
      * without a bean method of it declares it unconstrained.
      */
-    private static List<Declaration> inherited(BeanIntrospector introspector, Declaration local, List<Class<?>> levels,
-                                               String name, Class<?>[] parameterTypes) {
+    private static List<Declaration> inherited(BeanIntrospector introspector, BeanTypeHierarchy hierarchy, Declaration local,
+                                               List<Class<?>> levels, String name, Class<?>[] parameterTypes) {
         List<Declaration> declarations = new ArrayList<>(levels.size());
         for (Class<?> level : levels.subList(Math.min(1, levels.size()), levels.size())) {
             String typeName = level.getName();
             if (ValidationAnnotationUtil.isPlatformType(typeName)) {
                 continue;
             }
-            Optional<Declaration> declared = declaredBy(introspector, level, name, parameterTypes);
+            Optional<Declaration> declared = declaredBy(introspector, hierarchy, level, name, parameterTypes);
             if (declared.isPresent()) {
                 declarations.add(declared.get());
             } else if (!local.exact() && introspector.findIntrospection(level).isEmpty()) {
@@ -152,7 +158,7 @@ public final class ExecutableHierarchy {
         List<Declaration> declarations = new ArrayList<>();
         Set<Class<?>> visitedInterfaces = new HashSet<>();
         for (Class<?> current = reflectionSupport.superType(declaringType); current != null && current != Object.class; current = reflectionSupport.superType(current)) {
-            declaredBy(introspector, current, name, parameterTypes).ifPresent(declarations::add);
+            declaredBy(introspector, null, current, name, parameterTypes).ifPresent(declarations::add);
             collectInterfaceDeclarations(reflectionSupport, introspector, current, name, parameterTypes, visitedInterfaces, declarations);
         }
         collectInterfaceDeclarations(reflectionSupport, introspector, declaringType, name, parameterTypes, visitedInterfaces, declarations);
@@ -167,7 +173,7 @@ public final class ExecutableHierarchy {
                                                      List<Declaration> declarations) {
         for (Class<?> interfaceType : reflectionSupport.interfaces(type)) {
             if (visitedInterfaces.add(interfaceType)) {
-                declaredBy(introspector, interfaceType, name, parameterTypes).ifPresent(declarations::add);
+                declaredBy(introspector, null, interfaceType, name, parameterTypes).ifPresent(declarations::add);
                 collectInterfaceDeclarations(reflectionSupport, introspector, interfaceType, name, parameterTypes, visitedInterfaces, declarations);
             }
         }
@@ -178,50 +184,32 @@ public final class ExecutableHierarchy {
      * of that name and those parameter types the type declares.
      */
     @SuppressWarnings("unchecked")
-    private static Optional<Declaration> declaredBy(BeanIntrospector introspector, Class<?> type, String name, Class<?>[] parameterTypes) {
+    private static Optional<Declaration> declaredBy(BeanIntrospector introspector, @Nullable BeanTypeHierarchy root,
+                                                    Class<?> type, String name, Class<?>[] parameterTypes) {
         String typeName = type.getName();
         if (ValidationAnnotationUtil.isPlatformType(typeName)) {
             return Optional.empty();
         }
-        return introspector.findIntrospection((Class<Object>) type)
-            .flatMap(introspection -> {
-                // the signature as declared first; else the one a generic declaration erases to, its type
-                // variables standing for the types of the implementation
-                BeanMethod<Object, Object> found = null;
-                for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
-                    if (!method.getName().equals(name) || method.getDeclaringType() != type) {
-                        continue;
-                    }
-                    Class<?>[] declared = Argument.toClassArray(method.getArguments());
-                    if (Arrays.equals(declared, parameterTypes)) {
-                        found = method;
-                        break;
-                    }
-                    if (found == null && erasesTo(method.getArguments(), declared, parameterTypes)) {
-                        found = method;
-                    }
-                }
-                return Optional.ofNullable(found);
-            })
-            .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
-    }
-
-    /**
-     * Whether a generic declaration, its parameter types erased, can be the one a method of the given parameter
-     * types overrides: a parameter a type variable declares erases to a super type of the overriding one.
-     */
-    private static boolean erasesTo(Argument<?>[] arguments, Class<?>[] declared, Class<?>[] parameterTypes) {
-        if (declared.length != parameterTypes.length) {
-            return false;
+        BeanIntrospection<Object> introspection = introspector.findIntrospection((Class<Object>) type).orElse(null);
+        if (introspection == null) {
+            return Optional.empty();
         }
-        for (int i = 0; i < declared.length; i++) {
-            Class<?> overriding = parameterTypes[i];
-            if (declared[i] != overriding
-                && (!arguments[i].isTypeVariable() || overriding.isPrimitive() || !declared[i].isAssignableFrom(overriding))) {
-                return false;
+        // core matches the signature as declared first, else the one a generic declaration erases to, a type
+        // variable bound by the validated type standing for its binding; it reads the generated introspections,
+        // whose bean methods it compares by identity, so the declaration itself is read from the introspector,
+        // which may decorate them
+        BeanTypeHierarchy hierarchy = root != null && root.contains(type) ? root : introspection.getTypeHierarchy().orElse(null);
+        Class<?>[] declared = hierarchy == null ? parameterTypes
+            : hierarchy.findOverridden(BeanIntrospector.forClassLoader(type.getClassLoader()), type, name, parameterTypes)
+                .map(method -> Argument.toClassArray(method.getArguments()))
+                .orElse(parameterTypes);
+        for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
+            if (method.getName().equals(name) && method.getDeclaringType() == type
+                && Arrays.equals(Argument.toClassArray(method.getArguments()), declared)) {
+                return Optional.of(Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
             }
         }
-        return true;
+        return Optional.empty();
     }
 
     /**

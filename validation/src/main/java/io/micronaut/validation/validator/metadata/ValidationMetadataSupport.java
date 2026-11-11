@@ -173,27 +173,12 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * The declaring levels of a method a type declares itself, from the hierarchy its introspection describes: the
-     * type, then every type declaring a method it overrides, nearest first, a type declaring it without a bean
-     * method of it included.
-     *
-     * @param introspector The introspector
-     * @param declaringType The type declaring the method
+     * @param hierarchy The hierarchy of an introspection
      * @param name The method name
      * @param parameters The erased parameter types
-     * @return The levels, or null when the introspection of the type does not describe them
+     * @return The bean method the introspected type declares with that signature, or null
      */
-    public static @Nullable List<Class<?>> declaringLevels(BeanIntrospector introspector, Class<?> declaringType,
-                                                         String name, Class<?>[] parameters) {
-        var hierarchy = hierarchy(introspector, declaringType);
-        if (hierarchy == null) {
-            return null;
-        }
-        var method = declaredMethod(hierarchy, name, parameters);
-        return method == null ? null : hierarchy.getDeclaringTypes(method);
-    }
-
-    private static @Nullable BeanMethod<?, ?> declaredMethod(BeanTypeHierarchy hierarchy, String name, Class<?>[] parameters) {
+    public static @Nullable BeanMethod<?, ?> declaredMethod(BeanTypeHierarchy hierarchy, String name, Class<?>[] parameters) {
         // matched by signature: a decorated introspection hands out bean methods of its own
         for (BeanMethod<?, ?> method : hierarchy.getDeclaredMethods()) {
             if (method.getName().equals(name) && Arrays.equals(Argument.toClassArray(method.getArguments()), parameters)) {

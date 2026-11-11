@@ -1,6 +1,6 @@
 # Resolve the override hierarchy of a bean method from introspections
 
-**Status: proposal** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908)
+**Status: adopted** (core #14321, merge 6b26fabb6a; adopted 2026-11-11)
 **Component:** micronaut-core `core` (`BeanTypeHierarchy`), `inject`, `reflection` (`MethodHierarchy`)
 **Checked against:** micronaut-core `origin/5.3.x`
 

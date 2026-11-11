@@ -32,8 +32,6 @@ import io.micronaut.inject.utils.JsonWriter;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
-import io.micronaut.validation.validator.metadata.ValidationField;
-import io.micronaut.validation.validator.metadata.ValidationRecordAccessor;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -42,7 +40,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -110,19 +107,12 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             // constrained only by an XML mapping asks for the option
             return;
         }
-        recordFields(element);
         registerAnnotatedFields(element, context);
         markExecutable(element);
         for (ClassElement target : targets) {
             if (describeAll || participates(target)) {
-                recordFields(target);
                 markExecutable(target);
             }
-        }
-        if (element.isRecord()) {
-            element.getBeanProperties().forEach(property -> property.getReadMethod()
-                .filter(method -> method.getName().equals(property.getName()))
-                .ifPresent(method -> method.annotate(ValidationRecordAccessor.class)));
         }
         configureIntrospection(element, context);
     }
@@ -182,27 +172,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             }
         }
         return false;
-    }
-
-    private static void recordFields(ClassElement element) {
-        ClassElement accessType = ClassElement.of(element.getName() + "$ValidationAccess");
-        boolean propertyAccess = element.isRecord() || Stream.of(element.getAnnotationMetadata()
-            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class))
-            .noneMatch(kind -> kind == Introspected.AccessKind.FIELD);
-        Set<String> propertyFields = propertyAccess ? element.getBeanProperties().stream()
-            .filter(property -> property.getReadMethod()
-                .filter(method -> !method.isReflectionRequired(accessType)).isPresent())
-            .flatMap(property -> property.getField().stream())
-            .map(field -> field.getDeclaringType().getName() + "." + field.getName())
-            .collect(Collectors.toSet()) : Set.of();
-        // only a field generated code cannot reach falls back to its getter, avoiding the reflection provider
-        element.getFields().forEach(field -> {
-            boolean reflection = field.isReflectionRequired(accessType);
-            field.annotate(ValidationField.class, builder -> builder
-                .member(ValidationField.MEMBER_PROPERTY, reflection
-                    && propertyFields.contains(field.getDeclaringType().getName() + "." + field.getName()))
-                .member(ValidationField.MEMBER_REFLECTION, reflection));
-        });
     }
 
     private static void configureIntrospection(ClassElement element, VisitorContext context) {

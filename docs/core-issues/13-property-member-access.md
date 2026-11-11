@@ -1,6 +1,6 @@
 # Tell whether a property member is read through reflection
 
-**Status: proposal** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908)
+**Status: adopted** (core #14320, merge 9c1917e100; adopted 2026-11-11)
 **Component:** micronaut-core `core` (`BeanPropertyMember`), `core-processor`
 **Checked against:** micronaut-core `origin/5.3.x`
 

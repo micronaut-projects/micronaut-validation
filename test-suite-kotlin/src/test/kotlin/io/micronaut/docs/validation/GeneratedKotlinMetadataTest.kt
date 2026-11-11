@@ -24,11 +24,10 @@ import org.junit.jupiter.api.Test
 
 class GeneratedKotlinMetadataTest {
     @Test
-    fun privateFieldsRequireTheCompanionEvenWithNativeRegistration() {
-        val failure = assertThrows(jakarta.validation.ValidationException::class.java) {
-            Validator.getInstance().validate(PrivateBean(null, listOf(null)))
-        }
-        assertTrue(failure.cause!!.message!!.contains("micronaut-validation-reflection"))
+    fun privateFieldsAreReadByTheGeneratedDispatchWithoutTheCompanion() {
+        // core reads a KSP backing field through its property accessor, no reflection required
+        val violations = Validator.getInstance().validate(PrivateBean(null, listOf(null)))
+        assertEquals(2, violations.size)
     }
 
     @Test
