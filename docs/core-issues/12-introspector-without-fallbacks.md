@@ -1,6 +1,7 @@
 # Ask a BeanIntrospector for generated introspections only
 
-**Status: proposal** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908)
+**Status: adopted** (core #14318, merge 3d7942d006; adopted 2026-11-13: `GeneratedBeanIntrospector` deleted,
+`CompileTimeSupport` reads `introspector.withoutFallbacks()`, `XmlBeanIntrospector` decorates the view of its delegate)
 **Component:** micronaut-core `core` (`BeanIntrospector`, `BeanIntrospection`)
 **Checked against:** micronaut-core `origin/5.3.x`
 

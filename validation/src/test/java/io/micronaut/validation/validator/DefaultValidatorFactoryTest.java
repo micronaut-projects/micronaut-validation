@@ -60,7 +60,8 @@ class DefaultValidatorFactoryTest {
                 if (method.getName().equals("withIntrospector") || method.getName().equals("withClassLoader")) {
                     return proxy;
                 }
-                if (method.getName().equals("readMember")) {
+                // the reader of a member is decided once per validator plan
+                if (method.getName().equals("memberReader")) {
                     reads.incrementAndGet();
                 }
                 if (method.getName().equals("annotationAttributes")) {

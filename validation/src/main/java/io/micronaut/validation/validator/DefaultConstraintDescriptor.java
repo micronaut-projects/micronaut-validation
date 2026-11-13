@@ -68,6 +68,7 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
 
     private static final String ATTRIBUTE_MESSAGE = "message";
     private static final String ATTRIBUTE_GROUPS = "groups";
+    private static final Set<Class<?>> DEFAULT_GROUPS = Set.of(Default.class);
     private static final String ATTRIBUTE_PAYLOAD = "payload";
     private static final String ATTRIBUTE_VALIDATION_APPLIES_TO = "validationAppliesTo";
 
@@ -85,6 +86,8 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
     // the validator the last validation of this constraint resolved, with what it was resolved for: the
     // validator owning the instances, the validated type and the target
     private volatile @Nullable ResolvedValidator resolvedValidator;
+    // the kinds of element the target of the constraint was checked against, one bit each
+    private volatile int checkedTargetDeclarations;
 
     @Nullable
     private final ConstraintTarget validationAppliesTo;
@@ -213,10 +216,7 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
 
     @Override
     public Set<Class<?>> getGroups() {
-        if (groups.isEmpty()) {
-            return Set.of(Default.class);
-        }
-        return groups;
+        return groups.isEmpty() ? DEFAULT_GROUPS : groups;
     }
 
     @Override
@@ -255,6 +255,23 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
         ResolvedValidator resolved = resolvedValidator;
         return resolved != null && resolved.owner() == owner && resolved.type() == type && resolved.target() == target
             ? resolved.validator() : null;
+    }
+
+    /**
+     * @param declaration The kind of element the constraint is declared on, as {@link ConstraintEvaluator} encodes it
+     * @return Whether the target of the constraint was checked against that kind of element before
+     */
+    boolean isTargetDeclarationChecked(int declaration) {
+        return (checkedTargetDeclarations & (1 << declaration)) != 0;
+    }
+
+    /**
+     * Remembers that the target of the constraint fits a kind of element.
+     *
+     * @param declaration The kind of element, as {@link ConstraintEvaluator} encodes it
+     */
+    synchronized void targetDeclarationChecked(int declaration) {
+        checkedTargetDeclarations |= 1 << declaration;
     }
 
     /**

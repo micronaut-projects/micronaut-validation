@@ -22,7 +22,7 @@ import java.util.Optional;
 /**
  * Resolves the Locale for the {@link DefaultMessageInterpolator}.
  * @author Sergio del Amo
- * @since 4.9.
+ * @since 4.9.0
  */
 public interface InterpolatorLocaleResolver {
     /**

@@ -25,6 +25,7 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorContext;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.MessageInterpolator;
@@ -125,24 +126,31 @@ final class ConstraintEvaluator {
                 if (constraint.hasDefinedConstraintValidatorClasses() || validationAppliesTo != null) {
                     boolean onExecutable = executableNode != null
                         && (constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE);
-                    ConstraintValidatorTargetResolver.checkTargetDeclaration(reflectionSupport,
-                        constraint.getType(),
-                        constraint.getConstraintValidatorClasses(),
-                        validationAppliesTo,
-                        onExecutable,
-                        executableNode != null && executableNode.getMethodReference().getArguments().length > 0,
-                        executableNode instanceof ValidationPath.DefaultConstructorNode
-                            || (executableNode != null && executableNode.getMethodReference().getReturnType().getType() != void.class)
-                    );
+                    boolean hasParameters = executableNode != null && executableNode.getMethodReference().getArguments().length > 0;
+                    boolean hasReturnValue = executableNode instanceof ValidationPath.DefaultConstructorNode
+                        || (executableNode != null && executableNode.getMethodReference().getReturnType().getType() != void.class);
+                    // the declaration depends on the constraint and these three alone: a passed check is not repeated
+                    int declaration = (onExecutable ? 1 : 0) | (hasParameters ? 2 : 0) | (hasReturnValue ? 4 : 0);
+                    if (!constraint.isTargetDeclarationChecked(declaration)) {
+                        ConstraintValidatorTargetResolver.checkTargetDeclaration(reflectionSupport,
+                            constraint.getType(),
+                            constraint.getConstraintValidatorClasses(),
+                            validationAppliesTo,
+                            onExecutable,
+                            hasParameters,
+                            hasReturnValue
+                        );
+                        constraint.targetDeclarationChecked(declaration);
+                    }
                 }
                 if (validationAppliesTo != null && validationAppliesTo != ConstraintTarget.IMPLICIT && validationAppliesTo != constraintTarget) {
                     continue;
                 }
                 Class<Annotation> constraintType = constraint.getType();
                 List<Class<? extends jakarta.validation.ConstraintValidator<Annotation, ?>>> validatorClasses = constraint.getConstraintValidatorClasses();
-                ConstraintValidator<Annotation, E> validator = constraint.hasDefinedConstraintValidatorClasses()
-                    ? (ConstraintValidator<Annotation, E>) constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget)
-                    : null;
+                ConstraintValidator<Annotation, E> validator =
+                    (ConstraintValidator<Annotation, E>) constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget);
+                // resolved once for the type and the target, a built-in validator of the registry included
                 if (validator == null && constraint.hasDefinedConstraintValidatorClasses()) {
                     if ((constraintTarget == ConstraintTarget.PARAMETERS || constraintTarget == ConstraintTarget.RETURN_VALUE)
                         && !ConstraintValidatorTargetResolver.supportsTarget(reflectionSupport, validatorClasses, constraintTarget)) {
@@ -176,6 +184,10 @@ final class ConstraintEvaluator {
                         continue;
                     }
                     validator = constraintValidatorRegistry.findConstraintValidator(constraintType, elementArgument.getType()).orElse(null);
+                    // a built-in validator is the registry's for good; a validator bean may be of another scope
+                    if (validator != null && ValidationMetadataSupport.standardConstraint(constraintType.getName()) == constraintType) {
+                        constraint.resolvedValidator(validatorInstances, elementArgument.getType(), constraintTarget, validator);
+                    }
                 }
                 if (validator == null || validator == ConstraintValidator.VALID) {
                     if (validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint)) {

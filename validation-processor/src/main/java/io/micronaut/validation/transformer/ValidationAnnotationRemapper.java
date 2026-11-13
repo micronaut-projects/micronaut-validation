@@ -63,6 +63,11 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
         return AnnotationRemapper.ALL_PACKAGES;
     }
 
+    @SuppressWarnings("ReferenceEquality")
+    private static boolean isRewritten(AnnotationValue<?> rewritten, AnnotationValue<?> original) {
+        return rewritten != original;
+    }
+
     @Override
     public List<AnnotationValue<?>> remap(AnnotationValue<?> annotation, VisitorContext visitorContext) {
         var contained = annotation.getAnnotations(AnnotationMetadata.VALUE_MEMBER);
@@ -80,7 +85,15 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                     }
                     return retainedValue(remap(builder.build(), visitorContext).getFirst());
                 }).orElse(value)).toArray(AnnotationValue<?>[]::new);
-            annotation = annotation.mutate().member(AnnotationMetadata.VALUE_MEMBER, rewritten).build();
+            // a container of no constraint, a repeated annotation of another kind, is left as it is: compared by
+            // identity, as equal values may differ in the stereotypes added
+            boolean changed = false;
+            for (int i = 0; i < rewritten.length && !changed; i++) {
+                changed = isRewritten(rewritten[i], contained.get(i));
+            }
+            if (changed) {
+                annotation = annotation.mutate().member(AnnotationMetadata.VALUE_MEMBER, rewritten).build();
+            }
         }
         if (annotation.getAnnotationName().equals(Constraint.class.getName())) {
             // makes every constraint retainable, so a composing occurrence stays attributed to its composition

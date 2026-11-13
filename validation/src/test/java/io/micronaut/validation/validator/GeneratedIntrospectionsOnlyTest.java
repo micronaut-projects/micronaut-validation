@@ -67,8 +67,23 @@ class GeneratedIntrospectionsOnlyTest {
     @Introspected
     record Generated(@NotNull @Nullable String value) { }
 
-    /** Serves one type the way a fallback would: by an introspection that is not a generated one. */
+    /** Serves one type the way a fallback would: by an introspection that is not a generated one, which its view without fallbacks drops. */
     private static final class ForeignIntrospector implements BeanIntrospector {
+        private final boolean fallbacks;
+
+        ForeignIntrospector() {
+            this(true);
+        }
+
+        private ForeignIntrospector(boolean fallbacks) {
+            this.fallbacks = fallbacks;
+        }
+
+        @Override
+        public BeanIntrospector withoutFallbacks() {
+            return fallbacks ? new ForeignIntrospector(false) : this;
+        }
+
         @Override
         public Collection<BeanIntrospection<Object>> findIntrospections(Predicate<? super BeanIntrospectionReference<?>> filter) {
             return SHARED.findIntrospections(filter);
@@ -85,6 +100,9 @@ class GeneratedIntrospectionsOnlyTest {
             Optional<BeanIntrospection<T>> generated = SHARED.findIntrospection(beanType);
             if (beanType != Described.class) {
                 return generated;
+            }
+            if (!fallbacks) {
+                return Optional.empty();
             }
             BeanIntrospection<T> target = generated.orElseThrow();
             return Optional.of((BeanIntrospection<T>) Proxy.newProxyInstance(

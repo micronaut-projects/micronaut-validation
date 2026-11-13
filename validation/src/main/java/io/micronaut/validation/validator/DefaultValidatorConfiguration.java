@@ -112,6 +112,8 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     private ReflectionSupport reflectionSupport = ReflectionSupport.get();
     private BeanIntrospector beanIntrospector = reflectionSupport.introspector();
+    // whether the metadata access was set explicitly rather than derived
+    private boolean metadataConfigured;
     private ConstraintValidatorOverrides constraintValidatorOverrides = ConstraintValidatorOverrides.NONE;
 
     private boolean enabled = true;
@@ -386,6 +388,13 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Inject
     public DefaultValidatorConfiguration setExecutionHandleLocator(@Nullable BeanContext beanContext) {
+        if (beanContext != null && !metadataConfigured && reflectionSupport.classLoader() != beanContext.getClassLoader()) {
+            // a configuration the context manages reads the metadata of the loader of the context, as its constraint
+            // validator factory does, rather than the one of the thread that happened to create it
+            reflectionSupport = reflectionSupport.withClassLoader(beanContext.getClassLoader());
+            beanIntrospector = reflectionSupport.introspector();
+            defaultParameterNameProvider = null;
+        }
         this.executionHandleLocator = new ExecutionHandleLocator() {
 
             @Override
@@ -525,6 +534,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
+        this.metadataConfigured = true;
         this.reflectionSupport = reflectionSupport.withIntrospector(beanIntrospector);
         // the introspector as the support reads it: without the reflection module, its generated introspections
         this.beanIntrospector = reflectionSupport.introspector();
@@ -561,6 +571,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Internal
     public final void setReflectionSupport(ReflectionSupport reflectionSupport) {
+        this.metadataConfigured = true;
         this.reflectionSupport = reflectionSupport;
         this.defaultParameterNameProvider = null;
     }

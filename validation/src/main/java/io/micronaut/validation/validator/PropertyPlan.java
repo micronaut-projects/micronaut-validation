@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import jakarta.validation.groups.ConvertGroup;
+import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
@@ -40,8 +41,11 @@ record PropertyPlan(Argument<Object> argument, boolean validated, List<Annotatio
      * @param argument Its argument, with its own metadata and the type-use annotations of its type
      * @param cascaded Whether it cascades the value
      * @param conversions The group conversions the member declares
+     * @param reader How the value of the member is read
+     * @param implicitGroup The interface declaring the member, its implicit group, or null
      */
     record MemberPlan(BeanPropertyMember<Object, ?> member, Argument<Object> argument, boolean cascaded,
-                      List<AnnotationValue<ConvertGroup>> conversions) {
+                      List<AnnotationValue<ConvertGroup>> conversions, ReflectionSupport.MemberReader reader,
+                      @Nullable Class<?> implicitGroup) {
     }
 }

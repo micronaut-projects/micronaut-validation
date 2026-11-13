@@ -63,6 +63,8 @@ final class ValidationTraversal {
         }
     };
 
+    private static final Predicate<Class<?>> ALL_TYPES = type -> true;
+
     private final DefaultValidator validator;
     private final ReflectionSupport reflectionSupport;
     private final BeanIntrospector beanIntrospector;
@@ -103,6 +105,7 @@ final class ValidationTraversal {
         boundTypeArguments.clear();
     }
 
+    @SuppressWarnings("unchecked")
     <R, T> void doValidate(DefaultConstraintValidatorContext<R> context,
                            BeanIntrospection<T> introspection,
                            T object) {
@@ -138,6 +141,7 @@ final class ValidationTraversal {
                 }
                 constrainedSuperIntrospections = notIsolated;
             }
+            Predicate<Class<?>> notIsolatedTypes = isolated.isEmpty() ? ALL_TYPES : type -> !isolated.containsKey(type);
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : steps) {
                 if (cascadePerStep) {
                     canCascade = true;
@@ -147,15 +151,15 @@ final class ValidationTraversal {
 
                     if (ownClassConstraints) {
                         try (ValidationPath.ContextualPath ignore2 = context.getCurrentPath().addBeanNode()) {
-                            visitElement(context, object, Argument.of(introspection.getBeanType(), annotationMetadata), annotationMetadata, object, false, Cascade.UNCHECKED);
+                            visitElement(context, object, (Argument<Object>) beanPlan.beanArgument(), annotationMetadata, object, false, Cascade.UNCHECKED);
                         }
                     }
                     // the class-level constraints of the super types, each type its own violations
                     for (BeanIntrospection<?> superIntrospection : constrainedSuperIntrospections) {
-                        visitDeclaredSuperTypeConstraints(context, object, superIntrospection);
+                        visitDeclaredSuperTypeConstraints(context, object, superIntrospection, beanPlan);
                     }
                     for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
-                        visitProperty(context, introspection, object, property, canCascade, type -> !isolated.containsKey(type));
+                        visitProperty(context, introspection, object, property, canCascade, notIsolatedTypes);
                     }
 
                     if (validation.isFailed()) {
@@ -166,14 +170,16 @@ final class ValidationTraversal {
             }
             // the constraints a super type redefining the default group sequence declares follow that sequence
             for (Map.Entry<Class<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> entry : isolated.entrySet()) {
+                Class<?> isolatedType = entry.getKey();
+                Predicate<Class<?>> declaredByIsolated = type -> type == isolatedType;
                 context.validateInGroups(entry.getValue(), isolatedCanCascade -> {
                     for (BeanIntrospection<?> superIntrospection : beanPlan.constrainedSuperIntrospections()) {
-                        if (superIntrospection.getBeanType() == entry.getKey()) {
-                            visitDeclaredSuperTypeConstraints(context, object, superIntrospection);
+                        if (superIntrospection.getBeanType() == isolatedType) {
+                            visitDeclaredSuperTypeConstraints(context, object, superIntrospection, beanPlan);
                         }
                     }
                     for (BeanProperty<T, Object> property : introspection.getBeanProperties()) {
-                        visitProperty(context, introspection, object, property, isolatedCanCascade, type -> type == entry.getKey());
+                        visitProperty(context, introspection, object, property, isolatedCanCascade, declaredByIsolated);
                     }
                 });
             }
@@ -224,10 +230,15 @@ final class ValidationTraversal {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <R, T> void visitDeclaredSuperTypeConstraints(DefaultConstraintValidatorContext<R> context,
                                                           T object,
-                                                          BeanIntrospection<?> superIntrospection) {
+                                                          BeanIntrospection<?> superIntrospection,
+                                                          ValidatorDeclarations.BeanPlan beanPlan) {
         AnnotationMetadata superMetadata = superIntrospection.getAnnotationMetadata();
+        Argument<Object> superArgument = (Argument<Object>) beanPlan.constrainedSuperArguments().get(superIntrospection.getBeanType());
+        if (superArgument == null) {
+            superArgument = Argument.of((Class) superIntrospection.getBeanType(), superMetadata);
+        }
         try (ValidationPath.ContextualPath ignore = context.getCurrentPath().addBeanNode()) {
-            visitElement(context, object, Argument.of((Class) superIntrospection.getBeanType(), superMetadata), superMetadata, object, false, Cascade.UNCHECKED);
+            visitElement(context, object, superArgument, superMetadata, object, false, Cascade.UNCHECKED);
         }
     }
 
@@ -236,7 +247,7 @@ final class ValidationTraversal {
                               T object,
                               BeanProperty<T, Object> property,
                               boolean canCascade) {
-        visitProperty(context, introspection, object, property, canCascade, type -> true);
+        visitProperty(context, introspection, object, property, canCascade, ALL_TYPES);
     }
 
     /**
@@ -302,7 +313,8 @@ final class ValidationTraversal {
         }
         return propertyPlans.computeIfAbsent(property, p -> {
             AnnotationMetadata propertyMetadata = property.getAnnotationMetadata();
-            Argument<Object> argument = argumentWithMetadata(property.asArgument(), propertyMetadata);
+            // prepared once: a later preparation of the same argument answers it as it is
+            Argument<Object> argument = (Argument<Object>) reflectionSupport.prepareArgument(argumentWithMetadata(property.asArgument(), propertyMetadata));
             List<AnnotationValue<ConvertGroup>> conversions = propertyMetadata.getAnnotationValuesByType(ConvertGroup.class);
             boolean validated = isValidated(propertyMetadata, argument, conversions);
             if (!reflectionSupport.separatesDeclarations(introspection)
@@ -321,9 +333,12 @@ final class ValidationTraversal {
                 Argument<?> typed = member.asArgument();
                 boolean cascaded = memberMetadata.hasStereotype(Valid.class)
                     || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, typed);
+                Class<?> declaringType = member.getDeclaringType();
                 members.add(new MemberPlan((BeanPropertyMember) member,
-                    (Argument<Object>) typed.withName(property.getName()).withAnnotationMetadata(memberMetadata),
-                    cascaded, memberMetadata.getAnnotationValuesByType(ConvertGroup.class)));
+                    (Argument<Object>) reflectionSupport.prepareArgument(typed.withName(property.getName()).withAnnotationMetadata(memberMetadata)),
+                    cascaded, memberMetadata.getAnnotationValuesByType(ConvertGroup.class),
+                    reflectionSupport.memberReader((BeanPropertyMember) member, (BeanProperty) property),
+                    declaringType.isInterface() ? declaringType : null));
             }
             return new PropertyPlan(argument, validated, conversions, List.copyOf(members));
         });
@@ -337,8 +352,7 @@ final class ValidationTraversal {
                                             boolean canCascade) {
         BeanPropertyMember<T, ?> member = (BeanPropertyMember<T, ?>) plan.member();
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(property.getName())) {
-            Class<?> implicitGroup = member.getDeclaringType().isInterface() ? member.getDeclaringType() : null;
-            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.getElementType(), implicitGroup)) {
+            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.getElementType(), plan.implicitGroup())) {
                 if (isNotReachable(context, object) ||
                     !context.getValidationContext().isPropertyValidated(object, property)) {
                     return;
@@ -347,7 +361,7 @@ final class ValidationTraversal {
                 try (DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.convertGroups(plan.conversions())) {
                     Object value;
                     try {
-                        value = reflectionSupport.readMember(member, property, object);
+                        value = plan.reader().read(object);
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }
@@ -533,27 +547,21 @@ final class ValidationTraversal {
             }
         }
 
-        List<DefaultConstraintDescriptor<Annotation>> containerElementConstraints = new ArrayList<>();
-        List<DefaultConstraintDescriptor<Annotation>> containerConstraints = new ArrayList<>();
-        if (singleUnwrapByDefault != null) {
-            if (valueExtractorDefinitions.size() != 1) {
-                // only one extractor unwrapping by default
-                valueExtractorDefinitions = List.of(singleUnwrapByDefault);
-            }
+        if (singleUnwrapByDefault != null && valueExtractorDefinitions.size() != 1) {
+            // only one extractor unwrapping by default
+            valueExtractorDefinitions = List.of(singleUnwrapByDefault);
+        }
+        // the element constraints split by where they apply; most elements declare none, which needs no list
+        List<DefaultConstraintDescriptor<Annotation>> containerElementConstraints = List.of();
+        List<DefaultConstraintDescriptor<Annotation>> containerConstraints = List.of();
+        if (!elementConstraints.isEmpty()) {
+            containerElementConstraints = new ArrayList<>(elementConstraints.size());
+            containerConstraints = new ArrayList<>(elementConstraints.size());
             for (DefaultConstraintDescriptor<Annotation> constraint : elementConstraints) {
-                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.SKIP) {
-                    containerConstraints.add(constraint);
-                } else {
-                    containerElementConstraints.add(constraint);
-                }
-            }
-        } else {
-            for (DefaultConstraintDescriptor<Annotation> constraint : elementConstraints) {
-                if (constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP) {
-                    containerElementConstraints.add(constraint);
-                } else {
-                    containerConstraints.add(constraint);
-                }
+                boolean onElement = singleUnwrapByDefault != null
+                    ? constraint.getValueUnwrapping() != ValidateUnwrappedValue.SKIP
+                    : constraint.getValueUnwrapping() == ValidateUnwrappedValue.UNWRAP;
+                (onElement ? containerElementConstraints : containerConstraints).add(constraint);
             }
         }
         constraints.validateConstraints(context, leftBean, containerArgument, containerValue, containerConstraints);

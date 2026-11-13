@@ -27,6 +27,7 @@ import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
@@ -43,7 +44,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -200,7 +200,8 @@ public final class ExecutableHierarchy {
         // which may decorate them
         BeanTypeHierarchy hierarchy = root != null && root.contains(type) ? root : introspection.getTypeHierarchy().orElse(null);
         Class<?>[] declared = hierarchy == null ? parameterTypes
-            : hierarchy.findOverridden(BeanIntrospector.forClassLoader(type.getClassLoader()), type, name, parameterTypes)
+            : hierarchy.findOverridden(introspector instanceof BeanIntrospectorDecorator decorator ? decorator.getDecorated() : introspector,
+                    type, name, parameterTypes)
                 .map(method -> Argument.toClassArray(method.getArguments()))
                 .orElse(parameterTypes);
         for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
@@ -597,21 +598,6 @@ public final class ExecutableHierarchy {
         }
 
         @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Declaration other
-                && declaringType == other.declaringType
-                && exact == other.exact
-                && annotationMetadata.equals(other.annotationMetadata)
-                && Arrays.equals(arguments, other.arguments)
-                && returnArgument.equals(other.returnArgument);
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * Objects.hash(declaringType, annotationMetadata, returnArgument, exact) + Arrays.hashCode(arguments);
-        }
-
-        @Override
         public String toString() {
             return declaringType.getName() + (exact ? " (declared)" : "");
         }
@@ -654,22 +640,6 @@ public final class ExecutableHierarchy {
                 }
             }
             return false;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            return obj instanceof Resolved other
-                && local.equals(other.local)
-                && declared.equals(other.declared)
-                && inherited.equals(other.inherited)
-                && annotationMetadata.equals(other.annotationMetadata)
-                && Arrays.equals(arguments, other.arguments)
-                && returnArgument.equals(other.returnArgument);
-        }
-
-        @Override
-        public int hashCode() {
-            return 31 * Objects.hash(local, declared, inherited, annotationMetadata, returnArgument) + Arrays.hashCode(arguments);
         }
 
         @Override

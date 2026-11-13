@@ -25,6 +25,7 @@ import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.CopyOnWriteMap;
+import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import jakarta.inject.Inject;
@@ -127,7 +128,8 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
 
         ConstraintValidator<?, ?> constraintValidator = validatorCache.get(key);
         if (constraintValidator != null) {
-            return Optional.of((ConstraintValidator<A, T>) constraintValidator);
+            // a miss is kept as the valid validator: it is answered as the first lookup answered it
+            return constraintValidator == ConstraintValidator.VALID ? Optional.empty() : Optional.of((ConstraintValidator<A, T>) constraintValidator);
         }
 
         constraintValidator = internalValidators.get(key);
@@ -147,10 +149,14 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
                     constraintType,
                     targetType
             );
-            Optional<ConstraintValidator<A, T>> bean = beanContext.findBean(argument, qualifier);
-            if (bean.isPresent()) {
-                validatorCache.put(key, bean.get());
-                return bean;
+            Optional<BeanDefinition<ConstraintValidator<A, T>>> definition = beanContext.findBeanDefinition(argument, qualifier);
+            if (definition.isPresent()) {
+                ConstraintValidator<A, T> bean = beanContext.getBean(definition.get());
+                // a validator of another scope is the context's to hand out each time
+                if (definition.get().isSingleton()) {
+                    validatorCache.put(key, bean);
+                }
+                return Optional.of(bean);
             }
 
         } else {

@@ -238,16 +238,13 @@ final class DefaultExecutableValidator {
         if (parameterValues.length != argLength) {
             throw new IllegalArgumentException("Expected exactly [" + argLength + "] constructor arguments");
         }
-        for (Argument<?> constructorArgument : constructorArguments) {
-            ExecutableHierarchy.checkGroupConversions(reflectionSupport, constructorArgument);
-        }
         DefaultConstraintValidatorContext<T> context = introspection == null
             ? (DefaultConstraintValidatorContext<T>) DefaultConstraintValidatorContext.forConstructor(validator, (Class<T>) beanType, validationContext)
             : (DefaultConstraintValidatorContext<T>) new DefaultConstraintValidatorContext(validator, introspection, null, validationContext);
         ValidatorDeclarations.ConfiguredExecutable configured = declarations.configuredConstructor(beanType, constructorMetadata, constructorArguments);
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableParameterValues(parameterValues);
              ValidationPath.ContextualPath ignored = context.getCurrentPath().addConstructorNode(ValidationPath.simpleName(beanType), beanType, constructorArguments)) {
-            validateParametersInternal(context, null, declarations.crossParameterArgument(configured.annotationMetadata()), parameterValues, configured.arguments(), parameterNames);
+            validateParametersInternal(context, null, configured.crossParameterArgument(), parameterValues, configured.arguments(), parameterNames);
         }
         return Collections.unmodifiableSet(context.getOverallViolations());
     }

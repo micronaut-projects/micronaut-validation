@@ -1,6 +1,8 @@
 # Which type variable a type passes to a super type, from one source
 
-**Status: proposal** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908)
+**Status: adopted** (core #14319, merge 60fa10be56; adopted 2026-11-13: `ContainerTypeArguments` reads a record through
+`TypeHierarchy.getSuperType`/`indexOfVariable`, `ReflectionSupport.recordedHierarchy` through `TypeHierarchies.find(Class)`;
+`POSITIONAL_JDK_CONTAINERS` and the reflection module's own reading stay)
 **Component:** micronaut-core `core` (`TypeHierarchy`, `TypeHierarchies`)
 **Checked against:** micronaut-core `origin/5.3.x`
 

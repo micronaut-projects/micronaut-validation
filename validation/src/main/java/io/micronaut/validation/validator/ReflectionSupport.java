@@ -204,6 +204,25 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
+     * How a member of a property is read, decided once: {@link #readMember(BeanPropertyMember, BeanProperty, Object)}
+     * answers each read the same way for the same member and property.
+     *
+     * @param member   The declaration
+     * @param property The generated property
+     * @return The reader
+     * @since 5.3.0
+     */
+    default MemberReader memberReader(BeanPropertyMember<Object, ?> member, BeanProperty<Object, ?> property) {
+        if (member.isReflectionRequired()
+            && member.getElementType() == ElementType.FIELD
+            && hasGeneratedGetter(property)
+            && member.asArgument().equalsStructure(property.asArgument())) {
+            return property::get;
+        }
+        return bean -> readMember(member, bean);
+    }
+
+    /**
      * Whether a property lists a getter the generated dispatch reads without reflection.
      */
     private static boolean hasGeneratedGetter(BeanProperty<?, ?> property) {
@@ -299,7 +318,10 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     default Optional<TypeHierarchy> recordedHierarchy(Class<?> type) {
-        return TypeHierarchies.find(type.getName(), classLoader());
+        Optional<TypeHierarchy> hierarchy = TypeHierarchies.find(type);
+        // a JDK type or one of another loader can have its record in the application loader of the factory only
+        return hierarchy.isPresent() ? hierarchy
+            : TypeHierarchies.find(type.getName(), classLoader());
     }
 
     /**
@@ -663,4 +685,18 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      */
     record ComposingConstraint(
             Class<? extends Annotation> type, AnnotationValue<Annotation> value) { }
+
+    /**
+     * Reads the value of a member of a bean.
+     *
+     * @since 5.3.0
+     */
+    @FunctionalInterface
+    interface MemberReader {
+        /**
+         * @param bean The instance
+         * @return The value
+         */
+        @Nullable Object read(Object bean);
+    }
 }

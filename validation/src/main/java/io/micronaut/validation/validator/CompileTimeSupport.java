@@ -81,7 +81,7 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     private CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader, boolean generatedOnly) {
-        this.introspector = generatedOnly ? GeneratedBeanIntrospector.of(introspector) : introspector;
+        this.introspector = generatedOnly ? introspector.withoutFallbacks() : introspector;
         this.classLoader = classLoader;
         this.generatedOnly = generatedOnly;
     }

@@ -173,7 +173,7 @@ public class DefaultValidator
         return traversal;
     }
 
-    final <T> ConstraintViolationException constraintViolationException(Set<ConstraintViolation<T>> violations) {
+    final ConstraintViolationException constraintViolationException(Set<? extends ConstraintViolation<?>> violations) {
         return createConstraintViolationException(isPrependPropertyPath, violations);
     }
 
@@ -236,7 +236,7 @@ public class DefaultValidator
         }
         DefaultConstraintValidatorContext<T> constraintValidatorContext = new DefaultConstraintValidatorContext<>(this, introspection, object, context);
         traversal.doValidate(constraintValidatorContext, introspection, object);
-        return constraintValidatorContext.getOverallViolations();
+        return Collections.unmodifiableSet(constraintValidatorContext.getOverallViolations());
     }
 
     @Override

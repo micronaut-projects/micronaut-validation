@@ -154,8 +154,7 @@ public final class ValidationMetadataSupport {
         var merged = ConfiguredMetadata.merge(argument.getAnnotationMetadata(), metadata);
         if (merged.hasStereotype(Constraint.class) || merged.hasAnnotation(Valid.class)
             || Arrays.stream(parameters).anyMatch(parameter -> parameter.getAnnotationMetadata().hasAnnotation(ValidatedElement.class))) {
-            metadata.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
-            merged = ConfiguredMetadata.merge(argument.getAnnotationMetadata(), metadata);
+            merged = ConfiguredMetadata.markValidated(merged);
         }
         return argument.withTypeParameters(parameters).withAnnotationMetadata(merged);
     }
@@ -198,14 +197,6 @@ public final class ValidationMetadataSupport {
     }
 
     /**
-     * @param type The introspected type
-     * @return The hierarchy its generated introspection describes, or null
-     */
-    public static @Nullable BeanTypeHierarchy hierarchy(Class<?> type) {
-        return hierarchy(BeanIntrospector.forClassLoader(type.getClassLoader()), type);
-    }
-
-    /**
      * @param reflectionSupport The access provider captured by the validator factory
      * @param type The annotation interface
      * @param value The attributes
@@ -227,9 +218,9 @@ public final class ValidationMetadataSupport {
         if (standard != null) {
             return standard;
         }
-        for (var reference : reflectionSupport.introspector().findIntrospections(reference -> reference.getName().equals(name))) {
-            if (reference.getBeanType().getName().equals(name)) {
-                return reference.getBeanType();
+        for (var introspection : reflectionSupport.introspector().findIntrospections(reference -> reference.getName().equals(name))) {
+            if (introspection.getBeanType().getName().equals(name)) {
+                return introspection.getBeanType();
             }
         }
         return reflectionSupport.classForName(name, loader);

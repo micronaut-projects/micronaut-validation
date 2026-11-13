@@ -52,12 +52,17 @@ final class ArgumentValidationMetadata {
      * @return Whether a type argument is validated
      */
     static boolean hasValidatedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        // a prepared argument has its type arguments prepared at every depth: they are read as they are
         for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {
-            if (isValidated(reflectionSupport, typeParameter)) {
+            if (isMarked(typeParameter)) {
                 return true;
             }
         }
         return false;
+    }
+
+    private static boolean isMarked(Argument<?> prepared) {
+        return prepared.getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
     }
 
     /**
@@ -68,14 +73,18 @@ final class ArgumentValidationMetadata {
      * @return Whether a type argument is cascaded
      */
     static boolean hasCascadedTypeArgument(ReflectionSupport reflectionSupport, Argument<?> argument) {
-        for (Argument<?> typeParameter : reflectionSupport.prepareArgument(argument).getTypeParameters()) {
-            if (!isValidated(reflectionSupport, typeParameter)) {
+        return hasCascadedPreparedTypeArgument(reflectionSupport.prepareArgument(argument));
+    }
+
+    private static boolean hasCascadedPreparedTypeArgument(Argument<?> prepared) {
+        for (Argument<?> typeParameter : prepared.getTypeParameters()) {
+            if (!isMarked(typeParameter)) {
                 continue;
             }
             AnnotationMetadata annotationMetadata = typeParameter.getAnnotationMetadata();
             if (annotationMetadata.hasAnnotation(Valid.class)
                     || annotationMetadata.hasStereotype(Valid.class)
-                    || hasCascadedTypeArgument(reflectionSupport, typeParameter)) {
+                    || hasCascadedPreparedTypeArgument(typeParameter)) {
                 return true;
             }
         }

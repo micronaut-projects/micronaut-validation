@@ -461,12 +461,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
-        if (ctx.isDefault()) {
-            return defaultValidator.declarations().defaultGroupSequences(beanIntrospection, bi -> List.copyOf(GroupSequences.findGroupSequences(ctx, bi)));
-        } else {
-            return GroupSequences.findGroupSequences(ctx, beanIntrospection);
+        if (convertedGroups.isEmpty()) {
+            // the steps of requested groups depend on the bean and the groups alone
+            return defaultValidator.declarations().groupSequences(defaultValidator, beanIntrospection, requestedGroups());
         }
+        return GroupSequences.findGroupSequences(new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups()), beanIntrospection);
     }
 
     /**
@@ -479,14 +478,14 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * the default group is not validated
      */
     public Map<Class<?>, List<ValidationGroup>> findIsolatedGroupSequences(BeanIntrospection<?> beanIntrospection) {
-        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
-        if (!hasDefaultGroup(ctx.definedGroups())) {
+        if (!hasDefaultGroup(requestedGroups())) {
             return Map.of();
         }
         ValidatorDeclarations.BeanPlan plan = defaultValidator.declarations().beanPlan(beanIntrospection);
         if (plan.redefinesDefaultGroupSequence() || plan.superSequenceRedefinitions().isEmpty()) {
             return Map.of();
         }
+        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
         Map<Class<?>, List<ValidationGroup>> isolated = new LinkedHashMap<>();
         plan.superSequenceRedefinitions().forEach((superType, classGroupSequence) -> {
             GroupSequences.validateDefaultGroupSequence(superType, classGroupSequence);
@@ -496,12 +495,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     public List<ValidationGroup> findGroupSequences() {
-        GroupSequences.FindGroupContext ctx = new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups());
-        if (ctx.isDefault()) {
-            return defaultValidator.declarations().defaultGroupSequences(null, ignored -> List.copyOf(GroupSequences.findGroupSequences(ctx)));
-        } else {
-            return GroupSequences.findGroupSequences(ctx);
+        if (convertedGroups.isEmpty()) {
+            return defaultValidator.declarations().groupSequences(defaultValidator, null, requestedGroups());
         }
+        return GroupSequences.findGroupSequences(new GroupSequences.FindGroupContext(defaultValidator, convertedGroups, requestedGroups()));
     }
 
     public void addViolation(DefaultConstraintViolation<R> violation) {
@@ -623,6 +620,13 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         DefaultConstraintValidatorContext<R> copy = new DefaultConstraintValidatorContext<>(defaultValidator, beanIntrospection, validationContext, rootBean, executableReturnValue, new ValidationPath(currentPath), new LinkedHashSet<>(overallViolations), executableParameterValues, currentGroups);
         copy.rootClass = rootClass;
         copy.stepGroups = stepGroups;
+        // the state the call validates the element in: each is replaced, never altered, so it is shared as it is
+        copy.convertedGroups = convertedGroups;
+        copy.appliedConversions = appliedConversions;
+        copy.currentGroupsExact = currentGroupsExact;
+        copy.elementType = elementType;
+        copy.implicitGroup = implicitGroup;
+        copy.unwrappedContainerType = unwrappedContainerType;
         return copy;
     }
 

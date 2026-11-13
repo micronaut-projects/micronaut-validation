@@ -34,6 +34,7 @@ import org.jspecify.annotations.Nullable;
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -52,12 +53,19 @@ import java.util.function.Function;
 @Internal
 final class ValidatorDeclarations {
 
+    private static final int MAX_METHOD_PLANS = 4096;
+
     private final ReflectionSupport reflectionSupport;
     // the provider of the application naming the parameters, null for the names compiled into the metadata
     private final @Nullable ParameterNameProvider parameterNameProvider;
     private final BeanIntrospector beanIntrospector;
     private final boolean strictConstraintDefinitions;
     private final Map<ExecutableHierarchy.Key, ExecutablePlan> executablePlans = new ConcurrentHashMap<>();
+    // bounded: a method described per call, reflectively, or groups requested anew, are not kept past it
+    private final Map<ExecutableMethod<?, ?>, ExecutablePlan> methodPlans = new ConcurrentHashMap<>();
+    private final Map<GroupSequenceKey, List<DefaultConstraintValidatorContext.ValidationGroup>> requestedGroupSequences = new ConcurrentHashMap<>();
+    // keyed by identity: the bean methods of the introspection the validator reads
+    private final Map<BeanMethod<?, ?>, ExecutableHierarchy.Resolved> beanMethodHierarchies = new ConcurrentHashMap<>();
     private final Set<Class<?>> checkedConstraintDefinitions = ConcurrentHashMap.newKeySet();
     private final Set<BeanIntrospection<?>> checkedBeanDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
@@ -90,6 +98,9 @@ final class ValidatorDeclarations {
 
     void clear() {
         executablePlans.clear();
+        methodPlans.clear();
+        requestedGroupSequences.clear();
+        beanMethodHierarchies.clear();
         checkedConstraintDefinitions.clear();
         checkedBeanDeclarations.clear();
         superIntrospectionsCache.clear();
@@ -117,7 +128,8 @@ final class ValidatorDeclarations {
 
     /** The hierarchy of a bean method, for the descriptors of a bean. */
     ExecutableHierarchy.Resolved resolveHierarchy(BeanMethod<?, ?> method) {
-        return reflectionSupport.resolveHierarchy(beanIntrospector, ExecutableHierarchy.Declaration.of(method, method.getDeclaringBean().separatesDeclarations()), method.getName());
+        return beanMethodHierarchies.computeIfAbsent(method, m -> reflectionSupport.resolveHierarchy(beanIntrospector,
+            ExecutableHierarchy.Declaration.of(m, m.getDeclaringBean().separatesDeclarations()), m.getName()));
     }
 
     /**
@@ -127,17 +139,28 @@ final class ValidatorDeclarations {
      * @return The plan
      */
     ExecutablePlan executablePlan(ExecutableMethod<?, ?> method) {
-        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
-        ExecutablePlan plan = executablePlans.get(key);
+        // by the method itself first: a bean definition hands out the same instance, which needs no key built
+        ExecutablePlan plan = methodPlans.get(method);
         if (plan != null) {
             return plan;
         }
-        return executablePlans.computeIfAbsent(key, k -> {
-            ExecutableHierarchy.Resolved hierarchy = reflectionSupport.resolveHierarchy(beanIntrospector,
-                ExecutableHierarchy.Declaration.of(method), method.getMethodName());
-            ConfiguredExecutable configured = new ConfiguredExecutable(hierarchy.annotationMetadata(), hierarchy.arguments(), hierarchy.returnArgument());
-            return new ExecutablePlan(hierarchy, configured, crossParameterArgument(configured.annotationMetadata()));
-        });
+        ExecutableHierarchy.Key key = ExecutableHierarchy.Key.of(method);
+        plan = executablePlans.get(key);
+        if (plan == null) {
+            plan = executablePlans.computeIfAbsent(key, k -> {
+                ExecutableHierarchy.Resolved hierarchy = reflectionSupport.resolveHierarchy(beanIntrospector,
+                    ExecutableHierarchy.Declaration.of(method), method.getMethodName());
+                ConfiguredExecutable configured = new ConfiguredExecutable(hierarchy.annotationMetadata(), hierarchy.arguments(),
+                    hierarchy.returnArgument(), crossParameterArgument(hierarchy.annotationMetadata()));
+                return new ExecutablePlan(hierarchy, configured, configured.crossParameterArgument());
+            });
+        }
+        // a method described per call, reflectively, is not kept past a bound
+        if (methodPlans.size() >= MAX_METHOD_PLANS) {
+            methodPlans.clear();
+        }
+        methodPlans.put(method, plan);
+        return plan;
     }
 
     /**
@@ -164,7 +187,12 @@ final class ValidatorDeclarations {
         if (configured != null && configured.annotationMetadata() == annotationMetadata && configured.arguments() == arguments) {
             return configured;
         }
-        configured = new ConfiguredExecutable(annotationMetadata, arguments, Argument.of(beanType, annotationMetadata));
+        // checked before it is kept: a failed check fails every validation of the constructor
+        for (Argument<?> argument : arguments) {
+            ExecutableHierarchy.checkGroupConversions(reflectionSupport, argument);
+        }
+        configured = new ConfiguredExecutable(annotationMetadata, arguments, Argument.of(beanType, annotationMetadata),
+            crossParameterArgument(annotationMetadata));
         if (annotationMetadata != AnnotationMetadata.EMPTY_METADATA) {
             configuredExecutables.put(key, configured);
         }
@@ -241,6 +269,44 @@ final class ValidatorDeclarations {
     }
 
     /**
+     * The steps groups requested without a conversion expand to for a bean, resolved once per bean and groups.
+     *
+     * @param validator The validator
+     * @param introspection The bean, null for the groups alone
+     * @param groups The requested groups
+     * @return The steps
+     */
+    List<DefaultConstraintValidatorContext.ValidationGroup> groupSequences(DefaultValidator validator,
+                                                                         @Nullable BeanIntrospection<?> introspection,
+                                                                         List<Class<?>> groups) {
+        if (groups == DefaultConstraintValidatorContext.DEFAULT_GROUPS) {
+            List<DefaultConstraintValidatorContext.ValidationGroup> found = defaultGroupSequences.get(introspection);
+            if (found != null) {
+                return found;
+            }
+            return defaultGroupSequences.computeIfAbsent(introspection, bi -> resolveGroupSequences(validator, bi, groups));
+        }
+        GroupSequenceKey key = new GroupSequenceKey(introspection, groups);
+        List<DefaultConstraintValidatorContext.ValidationGroup> found = requestedGroupSequences.get(key);
+        if (found == null) {
+            // a failed resolution is not kept: it fails again
+            found = resolveGroupSequences(validator, introspection, groups);
+            if (requestedGroupSequences.size() >= MAX_METHOD_PLANS) {
+                requestedGroupSequences.clear();
+            }
+            requestedGroupSequences.put(new GroupSequenceKey(introspection, List.copyOf(groups)), found);
+        }
+        return found;
+    }
+
+    private static List<DefaultConstraintValidatorContext.ValidationGroup> resolveGroupSequences(DefaultValidator validator,
+                                                                                               @Nullable BeanIntrospection<?> introspection,
+                                                                                               List<Class<?>> groups) {
+        var ctx = new GroupSequences.FindGroupContext(validator, Map.of(), groups);
+        return List.copyOf(introspection == null ? GroupSequences.findGroupSequences(ctx) : GroupSequences.findGroupSequences(ctx, introspection));
+    }
+
+    /**
      * The introspections of the super types of a bean: its super classes, then every interface it
      * implements, the ones of the JDK and of the API left aside.
      */
@@ -312,9 +378,12 @@ final class ValidatorDeclarations {
             AnnotationMetadata annotationMetadata = i.getAnnotationMetadata();
             List<BeanIntrospection<?>> constrainedSupers = new ArrayList<>(supers.size());
             Map<Class<?>, Class<Object>[]> redefinitions = new LinkedHashMap<>();
+            Map<Class<?>, Argument<?>> superArguments = new HashMap<>();
             for (BeanIntrospection<?> superIntrospection : supers) {
                 if (declaresConstraints(superIntrospection.getAnnotationMetadata(), classLoader)) {
                     constrainedSupers.add(superIntrospection);
+                    superArguments.put(superIntrospection.getBeanType(),
+                        Argument.of(superIntrospection.getBeanType(), superIntrospection.getAnnotationMetadata()));
                 }
                 Class<?> superType = superIntrospection.getBeanType();
                 Class<Object>[] sequence = superIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
@@ -327,7 +396,9 @@ final class ValidatorDeclarations {
                 !inheritsAllConstraints(annotationMetadata, supers, classLoader),
                 List.copyOf(constrainedSupers),
                 annotationMetadata.classValues(GroupSequence.class).length > 0,
-                Collections.unmodifiableMap(redefinitions)
+                Collections.unmodifiableMap(redefinitions),
+                Argument.of(i.getBeanType(), annotationMetadata),
+                Map.copyOf(superArguments)
             );
         });
     }
@@ -374,12 +445,16 @@ final class ValidatorDeclarations {
      * @param constrainedSuperIntrospections The super types declaring class-level constraints themselves
      * @param redefinesDefaultGroupSequence Whether the type redefines the default group sequence
      * @param superSequenceRedefinitions The default group sequences the super classes redefine, by the class
+     * @param beanArgument The bean as the element its class-level constraints are validated on
+     * @param constrainedSuperArguments The constrained super types as such elements, by the class
      */
     record BeanPlan(List<BeanIntrospection<?>> superIntrospections,
                     boolean ownClassConstraints,
                     List<BeanIntrospection<?>> constrainedSuperIntrospections,
                     boolean redefinesDefaultGroupSequence,
-                    Map<Class<?>, Class<Object>[]> superSequenceRedefinitions) {
+                    Map<Class<?>, Class<Object>[]> superSequenceRedefinitions,
+                    Argument<?> beanArgument,
+                    Map<Class<?>, Argument<?>> constrainedSuperArguments) {
     }
 
     /**
@@ -388,8 +463,11 @@ final class ValidatorDeclarations {
      * @param annotationMetadata The executable annotations
      * @param arguments The parameters
      * @param returnArgument The return value
+     * @param crossParameterArgument The argument its cross-parameter constraints validate the parameters as, null
+     * without such constraints
      */
-    record ConfiguredExecutable(AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument) {
+    record ConfiguredExecutable(AnnotationMetadata annotationMetadata, Argument<?>[] arguments, Argument<?> returnArgument,
+                                @Nullable Argument<Object[]> crossParameterArgument) {
     }
 
     /**
@@ -433,5 +511,12 @@ final class ValidatorDeclarations {
             }
             return targetMethod;
         }
+    }
+
+    /**
+     * @param introspection The bean, null for the groups alone
+     * @param groups The requested groups
+     */
+    private record GroupSequenceKey(@Nullable BeanIntrospection<?> introspection, List<Class<?>> groups) {
     }
 }

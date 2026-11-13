@@ -108,15 +108,25 @@ final class ContainerTypeArguments {
         if (typeArgumentIndex < 0 || typeArgumentIndex >= arguments.size()) {
             return UNKNOWN;
         }
-        Argument<?> argument = arguments.get(typeArgumentIndex);
+        // the variable the type passes on, named as the type declares it among its own type arguments
+        return variableIndex(arguments.get(typeArgumentIndex), introspection.getTypeArguments());
+    }
+
+    /**
+     * @param argument  A type argument a type passes to a super type
+     * @param variables The type variables the type declares
+     * @return The index of the variable the argument names, {@link #BOUND} if it is not a variable, or {@link #UNKNOWN}
+     */
+    private static int variableIndex(Argument<?> argument, List<Argument<?>> variables) {
         if (!argument.isUnresolvedTypeVariable()) {
             return BOUND;
         }
-        // the variable the type passes on, named as the type declares it among its own type arguments
         if (argument instanceof GenericPlaceholder<?> placeholder) {
-            List<Argument<?>> own = introspection.getTypeArguments();
-            for (int i = 0; i < own.size(); i++) {
-                if (placeholder.getVariableName().equals(own.get(i).getName())) {
+            String name = placeholder.getVariableName();
+            for (int i = 0; i < variables.size(); i++) {
+                Argument<?> variable = variables.get(i);
+                String variableName = variable instanceof GenericPlaceholder<?> declared ? declared.getVariableName() : variable.getName();
+                if (name.equals(variableName)) {
                     return i;
                 }
             }
@@ -136,16 +146,15 @@ final class ContainerTypeArguments {
      */
     private static @Nullable Argument<?> recordedArgument(ReflectionSupport reflectionSupport, Class<?> type, Class<?> superType, int typeArgumentIndex) {
         TypeHierarchy hierarchy = reflectionSupport.recordedHierarchy(type).orElse(null);
-        if (hierarchy == null || typeArgumentIndex < 0) {
+        return hierarchy == null ? null : recordedArgument(hierarchy, superType, typeArgumentIndex);
+    }
+
+    private static @Nullable Argument<?> recordedArgument(TypeHierarchy hierarchy, Class<?> superType, int typeArgumentIndex) {
+        if (typeArgumentIndex < 0 || superType == hierarchy.getType()) {
             return null;
         }
-        for (Argument<?> candidate : hierarchy.getSuperTypes()) {
-            if (candidate.getType() == superType) {
-                Argument<?>[] parameters = candidate.getTypeParameters();
-                return typeArgumentIndex < parameters.length ? parameters[typeArgumentIndex] : null;
-            }
-        }
-        return null;
+        Argument<?>[] parameters = hierarchy.getSuperType(superType).map(Argument::getTypeParameters).orElse(Argument.ZERO_ARGUMENTS);
+        return typeArgumentIndex < parameters.length ? parameters[typeArgumentIndex] : null;
     }
 
     /**
@@ -157,22 +166,17 @@ final class ContainerTypeArguments {
      * @return The index of the type variable, {@link #BOUND} if the type binds the argument, or {@link #UNKNOWN}
      */
     static int recordedIndex(ReflectionSupport reflectionSupport, Class<?> type, Class<?> superType, int typeArgumentIndex) {
-        Argument<?> argument = recordedArgument(reflectionSupport, type, superType, typeArgumentIndex);
+        TypeHierarchy hierarchy = reflectionSupport.recordedHierarchy(type).orElse(null);
+        if (hierarchy == null) {
+            return UNKNOWN;
+        }
+        Argument<?> argument = recordedArgument(hierarchy, superType, typeArgumentIndex);
         if (argument == null) {
             return UNKNOWN;
         }
         if (!argument.isUnresolvedTypeVariable()) {
             return BOUND;
         }
-        if (argument instanceof GenericPlaceholder<?> placeholder) {
-            List<Argument<?>> variables = reflectionSupport.recordedHierarchy(type).map(TypeHierarchy::getTypeVariables).orElse(List.of());
-            for (int i = 0; i < variables.size(); i++) {
-                if (variables.get(i) instanceof GenericPlaceholder<?> variable
-                    && variable.getVariableName().equals(placeholder.getVariableName())) {
-                    return i;
-                }
-            }
-        }
-        return UNKNOWN;
+        return hierarchy.indexOfVariable(argument).orElse(UNKNOWN);
     }
 }

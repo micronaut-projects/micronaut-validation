@@ -28,7 +28,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
 import io.micronaut.inject.annotation.AnnotationMetadataSupport;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.reflection.ReflectionAnnotations;
 import io.micronaut.reflection.ReflectionArguments;
@@ -155,6 +154,15 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     }
 
     @Override
+    public MemberReader memberReader(BeanPropertyMember<Object, ?> member, BeanProperty<Object, ?> property) {
+        if (!ReflectiveValidation.isEnabled()
+            && !member.getAnnotationMetadata().hasAnnotation(ReflectiveAccess.class)) {
+            return ReflectionSupport.super.memberReader(member, property);
+        }
+        return member::read;
+    }
+
+    @Override
     public Class<?> classForName(String name, ClassLoader loader) {
         try {
             return Class.forName(name, false, loader);
@@ -183,7 +191,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     @Override
     public @Nullable ValidationDeclaration declaration(
             Class<?> type, ValidationDeclaration.Kind kind, String name, List<Class<?>> parameters) {
-        var introspection = BeanIntrospector.forClassLoader(type.getClassLoader()).findIntrospection(type).orElse(null);
+        var introspection = introspector.findIntrospection(type).orElse(null);
         if (introspection != null) {
             var generated = ValidationDeclaration.generated(this, introspection, kind, name, parameters);
             if (generated != null) {
@@ -355,9 +363,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
             validated |= preparedParameter.getAnnotationMetadata().hasAnnotation(ValidatedElement.class);
         }
         if (validated && !marked) {
-            var marker = new MutableAnnotationMetadata();
-            marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
-            metadata = ConfiguredMetadata.merge(metadata, marker);
+            metadata = ConfiguredMetadata.markValidated(metadata);
         } else if (prepared == null) {
             return argument;
         }
@@ -386,7 +392,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public List<Class<?>> interfaces(Class<?> type) {
-        var generated = ValidationMetadataSupport.hierarchy(type);
+        var generated = ValidationMetadataSupport.hierarchy(introspector, type);
         return generated == null ? List.of(type.getInterfaces()) : generated.getInterfaces(type);
     }
 
@@ -397,7 +403,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public @Nullable Class<?> superType(Class<?> type) {
-        var generated = ValidationMetadataSupport.hierarchy(type);
+        var generated = ValidationMetadataSupport.hierarchy(introspector, type);
         return generated == null ? type.getSuperclass() : generated.getSuperclass(type).orElse(null);
     }
 

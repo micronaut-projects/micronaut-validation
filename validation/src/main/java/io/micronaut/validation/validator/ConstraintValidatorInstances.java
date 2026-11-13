@@ -32,7 +32,7 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.concurrent.atomic.LongAdder;
 
 /**
  * Owns initialized instances and prevents release while validation is in progress.
@@ -45,8 +45,13 @@ final class ConstraintValidatorInstances implements AutoCloseable {
     private final BeanIntrospector introspector;
     private final Map<InitializedValidatorKey, jakarta.validation.ConstraintValidator<?, ?>>
             initializedValidators = new ConcurrentHashMap<>();
-    private final ReentrantReadWriteLock validatorLifecycle = new ReentrantReadWriteLock();
+    // the validations running, on every thread, and how deep the current thread runs: a closing thread waits for
+    // the former, and the latter tells a close from a running validator
+    private final LongAdder active = new LongAdder();
+    private final ThreadLocal<int[]> running = ThreadLocal.withInitial(() -> new int[1]);
+    private final Object lifecycle = new Object();
     private volatile boolean closed;
+    private volatile boolean released;
 
     ConstraintValidatorInstances(InternalConstraintValidatorFactory factory, BeanIntrospector introspector) {
         this.factory = factory;
@@ -71,19 +76,28 @@ final class ConstraintValidatorInstances implements AutoCloseable {
     }
 
     void beginValidation() {
-        validatorLifecycle.readLock().lock();
+        // counted before the closed flag is read, and close sets the flag before it reads the count: either the
+        // validation sees the factory closed or the close waits for it
+        active.increment();
+        running.get()[0]++;
         if (closed) {
-            validatorLifecycle.readLock().unlock();
+            endValidation();
             throw new ValidationException("Validator factory is closed");
         }
     }
 
     void endValidation() {
-        validatorLifecycle.readLock().unlock();
+        running.get()[0]--;
+        active.decrement();
+        if (closed) {
+            synchronized (lifecycle) {
+                lifecycle.notifyAll();
+            }
+        }
     }
 
     void checkCloseAllowed() {
-        if (validatorLifecycle.getReadHoldCount() != 0) {
+        if (running.get()[0] != 0) {
             throw new ValidationException(
                     "Cannot close a validator factory from a running constraint validator");
         }
@@ -92,19 +106,29 @@ final class ConstraintValidatorInstances implements AutoCloseable {
     @Override
     public void close() {
         checkCloseAllowed();
-        validatorLifecycle.writeLock().lock();
-        try {
+        synchronized (lifecycle) {
+            if (released) {
+                return;
+            }
+            closed = true;
+            boolean interrupted = false;
+            // the validations running on other threads end before their instances are released
+            while (active.sum() != 0) {
+                try {
+                    lifecycle.wait(10);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            released = true;
             releaseValidators();
-        } finally {
-            validatorLifecycle.writeLock().unlock();
         }
     }
 
     private void releaseValidators() {
-        if (closed) {
-            return;
-        }
-        closed = true;
         RuntimeException failure = null;
         Set<jakarta.validation.ConstraintValidator<?, ?>> released =
                 Collections.newSetFromMap(new IdentityHashMap<>());
@@ -134,7 +158,8 @@ final class ConstraintValidatorInstances implements AutoCloseable {
             Class<?> targetType,
             ConstraintTarget target,
             DefaultConstraintDescriptor<Annotation> constraint) {
-        if (closed) {
+        // a validation the close waits for still reads its validators: only a released factory has none
+        if (released) {
             throw new ValidationException("Validator factory is closed");
         }
         InitializedValidatorKey key =
@@ -155,7 +180,7 @@ final class ConstraintValidatorInstances implements AutoCloseable {
             Class<?> targetType,
             ConstraintTarget target,
             DefaultConstraintDescriptor<Annotation> constraint) {
-        if (closed) {
+        if (released) {
             throw new ValidationException("Validator factory is closed");
         }
         var found = initializedValidators.get(key);

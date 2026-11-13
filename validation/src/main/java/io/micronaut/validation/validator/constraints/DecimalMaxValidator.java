@@ -17,7 +17,6 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.Nullable;
-import io.micronaut.core.convert.ConversionService;
 
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.DecimalMax;
@@ -40,9 +39,7 @@ public interface DecimalMaxValidator<T> extends ConstraintValidator<DecimalMax, 
         }
 
         final BigDecimal bigDecimal = annotationMetadata.getValue(String.class)
-                .map(s ->
-                        ConversionService.SHARED.convert(s, BigDecimal.class)
-                                .orElseThrow(() -> new ValidationException(s + " does not represent a valid BigDecimal format.")))
+                .map(DecimalBound::parse)
                 .orElseThrow(() -> new ValidationException("null does not represent a valid BigDecimal format."));
 
 

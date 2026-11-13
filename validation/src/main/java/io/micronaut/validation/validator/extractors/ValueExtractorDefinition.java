@@ -16,9 +16,9 @@
 package io.micronaut.validation.validator.extractors;
 
 import io.micronaut.core.annotation.AnnotationValue;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
-import jakarta.validation.constraints.NotNull;
 import jakarta.validation.valueextraction.ExtractedValue;
 import jakarta.validation.valueextraction.UnwrapByDefault;
 import jakarta.validation.valueextraction.ValueExtractor;
@@ -42,8 +42,8 @@ public record ValueExtractorDefinition<T>(Class<T> containerType,
                                           boolean unwrapByDefault,
                                           ValueExtractor<T> valueExtractor) {
 
-    public ValueExtractorDefinition(@NotNull Argument<ValueExtractor<T>> argument,
-                                    @NotNull ValueExtractor<T> valueExtractor) {
+    public ValueExtractorDefinition(@NonNull Argument<ValueExtractor<T>> argument,
+                                    @NonNull ValueExtractor<T> valueExtractor) {
         this(argument, valueExtractor, false);
     }
 
@@ -61,9 +61,9 @@ public record ValueExtractorDefinition<T>(Class<T> containerType,
         this(argument, argument.getFirstTypeVariable().orElseThrow(), valueExtractor, firstTypeArgumentByDefault);
     }
 
-    private ValueExtractorDefinition(@NotNull Argument<ValueExtractor<T>> argument,
-                                     @NotNull Argument<?> containerArgument,
-                                     @NotNull ValueExtractor<T> valueExtractor,
+    private ValueExtractorDefinition(@NonNull Argument<ValueExtractor<T>> argument,
+                                     @NonNull Argument<?> containerArgument,
+                                     @NonNull ValueExtractor<T> valueExtractor,
                                      boolean firstTypeArgumentByDefault) {
         this(
             (Class<T>) containerArgument.getType(),
@@ -99,7 +99,7 @@ public record ValueExtractorDefinition<T>(Class<T> containerType,
     }
 
     @Nullable
-    private static Integer findExtractedTypeArgumentIndex(@NotNull Argument<?> argument, boolean firstTypeArgumentByDefault) {
+    private static Integer findExtractedTypeArgumentIndex(@NonNull Argument<?> argument, boolean firstTypeArgumentByDefault) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         Integer typeArgumentIndex = null;
         for (int i = 0; i < typeParameters.length; i++) {
@@ -126,7 +126,7 @@ public record ValueExtractorDefinition<T>(Class<T> containerType,
         throw new ValueExtractorDefinitionException("ValueExtractor definition is missing @ExtractedValue on an argument: " + argument);
     }
 
-    private static AnnotationValue<?> findExtractedValue(@NotNull Argument<?> argument, ValueExtractor<?> valueExtractor,
+    private static AnnotationValue<?> findExtractedValue(@NonNull Argument<?> argument, ValueExtractor<?> valueExtractor,
                                                      boolean firstTypeArgumentByDefault) {
         Argument<?>[] typeParameters = argument.getTypeParameters();
         for (Argument<?> typeParameter : typeParameters) {

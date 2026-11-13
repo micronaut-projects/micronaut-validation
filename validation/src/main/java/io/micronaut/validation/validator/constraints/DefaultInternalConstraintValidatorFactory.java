@@ -85,8 +85,12 @@ public class DefaultInternalConstraintValidatorFactory implements InternalConstr
      */
     @Inject
     public DefaultInternalConstraintValidatorFactory(BeanContext beanContext) {
-        this(BeanIntrospector.forClassLoader(beanContext.getClassLoader()), beanContext,
-            ReflectionSupport.forClassLoader(beanContext.getClassLoader()));
+        this(beanContext, ReflectionSupport.forClassLoader(beanContext.getClassLoader()));
+    }
+
+    // one support of the loader of the context, and the introspector it reads
+    private DefaultInternalConstraintValidatorFactory(BeanContext beanContext, ReflectionSupport reflectionSupport) {
+        this(reflectionSupport.introspector(), beanContext, reflectionSupport);
     }
 
     @Override

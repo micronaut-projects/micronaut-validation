@@ -23,7 +23,6 @@ import io.micronaut.core.beans.BeanIntrospectionReference;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
@@ -84,6 +83,12 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
     @Override
     public BeanIntrospector getDecorated() {
         return delegate;
+    }
+
+    @Override
+    public BeanIntrospector withoutFallbacks() {
+        BeanIntrospector generated = delegate.withoutFallbacks();
+        return generated == delegate ? this : new XmlBeanIntrospector(generated, beanMappings);
     }
 
     @Override
@@ -255,9 +260,7 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
         }
         AnnotationMetadata metadata = argument.getAnnotationMetadata();
         if (Arrays.stream(configured).anyMatch(parameter -> parameter.getAnnotationMetadata().hasAnnotation(ValidatedElement.class))) {
-            var marker = new MutableAnnotationMetadata();
-            marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
-            metadata = ConfiguredMetadata.merge(metadata, marker);
+            metadata = ConfiguredMetadata.markValidated(metadata);
         }
         return argument.withTypeParameters(configured).withAnnotationMetadata(metadata);
     }

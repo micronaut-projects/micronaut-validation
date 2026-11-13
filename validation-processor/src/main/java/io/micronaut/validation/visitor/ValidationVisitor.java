@@ -313,7 +313,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
         boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
-        boolean inheritedValidation = element.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation);
+        boolean inheritedValidation = overridden.stream().anyMatch(ValidationVisitor::requiresValidation);
         if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation && !inheritedValidation) {
             return;
         }

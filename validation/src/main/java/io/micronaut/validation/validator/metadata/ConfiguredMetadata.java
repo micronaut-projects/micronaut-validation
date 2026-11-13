@@ -18,8 +18,11 @@ package io.micronaut.validation.validator.metadata;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.validation.annotation.ValidatedElement;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Merges the annotation metadata of an element with the one a configuration, such as an XML mapping, adds to it.
@@ -60,5 +63,21 @@ public final class ConfiguredMetadata {
      */
     public static AnnotationMetadata merge(AnnotationMetadata first, AnnotationMetadata second) {
         return merge(List.of(first, second));
+    }
+
+    /**
+     * Marks the metadata of an element validated, as the processor marks an element carrying a constraint or a
+     * cascade, at any depth of its type arguments.
+     *
+     * @param metadata The metadata
+     * @return The metadata with {@link ValidatedElement} declared, itself when it already is
+     */
+    public static AnnotationMetadata markValidated(AnnotationMetadata metadata) {
+        if (metadata.hasAnnotation(ValidatedElement.class)) {
+            return metadata;
+        }
+        var marker = new MutableAnnotationMetadata();
+        marker.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
+        return merge(metadata, marker);
     }
 }

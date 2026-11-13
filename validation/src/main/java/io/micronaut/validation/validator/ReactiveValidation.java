@@ -22,7 +22,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import jakarta.validation.ConstraintViolation;
-import jakarta.validation.ConstraintViolationException;
 import org.reactivestreams.Publisher;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -69,13 +68,13 @@ final class ReactiveValidation {
             output = Mono.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validatePublisherValue(validator, publisherArgument, publisher, groups, typeParameter, value, true);
                 return violations.isEmpty() ? Mono.just(value) :
-                    Mono.error(new ConstraintViolationException(violations));
+                    Mono.error(validator.constraintViolationException(violations));
             });
         } else {
             output = Flux.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validatePublisherValue(validator, publisherArgument, publisher, groups, typeParameter, value, true);
                 return violations.isEmpty() ? Flux.just(value) :
-                    Flux.error(new ConstraintViolationException(violations));
+                    Flux.error(validator.constraintViolationException(violations));
             });
         }
         Class<?> returnClass = returnType.getType();
@@ -116,12 +115,12 @@ final class ReactiveValidation {
         if (Publishers.isSingle(returnClass)) {
             output = Mono.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, publisher, "<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(publisher.getClass()), valueArgument, value, groups);
-                return violations.isEmpty() ? Mono.just(value) : Mono.error(new ConstraintViolationException(violations));
+                return violations.isEmpty() ? Mono.just(value) : Mono.error(validator.constraintViolationException(violations));
             });
         } else {
             output = Flux.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, publisher, "<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(publisher.getClass()), valueArgument, value, groups);
-                return violations.isEmpty() ? Flux.just(value) : Flux.error(new ConstraintViolationException(violations));
+                return violations.isEmpty() ? Flux.just(value) : Flux.error(validator.constraintViolationException(violations));
             });
         }
         if (!Publisher.class.isAssignableFrom(returnClass)) {
@@ -154,7 +153,7 @@ final class ReactiveValidation {
         return completionStage.thenApply(value -> {
             Set<? extends ConstraintViolation<?>> violations = validateReturnedValue(validator, bean, method, completionStage, "<completion stage element>", ValidationPath.DefaultContainerContext.ofContainer(CompletionStage.class), valueArgument, value, groups);
             if (!violations.isEmpty()) {
-                throw new ConstraintViolationException(violations);
+                throw validator.constraintViolationException(violations);
             }
             return value;
         });
@@ -219,12 +218,12 @@ final class ReactiveValidation {
             objectPublisher = Mono.from(publisher)
                 .flatMap(value -> {
                     Set<? extends ConstraintViolation<?>> violations = validatePublishedValue(validator, callContext.copy(), publisherArgument, parameterValue, value, canCascade);
-                    return violations.isEmpty() ? Mono.just(value) : Mono.error(new ConstraintViolationException(violations));
+                    return violations.isEmpty() ? Mono.just(value) : Mono.error(validator.constraintViolationException(violations));
                 });
         } else {
             objectPublisher = Flux.from(publisher).flatMap(value -> {
                 Set<? extends ConstraintViolation<?>> violations = validatePublishedValue(validator, callContext.copy(), publisherArgument, parameterValue, value, canCascade);
-                return violations.isEmpty() ? Flux.just(value) : Flux.error(new ConstraintViolationException(violations));
+                return violations.isEmpty() ? Flux.just(value) : Flux.error(validator.constraintViolationException(violations));
             });
         }
         argumentValues[argumentIndex] = Publishers.convertPublisher(validator.conversionService(), objectPublisher, publisherArgument.getType());
@@ -233,8 +232,8 @@ final class ReactiveValidation {
     private static <R, E> Set<? extends ConstraintViolation<?>> validatePublishedValue(DefaultValidator validator,
                                                                                        DefaultConstraintValidatorContext<R> context,
                                                                                        Argument<E> publisherArgument,
-                                                                                       E value,
-                                                                                       Object publisherInstance,
+                                                                                       E publisher,
+                                                                                       Object value,
                                                                                        boolean canCascade) {
         Argument<?>[] typeParameters = publisherArgument.getTypeParameters();
 
@@ -245,8 +244,8 @@ final class ReactiveValidation {
         Argument<?> valueArgument = typeParameters[0];
 
         try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath()
-            .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(value.getClass()))) {
-            validator.traversal().visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, publisherInstance, canCascade);
+            .addContainerElementNode("<publisher element>", ValidationPath.DefaultContainerContext.ofIterableContainer(publisher.getClass()))) {
+            validator.traversal().visitElement(context, context.getRootBean(), (Argument<Object>) valueArgument, value, canCascade);
         }
         return context.getOverallViolations();
     }
