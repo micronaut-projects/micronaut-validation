@@ -26,6 +26,7 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.PropertyPlan.MemberPlan;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
+import io.micronaut.validation.validator.resolver.CompositeTraversableResolver;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.metadata.SeparatedPropertyDeclarations;
 import jakarta.validation.ConstraintDeclarationException;
@@ -93,9 +94,17 @@ final class ValidationTraversal {
         this.beanIntrospector = reflectionSupport.introspector();
         this.valueExtractorRegistry = valueExtractorRegistry;
         this.traversableResolver = traversableResolver;
-        this.traversesAll = traversableResolver instanceof DefaultValidatorConfiguration.TraverseAll;
+        this.traversesAll = traversableResolver instanceof DefaultValidatorConfiguration.TraverseAll
+            || traversableResolver instanceof CompositeTraversableResolver composite && composite.traversesAll();
         this.declarations = declarations;
         this.constraints = constraints;
+    }
+
+    /**
+     * @return Whether every node is reachable and cascadable, so the resolver is never asked
+     */
+    boolean traversesAll() {
+        return traversesAll;
     }
 
     void clear() {

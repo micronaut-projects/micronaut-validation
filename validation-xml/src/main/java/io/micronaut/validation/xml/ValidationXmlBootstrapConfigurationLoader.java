@@ -116,16 +116,16 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                 if (!(node instanceof Element element)) {
                     continue;
                 }
-                switch (localName(element)) {
-                    case "default-provider" -> defaultProvider = text(element);
-                    case "constraint-validator-factory" -> constraintValidatorFactory = text(element);
-                    case "message-interpolator" -> messageInterpolator = text(element);
-                    case "traversable-resolver" -> traversableResolver = text(element);
-                    case "parameter-name-provider" -> parameterNameProvider = text(element);
-                    case "clock-provider" -> clockProvider = text(element);
-                    case "value-extractor" -> valueExtractors.add(text(element));
-                    case "constraint-mapping" -> constraintMappings.add(text(element));
-                    case "property" -> properties.put(element.getAttribute("name"), text(element));
+                switch (XmlMappingSupport.localName(element)) {
+                    case "default-provider" -> defaultProvider = XmlMappingSupport.text(element);
+                    case "constraint-validator-factory" -> constraintValidatorFactory = XmlMappingSupport.text(element);
+                    case "message-interpolator" -> messageInterpolator = XmlMappingSupport.text(element);
+                    case "traversable-resolver" -> traversableResolver = XmlMappingSupport.text(element);
+                    case "parameter-name-provider" -> parameterNameProvider = XmlMappingSupport.text(element);
+                    case "clock-provider" -> clockProvider = XmlMappingSupport.text(element);
+                    case "value-extractor" -> valueExtractors.add(XmlMappingSupport.text(element));
+                    case "constraint-mapping" -> constraintMappings.add(XmlMappingSupport.text(element));
+                    case "property" -> properties.put(element.getAttribute("name"), XmlMappingSupport.text(element));
                     case "executable-validation" -> {
                         if (element.hasAttribute("enabled")) {
                             executableValidationEnabled = Boolean.parseBoolean(element.getAttribute("enabled"));
@@ -183,7 +183,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         boolean defaultTypesConfigured = false;
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element element) || !"default-validated-executable-types".equals(localName(element))) {
+            if (!(node instanceof Element element) || !"default-validated-executable-types".equals(XmlMappingSupport.localName(element))) {
                 continue;
             }
             defaultTypesConfigured = true;
@@ -199,8 +199,8 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         NodeList typeNodes = element.getChildNodes();
         for (int j = 0; j < typeNodes.getLength(); j++) {
             Node typeNode = typeNodes.item(j);
-            if (typeNode instanceof Element typeElement && "executable-type".equals(localName(typeElement))) {
-                executableTypes.add(executableType(text(typeElement)));
+            if (typeNode instanceof Element typeElement && "executable-type".equals(XmlMappingSupport.localName(typeElement))) {
+                executableTypes.add(executableType(XmlMappingSupport.text(typeElement)));
             }
         }
     }
@@ -217,12 +217,4 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         };
     }
 
-    private static String localName(Element element) {
-        String localName = element.getLocalName();
-        return localName == null ? element.getTagName() : localName;
-    }
-
-    private static String text(Element element) {
-        return element.getTextContent().trim();
-    }
 }

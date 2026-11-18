@@ -23,6 +23,7 @@ import jakarta.inject.Singleton;
 import io.micronaut.validation.validator.MessageAttributes;
 import jakarta.validation.MessageInterpolator;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
@@ -114,7 +115,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     if (variableValue == null) {
                         builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
-                        builder.append(variableValue);
+                        builder.append(variableText(variableValue));
                     }
                     i = end;
                     continue;
@@ -137,7 +138,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     if (variableValue == null) {
                         builder.append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
-                        builder.append(variableValue);
+                        builder.append(variableText(variableValue));
                     }
                 } else {
                     builder.append(c);
@@ -147,6 +148,15 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
             }
         }
         return builder.toString();
+    }
+
+    private static Object variableText(Object value) {
+        if (value.getClass().isArray()) {
+            // an array is interpolated by its elements, as the reference implementation does
+            String text = Arrays.deepToString(new Object[] {value});
+            return text.substring(1, text.length() - 1);
+        }
+        return value;
     }
 
     @Nullable

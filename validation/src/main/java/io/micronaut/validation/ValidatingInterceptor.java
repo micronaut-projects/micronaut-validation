@@ -63,10 +63,10 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     private final ConversionService conversionService;
     private final boolean isPrependPropertyPath;
     /**
-     * Whether a method's return value is validated, by method. Resolved from annotation metadata, so
-     * it is the same for the life of the method.
+     * What intercepting a method reads of it, by method: its groups, the kind of its result and whether its return
+     * value is validated. Resolved from the method, so it is the same for the life of the method.
      */
-    private final Map<ExecutableMethod<Object, Object>, Boolean> returnValueValidation;
+    private final Map<ExecutableMethod<Object, Object>, MethodPlan> methodPlans;
 
     /**
      * Creates ValidatingInterceptor from the validatorFactory.
@@ -83,7 +83,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
         this.conversionService = conversionService;
         this.reflectionSupport = validatorConfiguration.getReflectionSupport();
         isPrependPropertyPath = validatorConfiguration.isPrependPropertyPath();
-        this.returnValueValidation = new ConcurrentHashMap<>();
+        this.methodPlans = new ConcurrentHashMap<>();
 
         if (validatorFactory != null) {
             jakarta.validation.Validator validator = validatorFactory.getValidator();
@@ -111,6 +111,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     @Nullable
     @Override
     public Object intercept(MethodInvocationContext<Object, Object> context) {
+        MethodPlan plan = plan(context);
         if (executableValidator != null) {
             Method targetMethod = reflectionSupport.targetMethod(context.getExecutableMethod());
             if (context.getArguments().length != 0) {
@@ -119,13 +120,13 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 context.getTarget(),
                                 targetMethod,
                                 context.getParameterValues(),
-                                getValidationGroups(context)
+                                plan.groups()
                         );
                 if (!constraintViolations.isEmpty()) {
                     throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
                 }
             }
-            return validateReturnExecutableValidator(executableValidator, context, targetMethod);
+            return validateReturnExecutableValidator(executableValidator, context, targetMethod, plan.groups());
         } else if (micronautValidator != null) {
             ExecutableMethod<Object, Object> executableMethod = context.getExecutableMethod();
             if (executableMethod.getArguments().length != 0) {
@@ -133,12 +134,12 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                         context.getTarget(),
                         executableMethod,
                         context.getParameterValues(),
-                        getValidationGroups(context));
+                        plan.groups());
                 if (!constraintViolations.isEmpty()) {
                     throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
                 }
             }
-            if (micronautValidator instanceof ReactiveValidator reactiveValidator) {
+            if (micronautValidator instanceof ReactiveValidator reactiveValidator && plan.resultType() != InterceptedMethod.ResultType.SYNCHRONOUS) {
                 InterceptedMethod interceptedMethod = InterceptedMethod.of(context, conversionService);
                 try {
                     return switch (interceptedMethod.resultType()) {
@@ -146,19 +147,19 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                             var publisher = interceptedMethod.interceptResultAsPublisher();
                             // the constraints of the publisher itself apply to the publisher, before any value it emits
                             Set<ConstraintViolation<Object>> containerViolations = reactiveValidator.validateReturnedContainer(
-                                context.getTarget(), executableMethod, publisher, getValidationGroups(context));
+                                context.getTarget(), executableMethod, publisher, plan.groups());
                             if (!containerViolations.isEmpty()) {
                                 throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
                             }
                             // each value is an element of the return value of the method invoked on the target
                             yield interceptedMethod.handleResult(reactiveValidator.validateReturnedPublisher(
-                                context.getTarget(), executableMethod, (Publisher<Object>) publisher, getValidationGroups(context)));
+                                context.getTarget(), executableMethod, (Publisher<Object>) publisher, plan.groups()));
                         }
                         case COMPLETION_STAGE -> {
                             // the stage as returned: its own constraints first, a null one among them
                             Object result = context.proceed();
                             Set<ConstraintViolation<Object>> containerViolations = reactiveValidator.validateReturnedContainer(
-                                context.getTarget(), executableMethod, result, getValidationGroups(context));
+                                context.getTarget(), executableMethod, result, plan.groups());
                             if (!containerViolations.isEmpty()) {
                                 throw createConstraintViolationException(isPrependPropertyPath, containerViolations);
                             }
@@ -167,19 +168,15 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 yield result;
                             }
                             yield interceptedMethod.handleResult(reactiveValidator.validateReturnedCompletionStage(
-                                context.getTarget(), executableMethod, (CompletionStage<Object>) stage, getValidationGroups(context)));
+                                context.getTarget(), executableMethod, (CompletionStage<Object>) stage, plan.groups()));
                         }
-                        case SYNCHRONOUS ->
-                            hasReturnValueValidation(executableMethod)
-                                ? validateReturnMicronautValidator(micronautValidator, context, executableMethod)
-                                : context.proceed();
                         default -> interceptedMethod.unsupported();
                     };
                 } catch (Exception e) {
                     return interceptedMethod.handleException(e);
                 }
-            } else if (hasReturnValueValidation(executableMethod)) {
-                return validateReturnMicronautValidator(micronautValidator, context, executableMethod);
+            } else if (plan.returnValueValidated()) {
+                return validateReturnMicronautValidator(micronautValidator, context, executableMethod, plan.groups());
             } else {
                 return context.proceed();
             }
@@ -188,19 +185,29 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     }
 
     /**
-     * Whether the return value of a method can produce a violation at all: one with no constraint and no
-     * {@link Valid} cannot. Validating it anyway resolves the group sequences, an introspection lookup of the
-     * default group that misses, which is expensive on some runtimes. The stereotypes are consulted, which errs
-     * towards validating.
+     * What intercepting a method reads of it, resolved once. Whether its return value can produce a violation at
+     * all: one with no constraint and no {@link Valid} cannot. Validating it anyway resolves the group sequences,
+     * an introspection lookup of the default group that misses, which is expensive on some runtimes. The
+     * stereotypes are consulted, which errs towards validating.
      *
-     * @param executableMethod The method
-     * @return Whether its return value is validated
+     * @param context The invocation
+     * @return The plan of the method
      */
-    private boolean hasReturnValueValidation(ExecutableMethod<Object, Object> executableMethod) {
-        return returnValueValidation.computeIfAbsent(executableMethod, method -> {
-            ReturnType<Object> returnType = method.getReturnType();
-            return !returnType.isVoid() && requiresValidation(returnType.asArgument());
-        });
+    private MethodPlan plan(MethodInvocationContext<Object, Object> context) {
+        ExecutableMethod<Object, Object> executableMethod = context.getExecutableMethod();
+        MethodPlan plan = methodPlans.get(executableMethod);
+        if (plan == null) {
+            ReturnType<Object> returnType = executableMethod.getReturnType();
+            // the kind of the result is of the method, a suspending one included: a synchronous method is never
+            // wrapped again
+            InterceptedMethod.ResultType resultType = micronautValidator instanceof ReactiveValidator
+                ? InterceptedMethod.of(context, conversionService).resultType()
+                : InterceptedMethod.ResultType.SYNCHRONOUS;
+            plan = new MethodPlan(context.classValues(Validated.class, "groups"), resultType,
+                !returnType.isVoid() && requiresValidation(returnType.asArgument()));
+            methodPlans.put(executableMethod, plan);
+        }
+        return plan;
     }
 
     private static boolean requiresValidation(Argument<?> argument) {
@@ -219,13 +226,14 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
 
     private @Nullable Object validateReturnMicronautValidator(ExecutableMethodValidator validator,
                                                               MethodInvocationContext<Object, Object> context,
-                                                              ExecutableMethod<Object, Object> executableMethod) {
+                                                              ExecutableMethod<Object, Object> executableMethod,
+                                                              Class<?>[] groups) {
         Object result = context.proceed();
         Set<ConstraintViolation<Object>> constraintViolations = validator.validateReturnValue(
                 context.getTarget(),
                 executableMethod,
                 result,
-                getValidationGroups(context));
+                groups);
         if (!constraintViolations.isEmpty()) {
             throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
         }
@@ -234,13 +242,14 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
 
     private @Nullable Object validateReturnExecutableValidator(ExecutableValidator validator,
                                                                MethodInvocationContext<Object, Object> context,
-                                                               Method targetMethod) {
+                                                               Method targetMethod,
+                                                               Class<?>[] groups) {
         final Object result = context.proceed();
         Set<ConstraintViolation<Object>> constraintViolations = validator.validateReturnValue(
                 context.getTarget(),
                 targetMethod,
                 result,
-                getValidationGroups(context)
+                groups
         );
         if (!constraintViolations.isEmpty()) {
             throw createConstraintViolationException(isPrependPropertyPath, constraintViolations);
@@ -248,7 +257,11 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
         return result;
     }
 
-    private Class<?>[] getValidationGroups(MethodInvocationContext<Object, Object> context) {
-        return context.classValues(Validated.class, "groups");
+    /**
+     * @param groups The groups the method is validated in
+     * @param resultType The kind of its result
+     * @param returnValueValidated Whether its return value can produce a violation at all
+     */
+    private record MethodPlan(Class<?>[] groups, InterceptedMethod.ResultType resultType, boolean returnValueValidated) {
     }
 }

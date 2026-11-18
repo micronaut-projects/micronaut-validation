@@ -77,6 +77,8 @@ public final class MicronautValidatorConfiguration
     private final List<byte[]> mappingStreams = new ArrayList<>();
     private final Set<ValueExtractor<?>> valueExtractors = new LinkedHashSet<>();
     private final Map<String, String> properties = new LinkedHashMap<>();
+    // the instances of the classes the XML configuration names, created once per name and type
+    private final Map<String, Object> xmlInstances = new java.util.concurrent.ConcurrentHashMap<>();
     private final ClassLoader classLoader;
     @Nullable
     private final BootstrapState bootstrapState;
@@ -268,7 +270,7 @@ public final class MicronautValidatorConfiguration
             return messageInterpolator;
         }
         if (!ignoreXmlConfiguration && bootstrapConfiguration().getMessageInterpolatorClassName() != null) {
-            return instantiate(bootstrapConfiguration().getMessageInterpolatorClassName(), MessageInterpolator.class);
+            return xmlInstance(bootstrapConfiguration().getMessageInterpolatorClassName(), MessageInterpolator.class);
         }
         return getDefaultMessageInterpolator();
     }
@@ -312,7 +314,7 @@ public final class MicronautValidatorConfiguration
         Set<ValueExtractor<?>> extractors = new LinkedHashSet<>(valueExtractors);
         if (!ignoreXmlConfiguration) {
             for (String valueExtractorClassName : bootstrapConfiguration().getValueExtractorClassNames()) {
-                extractors.add(instantiate(valueExtractorClassName, ValueExtractor.class));
+                extractors.add(xmlInstance(valueExtractorClassName, ValueExtractor.class));
             }
         }
         return Set.copyOf(extractors);
@@ -324,7 +326,7 @@ public final class MicronautValidatorConfiguration
             return constraintValidatorFactory;
         }
         if (!ignoreXmlConfiguration && bootstrapConfiguration().getConstraintValidatorFactoryClassName() != null) {
-            return instantiate(bootstrapConfiguration().getConstraintValidatorFactoryClassName(), ConstraintValidatorFactory.class);
+            return xmlInstance(bootstrapConfiguration().getConstraintValidatorFactoryClassName(), ConstraintValidatorFactory.class);
         }
         return getDefaultConstraintValidatorFactory();
     }
@@ -335,7 +337,7 @@ public final class MicronautValidatorConfiguration
             return traversableResolver;
         }
         if (!ignoreXmlConfiguration && bootstrapConfiguration().getTraversableResolverClassName() != null) {
-            return instantiate(bootstrapConfiguration().getTraversableResolverClassName(), TraversableResolver.class);
+            return xmlInstance(bootstrapConfiguration().getTraversableResolverClassName(), TraversableResolver.class);
         }
         return getDefaultTraversableResolver();
     }
@@ -346,7 +348,7 @@ public final class MicronautValidatorConfiguration
             return parameterNameProvider;
         }
         if (!ignoreXmlConfiguration && bootstrapConfiguration().getParameterNameProviderClassName() != null) {
-            return instantiate(bootstrapConfiguration().getParameterNameProviderClassName(), ParameterNameProvider.class);
+            return xmlInstance(bootstrapConfiguration().getParameterNameProviderClassName(), ParameterNameProvider.class);
         }
         return getDefaultParameterNameProvider();
     }
@@ -357,7 +359,7 @@ public final class MicronautValidatorConfiguration
             return clockProvider;
         }
         if (!ignoreXmlConfiguration && bootstrapConfiguration().getClockProviderClassName() != null) {
-            return instantiate(bootstrapConfiguration().getClockProviderClassName(), ClockProvider.class);
+            return xmlInstance(bootstrapConfiguration().getClockProviderClassName(), ClockProvider.class);
         }
         return getDefaultClockProvider();
     }
@@ -410,7 +412,7 @@ public final class MicronautValidatorConfiguration
         // validators through them
         validatorConfiguration.setReflectionSupport(ReflectionSupport.forClassLoader(loader));
         BeanIntrospector beanIntrospector = validatorConfiguration.getReflectionSupport()
-            .supplemented(BeanIntrospector.forClassLoader(loader));
+            .supplemented(validatorConfiguration.getReflectionSupport().introspector());
         validatorConfiguration.setBeanIntrospector(beanIntrospector);
         // the constraint mappings decorate the introspector: a mapped bean is described by its introspection
         // with what the mapping declares, and the validator reads nothing else
@@ -457,7 +459,7 @@ public final class MicronautValidatorConfiguration
         if (!ignoreXmlConfiguration) {
             DefaultValidatorConfiguration xmlDuplicateCheck = new DefaultValidatorConfiguration();
             for (String valueExtractorClassName : bootstrapConfiguration().getValueExtractorClassNames()) {
-                ValueExtractor<?> valueExtractor = instantiate(valueExtractorClassName, ValueExtractor.class);
+                ValueExtractor<?> valueExtractor = xmlInstance(valueExtractorClassName, ValueExtractor.class);
                 xmlDuplicateCheck.addValueExtractor(valueExtractor);
                 validatorConfiguration.replaceValueExtractor(valueExtractor);
             }
@@ -668,8 +670,16 @@ public final class MicronautValidatorConfiguration
                 .findFirst();
     }
 
+    /**
+     * The instance of a class the XML configuration names, created on first use: every getter answers the same.
+     */
+    <T> T xmlInstance(String className, Class<T> type) {
+        Object instance = xmlInstances.computeIfAbsent(type.getName() + ":" + className, key -> instantiate(className, type));
+        return type.cast(instance);
+    }
+
     private <T> T instantiate(String className, Class<T> type) {
-        BeanIntrospector introspector = BeanIntrospector.forClassLoader(classLoader);
+        BeanIntrospector introspector = defaults.getBeanIntrospector();
         var introspection = introspector.findIntrospectedType(className)
                 .flatMap(introspector::findIntrospection)
                 .orElse(null);
@@ -686,6 +696,9 @@ public final class MicronautValidatorConfiguration
         if (instance == null) {
             throw new ValidationException(
                     "No constructor is available for bootstrap class: " + className);
+        }
+        if (!type.isInstance(instance)) {
+            throw new ValidationException("Bootstrap class " + className + " is not a " + type.getName());
         }
         return type.cast(instance);
     }

@@ -80,6 +80,20 @@ public final class ConstraintContainers {
      * Whether a constraint is declared on the element itself, directly or in the repeatable container the
      * metadata records for it, whatever its name.
      */
+    /**
+     * Whether a constraint is declared on the element itself, directly or in the repeatable container the
+     * metadata records for it, whatever its name; metadata recording none is read with the container named
+     * {@code List} nested in the constraint.
+     *
+     * @param annotationMetadata The metadata of the element
+     * @param name The name of the constraint
+     * @return Whether the element declares it
+     * @since 5.3.0
+     */
+    public static boolean isDeclared(AnnotationMetadata annotationMetadata, String name) {
+        return isDeclared(annotationMetadata, annotationMetadata.getDeclaredAnnotationNames(), name);
+    }
+
     private static boolean isDeclared(AnnotationMetadata annotationMetadata, Set<String> declared, String name) {
         return declared.contains(name)
             || declared.contains(annotationMetadata.findRepeatableAnnotation(name).orElse(name + "$List"));

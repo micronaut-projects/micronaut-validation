@@ -41,6 +41,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -221,26 +222,35 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        OptionalInt index = describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        if (index == null) {
+            throw ReflectionSupport.reflectionRequired("container-variable mappings from " + declaredType.getName()
+                + " to " + containerType.getName());
+        }
+        return index.isPresent() ? index.getAsInt() : null;
+    }
+
+    @Override
+    public @Nullable OptionalInt describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         if (declaredType == containerType) {
-            return typeArgumentIndex;
+            return OptionalInt.of(typeArgumentIndex);
         }
         BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
         if (introspection != null) {
             int index = ContainerTypeArguments.generatedIndex(introspection, containerType, typeArgumentIndex);
             if (index != ContainerTypeArguments.UNKNOWN) {
-                return index == ContainerTypeArguments.BOUND ? null : index;
+                return index == ContainerTypeArguments.BOUND ? OptionalInt.empty() : OptionalInt.of(index);
             }
         }
         int recorded = ContainerTypeArguments.recordedIndex(this, declaredType, containerType, typeArgumentIndex);
         if (recorded != ContainerTypeArguments.UNKNOWN) {
-            return recorded == ContainerTypeArguments.BOUND ? null : recorded;
+            return recorded == ContainerTypeArguments.BOUND ? OptionalInt.empty() : OptionalInt.of(recorded);
         }
         // these JDK contracts have a specified, unchanged variable order
         if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
-            return typeArgumentIndex;
+            return OptionalInt.of(typeArgumentIndex);
         }
-        throw ReflectionSupport.reflectionRequired("container-variable mappings from " + declaredType.getName()
-            + " to " + containerType.getName());
+        return null;
     }
 
     @Override
@@ -260,13 +270,22 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
-    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+    public <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType) {
         BeanIntrospection<?> introspection = introspector.findIntrospection(type).orElse(null);
         if (introspection != null) {
             List<Argument<?>> arguments = introspection.getTypeArguments(superType);
             if (!arguments.isEmpty()) {
                 return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
             }
+        }
+        return null;
+    }
+
+    @Override
+    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+        Argument<T> argument = describedGenericSuperArgument(type, superType);
+        if (argument != null) {
+            return argument;
         }
         throw ReflectionSupport.reflectionRequired("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
     }
@@ -366,11 +385,20 @@ final class CompileTimeSupport implements ReflectionSupport {
     }
 
     @Override
+    public @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType) {
+        Argument<?> argument = describedGenericSuperArgument(extractorType, ValueExtractor.class);
+        if (argument == null) {
+            return null;
+        }
+        AnnotationMetadata declared = introspector.getIntrospection(extractorType).getAnnotationMetadata();
+        return argument.withAnnotationMetadata(ConfiguredMetadata.merge(List.of(argument.getAnnotationMetadata(), declared)));
+    }
+
+    @Override
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
-        Argument<?> argument = genericSuperArgument(extractorType, ValueExtractor.class);
+        Argument<?> argument = describedValueExtractorArgument(extractorType);
         if (argument != null) {
-            AnnotationMetadata declared = introspector.getIntrospection(extractorType).getAnnotationMetadata();
-            return argument.withAnnotationMetadata(ConfiguredMetadata.merge(List.of(argument.getAnnotationMetadata(), declared)));
+            return argument;
         }
         throw ReflectionSupport.reflectionRequired("the extractor signature " + extractorType.getName()
             + " declares, for an instance registered through the configuration API");

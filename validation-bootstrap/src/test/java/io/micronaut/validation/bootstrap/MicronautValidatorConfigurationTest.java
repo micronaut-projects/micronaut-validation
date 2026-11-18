@@ -49,6 +49,24 @@ class MicronautValidatorConfigurationTest {
     }
 
     @Test
+    void anXmlNamedClassOfTheWrongTypeIsAValidationException() {
+        var configuration = new MicronautValidatorConfiguration();
+        assertThrows(jakarta.validation.ValidationException.class,
+            () -> configuration.xmlInstance(NotAnInterpolator.class.getName(), jakarta.validation.MessageInterpolator.class));
+    }
+
+    @Test
+    void anXmlNamedInstanceIsCreatedOnce() {
+        var configuration = new MicronautValidatorConfiguration();
+        var first = configuration.xmlInstance(NotAnInterpolator.class.getName(), Object.class);
+        org.junit.jupiter.api.Assertions.assertSame(first, configuration.xmlInstance(NotAnInterpolator.class.getName(), Object.class));
+    }
+
+    @io.micronaut.core.annotation.Introspected
+    public static class NotAnInterpolator {
+    }
+
+    @Test
     void aMappingStreamStaysOpenForItsCaller() {
         var closed = new boolean[1];
         var stream = new java.io.ByteArrayInputStream(new byte[0]) {

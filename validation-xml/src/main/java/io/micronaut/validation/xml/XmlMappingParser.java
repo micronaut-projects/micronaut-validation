@@ -167,6 +167,9 @@ final class XmlMappingParser {
                     validators.add(loadClass(resolveClassName(XmlMappingSupport.text(value), defaultPackage)));
                 }
             }
+            if (definitions.containsKey(annotationName)) {
+                throw new ValidationException("Constraint definition configured more than once in validation XML: " + annotationName);
+            }
             definitions.put(annotationName, new ConstraintDefinition(List.copyOf(validators), includeExistingValidators));
         }
         return definitions;
@@ -463,9 +466,29 @@ final class XmlMappingParser {
             validateMandatoryAnnotationMembers(annotationType, values);
             values.put(ValidationAnnotationUtil.CONSTRAINT_TYPE, annotationType);
             metadata.addDefaultAnnotationValues(annotationName, ValidationMetadataSupport.standardDefaults(annotationType));
-            metadata.addDeclaredAnnotation(annotationName, values);
+            addConstraint(metadata, annotationName, values);
             metadata.addDeclaredAnnotation(ValidatedElement.class.getName(), Map.of());
             metadata.addDeclaredStereotype(List.of(annotationName), Constraint.class.getName(), Map.of());
+        }
+    }
+
+    /**
+     * Adds an occurrence of a constraint: the second one on the same element moves both into the repeatable
+     * container, as the compiler records a repeated annotation, instead of merging their members.
+     */
+    @SuppressWarnings("unchecked")
+    private static void addConstraint(MutableAnnotationMetadata metadata, String annotationName, Map<CharSequence, Object> values) {
+        String container = metadata.findRepeatableAnnotation(annotationName).orElse(annotationName + "$List");
+        if (metadata.hasDeclaredAnnotation(container)) {
+            metadata.addDeclaredRepeatable(container, AnnotationValue.builder(annotationName).members(values).build());
+        } else if (metadata.getDeclaredAnnotation(annotationName) instanceof AnnotationValue<Annotation> first) {
+            Map<CharSequence, Object> defaults = metadata.getDefaultValues(annotationName);
+            metadata.removeAnnotation(annotationName);
+            metadata.addDefaultAnnotationValues(annotationName, defaults);
+            metadata.addDeclaredRepeatable(container, AnnotationValue.builder(annotationName).members(first.getValues()).build());
+            metadata.addDeclaredRepeatable(container, AnnotationValue.builder(annotationName).members(values).build());
+        } else {
+            metadata.addDeclaredAnnotation(annotationName, values);
         }
     }
 
@@ -528,7 +551,12 @@ final class XmlMappingParser {
 
     private static int typeArgumentIndex(Element containerElementType, int typeArgumentCount, Argument<?> containerType) {
         if (containerElementType.hasAttribute("type-argument-index")) {
-            return Integer.parseInt(containerElementType.getAttribute("type-argument-index"));
+            String index = containerElementType.getAttribute("type-argument-index");
+            try {
+                return Integer.parseInt(index);
+            } catch (NumberFormatException e) {
+                throw new ValidationException("Invalid container element type argument index " + index + " for " + containerType, e);
+            }
         }
         if (typeArgumentCount == 1) {
             return 0;

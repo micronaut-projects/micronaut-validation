@@ -73,6 +73,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private final AnnotationMetadata beanAnnotationMetadata;
     private final ConstraintValidatorOverrides validatorOverrides;
     private final IntrospectedExecutableDescriptors executables;
+    // what each element declares itself, read once: a metadata hierarchy builds it anew on every call
+    private final Map<AnnotationMetadata, AnnotationMetadata> declaredMetadata = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
     @Nullable
     private final ValidatorDeclarations declarations;
 
@@ -292,12 +294,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Map<String, ConstraintDescriptor<?>> constraintDescriptorsByKey(AnnotationMetadata annotationMetadata) {
         Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
-        List<Class<? extends Annotation>> constraintTypes = constraintTypes(annotationMetadata);
-        boolean hasDeclaredConstraint = constraintTypes.stream().anyMatch(type -> ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type));
-        for (Class<? extends Annotation> type : constraintTypes) {
-            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, type)) {
-                continue;
-            }
+        // the types are filtered to the declared constraints already, when the element declares any
+        for (Class<? extends Annotation> type : constraintTypes(annotationMetadata)) {
             for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(reflectionSupport, annotationMetadata, type)) {
                 descriptors.putIfAbsent(
                     ConstraintAnnotationKey.of(type, annotationValue),
@@ -332,6 +330,19 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
      * property — an introspection separating the declarations does — the finder can look at the local element only,
      * at the fields or the methods only, and the constraints of a member are attributed to the member.
      */
+    /**
+     * @param metadata The metadata of an element
+     * @return What the element declares itself, the same instance on every call
+     */
+    private AnnotationMetadata declaredMetadata(AnnotationMetadata metadata) {
+        AnnotationMetadata declared = declaredMetadata.get(metadata);
+        if (declared == null) {
+            declared = metadata.getDeclaredMetadata();
+            declaredMetadata.put(metadata, declared);
+        }
+        return declared;
+    }
+
     private final class IntrospectedPropertyDescriptor implements PropertyDescriptor, ConstraintFinder {
 
         private final BeanProperty<?, ?> beanProperty;
@@ -363,7 +374,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 return true;
             }
             for (BeanProperty<?, ?> superProperty : superProperties()) {
-                if (superProperty.getAnnotationMetadata().getDeclaredMetadata().hasStereotype(Valid.class)) {
+                if (declaredMetadata(superProperty.getAnnotationMetadata()).hasStereotype(Valid.class)) {
                     return true;
                 }
             }
@@ -379,7 +390,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         public Set<GroupConversionDescriptor> getGroupConversions() {
             Set<GroupConversionDescriptor> conversions = new LinkedHashSet<>(IntrospectedExecutableDescriptors.groupConversions(annotationMetadata));
             for (BeanProperty<?, ?> superProperty : superProperties()) {
-                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(superProperty.getAnnotationMetadata().getDeclaredMetadata()));
+                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(declaredMetadata(superProperty.getAnnotationMetadata())));
             }
             for (BeanPropertyMember<?, ?> member : members()) {
                 conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(member.getAnnotationMetadata()));
@@ -432,7 +443,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 return true;
             }
             for (BeanProperty<?, ?> superProperty : superProperties()) {
-                if (ConstraintContainers.hasConstraints(reflectionSupport, superProperty.getAnnotationMetadata().getDeclaredMetadata(), currentClassLoader())) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, declaredMetadata(superProperty.getAnnotationMetadata()), currentClassLoader())) {
                     return true;
                 }
             }
@@ -488,7 +499,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
             for (BeanProperty<?, ?> superProperty : superProperties()) {
                 Class<?> declaringType = superProperty.getDeclaringType();
-                AnnotationMetadata declared = superProperty.getAnnotationMetadata().getDeclaredMetadata();
+                AnnotationMetadata declared = declaredMetadata(superProperty.getAnnotationMetadata());
                 for (Map.Entry<String, ConstraintDescriptor<?>> entry : constraintDescriptorsByKey(declared).entrySet()) {
                     ConstraintDescriptor<?> descriptor = declaringType.isInterface()
                         ? new ImplicitGroupConstraintDescriptor<>(entry.getValue(), declaringType)
@@ -527,7 +538,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 // the members are unknown: the metadata of the property, as validated, with what the super
                 // types declare attributed to them rather than to the type inheriting it
                 Map<String, ConstraintDescriptor<?>> byKey = new LinkedHashMap<>(constraintDescriptorsByKey(annotationMetadata));
-                AnnotationMetadata declared = annotationMetadata.getDeclaredMetadata();
+                AnnotationMetadata declared = declaredMetadata(annotationMetadata);
                 if (scope != Scope.LOCAL_ELEMENT) {
                     byKey.putAll(superConstraintDescriptors());
                 } else if (declared != annotationMetadata) {
@@ -689,7 +700,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
                 return Set.of();
             }
             Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
-                ? beanAnnotationMetadata.getDeclaredMetadata()
+                ? declaredMetadata(beanAnnotationMetadata)
                 : beanAnnotationMetadata);
             if (groups.isEmpty()) {
                 return descriptors;

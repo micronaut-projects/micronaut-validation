@@ -21,6 +21,7 @@ import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -81,6 +82,18 @@ class ReactiveParameterValidationTest {
         }
     }
 
+    @Test
+    void aReturnedPublisherStopsAtTheFirstFailingGroupOfTheSequence() {
+        try (ApplicationContext context = ApplicationContext.run()) {
+            var validator = (io.micronaut.validation.validator.ReactiveValidator) context.getBean(io.micronaut.validation.validator.Validator.class);
+            var returnType = context.getBeanDefinition(Service.class).findMethod("ordered", Ordered.class).orElseThrow().getReturnType();
+            var e = assertThrows(ConstraintViolationException.class,
+                () -> Flux.from(validator.validatePublisher(returnType, Flux.just(new Ordered(null, "")), InOrder.class)).blockLast());
+            assertEquals(1, e.getConstraintViolations().size());
+            assertEquals("first", lastNode(e.getConstraintViolations().iterator().next()));
+        }
+    }
+
     private static String lastNode(ConstraintViolation<?> violation) {
         String name = null;
         for (var node : violation.getPropertyPath()) {
@@ -92,12 +105,31 @@ class ReactiveParameterValidationTest {
     interface Strict {
     }
 
+    interface First {
+    }
+
+    interface Second {
+    }
+
+    @GroupSequence({First.class, Second.class})
+    interface InOrder {
+    }
+
+    @Introspected
+    record Ordered(@NotNull(groups = First.class) @Nullable String first, @NotBlank(groups = Second.class) String second) {
+    }
+
     @Introspected
     record Item(@NotNull(groups = Strict.class) @Nullable String name, @NotBlank String title) {
     }
 
     @Singleton
     static class Service {
+
+        @Executable
+        Publisher<@Valid Ordered> ordered(Ordered value) {
+            return Flux.just(value);
+        }
 
         @Executable
         Publisher<String> titles(Publisher<@Valid Item> items) {

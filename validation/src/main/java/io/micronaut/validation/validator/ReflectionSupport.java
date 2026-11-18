@@ -45,6 +45,7 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -352,6 +353,19 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         return null;
     }
 
+    /**
+     * The Java constructor a type declares by its parameter types, as a parameter name provider of the
+     * application reads it.
+     *
+     * @param declaringType The type
+     * @param parameterTypes Its parameter types
+     * @return The constructor, or null where no reflection reads it
+     * @since 5.3.0
+     */
+    default @Nullable Constructor<?> declaredConstructor(Class<?> declaringType, Class<?>[] parameterTypes) {
+        return null;
+    }
+
     default Method targetMethod(MethodReference<?, ?> executable) {
         if (executable instanceof CallerSuppliedExecutable<?, ?> supplied) {
             return supplied.suppliedMethod();
@@ -509,6 +523,24 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
 
     /**
+     * {@link #extractedTypeArgumentIndex} where it can be read without reflection.
+     *
+     * @param declaredType The type as declared
+     * @param containerType The container type the extractor is written for
+     * @param typeArgumentIndex The index of the type argument the extractor extracts
+     * @return The index, empty when the type binds the argument, null when nothing here reads it
+     * @since 5.3.0
+     */
+    default @Nullable OptionalInt describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        try {
+            Integer index = extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+            return index == null ? OptionalInt.empty() : OptionalInt.of(index);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
+
+    /**
      * The argument of a super type as a type binds it: {@code ConstraintValidator<Size,
      * CharSequence>} for a validator declaring {@code implements ConstraintValidator<Size,
      * CharSequence>}. Generated introspections retain these bindings, including intermediate super types.
@@ -523,6 +555,23 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      */
     @Nullable
     <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType);
+
+    /**
+     * {@link #genericSuperArgument} where it can be read without reflection.
+     *
+     * @param type The type
+     * @param superType The super class or interface to resolve
+     * @param <T> The super type
+     * @return The argument, null when nothing here reads it or the type does not extend the super type
+     * @since 5.3.0
+     */
+    default <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType) {
+        try {
+            return genericSuperArgument(type, superType);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
 
     /**
      * Checks a constraint annotation type against the constraint definition rules of the
@@ -579,6 +628,21 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @since 5.3.0
      */
     Argument<?> valueExtractorArgument(Class<?> extractorType);
+
+    /**
+     * {@link #valueExtractorArgument} where it can be read without reflection.
+     *
+     * @param extractorType The class of the extractor instance
+     * @return The argument, null when nothing here reads it
+     * @since 5.3.0
+     */
+    default @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType) {
+        try {
+            return valueExtractorArgument(extractorType);
+        } catch (ValidationException e) {
+            return null;
+        }
+    }
 
     /**
      * The names of the parameters of an executable the specification API names by its {@link

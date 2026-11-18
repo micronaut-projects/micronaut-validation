@@ -36,13 +36,17 @@ import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Inherited;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.TypeElement;
@@ -56,6 +60,10 @@ import javax.lang.model.element.TypeElement;
  */
 @Internal
 public class ValidationAnnotationRemapper implements AnnotationRemapper {
+
+    // the definitions of the constraints of the compilation the context is of
+    private final Map<String, Definition> definitions = new ConcurrentHashMap<>();
+    private volatile @Nullable VisitorContext definitionsContext;
 
     @Override
     public String getPackageName() {
@@ -127,36 +135,7 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
                         .filter(EnumElement.class::isInstance).map(EnumElement.class::cast)
                         .ifPresent(type -> builder.member(ValidationAnnotationUtil.ENUM_VALUES, type.values().toArray(String[]::new)));
                 }
-                AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
-                builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);
-                if (validatedBy.length > 0) {
-                    var targets = new LinkedHashSet<String>();
-                    for (var validator : validatedBy) {
-                        visitorContext.getClassElement(validator.getName()).ifPresent(type -> {
-                            var declared = type.getAnnotationMetadata().stringValues(SupportedValidationTarget.class);
-                            if (declared.length == 0) {
-                                targets.add(ValidationTarget.ANNOTATED_ELEMENT.name());
-                            } else {
-                                targets.addAll(List.of(declared));
-                            }
-                        });
-                    }
-                    builder.member(ValidationAnnotationUtil.VALIDATION_TARGETS, targets.toArray(String[]::new));
-                }
-                visitorContext.getClassElement(annotation.getAnnotationName()).ifPresent(type -> {
-                    // also reports an invalid definition: only the remapper sees every use, a library constraint's included
-                    ConstraintDefinitionMetadata.retain(type, visitorContext, builder);
-                    if (visitorContext.getLanguage() == VisitorContext.Language.JAVA) {
-                        JavaComposition.retainDirectCompositions(type, builder);
-                    } else {
-                        retainDeclaredCompositions(type, visitorContext, builder);
-                    }
-                    builder.member(ValidationAnnotationUtil.REPORT_AS_SINGLE_VIOLATION,
-                        type.hasDeclaredAnnotation(ReportAsSingleViolation.class));
-                    if (hasDirectAndContainerComposition(type, visitorContext)) {
-                        builder.member(ValidationAnnotationUtil.COMPOSITION_ERROR, "Constraint is composed both directly and in a container: " + type.getName());
-                    }
-                });
+                definition(annotation.getAnnotationName(), constraintAnnotationValue, visitorContext).applyTo(annotation, builder);
                 return List.of(
                         builder.stereotype(
                         AnnotationValue.builder(Inherited.class).build()
@@ -164,6 +143,64 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             }
         }
         return List.of(annotation);
+    }
+
+    /**
+     * What every occurrence of a constraint retains of its definition, read once per constraint and compilation:
+     * a constraint used on many elements is described, and an invalid definition reported, once.
+     */
+    private Definition definition(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
+        if (definitionsContext != visitorContext) {
+            definitions.clear();
+            definitionsContext = visitorContext;
+        }
+        Definition definition = definitions.get(name);
+        if (definition == null) {
+            definition = describe(name, constraintAnnotationValue, visitorContext);
+            definitions.put(name, definition);
+        }
+        return definition;
+    }
+
+    private static Definition describe(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
+        AnnotationValueBuilder<?> builder = AnnotationValue.builder(name);
+        AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
+        builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);
+        if (validatedBy.length > 0) {
+            var targets = new LinkedHashSet<String>();
+            for (var validator : validatedBy) {
+                visitorContext.getClassElement(validator.getName()).ifPresent(type -> {
+                    var declared = type.getAnnotationMetadata().stringValues(SupportedValidationTarget.class);
+                    if (declared.length == 0) {
+                        targets.add(ValidationTarget.ANNOTATED_ELEMENT.name());
+                    } else {
+                        targets.addAll(List.of(declared));
+                    }
+                });
+            }
+            builder.member(ValidationAnnotationUtil.VALIDATION_TARGETS, targets.toArray(String[]::new));
+        }
+        visitorContext.getClassElement(name).ifPresent(type -> {
+            // also reports an invalid definition: only the remapper sees every use, a library constraint's included
+            ConstraintDefinitionMetadata.retain(type, visitorContext, builder);
+            if (visitorContext.getLanguage() == VisitorContext.Language.JAVA) {
+                JavaComposition.retainDirectCompositions(type, builder);
+            } else {
+                retainDeclaredCompositions(type, visitorContext, builder);
+            }
+            builder.member(ValidationAnnotationUtil.REPORT_AS_SINGLE_VIOLATION,
+                type.hasDeclaredAnnotation(ReportAsSingleViolation.class));
+            if (hasDirectAndContainerComposition(type, visitorContext)) {
+                builder.member(ValidationAnnotationUtil.COMPOSITION_ERROR, "Constraint is composed both directly and in a container: " + type.getName());
+            }
+        });
+        // described on an occurrence declaring nothing: a member of the constraint itself is a default only an
+        // occurrence not declaring it takes, the members of the validator are retained on every occurrence
+        Map<CharSequence, Object> retained = new LinkedHashMap<>();
+        Map<CharSequence, Object> defaults = new LinkedHashMap<>();
+        builder.build().getValues().forEach((member, value) ->
+            (member.toString().startsWith("$") ? retained : defaults).put(member, value));
+        return new Definition(Map.copyOf(retained), Map.copyOf(defaults));
     }
 
     static int composingOccurrences(ClassElement type, String constraint, VisitorContext context) {
@@ -246,6 +283,21 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
         // Nested annotation values do not pass through the metadata builder's retention step.
         return value.mutate().retainStereotypes(
             stereotypes.stream().map(ValidationAnnotationRemapper::retainedValue).toList()).build();
+    }
+
+    /**
+     * @param retained The members every occurrence retains
+     * @param defaults The defaults an occurrence not declaring the member takes
+     */
+    private record Definition(Map<CharSequence, Object> retained, Map<CharSequence, Object> defaults) {
+        void applyTo(AnnotationValue<?> occurrence, AnnotationValueBuilder<?> builder) {
+            builder.members(retained);
+            defaults.forEach((member, value) -> {
+                if (!occurrence.contains(member.toString())) {
+                    builder.members(Map.of(member, value));
+                }
+            });
+        }
     }
 
     // Keep javac-only AST adapters out of Kotlin and Groovy frontend class loading.

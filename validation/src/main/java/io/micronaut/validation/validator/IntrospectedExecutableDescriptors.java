@@ -775,7 +775,9 @@ final class IntrospectedExecutableDescriptors {
                 constructor.getArguments(),
                 Argument.of(constructor.getDeclaringBeanType()),
                 constructor.getAnnotationMetadata(),
-                ElementType.CONSTRUCTOR);
+                ElementType.CONSTRUCTOR,
+                declarations == null ? null : declarations.parameterNames(constructor.getDeclaringBeanType(), constructor.getArguments()),
+                constructor.getArguments());
             this.beanType = constructor.getDeclaringBeanType();
         }
 

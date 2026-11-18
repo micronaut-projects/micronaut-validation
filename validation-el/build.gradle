@@ -10,6 +10,7 @@ dependencies {
 
     testAnnotationProcessor mn.micronaut.inject.java
     testAnnotationProcessor libs.micronaut.expression.language.processor
+    testAnnotationProcessor projects.micronautValidationProcessor
     testImplementation mnTest.micronaut.test.junit5
     testRuntimeOnly mnTest.junit.jupiter.engine
 }

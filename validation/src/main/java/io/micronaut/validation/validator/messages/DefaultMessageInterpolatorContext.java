@@ -34,15 +34,43 @@ public final class DefaultMessageInterpolatorContext implements MessageInterpola
     private final ConstraintDescriptor<Annotation> constraintDescriptor;
     @Nullable
     private final Object validatedValue;
+    private final boolean customViolation;
 
     public DefaultMessageInterpolatorContext(
         DefaultConstraintValidatorContext<?> validatorContext,
         ConstraintDescriptor<Annotation> constraintDescriptor,
         @Nullable Object validatedValue
     ) {
+        this(validatorContext, constraintDescriptor, validatedValue, false);
+    }
+
+    /**
+     * @param validatorContext The validator context
+     * @param constraintDescriptor The descriptor of the violated constraint
+     * @param validatedValue The validated value
+     * @param customViolation Whether the template is the one of a violation a constraint validator built
+     * @since 5.3.0
+     */
+    public DefaultMessageInterpolatorContext(
+        DefaultConstraintValidatorContext<?> validatorContext,
+        ConstraintDescriptor<Annotation> constraintDescriptor,
+        @Nullable Object validatedValue,
+        boolean customViolation
+    ) {
         this.validatorContext = validatorContext;
         this.constraintDescriptor = constraintDescriptor;
         this.validatedValue = validatedValue;
+        this.customViolation = customViolation;
+    }
+
+    /**
+     * @return Whether the template is the one of a violation a constraint validator built with
+     * {@link jakarta.validation.ConstraintValidatorContext#buildConstraintViolationWithTemplate(String)}, which
+     * may carry what was validated
+     * @since 5.3.0
+     */
+    public boolean isCustomViolation() {
+        return customViolation;
     }
 
     public DefaultConstraintValidatorContext<?> getValidatorContext() {

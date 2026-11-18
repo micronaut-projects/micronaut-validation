@@ -48,6 +48,13 @@ final class ValidationMessageBundleLoader {
         this.reflectionSupport = ReflectionSupport.forClassLoader(loader);
     }
 
+    /**
+     * @return The introspector of the loader, the one the reflection support discovered for it
+     */
+    BeanIntrospector introspector() {
+        return reflectionSupport.introspector();
+    }
+
     Optional<String> find(String key, Locale locale) {
         var bundles = candidates(locale);
         // As with ResourceBundle, use the default locale only when the requested locale
@@ -86,7 +93,7 @@ final class ValidationMessageBundleLoader {
         for (Locale candidate : candidates) {
             String bundleName = control.toBundleName("ValidationMessages", candidate);
             if (loader.getResource(control.toResourceName(bundleName, "class")) != null) {
-                BeanIntrospector introspector = BeanIntrospector.forClassLoader(loader);
+                BeanIntrospector introspector = reflectionSupport.introspector();
                 ResourceBundle bundle = introspector.findIntrospectedType(bundleName)
                     .flatMap(introspector::findIntrospection)
                     .map(introspection -> (ResourceBundle) introspection.instantiate())

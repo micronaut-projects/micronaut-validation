@@ -312,18 +312,9 @@ final class ConstraintEvaluator {
     @SuppressWarnings({"unchecked", "rawtypes"})
     private List<DefaultConstraintDescriptor<Annotation>> describeConstraints(AnnotationMetadata annotationMetadata) {
         List<DefaultConstraintDescriptor<Annotation>> descriptors = new ArrayList<>();
+        // the types are filtered to the declared constraints already, when the element declares any
         Set<Class<? extends Annotation>> constraintTypes = ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, reflectionSupport.classLoader());
-        boolean hasDeclaredConstraint = false;
         for (Class<? extends Annotation> constraintType : constraintTypes) {
-            if (ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, constraintType)) {
-                hasDeclaredConstraint = true;
-                break;
-            }
-        }
-        for (Class<? extends Annotation> constraintType : constraintTypes) {
-            if (hasDeclaredConstraint && !ConstraintAnnotationKey.isDeclaredConstraint(annotationMetadata, constraintType)) {
-                continue;
-            }
             Map<String, AnnotationValue<? extends Annotation>> uniqueAnnotationValues = new LinkedHashMap<>();
             for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(reflectionSupport, annotationMetadata, constraintType)) {
                 uniqueAnnotationValues.putIfAbsent(ConstraintAnnotationKey.of(constraintType, annotationValue), annotationValue);

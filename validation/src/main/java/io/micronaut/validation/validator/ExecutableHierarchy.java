@@ -30,7 +30,6 @@ import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
-import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.groups.ConvertGroup;
 import jakarta.validation.groups.Default;
@@ -341,24 +340,13 @@ public final class ExecutableHierarchy {
             GroupConversion groupConversion = GroupConversion.of(conversion);
             Class<?> from = groupConversion.from();
             Class<?> to = groupConversion.requireTo();
-            if (isGroupSequence(reflectionSupport, from)) {
+            if (reflectionSupport.isGroupSequence(from)) {
                 throw new ConstraintDeclarationException("Group conversion source cannot be a group sequence: " + from.getName());
             }
             if (seen.putIfAbsent(from, to) != null) {
                 throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
             }
         }
-    }
-
-    /**
-     * Whether a group is a group sequence: the introspection of the group says so where the archive holds
-     * one, and only a group it never introspected is read from the class.
-     */
-    private static boolean isGroupSequence(ReflectionSupport reflectionSupport, Class<?> group) {
-        BeanIntrospection<?> introspection = reflectionSupport.introspector().findIntrospection(group).orElse(null);
-        return introspection == null
-            ? reflectionSupport.isGroupSequence(group)
-            : introspection.getAnnotationMetadata().hasAnnotation(GroupSequence.class);
     }
 
     private static boolean addsParameterConstraints(ReflectionSupport reflectionSupport, Resolved hierarchy) {

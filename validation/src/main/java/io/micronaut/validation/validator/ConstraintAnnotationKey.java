@@ -15,15 +15,16 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.validation.validator.constraints.ConstraintContainers;
 
 import java.lang.annotation.Annotation;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.TreeMap;
 
 final class ConstraintAnnotationKey {
@@ -55,20 +56,13 @@ final class ConstraintAnnotationKey {
         return constraintType.getName() + attributes;
     }
 
-    static boolean isDeclaredConstraint(AnnotationMetadata annotationMetadata,
-                                        Class<? extends Annotation> constraintType) {
-        return isDeclaredConstraint(annotationMetadata, constraintType.getName());
-    }
-
     /**
      * Whether a constraint is declared on the element itself, directly or in its repeatable container. The
      * container is the one the metadata records for the constraint, whatever its name; metadata recording
      * none is read with the container named {@code List} nested in the constraint.
      */
     static boolean isDeclaredConstraint(AnnotationMetadata annotationMetadata, String constraintName) {
-        Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
-        return declared.contains(constraintName)
-            || declared.contains(container(annotationMetadata, constraintName));
+        return ConstraintContainers.isDeclared(annotationMetadata, constraintName);
     }
 
     static String container(AnnotationMetadata annotationMetadata, String constraintName) {
@@ -102,9 +96,10 @@ final class ConstraintAnnotationKey {
         if (value.getClass().isArray() && value.getClass().getComponentType().isPrimitive()) {
             return primitiveArrayToString(value);
         }
-        return String.valueOf(value)
-            .replace("interface ", "")
-            .replace("class ", "");
+        if (value instanceof AnnotationClassValue<?> classValue) {
+            return classValue.getName();
+        }
+        return String.valueOf(value);
     }
 
     private static String primitiveArrayToString(Object value) {

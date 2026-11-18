@@ -294,9 +294,13 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
     private final class XmlBeanMethod implements BeanMethod<T, Object> {
         private final ValidationDeclaration source;
+        private final Argument<?>[] arguments;
+        private final ReturnType<Object> returnType;
 
         private XmlBeanMethod(ValidationDeclaration source) {
             this.source = source;
+            this.arguments = source.parameters().toArray(Argument.ZERO_ARGUMENTS);
+            this.returnType = returnType(source);
         }
 
         @Override
@@ -321,11 +325,15 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
         @Override
         public Argument<?>[] getArguments() {
-            return source.parameters().toArray(Argument.ZERO_ARGUMENTS);
+            return arguments;
         }
 
         @Override
         public ReturnType<Object> getReturnType() {
+            return returnType;
+        }
+
+        private static ReturnType<Object> returnType(ValidationDeclaration source) {
             return new ReturnType<>() {
                 @Override
                 @SuppressWarnings("unchecked") public Class<Object> getType() {
@@ -362,9 +370,11 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
     private final class XmlBeanConstructor implements BeanConstructor<T> {
         private final ValidationDeclaration source;
+        private final Argument<?>[] arguments;
 
         private XmlBeanConstructor(ValidationDeclaration source) {
             this.source = source;
+            this.arguments = source.parameters().toArray(Argument.ZERO_ARGUMENTS);
         }
 
         @Override
@@ -374,7 +384,7 @@ final class XmlBeanIntrospection<T> implements BeanIntrospection<T> {
 
         @Override
         public Argument<?>[] getArguments() {
-            return source.parameters().toArray(Argument.ZERO_ARGUMENTS);
+            return arguments;
         }
 
         @Override

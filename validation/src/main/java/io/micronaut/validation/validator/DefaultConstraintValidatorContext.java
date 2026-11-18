@@ -166,7 +166,11 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         sanityCheckGroups(definedGroups);
         List<Class<?>> groups = new ArrayList<>();
         for (Class<?> group : definedGroups) {
-            GroupSequences.addInheritedGroups(reflectionSupport, group, groups);
+            for (Class<?> inherited : defaultValidator.declarations().inheritedGroups(group)) {
+                if (!groups.contains(inherited)) {
+                    groups.add(inherited);
+                }
+            }
         }
         return List.copyOf(groups);
     }

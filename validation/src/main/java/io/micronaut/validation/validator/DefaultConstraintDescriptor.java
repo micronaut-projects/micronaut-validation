@@ -308,6 +308,7 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
 
     @Override
     public Map<String, Object> getAttributes() {
+        // read per call: the arrays of the attributes are defensive copies a caller may change
         var reflected = reflectionSupport.annotationAttributes(type, annotationValue);
         if (reflected != null) {
             return reflected;

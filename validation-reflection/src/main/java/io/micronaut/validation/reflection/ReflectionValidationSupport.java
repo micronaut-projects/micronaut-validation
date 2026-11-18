@@ -65,6 +65,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.Set;
 
@@ -380,7 +381,10 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         var attributes = new LinkedHashMap<String, Object>();
         for (var member : type.getDeclaredMethods()) {
             try {
-                member.setAccessible(true);
+                if (!member.canAccess(annotation)) {
+                    // the members of a public annotation are read as they are, only a hidden one needs opening
+                    member.setAccessible(true);
+                }
                 attributes.put(member.getName(), member.invoke(annotation));
             } catch (ReflectiveOperationException e) {
                 throw new ValidationException("Cannot read constraint attributes for " + type.getName(), e);
@@ -410,6 +414,15 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     public @Nullable Method declaredMethod(Class<?> declaringType, String name, Class<?>[] parameterTypes) {
         try {
             return declaringType.getDeclaredMethod(name, parameterTypes);
+        } catch (NoSuchMethodException | SecurityException e) {
+            return null;
+        }
+    }
+
+    @Override
+    public @Nullable Constructor<?> declaredConstructor(Class<?> declaringType, Class<?>[] parameterTypes) {
+        try {
+            return declaringType.getDeclaredConstructor(parameterTypes);
         } catch (NoSuchMethodException | SecurityException e) {
             return null;
         }
@@ -501,11 +514,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        try {
-            return generated.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
-        } catch (ValidationException missing) {
+        OptionalInt described = generated.describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        if (described == null) {
             return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
         }
+        return described.isPresent() ? described.getAsInt() : null;
     }
 
     @Override
@@ -533,11 +546,8 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public <T> @Nullable Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
-        try {
-            return generated.genericSuperArgument(type, superType);
-        } catch (ValidationException missing) {
-            return ReflectionArguments.resolveGenericToArgument(type, superType);
-        }
+        Argument<T> described = generated.describedGenericSuperArgument(type, superType);
+        return described != null ? described : ReflectionArguments.resolveGenericToArgument(type, superType);
     }
 
     @Override
@@ -596,10 +606,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
-        try {
-            return generated.valueExtractorArgument(extractorType);
-        } catch (ValidationException missing) {
-            return ReflectedValueExtractors.argumentOf(extractorType);
-        }
+        Argument<?> described = generated.describedValueExtractorArgument(extractorType);
+        return described != null ? described : ReflectedValueExtractors.argumentOf(extractorType);
     }
 }

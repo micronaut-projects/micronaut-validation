@@ -70,6 +70,8 @@ final class ValidatorDeclarations {
     private final Set<BeanIntrospection<?>> checkedBeanDeclarations = ConcurrentHashMap.newKeySet();
     private final Map<BeanIntrospection<?>, List<BeanIntrospection<?>>> superIntrospectionsCache = new ConcurrentHashMap<>();
     private final Map<BeanIntrospection<?>, BeanPlan> beanPlans = new ConcurrentHashMap<>();
+    // a group and the groups it extends, transitively, the group first
+    private final Map<Class<?>, List<Class<?>>> inheritedGroups = new ConcurrentHashMap<>();
     private final Map<ExecutableHierarchy.Key, ConfiguredExecutable> configuredExecutables = new ConcurrentHashMap<>();
     private final Map<BeanIntrospection<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> defaultGroupSequences = CopyOnWriteMap.create(16 * 1024);
 
@@ -107,6 +109,22 @@ final class ValidatorDeclarations {
         beanPlans.clear();
         configuredExecutables.clear();
         defaultGroupSequences.clear();
+        inheritedGroups.clear();
+    }
+
+    /**
+     * @param group The group
+     * @return The group and the groups it extends, transitively, read once per group
+     */
+    List<Class<?>> inheritedGroups(Class<?> group) {
+        List<Class<?>> groups = inheritedGroups.get(group);
+        if (groups == null) {
+            List<Class<?>> collected = new ArrayList<>();
+            GroupSequences.addInheritedGroups(reflectionSupport, group, collected);
+            groups = List.copyOf(collected);
+            inheritedGroups.put(group, groups);
+        }
+        return groups;
     }
 
     /**
@@ -124,6 +142,19 @@ final class ValidatorDeclarations {
         }
         java.lang.reflect.Method method = reflectionSupport.declaredMethod(declaringType, name, Argument.toClassArray(arguments));
         return method == null ? null : parameterNameProvider.getParameterNames(method);
+    }
+
+    /**
+     * @param declaringType The type declaring the constructor
+     * @param arguments The arguments of the constructor
+     * @return The names the parameter name provider gives the parameters, null without one or without the constructor
+     */
+    @Nullable List<String> parameterNames(Class<?> declaringType, Argument<?>[] arguments) {
+        if (parameterNameProvider == null) {
+            return null;
+        }
+        java.lang.reflect.Constructor<?> constructor = reflectionSupport.declaredConstructor(declaringType, Argument.toClassArray(arguments));
+        return constructor == null ? null : parameterNameProvider.getParameterNames(constructor);
     }
 
     /** The hierarchy of a bean method, for the descriptors of a bean. */

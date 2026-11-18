@@ -191,11 +191,8 @@ final class ReactiveValidation {
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addReturnValueNode()) {
             try (ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addContainerElementNode("<publisher element>",
                 ValidationPath.DefaultContainerContext.ofIterableContainer(publisherArgument.getType()))) {
-                for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : context.findGroupSequences()) {
-                    try (DefaultConstraintValidatorContext.GroupsValidation ignore = context.withGroupSequence(groupSequence)) {
-                        validator.traversal().visitElement(context, publisher, valueArgument, value, canCascade);
-                    }
-                }
+                context.validateInGroups(context.findGroupSequences(), firstStep ->
+                    validator.traversal().visitElement(context, publisher, valueArgument, value, canCascade));
             }
         }
         return context.getOverallViolations();

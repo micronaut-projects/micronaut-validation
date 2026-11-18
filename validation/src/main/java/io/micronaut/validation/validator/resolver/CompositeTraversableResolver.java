@@ -48,6 +48,14 @@ public class CompositeTraversableResolver implements TraversableResolver {
         this.traversableResolvers = CollectionUtils.isEmpty(traversableResolvers) ? null : traversableResolvers;
     }
 
+    /**
+     * @return Whether no resolver is configured, so every node is reachable and cascadable
+     * @since 5.3.0
+     */
+    public boolean traversesAll() {
+        return traversableResolvers == null;
+    }
+
     @Override
     public boolean isReachable(Object traversableObject, Path.Node traversableProperty, Class<?> rootBeanType, Path pathToTraversableObject, ElementType elementType) {
         if (traversableResolvers == null) {

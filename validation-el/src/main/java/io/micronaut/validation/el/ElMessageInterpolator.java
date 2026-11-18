@@ -18,6 +18,7 @@ package io.micronaut.validation.el;
 import io.micronaut.context.MessageSource;
 import io.micronaut.context.annotation.Replaces;
 import io.micronaut.context.annotation.Requires;
+import io.micronaut.context.annotation.Value;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.el.CompiledExpressionFactory;
@@ -30,6 +31,7 @@ import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import io.micronaut.validation.validator.messages.InterpolatorLocaleResolver;
 import jakarta.el.ExpressionFactory;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ValidationException;
@@ -62,6 +64,13 @@ import java.util.Set;
 @Requires(classes = CompiledExpressionFactory.class)
 public final class ElMessageInterpolator implements MessageInterpolator {
 
+    /**
+     * The property enabling the evaluation of the expressions of a template a constraint validator builds with
+     * {@link jakarta.validation.ConstraintValidatorContext#buildConstraintViolationWithTemplate(String)}: off by
+     * default, as the template may carry what was validated, only its variables resolve.
+     */
+    public static final String CUSTOM_VIOLATION_EXPRESSIONS = "micronaut.validator.custom-violation-expressions";
+
     private static final Logger LOG = LoggerFactory.getLogger(ElMessageInterpolator.class);
 
     private static final char ESCAPE = '\\';
@@ -78,6 +87,8 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private final ExpressionFactory expressionFactory;
     private final ValidationMessageBundleLoader bundles;
     private final BeanIntrospector introspector;
+    // whether the expressions of a template a constraint validator built are evaluated: it may carry what was validated
+    private final boolean customViolationExpressions;
 
     /**
      * Creates an EL-backed message interpolator.
@@ -87,16 +98,39 @@ public final class ElMessageInterpolator implements MessageInterpolator {
      */
     public ElMessageInterpolator(MessageSource messageSource,
                                  @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver) {
-        this(messageSource, interpolatorLocaleResolver, applicationClassLoader());
+        this(messageSource, interpolatorLocaleResolver, false);
+    }
+
+    /**
+     * Creates an EL-backed message interpolator.
+     *
+     * @param messageSource The message source
+     * @param interpolatorLocaleResolver The locale resolver
+     * @param customViolationExpressions Whether the expressions of a template a constraint validator builds are
+     *                                   evaluated, see {@code micronaut.validator.custom-violation-expressions}
+     */
+    @Inject
+    public ElMessageInterpolator(MessageSource messageSource,
+                                 @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver,
+                                 @Value("${" + CUSTOM_VIOLATION_EXPRESSIONS + ":false}") boolean customViolationExpressions) {
+        this(messageSource, interpolatorLocaleResolver, applicationClassLoader(), customViolationExpressions);
     }
 
     ElMessageInterpolator(MessageSource messageSource,
                           @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver,
                           ClassLoader classLoader) {
+        this(messageSource, interpolatorLocaleResolver, classLoader, false);
+    }
+
+    ElMessageInterpolator(MessageSource messageSource,
+                          @Nullable InterpolatorLocaleResolver interpolatorLocaleResolver,
+                          ClassLoader classLoader,
+                          boolean customViolationExpressions) {
+        this.customViolationExpressions = customViolationExpressions;
         this.messageSource = messageSource;
         this.interpolatorLocaleResolver = interpolatorLocaleResolver == null ? OptionalLocaleResolver.INSTANCE : interpolatorLocaleResolver;
         this.bundles = new ValidationMessageBundleLoader(classLoader);
-        this.introspector = BeanIntrospector.forClassLoader(classLoader);
+        this.introspector = bundles.introspector();
         this.expressionFactory = new CompiledExpressionFactory(
             ElExpressionSources.load(classLoader),
             new InterpretingELExpressionParser(List.of(
@@ -166,6 +200,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                     result.append(DOLLAR);
                 }
                 result.append(attribute);
+            } else if (token.kind() == Kind.EXPRESSION && !customViolationExpressions
+                && interpolationContext instanceof DefaultMessageInterpolatorContext defaultContext && defaultContext.isCustomViolation()) {
+                // only a variable of a custom violation resolves: its template may carry what was validated
+                result.append(parameters.containsKey(token.value()) ? parameters.get(token.value()) : "${" + token.value() + RIGHT_BRACE);
             } else if (token.kind() == Kind.EXPRESSION) {
                 result.append(evaluateExpression(token.value(), interpolationContext, locale));
             } else {

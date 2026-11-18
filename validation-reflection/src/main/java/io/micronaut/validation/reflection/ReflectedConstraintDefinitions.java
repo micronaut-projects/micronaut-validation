@@ -67,7 +67,7 @@ final class ReflectedConstraintDefinitions {
         validateGroups(annotationType);
         validatePayload(annotationType);
         ValidatorTargets validatorTargets = validatorTargets(annotationType, List.of(constraint.validatedBy()));
-        validateValidationAppliesTo(annotationType, validatorTargets);
+        validateValidationAppliesTo(annotationType, validatorTargets, constraint.validatedBy().length > 0);
     }
 
     private static void validateMessage(Class<? extends Annotation> annotationType) {
@@ -99,7 +99,13 @@ final class ReflectedConstraintDefinitions {
         }
     }
 
-    private static void validateValidationAppliesTo(Class<? extends Annotation> annotationType, ValidatorTargets validatorTargets) {
+    /**
+     * @param declaresValidators Whether the constraint declares its validators: one declaring none gets them from
+     *                           beans, an XML constraint definition or its composition, whose targets its type does
+     *                           not tell
+     */
+    private static void validateValidationAppliesTo(Class<? extends Annotation> annotationType, ValidatorTargets validatorTargets,
+                                                    boolean declaresValidators) {
         Method validationAppliesTo = optionalMember(annotationType, "validationAppliesTo");
         if (validationAppliesTo != null) {
             if (validationAppliesTo.getReturnType() != ConstraintTarget.class) {
@@ -117,7 +123,7 @@ final class ReflectedConstraintDefinitions {
             if (validationAppliesTo == null) {
                 throw new ConstraintDefinitionException("Generic and cross-parameter constraints must declare validationAppliesTo: " + annotationType.getName());
             }
-        } else if (validationAppliesTo != null) {
+        } else if (validationAppliesTo != null && declaresValidators) {
             throw new ConstraintDefinitionException("validationAppliesTo is only allowed for constraints that are both generic and cross-parameter: " + annotationType.getName());
         }
     }

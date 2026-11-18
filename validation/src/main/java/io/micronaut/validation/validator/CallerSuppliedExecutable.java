@@ -78,4 +78,14 @@ final class CallerSuppliedExecutable<T, R> implements ExecutableMethod<T, R> {
     public @Nullable R invoke(T instance, @Nullable Object... arguments) {
         return delegate.invoke(instance, arguments);
     }
+
+    @Override
+    public boolean equals(@Nullable Object o) {
+        return o instanceof CallerSuppliedExecutable<?, ?> other && delegate.equals(other.delegate) && supplied.equals(other.supplied);
+    }
+
+    @Override
+    public int hashCode() {
+        return 31 * delegate.hashCode() + supplied.hashCode();
+    }
 }
