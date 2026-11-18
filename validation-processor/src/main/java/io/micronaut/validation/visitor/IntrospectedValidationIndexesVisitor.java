@@ -20,21 +20,16 @@ import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import io.micronaut.core.annotation.ReflectiveAccess;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.ElementQuery;
 import io.micronaut.inject.ast.FieldElement;
 import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
-import io.micronaut.inject.processing.ProcessingException;
-import io.micronaut.inject.utils.JsonWriter;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,7 +102,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
             // constrained only by an XML mapping asks for the option
             return;
         }
-        registerAnnotatedFields(element, context);
         markExecutable(element);
         for (ClassElement target : targets) {
             if (describeAll || participates(target)) {
@@ -203,36 +197,5 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
                 builder.member("constructors", true);
             }
         });
-    }
-
-    private static void registerAnnotatedFields(ClassElement element, VisitorContext context) {
-        var byType = new LinkedHashMap<String, List<String>>();
-        ClassElement accessType = ClassElement.of(element.getName() + "$ValidationAccess");
-        for (var field : element.getFields()) {
-            if (field.getAnnotationMetadata().hasDeclaredAnnotation(ReflectiveAccess.class)
-                && field.isReflectionRequired(accessType)) {
-                byType.computeIfAbsent(field.getDeclaringType().getName(), ignored -> new ArrayList<>())
-                    .add(field.getName());
-            }
-        }
-        if (byType.isEmpty()) {
-            return;
-        }
-        var document = new JsonWriter().beginArray();
-        byType.forEach((type, fields) -> {
-            document.beginObject().name("name").value(type).name("fields").beginArray();
-            fields.stream().distinct().forEach(name -> document.beginObject().name("name").value(name).endObject());
-            document.endArray().endObject();
-        });
-        String json = document.endArray().toString();
-        var resource = context.visitMetaInfFile(
-            "native-image/io.micronaut.validation/" + element.getName() + "/reflect-config.json", element);
-        try {
-            if (resource.isPresent()) {
-                resource.get().write(writer -> writer.write(json));
-            }
-        } catch (IOException e) {
-            throw new ProcessingException(element, "Cannot register annotated validation fields", e);
-        }
     }
 }

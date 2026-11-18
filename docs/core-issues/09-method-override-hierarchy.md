@@ -1,6 +1,6 @@
 # Resolve the override hierarchy of a bean method from introspections
 
-**Status: adopted** (core #14321, merge 6b26fabb6a; adopted 2026-11-11)
+**Status: adopted** (core #14321, merge 6b26fabb6a; adopted 2026-11-11; core #14460, 2d747767e4, matches a decorated bean method by signature: adopted 2026-11-17, `ExecutableHierarchy` reads `findOverridden` through the XML-decorating introspector and `BeanIntrospectorDecorator` is deleted)
 **Component:** micronaut-core `core` (`BeanTypeHierarchy`), `inject`, `reflection` (`MethodHierarchy`)
 **Checked against:** micronaut-core `origin/5.3.x`
 

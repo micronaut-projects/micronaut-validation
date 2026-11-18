@@ -27,7 +27,6 @@ import io.micronaut.core.type.ReturnType;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
-import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
@@ -195,18 +194,16 @@ public final class ExecutableHierarchy {
             return Optional.empty();
         }
         // core matches the signature as declared first, else the one a generic declaration erases to, a type
-        // variable bound by the validated type standing for its binding; it reads the generated introspections,
-        // whose bean methods it compares by identity, so the declaration itself is read from the introspector,
-        // which may decorate them
+        // variable bound by the validated type standing for its binding
         BeanTypeHierarchy hierarchy = root != null && root.contains(type) ? root : introspection.getTypeHierarchy().orElse(null);
-        Class<?>[] declared = hierarchy == null ? parameterTypes
-            : hierarchy.findOverridden(introspector instanceof BeanIntrospectorDecorator decorator ? decorator.getDecorated() : introspector,
-                    type, name, parameterTypes)
-                .map(method -> Argument.toClassArray(method.getArguments()))
-                .orElse(parameterTypes);
+        if (hierarchy != null) {
+            return hierarchy.findOverridden(introspector, type, name, parameterTypes)
+                .filter(method -> method.getDeclaringType() == type)
+                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
+        }
         for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
             if (method.getName().equals(name) && method.getDeclaringType() == type
-                && Arrays.equals(Argument.toClassArray(method.getArguments()), declared)) {
+                && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes)) {
                 return Optional.of(Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
             }
         }

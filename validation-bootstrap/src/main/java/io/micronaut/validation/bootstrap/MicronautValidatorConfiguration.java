@@ -669,12 +669,10 @@ public final class MicronautValidatorConfiguration
     }
 
     private <T> T instantiate(String className, Class<T> type) {
-        var introspection =
-                BeanIntrospector.forClassLoader(classLoader)
-                        .findIntrospections(reference -> reference.getName().equals(className))
-                        .stream()
-                        .findFirst()
-                        .orElse(null);
+        BeanIntrospector introspector = BeanIntrospector.forClassLoader(classLoader);
+        var introspection = introspector.findIntrospectedType(className)
+                .flatMap(introspector::findIntrospection)
+                .orElse(null);
         Object instance;
         try {
             instance = introspection == null

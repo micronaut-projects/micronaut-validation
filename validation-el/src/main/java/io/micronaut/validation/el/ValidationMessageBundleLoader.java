@@ -86,11 +86,11 @@ final class ValidationMessageBundleLoader {
         for (Locale candidate : candidates) {
             String bundleName = control.toBundleName("ValidationMessages", candidate);
             if (loader.getResource(control.toResourceName(bundleName, "class")) != null) {
-                var introspections = BeanIntrospector.forClassLoader(loader)
-                    .findIntrospections(reference -> reference.getName().equals(bundleName));
-                ResourceBundle bundle = introspections.isEmpty()
-                    ? reflectionSupport.messageBundle("ValidationMessages", candidate, loader)
-                    : (ResourceBundle) introspections.iterator().next().instantiate();
+                BeanIntrospector introspector = BeanIntrospector.forClassLoader(loader);
+                ResourceBundle bundle = introspector.findIntrospectedType(bundleName)
+                    .flatMap(introspector::findIntrospection)
+                    .map(introspection -> (ResourceBundle) introspection.instantiate())
+                    .orElseGet(() -> reflectionSupport.messageBundle("ValidationMessages", candidate, loader));
                 bundles.add(bundle);
                 localized |= !candidate.equals(Locale.ROOT);
                 continue;

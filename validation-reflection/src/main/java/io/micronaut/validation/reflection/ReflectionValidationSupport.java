@@ -27,7 +27,7 @@ import io.micronaut.core.beans.BeanPropertyMember;
 import io.micronaut.core.type.Argument;
 import io.micronaut.inject.ExecutableMethod;
 import io.micronaut.inject.MethodReference;
-import io.micronaut.inject.annotation.AnnotationMetadataSupport;
+import io.micronaut.inject.annotation.AnnotationMetadatas;
 import io.micronaut.reflection.MethodHierarchy;
 import io.micronaut.reflection.ReflectionAnnotations;
 import io.micronaut.reflection.ReflectionArguments;
@@ -329,8 +329,7 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
         if (generated.annotationBuilder(type) != null) {
             return generated.annotation(type, value);
         }
-        return AnnotationMetadataSupport.buildAnnotation(
-                type, (AnnotationValue<T>) value);
+        return AnnotationMetadatas.synthesize(type, (AnnotationValue<T>) value);
     }
 
     @Override

@@ -17,7 +17,6 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.util.CollectionUtils;
@@ -592,10 +591,9 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
         AnnotationValue<? extends Annotation> parentAnnotationValue,
         AnnotationMetadata annotationMetadata) {
         String name = composing.getAnnotationName();
-        // the values the composing annotation sets, the overrides of the composed one applied; the reserved
-        // member holding the subtree is not one of them
+        // the values the composing annotation sets, the overrides of the composed one applied; getValues()
+        // hides the reserved member holding the subtree
         Map<CharSequence, Object> values = new LinkedHashMap<>(composing.getValues());
-        values.remove(AnnotationUtil.STEREOTYPES_MEMBER);
         Map<CharSequence, Object> defaultValues = composing.getDefaultValues() == null ? Map.of() : composing.getDefaultValues();
         // the target of the composed constraint applies to the composing ones declaring one
         ConstraintTarget validationAppliesTo =

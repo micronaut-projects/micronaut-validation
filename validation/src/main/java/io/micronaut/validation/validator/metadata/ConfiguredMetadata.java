@@ -17,7 +17,7 @@ package io.micronaut.validation.validator.metadata;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
-import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
+import io.micronaut.inject.annotation.AnnotationMetadatas;
 import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.annotation.ValidatedElement;
 
@@ -42,16 +42,9 @@ public final class ConfiguredMetadata {
      * @return The merged metadata
      */
     public static AnnotationMetadata merge(List<AnnotationMetadata> levels) {
-        List<AnnotationMetadata> present = levels.stream().filter(level -> !level.isEmpty()).toList();
-        if (present.isEmpty()) {
-            return AnnotationMetadata.EMPTY_METADATA;
-        }
-        if (present.size() == 1) {
-            return present.get(0);
-        }
         // a hierarchy reads the levels as they are: the generated metadata of a type is shared, copying it into
         // a mutable metadata would share and then alter its annotation values
-        return new AnnotationMetadataHierarchy(true, present.toArray(AnnotationMetadata[]::new));
+        return AnnotationMetadatas.merge(levels);
     }
 
     /**

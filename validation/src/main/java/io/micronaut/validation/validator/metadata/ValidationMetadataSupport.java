@@ -218,12 +218,8 @@ public final class ValidationMetadataSupport {
         if (standard != null) {
             return standard;
         }
-        for (var introspection : reflectionSupport.introspector().findIntrospections(reference -> reference.getName().equals(name))) {
-            if (introspection.getBeanType().getName().equals(name)) {
-                return introspection.getBeanType();
-            }
-        }
-        return reflectionSupport.classForName(name, loader);
+        return reflectionSupport.introspector().findIntrospectedType(name)
+            .orElseGet(() -> reflectionSupport.classForName(name, loader));
     }
 
     /**

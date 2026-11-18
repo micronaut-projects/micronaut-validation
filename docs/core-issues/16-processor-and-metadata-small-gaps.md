@@ -1,6 +1,6 @@
 # Smaller processor and metadata gaps
 
-**Status: proposal** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908)
+**Status: partly adopted** (drafted 2026-11-07 from micronaut-validation `codex/validation-core53-hardening` 88ce0908; adopted 2026-11-17: core #14464, 36a17cc7e0, `BeanIntrospector.findIntrospectedType` replaces the lookups by name; core #14461, 8160e4e8a4, `AnnotationMetadatas.merge`/`synthesize` and `AnnotationValueBuilder.retainStereotypes` replace the `@Internal` hierarchy constructor, `AnnotationMetadataSupport.buildAnnotation` and the hand-written stereotype member. Open: builder registration limits, `getOwnMetadata()`, `AnnotationBuilder.members()`, effective equality - core #14482, 9a4d9c9242, fixes the equals/hashCode contract but still ignores stereotypes, so `ValidationAnnotationRemapper` keeps its identity check)
 **Component:** micronaut-core `core-processor`, `core`
 **Checked against:** micronaut-core `origin/5.3.x`
 

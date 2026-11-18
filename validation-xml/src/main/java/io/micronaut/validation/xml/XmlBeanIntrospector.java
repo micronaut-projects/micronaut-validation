@@ -25,7 +25,6 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
 import io.micronaut.validation.annotation.ValidatedElement;
 import io.micronaut.validation.validator.ReflectionSupport;
-import io.micronaut.validation.validator.metadata.BeanIntrospectorDecorator;
 import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
 import io.micronaut.validation.validator.metadata.ValidationDeclaration;
 import io.micronaut.validation.xml.XmlMapping.BeanMapping;
@@ -58,7 +57,7 @@ import java.util.function.Predicate;
  * @since 5.3.0
  */
 @Internal
-public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
+public final class XmlBeanIntrospector implements BeanIntrospector {
 
     private final BeanIntrospector delegate;
     private final Map<Class<?>, BeanMapping> beanMappings;
@@ -81,11 +80,6 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
     }
 
     @Override
-    public BeanIntrospector getDecorated() {
-        return delegate;
-    }
-
-    @Override
     public BeanIntrospector withoutFallbacks() {
         BeanIntrospector generated = delegate.withoutFallbacks();
         return generated == delegate ? this : new XmlBeanIntrospector(generated, beanMappings);
@@ -94,6 +88,11 @@ public final class XmlBeanIntrospector implements BeanIntrospectorDecorator {
     @Override
     public Collection<BeanIntrospection<Object>> findIntrospections(Predicate<? super BeanIntrospectionReference<?>> filter) {
         return delegate.findIntrospections(filter);
+    }
+
+    @Override
+    public Optional<Class<?>> findIntrospectedType(String name) {
+        return delegate.findIntrospectedType(name);
     }
 
     @Override

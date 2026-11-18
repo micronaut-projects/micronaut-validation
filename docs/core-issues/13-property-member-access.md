@@ -1,6 +1,6 @@
 # Tell whether a property member is read through reflection
 
-**Status: adopted** (core #14320, merge 9c1917e100; adopted 2026-11-11)
+**Status: adopted** (core #14320, merge 9c1917e100; adopted 2026-11-11; core #14462, d6ffc2ba22, writes the GraalVM reflection configuration of reflectively dispatched members: adopted 2026-11-17, the processor no longer writes `reflect-config.json`)
 **Component:** micronaut-core `core` (`BeanPropertyMember`), `core-processor`
 **Checked against:** micronaut-core `origin/5.3.x`
 

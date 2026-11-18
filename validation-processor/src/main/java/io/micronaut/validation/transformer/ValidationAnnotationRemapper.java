@@ -18,7 +18,6 @@ package io.micronaut.validation.transformer;
 import io.micronaut.annotation.processing.visitor.ElementProvider;
 import io.micronaut.core.annotation.AnnotationClassValue;
 import io.micronaut.core.annotation.AnnotationMetadata;
-import io.micronaut.core.annotation.AnnotationUtil;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
 import io.micronaut.core.annotation.Internal;
@@ -245,8 +244,8 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             return value;
         }
         // Nested annotation values do not pass through the metadata builder's retention step.
-        return value.mutate().member(AnnotationUtil.STEREOTYPES_MEMBER,
-            stereotypes.stream().map(ValidationAnnotationRemapper::retainedValue).toArray(AnnotationValue<?>[]::new)).build();
+        return value.mutate().retainStereotypes(
+            stereotypes.stream().map(ValidationAnnotationRemapper::retainedValue).toList()).build();
     }
 
     // Keep javac-only AST adapters out of Kotlin and Groovy frontend class loading.
