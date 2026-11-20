@@ -158,6 +158,21 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                 context.getTarget(), executableMethod, (Publisher<Object>) publisher, plan.groups()));
                         }
                         case COMPLETION_STAGE -> {
+                            if (executableMethod.isSuspend()) {
+                                // a suspending method returns the value the coroutine produces, once it completes
+                                if (!plan.returnValueValidated()) {
+                                    yield context.proceed();
+                                }
+                                CompletionStage<Object> stage = (CompletionStage<Object>) interceptedMethod.interceptResultAsCompletionStage();
+                                yield interceptedMethod.handleResult(stage.thenApply(value -> {
+                                    Set<ConstraintViolation<Object>> violations = micronautValidator.validateReturnValue(
+                                        context.getTarget(), executableMethod, value, plan.groups());
+                                    if (!violations.isEmpty()) {
+                                        throw createConstraintViolationException(isPrependPropertyPath, violations);
+                                    }
+                                    return value;
+                                }));
+                            }
                             // the stage as returned: its own constraints first, a null one among them
                             Object result = context.proceed();
                             Set<ConstraintViolation<Object>> containerViolations = reactiveValidator.validateReturnedContainer(
