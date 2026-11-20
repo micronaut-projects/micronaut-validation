@@ -323,13 +323,11 @@ final class ConstraintEvaluator {
             }
             for (AnnotationValue<? extends Annotation> annotationValue : uniqueAnnotationValues.values()) {
                 declarations.checkConstraintDefinition(constraintType, annotationValue);
-                List validatorClasses = validatorOverrides.validatorsOf((Class<Annotation>) constraintType,
-                    List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)));
                 descriptors.add(DefaultConstraintDescriptor.of(reflectionSupport,
                     (Class<Annotation>) constraintType,
                     (AnnotationValue<Annotation>) annotationValue,
                     annotationMetadata,
-                    validatorClasses));
+                    validatorOverrides));
             }
         }
         return descriptors;
