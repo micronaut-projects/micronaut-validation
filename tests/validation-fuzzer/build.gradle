@@ -31,10 +31,8 @@ tasks.withType(Test).configureEach {
 }
 
 test {
-    description = "Runs a short fixed-seed fuzzing smoke test of the harness."
-    useJUnitPlatform {
-        excludeTags 'reproducer'
-    }
+    description = "Runs a short fixed-seed fuzzing smoke test of the harness and the reproducers of the differences fixed."
+    useJUnitPlatform()
     systemProperty 'fuzz.batches', '1'
     systemProperty 'fuzz.batchSize', '8'
     systemProperty 'fuzz.failOnDifference', 'false'
@@ -42,7 +40,7 @@ test {
 
 tasks.register('reproducers', Test) {
     group = 'verification'
-    description = 'Runs the minimal reproducers of the differences the fuzzer found; each fails while its difference remains.'
+    description = 'Runs only the minimal reproducers of the differences the fuzzer found, with their output; each fails if its difference comes back.'
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform {

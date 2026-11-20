@@ -22,8 +22,8 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Minimal reproducers of the differences the fuzzer found between Micronaut Validation and Hibernate Validator.
- * Each test asserts that both validators agree, so a test fails while its difference remains. They are excluded
- * from the default test task: run them with the {@code reproducers} task.
+ * Each test asserts that both validators agree, so a test fails if its difference comes back. The {@code test} task
+ * runs them; the {@code reproducers} task runs them alone, with their output.
  */
 @Tag("reproducer")
 class ReproducersTest {
@@ -41,7 +41,7 @@ class ReproducersTest {
 
     @Test
     void decimalMaxExclusiveDefaultMessage() throws Exception {
-        // the default message of an exclusive bound says "or equal to"
+        // the default message of an exclusive bound said "or equal to"
         assertAgree(validate("""
             @Introspected
             public class Subject {
@@ -56,7 +56,7 @@ class ReproducersTest {
 
     @Test
     void unbalancedBraceInMessageTemplate() throws Exception {
-        // a template with an unbalanced '{' is kept as written
+        // a template with an unbalanced '{' is kept as written; it lost the brace
         assertAgree(validate("""
             @Introspected
             public class Subject {
@@ -91,7 +91,7 @@ class ReproducersTest {
 
     @Test
     void containerElementConstraintUnderPropertyLevelValid() throws Exception {
-        // @Valid on the container property (not on the type argument) drops the container element node
+        // @Valid on the container property (not on the type argument) dropped the container element node
         assertAgree(validate("""
             @Introspected
             public class Subject {
@@ -113,7 +113,7 @@ class ReproducersTest {
 
     @Test
     void mapKeyNodeOfMapInsideCascadedArrayElement() throws Exception {
-        // the <map key> node reports Object[] as its container class instead of Map
+        // the <map key> node reported Object[] as its container class instead of Map
         Differential.Result result = Differential.run("""
             @Introspected
             public class Subject {
@@ -138,7 +138,7 @@ class ReproducersTest {
 
     @Test
     void validGetterArrayInheritedBySubclass() throws Exception {
-        // Micronaut reports a violation for an empty cascaded array declared by a superclass getter
+        // Micronaut reported a violation for a cascaded array a getter marks with @Valid
         Differential.Result result = Differential.run("""
             @Introspected
             public class Subject extends Base {
@@ -202,7 +202,7 @@ class ReproducersTest {
 
     @Test
     void classLevelConstraintOfTheSameTypeOnSuperclassAndSubclass() throws Exception {
-        // validation reports both, the descriptor of the subclass only its own
+        // validation reported both, the descriptor of the subclass only its own
         assertMetadataAgrees("""
             @Introspected
             @FuzzClassCheck(mode = 1)
@@ -219,7 +219,7 @@ class ReproducersTest {
 
     @Test
     void validateValueOnSubclassOverridingGetter() throws Exception {
-        // validateValue ignores the constraint of the superclass field once a subclass overrides the getter
+        // validateValue ignored the constraint of the superclass field once a subclass overrides the getter
         assertAgree(Differential.run("""
             @Introspected
             public class Subject extends Base {
@@ -260,7 +260,7 @@ class ReproducersTest {
 
     @Test
     void twoCompositesComposingTheSameConstraint() throws Exception {
-        // both compose @Size(min = 2, max = 5): the single-violation composite is lost
+        // both compose @Size(min = 2, max = 5): the single-violation composite was lost
         assertAgree(validate("""
             @Introspected
             public class Subject {
@@ -273,7 +273,7 @@ class ReproducersTest {
 
     @Test
     void emptyCharSequenceIsAValidEmail() throws Exception {
-        // an empty String passes @Email in both; an empty CharSequence property fails in Micronaut
+        // an empty String passes @Email in both; an empty CharSequence property failed in Micronaut
         assertAgree(validate("""
             @Introspected
             public class Subject {
@@ -306,7 +306,7 @@ class ReproducersTest {
 
     @Test
     void beanNodeAddedToClassLevelViolation() throws Exception {
-        // FuzzClassCheck(mode = 5) adds a violation with addBeanNode() at class level
+        // FuzzClassCheck(mode = 5) adds a violation with addBeanNode() at class level, which lost its second bean node
         assertAgree(validate("""
             @Introspected
             @FuzzClassCheck(mode = 5)

@@ -42,8 +42,9 @@ Replay a single case, keeping its generated sources under `build/fuzz-report/wor
 ./gradlew :micronaut-tests:micronaut-validation-fuzzer:fuzz -Pfuzz.seed=1 -Pfuzz.batchSize=40 -Pfuzz.replay=3:23
 ```
 
-`ReproducersTest` holds hand-written reproducers of the differences found so far; each fails while its
-difference remains:
+`ReproducersTest` holds hand-written reproducers of the differences found so far, all fixed since; each fails if
+its difference comes back. The `test` task runs them with the smoke test, `reproducers` runs them alone with their
+output:
 
 ```
 ./gradlew :micronaut-tests:micronaut-validation-fuzzer:reproducers
