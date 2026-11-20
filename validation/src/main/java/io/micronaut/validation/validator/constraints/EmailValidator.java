@@ -59,7 +59,7 @@ public class EmailValidator extends AbstractPatternValidator<Email> {
             @Nullable CharSequence value,
             AnnotationValue<Email> annotationMetadata,
             ConstraintValidatorContext context) {
-        if (value == null) {
+        if (value == null || value.length() == 0) {
             return true;
         }
 
