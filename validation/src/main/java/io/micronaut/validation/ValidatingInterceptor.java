@@ -64,9 +64,11 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     private final boolean isPrependPropertyPath;
     /**
      * What intercepting a method reads of it, by method: its groups, the kind of its result and whether its return
-     * value is validated. Resolved from the method, so it is the same for the life of the method.
+     * value is validated. Resolved from the method, so it is the same for the life of the method. Keyed by identity:
+     * methods equal by their signature, one inherited by beans validated in different groups, are different
+     * methods of different beans.
      */
-    private final Map<ExecutableMethod<Object, Object>, MethodPlan> methodPlans;
+    private final Map<MethodKey, MethodPlan> methodPlans;
 
     /**
      * Creates ValidatingInterceptor from the validatorFactory.
@@ -195,7 +197,8 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
      */
     private MethodPlan plan(MethodInvocationContext<Object, Object> context) {
         ExecutableMethod<Object, Object> executableMethod = context.getExecutableMethod();
-        MethodPlan plan = methodPlans.get(executableMethod);
+        MethodKey key = new MethodKey(executableMethod);
+        MethodPlan plan = methodPlans.get(key);
         if (plan == null) {
             ReturnType<Object> returnType = executableMethod.getReturnType();
             // the kind of the result is of the method, a suspending one included: a synchronous method is never
@@ -205,7 +208,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                 : InterceptedMethod.ResultType.SYNCHRONOUS;
             plan = new MethodPlan(context.classValues(Validated.class, "groups"), resultType,
                 !returnType.isVoid() && requiresValidation(returnType.asArgument()));
-            methodPlans.put(executableMethod, plan);
+            methodPlans.put(key, plan);
         }
         return plan;
     }
@@ -263,5 +266,23 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
      * @param returnValueValidated Whether its return value can produce a violation at all
      */
     private record MethodPlan(Class<?>[] groups, InterceptedMethod.ResultType resultType, boolean returnValueValidated) {
+    }
+
+    /**
+     * A method compared by identity.
+     *
+     * @param method The method
+     */
+    private record MethodKey(ExecutableMethod<?, ?> method) {
+        @Override
+        @SuppressWarnings("ReferenceEquality")
+        public boolean equals(@Nullable Object o) {
+            return o instanceof MethodKey other && other.method == method;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(method);
+        }
     }
 }

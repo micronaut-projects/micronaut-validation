@@ -70,7 +70,7 @@ final class ConstraintAnnotationKey {
     }
 
     private static boolean isMeaningfulAttribute(String attributeName, Object value) {
-        return !"message".equals(attributeName) || !"".equals(value);
+        return !"message".equals(attributeName) || !quoted("").equals(value);
     }
 
     private static Object normalize(String attributeName, Object value) {
@@ -99,7 +99,15 @@ final class ConstraintAnnotationKey {
         if (value instanceof AnnotationClassValue<?> classValue) {
             return classValue.getName();
         }
-        return String.valueOf(value);
+        return quoted(String.valueOf(value));
+    }
+
+    /**
+     * A text of a key, prefixed with its length: texts holding the separators of the key, {"a, b"} against
+     * {"a", "b"}, or a text spelling an array do not run into another key.
+     */
+    private static String quoted(String text) {
+        return text.length() + ":" + text;
     }
 
     private static String primitiveArrayToString(Object value) {
@@ -110,7 +118,7 @@ final class ConstraintAnnotationKey {
             return Arrays.toString(array);
         }
         if (value instanceof char[] array) {
-            return Arrays.toString(array);
+            return quoted(String.valueOf(array));
         }
         if (value instanceof double[] array) {
             return Arrays.toString(array);

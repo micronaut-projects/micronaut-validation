@@ -41,9 +41,9 @@ import java.util.List;
 final class ContainerTypeArguments {
 
     /** What {@link #generatedIndex} answers for a type argument the type binds rather than passes on. */
-    static final int BOUND = -1;
+    static final int BOUND = ReflectionSupport.BOUND_TYPE_ARGUMENT;
     /** What {@link #generatedIndex} answers when the introspection does not tell. */
-    static final int UNKNOWN = -2;
+    static final int UNKNOWN = ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT;
 
     private ContainerTypeArguments() {
     }

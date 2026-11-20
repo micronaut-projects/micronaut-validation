@@ -51,7 +51,9 @@ import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -74,7 +76,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private final ConstraintValidatorOverrides validatorOverrides;
     private final IntrospectedExecutableDescriptors executables;
     // what each element declares itself, read once: a metadata hierarchy builds it anew on every call
-    private final Map<AnnotationMetadata, AnnotationMetadata> declaredMetadata = java.util.Collections.synchronizedMap(new java.util.IdentityHashMap<>());
+    private final Map<AnnotationMetadata, AnnotationMetadata> declaredMetadata = Collections.synchronizedMap(new IdentityHashMap<>());
     @Nullable
     private final ValidatorDeclarations declarations;
 
@@ -326,11 +328,6 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     }
 
     /**
-     * A property. Its constraints are those of its metadata; when the introspection knows the members of the
-     * property — an introspection separating the declarations does — the finder can look at the local element only,
-     * at the fields or the methods only, and the constraints of a member are attributed to the member.
-     */
-    /**
      * @param metadata The metadata of an element
      * @return What the element declares itself, the same instance on every call
      */
@@ -343,6 +340,11 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
         return declared;
     }
 
+    /**
+     * A property. Its constraints are those of its metadata; when the introspection knows the members of the
+     * property — an introspection separating the declarations does — the finder can look at the local element only,
+     * at the fields or the methods only, and the constraints of a member are attributed to the member.
+     */
     private final class IntrospectedPropertyDescriptor implements PropertyDescriptor, ConstraintFinder {
 
         private final BeanProperty<?, ?> beanProperty;

@@ -41,7 +41,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -222,35 +221,35 @@ final class CompileTimeSupport implements ReflectionSupport {
      */
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        OptionalInt index = describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
-        if (index == null) {
+        int index = describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        if (index == UNDESCRIBED_TYPE_ARGUMENT) {
             throw ReflectionSupport.reflectionRequired("container-variable mappings from " + declaredType.getName()
                 + " to " + containerType.getName());
         }
-        return index.isPresent() ? index.getAsInt() : null;
+        return index == BOUND_TYPE_ARGUMENT ? null : index;
     }
 
     @Override
-    public @Nullable OptionalInt describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+    public int describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
         if (declaredType == containerType) {
-            return OptionalInt.of(typeArgumentIndex);
+            return typeArgumentIndex;
         }
         BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
         if (introspection != null) {
             int index = ContainerTypeArguments.generatedIndex(introspection, containerType, typeArgumentIndex);
             if (index != ContainerTypeArguments.UNKNOWN) {
-                return index == ContainerTypeArguments.BOUND ? OptionalInt.empty() : OptionalInt.of(index);
+                return index;
             }
         }
         int recorded = ContainerTypeArguments.recordedIndex(this, declaredType, containerType, typeArgumentIndex);
         if (recorded != ContainerTypeArguments.UNKNOWN) {
-            return recorded == ContainerTypeArguments.BOUND ? OptionalInt.empty() : OptionalInt.of(recorded);
+            return recorded;
         }
         // these JDK contracts have a specified, unchanged variable order
         if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
-            return OptionalInt.of(typeArgumentIndex);
+            return typeArgumentIndex;
         }
-        return null;
+        return UNDESCRIBED_TYPE_ARGUMENT;
     }
 
     @Override

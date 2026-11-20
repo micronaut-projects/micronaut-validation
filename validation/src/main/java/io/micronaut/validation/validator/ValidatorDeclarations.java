@@ -32,6 +32,7 @@ import jakarta.validation.ParameterNameProvider;
 import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -153,7 +154,7 @@ final class ValidatorDeclarations {
         if (parameterNameProvider == null) {
             return null;
         }
-        java.lang.reflect.Constructor<?> constructor = reflectionSupport.declaredConstructor(declaringType, Argument.toClassArray(arguments));
+        Constructor<?> constructor = reflectionSupport.declaredConstructor(declaringType, Argument.toClassArray(arguments));
         return constructor == null ? null : parameterNameProvider.getParameterNames(constructor);
     }
 

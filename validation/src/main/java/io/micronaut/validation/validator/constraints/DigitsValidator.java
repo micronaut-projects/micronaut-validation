@@ -36,13 +36,14 @@ public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
             // null valid according to spec
             return true;
         }
-        final int intMax = annotationMetadata.get("integer", int.class).orElse(0);
+        final ConstraintMembers.Digits digits = ConstraintMembers.digits(annotationMetadata);
+        final int intMax = digits.integer();
 
         if (intMax < 0) {
             throw new IllegalArgumentException("The length of the integer part cannot be negative.");
         }
 
-        final int fracMax = annotationMetadata.get("fraction", int.class).orElse(0);
+        final int fracMax = digits.fraction();
         if (fracMax < 0) {
             throw new IllegalArgumentException("The length of the fraction part cannot be negative.");
         }

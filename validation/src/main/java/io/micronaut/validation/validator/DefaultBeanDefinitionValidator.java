@@ -75,12 +75,9 @@ final class DefaultBeanDefinitionValidator {
                 rootClass.getName(), rootClass, injectionPoint.getDeclaringBean().getConstructor().getArguments());
              ValidationPath.ContextualPath ignored1 = context.getCurrentPath().addPropertyNode(argument.getName());
              DefaultConstraintValidatorContext.ValidationCloseable ignore4 = context.convertGroups(argument.getAnnotationMetadata())) {
-            if (context.validateInGroups(context.findGroupSequences(), canCascade ->
-                traversal.visitElement(context, null, argument, value, canCascade))) {
-                failOnError(resolutionContext, context.getOverallViolations(), rootClass);
-            }
+            context.validateInGroups(context.findGroupSequences(), canCascade ->
+                traversal.visitElement(context, null, argument, value, canCascade));
         }
-
         failOnError(resolutionContext, context.getOverallViolations(), rootClass);
     }
 

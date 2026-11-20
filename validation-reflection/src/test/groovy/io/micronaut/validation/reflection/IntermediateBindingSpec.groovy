@@ -1,5 +1,6 @@
 package io.micronaut.validation.reflection
 
+import io.micronaut.validation.validator.ReflectionSupport
 import jakarta.validation.ConstraintDefinitionException
 import jakarta.validation.ConstraintValidator
 import spock.lang.Specification
@@ -45,9 +46,9 @@ class IntermediateBindingSpec extends Specification {
         ReflectionContainerTypeArguments.extractedTypeArgumentIndex(IntermediateBindings.DirectlySwapped, Map, 0) == 1
     }
 
-    void "a container binding its element to a type keeps the extractor's index"() {
-        expect:
-        ReflectionContainerTypeArguments.extractedTypeArgumentIndex(IntermediateBindings.Strings, Iterable, 0) == 0
+    void "a container binding its element to a type passes none of its own arguments on"() {
+        expect: "as the generated introspection answers it: the bound type is read instead"
+        ReflectionContainerTypeArguments.extractedTypeArgumentIndex(IntermediateBindings.Strings, Iterable, 0) == null
     }
 
     void "a variable of an intermediate type sharing a name with one of the type's own is not mistaken for it"() {
@@ -55,6 +56,6 @@ class IntermediateBindingSpec extends Specification {
         ReflectionGenericArguments.declaredTypeArgumentIndex(ArrayList, Iterable, 0) == 0
 
         and: "a type not read as the container answers nothing"
-        ReflectionGenericArguments.declaredTypeArgumentIndex(String, Iterable, 0) == null
+        ReflectionGenericArguments.declaredTypeArgumentIndex(String, Iterable, 0) == ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT
     }
 }

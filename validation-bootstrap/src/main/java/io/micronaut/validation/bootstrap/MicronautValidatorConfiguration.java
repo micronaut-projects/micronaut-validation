@@ -52,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Internal Jakarta Validation {@link Configuration} implementation used by {@link
@@ -78,7 +79,7 @@ public final class MicronautValidatorConfiguration
     private final Set<ValueExtractor<?>> valueExtractors = new LinkedHashSet<>();
     private final Map<String, String> properties = new LinkedHashMap<>();
     // the instances of the classes the XML configuration names, created once per name and type
-    private final Map<String, Object> xmlInstances = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, Object> xmlInstances = new ConcurrentHashMap<>();
     private final ClassLoader classLoader;
     @Nullable
     private final BootstrapState bootstrapState;

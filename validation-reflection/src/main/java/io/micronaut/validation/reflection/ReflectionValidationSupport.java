@@ -65,7 +65,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.OptionalInt;
 import java.util.ResourceBundle;
 import java.util.Set;
 
@@ -514,11 +513,11 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
 
     @Override
     public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        OptionalInt described = generated.describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
-        if (described == null) {
+        int described = generated.describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        if (described == UNDESCRIBED_TYPE_ARGUMENT) {
             return ReflectionContainerTypeArguments.extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
         }
-        return described.isPresent() ? described.getAsInt() : null;
+        return described == BOUND_TYPE_ARGUMENT ? null : described;
     }
 
     @Override
@@ -608,5 +607,37 @@ public final class ReflectionValidationSupport implements ReflectionSupport {
     public Argument<?> valueExtractorArgument(Class<?> extractorType) {
         Argument<?> described = generated.describedValueExtractorArgument(extractorType);
         return described != null ? described : ReflectedValueExtractors.argumentOf(extractorType);
+    }
+
+    @Override
+    public <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
+        return generated.describedExecutableMethod(locator, introspector, method);
+    }
+
+    @Override
+    public <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
+        return generated.describedBeanConstructor(introspection, constructor);
+    }
+
+    @Override
+    public int describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        // reflection reads the binding of any type, so its answer is always described
+        Integer index = extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        return index == null ? BOUND_TYPE_ARGUMENT : index;
+    }
+
+    @Override
+    public <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType) {
+        return genericSuperArgument(type, superType);
+    }
+
+    @Override
+    public @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType) {
+        return generated.describedValueExtractorArgument(extractorType);
+    }
+
+    @Override
+    public List<String> describedParameterNames(Executable executable) {
+        return parameterNames(executable);
     }
 }

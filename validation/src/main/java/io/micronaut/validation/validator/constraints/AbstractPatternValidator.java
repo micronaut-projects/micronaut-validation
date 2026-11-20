@@ -22,6 +22,7 @@ import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.Pattern;
 import java.lang.annotation.Annotation;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.PatternSyntaxException;
 
@@ -33,11 +34,14 @@ import java.util.regex.PatternSyntaxException;
  * @since 1.2
  */
 abstract class AbstractPatternValidator<A extends Annotation> implements ConstraintValidator<A, CharSequence> {
-    private static final Pattern.Flag[] ZERO_FLAGS = new Pattern.Flag[0];
     // the patterns of every constraint compiled, dropped whole past the bound: messages of XML mappings or of
     // factories built over and over cannot grow it without end
     private static final int MAX_COMPUTED_PATTERNS = 1024;
     private static final Map<PatternKey, java.util.regex.Pattern> COMPUTED_PATTERNS = new ConcurrentHashMap<>(10);
+    // the pattern of each occurrence, compiled once: an element is validated with the same occurrence every time
+    private static final AnnotationValueCache<java.util.regex.Pattern> PATTERNS = new AnnotationValueCache<>(AbstractPatternValidator::readPattern);
+    private static final AnnotationValueCache<Optional<java.util.regex.Pattern>> OPTIONAL_PATTERNS =
+        new AnnotationValueCache<>(value -> Optional.ofNullable(readOptionalPattern(value)));
 
     /**
      * Gets the pattern the given annotation metadata requires.
@@ -47,9 +51,13 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
      * @throws ValidationException When the metadata specifies no pattern
      */
     java.util.regex.Pattern getPattern(AnnotationValue<?> annotationMetadata) {
-        final String pattern = annotationMetadata.get("regexp", String.class)
+        return PATTERNS.get(annotationMetadata);
+    }
+
+    private static java.util.regex.Pattern readPattern(AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.stringValue("regexp")
             .orElseThrow(() -> new ValidationException("No pattern specified"));
-        return compile(pattern, annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS));
+        return compile(pattern, annotationMetadata.enumValues("flags", Pattern.Flag.class));
     }
 
     /**
@@ -59,8 +67,12 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
      * @return The pattern, {@code null} when the metadata specifies none that restricts the value
      */
     java.util.regex.@Nullable Pattern getOptionalPattern(AnnotationValue<?> annotationMetadata) {
-        final String pattern = annotationMetadata.get("regexp", String.class).orElse(".*");
-        final Pattern.Flag[] flags = annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS);
+        return OPTIONAL_PATTERNS.get(annotationMetadata).orElse(null);
+    }
+
+    private static java.util.regex.@Nullable Pattern readOptionalPattern(AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.stringValue("regexp").orElse(".*");
+        final Pattern.Flag[] flags = annotationMetadata.enumValues("flags", Pattern.Flag.class);
         if (pattern.equals(".*") && flags.length == 0) {
             return null;
         }

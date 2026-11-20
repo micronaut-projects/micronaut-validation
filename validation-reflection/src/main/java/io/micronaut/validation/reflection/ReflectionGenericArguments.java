@@ -19,7 +19,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.GenericPlaceholder;
 import io.micronaut.reflection.ReflectionArguments;
-import org.jspecify.annotations.Nullable;
+import io.micronaut.validation.validator.ReflectionSupport;
 
 import java.lang.reflect.TypeVariable;
 
@@ -33,14 +33,29 @@ final class ReflectionGenericArguments {
     private ReflectionGenericArguments() {
     }
 
-    static @Nullable Integer declaredTypeArgumentIndex(Class<?> type, Class<?> superType, int index) {
+    /**
+     * Which of a type's own type variables it passes as a type argument of a generic super type, as the generated
+     * introspection of the type answers it.
+     *
+     * @param type The type
+     * @param superType The generic super type
+     * @param index The type argument of the super type
+     * @return The index of the type variable, {@link ReflectionSupport#BOUND_TYPE_ARGUMENT} if the type binds the
+     * argument, {@link ReflectionSupport#UNDESCRIBED_TYPE_ARGUMENT} if the hierarchy does not tell
+     */
+    static int declaredTypeArgumentIndex(Class<?> type, Class<?> superType, int index) {
         Argument<?> resolved = ReflectionArguments.resolveGenericToArgument(type, superType);
         Argument<?>[] arguments = resolved == null ? Argument.ZERO_ARGUMENTS : resolved.getTypeParameters();
-        // a wildcard or a type resolved in place of a variable is a placeholder too: only a variable left
-        // unresolved is one the type passes on
-        if (index < 0 || index >= arguments.length || !arguments[index].isUnresolvedTypeVariable()
-            || !(arguments[index] instanceof GenericPlaceholder<?> placeholder)) {
-            return null;
+        if (index < 0 || index >= arguments.length) {
+            return ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT;
+        }
+        // a wildcard or a type resolved in place of a variable is bound: only a variable left unresolved is one
+        // the type passes on
+        if (!arguments[index].isUnresolvedTypeVariable()) {
+            return ReflectionSupport.BOUND_TYPE_ARGUMENT;
+        }
+        if (!(arguments[index] instanceof GenericPlaceholder<?> placeholder)) {
+            return ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT;
         }
         TypeVariable<?>[] own = type.getTypeParameters();
         for (int i = 0; i < own.length; i++) {
@@ -48,6 +63,6 @@ final class ReflectionGenericArguments {
                 return i;
             }
         }
-        return null;
+        return ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT;
     }
 }

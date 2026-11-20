@@ -36,7 +36,6 @@ import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.constraintvalidation.SupportedValidationTarget;
 import jakarta.validation.constraintvalidation.ValidationTarget;
-import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Inherited;
 import java.util.ArrayList;
@@ -61,9 +60,9 @@ import javax.lang.model.element.TypeElement;
 @Internal
 public class ValidationAnnotationRemapper implements AnnotationRemapper {
 
-    // the definitions of the constraints of the compilation the context is of
-    private final Map<String, Definition> definitions = new ConcurrentHashMap<>();
-    private volatile @Nullable VisitorContext definitionsContext;
+    // the attribute of a visitor context holding the definitions of the constraints of its compilation: core holds
+    // the remapper statically, so it keeps nothing of a compilation itself
+    private static final String DEFINITIONS = ValidationAnnotationRemapper.class.getName() + ".definitions";
 
     @Override
     public String getPackageName() {
@@ -149,17 +148,24 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
      * What every occurrence of a constraint retains of its definition, read once per constraint and compilation:
      * a constraint used on many elements is described, and an invalid definition reported, once.
      */
-    private Definition definition(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
-        if (definitionsContext != visitorContext) {
-            definitions.clear();
-            definitionsContext = visitorContext;
-        }
+    private static Definition definition(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
+        Map<String, Definition> definitions = definitions(visitorContext);
         Definition definition = definitions.get(name);
         if (definition == null) {
             definition = describe(name, constraintAnnotationValue, visitorContext);
             definitions.put(name, definition);
         }
         return definition;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Definition> definitions(VisitorContext visitorContext) {
+        if (visitorContext.getValue(DEFINITIONS) instanceof Map<?, ?> definitions) {
+            return (Map<String, Definition>) definitions;
+        }
+        Map<String, Definition> definitions = new ConcurrentHashMap<>();
+        visitorContext.put(DEFINITIONS, definitions);
+        return definitions;
     }
 
     private static Definition describe(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {

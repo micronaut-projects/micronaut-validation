@@ -45,7 +45,6 @@ import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
-import java.util.OptionalInt;
 import java.util.Set;
 
 /**
@@ -65,6 +64,21 @@ import java.util.Set;
  */
 @Internal
 public interface ReflectionSupport extends RuntimeValidationAccess {
+
+    /**
+     * What {@link #describedExtractedTypeArgumentIndex} answers for a type that binds the type argument rather than
+     * passing one of its own on.
+     *
+     * @since 5.3.0
+     */
+    int BOUND_TYPE_ARGUMENT = -1;
+
+    /**
+     * What {@link #describedExtractedTypeArgumentIndex} answers when nothing here reads the type argument.
+     *
+     * @since 5.3.0
+     */
+    int UNDESCRIBED_TYPE_ARGUMENT = -2;
 
     /**
      * Creates access to generated metadata without runtime discovery.
@@ -402,13 +416,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The executable method, null when nothing generated describes it
      * @since 5.3.0
      */
-    default <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
-        try {
-            return executableMethod(locator, introspector, method);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method);
 
     /**
      * The constructor a caller names, with its arguments and annotation metadata: one the
@@ -432,13 +440,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The bean constructor, null when the introspection does not list it
      * @since 5.3.0
      */
-    default <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
-        try {
-            return beanConstructor(introspection, constructor);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor);
 
     /**
      * The hierarchy of an executable: the declarations it overrides or implements, read from the
@@ -528,17 +530,11 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @param declaredType The type as declared
      * @param containerType The container type the extractor is written for
      * @param typeArgumentIndex The index of the type argument the extractor extracts
-     * @return The index, empty when the type binds the argument, null when nothing here reads it
+     * @return The index, {@link #BOUND_TYPE_ARGUMENT} when the type binds the argument,
+     * {@link #UNDESCRIBED_TYPE_ARGUMENT} when nothing here reads it
      * @since 5.3.0
      */
-    default @Nullable OptionalInt describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
-        try {
-            Integer index = extractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
-            return index == null ? OptionalInt.empty() : OptionalInt.of(index);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    int describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
 
     /**
      * The argument of a super type as a type binds it: {@code ConstraintValidator<Size,
@@ -565,13 +561,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The argument, null when nothing here reads it or the type does not extend the super type
      * @since 5.3.0
      */
-    default <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType) {
-        try {
-            return genericSuperArgument(type, superType);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType);
 
     /**
      * Checks a constraint annotation type against the constraint definition rules of the
@@ -636,13 +626,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The argument, null when nothing here reads it
      * @since 5.3.0
      */
-    default @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType) {
-        try {
-            return valueExtractorArgument(extractorType);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType);
 
     /**
      * The names of the parameters of an executable the specification API names by its {@link
@@ -664,13 +648,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
      * @return The names, null when nothing generated records them
      * @since 5.3.0
      */
-    default @Nullable List<String> describedParameterNames(Executable executable) {
-        try {
-            return parameterNames(executable);
-        } catch (ValidationException e) {
-            return null;
-        }
-    }
+    @Nullable List<String> describedParameterNames(Executable executable);
 
     /**
      * The occurrence of a constraint with the validators its annotation type declares, for an

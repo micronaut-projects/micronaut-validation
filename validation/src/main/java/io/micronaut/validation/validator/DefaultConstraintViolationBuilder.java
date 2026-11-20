@@ -100,12 +100,15 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
     @Override
     public NodeBuilderDefinedContext addParameterNode(int index) {
         Path.Node node = validationPath.peekLast();
-        if (node == null || node.getKind() != ElementKind.METHOD) {
+        // a cross-parameter constraint of a constructor names its parameters as one of a method does
+        if (node == null || (node.getKind() != ElementKind.METHOD && node.getKind() != ElementKind.CONSTRUCTOR)) {
             throw new IllegalStateException("Cannot add parameter at path kind: " + (node == null ? "null" : node.getKind()));
         }
         String name = null;
         if (index != -1) {
-            if (node instanceof ValidationPath.DefaultMethodNode methodNode) {
+            if (node instanceof ValidationPath.DefaultConstructorNode constructorNode) {
+                name = constraintValidatorContext.defaultValidator().constructorParameterName(constructorNode.getMethodReference(), index);
+            } else if (node instanceof ValidationPath.DefaultMethodNode methodNode) {
                 MethodReference<?, ?> methodReference = methodNode.getMethodReference();
                 name = constraintValidatorContext.defaultValidator().parameterName(methodReference, index);
             }

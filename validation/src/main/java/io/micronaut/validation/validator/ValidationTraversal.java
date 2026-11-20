@@ -26,9 +26,9 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.validation.validator.PropertyPlan.MemberPlan;
 import io.micronaut.validation.validator.constraints.ConstraintContainers;
 import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
-import io.micronaut.validation.validator.resolver.CompositeTraversableResolver;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.metadata.SeparatedPropertyDeclarations;
+import io.micronaut.validation.validator.resolver.CompositeTraversableResolver;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.Valid;
@@ -95,7 +95,9 @@ final class ValidationTraversal {
         this.valueExtractorRegistry = valueExtractorRegistry;
         this.traversableResolver = traversableResolver;
         this.traversesAll = traversableResolver instanceof DefaultValidatorConfiguration.TraverseAll
-            || traversableResolver instanceof CompositeTraversableResolver composite && composite.traversesAll();
+            // the composite itself: a subclass, one replacing it, may answer for the nodes itself
+            || (traversableResolver.getClass() == CompositeTraversableResolver.class
+                && ((CompositeTraversableResolver) traversableResolver).traversesAll());
         this.declarations = declarations;
         this.constraints = constraints;
     }
@@ -200,17 +202,27 @@ final class ValidationTraversal {
         List<ValueExtractorDefinition<?>> found = valueExtractors.get(containerType);
         if (found == null) {
             // the extractors compared by the type argument of the container each extracts
-            found = (List) valueExtractorRegistry.findValueExtractors(containerType, definition -> {
-                try {
-                    return extractedTypeArgumentIndex(containerType, definition);
-                } catch (ValidationException e) {
-                    // a runtime type without metadata, a JDK collection: its extractors meet by their own argument
-                    return definition.typeArgumentIndex();
-                }
-            });
+            found = (List) valueExtractorRegistry.findValueExtractors(containerType,
+                definition -> comparedTypeArgumentIndex(containerType, definition));
             valueExtractors.put(containerType, found);
         }
         return (List) found;
+    }
+
+    /**
+     * The type argument of a container an extractor is compared by, as far as the metadata tells it: a runtime
+     * type without metadata, a JDK collection, has its extractors meet by their own argument.
+     */
+    private @Nullable Integer comparedTypeArgumentIndex(Class<?> declaredType, ValueExtractorDefinition<?> definition) {
+        Integer own = definition.typeArgumentIndex();
+        if (own == null) {
+            return null;
+        }
+        int index = reflectionSupport.describedExtractedTypeArgumentIndex(declaredType, definition.containerType(), own);
+        if (index == ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT) {
+            return own;
+        }
+        return index == ReflectionSupport.BOUND_TYPE_ARGUMENT ? null : index;
     }
 
     private @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, ValueExtractorDefinition<?> definition) {

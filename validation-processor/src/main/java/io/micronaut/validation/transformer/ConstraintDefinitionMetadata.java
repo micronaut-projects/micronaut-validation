@@ -143,6 +143,7 @@ final class ConstraintDefinitionMetadata {
         boolean generic = false;
         int crossParameter = 0;
         var contract = type.getAnnotationMetadata().getAnnotation(Constraint.class);
+        boolean declaresValidators = contract != null && contract.annotationClassValues("validatedBy").length > 0;
         if (contract != null) {
             for (var reference : contract.annotationClassValues("validatedBy")) {
                 var validator = context.getClassElement(reference.getName()).orElse(null);
@@ -176,7 +177,10 @@ final class ConstraintDefinitionMetadata {
         if (crossParameter > 1) {
             return "Cross-parameter constraints must not declare multiple cross-parameter validators: " + type.getName();
         }
-        if ((generic && crossParameter > 0) != (target != null)) {
+        boolean genericAndCrossParameter = generic && crossParameter > 0;
+        // a constraint without validators, a pure composition, may declare it: what it applies to reaches the
+        // constraints composing it
+        if ((genericAndCrossParameter && target == null) || (!genericAndCrossParameter && target != null && declaresValidators)) {
             return "validationAppliesTo is required only for constraints that are both generic and cross-parameter: " + type.getName();
         }
         return null;

@@ -76,4 +76,64 @@ class Test {
         def e = thrown(RuntimeException)
         e.message.contains("Constraint member names must not start with 'valid'")
     }
+
+    void "a constraint without validators may declare validationAppliesTo"() {
+        given:
+        strict = true
+
+        when:
+        def introspection = buildBeanIntrospection('test.Applied', '''
+package test;
+
+import io.micronaut.core.annotation.Introspected;
+import jakarta.validation.Constraint;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.Payload;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+
+@Introspected
+class Applied {
+    @Composed
+    public String value;
+}
+
+@Retention(RetentionPolicy.RUNTIME)
+@Constraint(validatedBy = {})
+@interface Composed {
+    String message() default "invalid";
+    Class<?>[] groups() default {};
+    Class<? extends Payload>[] payload() default {};
+    ConstraintTarget validationAppliesTo() default ConstraintTarget.IMPLICIT;
+}
+''')
+
+        then:
+        introspection != null
+    }
+
+    void "the remapper core holds statically retains no visitor context after a compilation"() {
+        when:
+        buildBeanIntrospection('test.Test', SOURCE.replace('@Invalid', '@jakarta.validation.constraints.NotBlank'))
+        def field = io.micronaut.inject.annotation.AbstractAnnotationMetadataBuilder.getDeclaredField("ALL_ANNOTATION_REMAPPERS")
+        field.accessible = true
+        def remapper = ((List) field.get(null)).find { it instanceof io.micronaut.validation.transformer.ValidationAnnotationRemapper }
+
+        then:
+        remapper != null
+        retainedValues(remapper).every { !(it instanceof io.micronaut.inject.visitor.VisitorContext) && !(it instanceof Map && !it.isEmpty()) }
+    }
+
+    private static List<Object> retainedValues(Object instance) {
+        def values = []
+        for (def type = instance.getClass(); type != Object; type = type.superclass) {
+            for (def f : type.declaredFields) {
+                if (!java.lang.reflect.Modifier.isStatic(f.modifiers)) {
+                    f.accessible = true
+                    values << f.get(instance)
+                }
+            }
+        }
+        return values
+    }
 }

@@ -78,10 +78,6 @@ public final class ConstraintContainers {
 
     /**
      * Whether a constraint is declared on the element itself, directly or in the repeatable container the
-     * metadata records for it, whatever its name.
-     */
-    /**
-     * Whether a constraint is declared on the element itself, directly or in the repeatable container the
      * metadata records for it, whatever its name; metadata recording none is read with the container named
      * {@code List} nested in the constraint.
      *

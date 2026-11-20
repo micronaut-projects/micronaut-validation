@@ -58,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static io.micronaut.validation.xml.XmlMappingSupport.localName;
+
 /**
  * Parses and validates constraint mapping documents before metadata is exposed.
  *
@@ -136,7 +138,7 @@ final class XmlMappingParser {
             NodeList children = root.getChildNodes();
             for (int i = 0; i < children.getLength(); i++) {
                 Node node = children.item(i);
-                if (node instanceof Element element && "bean".equals(XmlMappingSupport.localName(element))) {
+                if (node instanceof Element element && "bean".equals(localName(element))) {
                     parseBean(element, defaultPackage);
                 }
             }
@@ -150,7 +152,7 @@ final class XmlMappingParser {
         NodeList children = root.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element definition) || !"constraint-definition".equals(XmlMappingSupport.localName(definition))) {
+            if (!(node instanceof Element definition) || !"constraint-definition".equals(localName(definition))) {
                 continue;
             }
             String annotationName = resolveClassName(XmlMappingSupport.requireAttribute(definition, ELEMENT_ANNOTATION), defaultPackage);
@@ -163,7 +165,7 @@ final class XmlMappingParser {
             NodeList validatorNodes = validatedBy.getChildNodes();
             for (int j = 0; j < validatorNodes.getLength(); j++) {
                 Node validatorNode = validatorNodes.item(j);
-                if (validatorNode instanceof Element value && ELEMENT_VALUE.equals(XmlMappingSupport.localName(value))) {
+                if (validatorNode instanceof Element value && ELEMENT_VALUE.equals(localName(value))) {
                     validators.add(loadClass(resolveClassName(XmlMappingSupport.text(value), defaultPackage)));
                 }
             }
@@ -192,7 +194,7 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            String elementName = XmlMappingSupport.localName(element);
+            String elementName = localName(element);
             switch (elementName) {
                 case "class" -> classAnnotationsIgnored = parseClassMetadata(element, defaultPackage, beanAnnotationsIgnored, classMetadata);
                 case ELEMENT_FIELD, ELEMENT_GETTER -> parseProperty(
@@ -390,7 +392,7 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (XmlMappingSupport.localName(element)) {
+            switch (localName(element)) {
                 case "parameter" -> {
                     MutableAnnotationMetadata parameterMetadata = new MutableAnnotationMetadata();
                     parseElementMetadata(element, defaultPackage, parameterMetadata);
@@ -457,7 +459,7 @@ final class XmlMappingParser {
         NodeList children = parent.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element constraint) || !"constraint".equals(XmlMappingSupport.localName(constraint))) {
+            if (!(node instanceof Element constraint) || !"constraint".equals(localName(constraint))) {
                 continue;
             }
             String annotationName = resolveClassName(XmlMappingSupport.requireAttribute(constraint, ELEMENT_ANNOTATION), defaultPackage);
@@ -594,7 +596,7 @@ final class XmlMappingParser {
             if (!(node instanceof Element element)) {
                 continue;
             }
-            switch (XmlMappingSupport.localName(element)) {
+            switch (localName(element)) {
                 case ATTRIBUTE_MESSAGE -> values.put(ATTRIBUTE_MESSAGE, XmlMappingSupport.text(element));
                 case ATTRIBUTE_GROUPS -> values.put(ATTRIBUTE_GROUPS, classValues(element, defaultPackage));
                 case ATTRIBUTE_PAYLOAD -> values.put(ATTRIBUTE_PAYLOAD, classValues(element, defaultPackage));
@@ -774,7 +776,7 @@ final class XmlMappingParser {
         NodeList children = annotation.getChildNodes();
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (node instanceof Element element && "element".equals(XmlMappingSupport.localName(element))) {
+            if (node instanceof Element element && "element".equals(localName(element))) {
                 String name = element.getAttribute("name");
                 values.put(name, annotationMemberValue(annotationType, name, element, defaultPackage));
             }

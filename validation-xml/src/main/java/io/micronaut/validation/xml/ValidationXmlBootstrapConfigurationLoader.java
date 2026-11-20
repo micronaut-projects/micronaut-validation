@@ -39,6 +39,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.micronaut.validation.xml.XmlMappingSupport.localName;
+
 /**
  * Internal ServiceLoader entry that loads {@code META-INF/validation.xml} using
  * secure JDK XML APIs when the optional XML module is present.
@@ -116,7 +118,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                 if (!(node instanceof Element element)) {
                     continue;
                 }
-                switch (XmlMappingSupport.localName(element)) {
+                switch (localName(element)) {
                     case "default-provider" -> defaultProvider = XmlMappingSupport.text(element);
                     case "constraint-validator-factory" -> constraintValidatorFactory = XmlMappingSupport.text(element);
                     case "message-interpolator" -> messageInterpolator = XmlMappingSupport.text(element);
@@ -183,7 +185,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         boolean defaultTypesConfigured = false;
         for (int i = 0; i < children.getLength(); i++) {
             Node node = children.item(i);
-            if (!(node instanceof Element element) || !"default-validated-executable-types".equals(XmlMappingSupport.localName(element))) {
+            if (!(node instanceof Element element) || !"default-validated-executable-types".equals(localName(element))) {
                 continue;
             }
             defaultTypesConfigured = true;
@@ -199,7 +201,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
         NodeList typeNodes = element.getChildNodes();
         for (int j = 0; j < typeNodes.getLength(); j++) {
             Node typeNode = typeNodes.item(j);
-            if (typeNode instanceof Element typeElement && "executable-type".equals(XmlMappingSupport.localName(typeElement))) {
+            if (typeNode instanceof Element typeElement && "executable-type".equals(localName(typeElement))) {
                 executableTypes.add(executableType(XmlMappingSupport.text(typeElement)));
             }
         }

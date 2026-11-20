@@ -35,9 +35,8 @@ public interface SizeValidator<T> extends ConstraintValidator<Size, T> {
             return true; // null considered valid according to spec
         }
         final int len = getSize(value);
-        final int max = annotationMetadata.get("max", Integer.class).orElse(Integer.MAX_VALUE);
-        final int min = annotationMetadata.get("min", Integer.class).orElse(0);
-        return len <= max && len >= min;
+        final ConstraintMembers.Size size = ConstraintMembers.size(annotationMetadata);
+        return len <= size.max() && len >= size.min();
     }
 
     /**

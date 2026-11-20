@@ -35,12 +35,7 @@ import java.util.regex.Pattern;
 @Singleton
 @Introspected
 public class URLValidator extends AbstractPatternValidator<URL> {
-    private static final String MEMBER_PROTOCOL = "protocol";
-    private static final String MEMBER_HOST = "host";
-    private static final String MEMBER_PORT = "port";
-    private static final String EMPTY_STRING = "";
-    private static final int ANY_PORT = -1;
-    private static final int RANDOM_PORT = ANY_PORT;
+    private static final int RANDOM_PORT = -1;
 
     @Override
     public boolean isValid(@Nullable CharSequence value,
@@ -56,15 +51,16 @@ public class URLValidator extends AbstractPatternValidator<URL> {
             return false;
         }
 
-        String protocol = annotationMetadata.stringValue(MEMBER_PROTOCOL).orElse(EMPTY_STRING);
+        ConstraintMembers.UrlParts parts = ConstraintMembers.urlParts(annotationMetadata);
+        String protocol = parts.protocol();
         if (!protocol.isEmpty() && !protocol.equals(url.getProtocol())) {
             return false;
         }
-        String host = annotationMetadata.stringValue(MEMBER_HOST).orElse(EMPTY_STRING);
+        String host = parts.host();
         if (!host.isEmpty() && !host.equals(url.getHost())) {
             return false;
         }
-        int port = annotationMetadata.intValue(MEMBER_PORT).orElse(RANDOM_PORT);
+        int port = parts.port();
         if (port != RANDOM_PORT && port != url.getPort()) {
             return false;
         }

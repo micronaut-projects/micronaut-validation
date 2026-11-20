@@ -66,8 +66,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
 
     /**
      * The property enabling the evaluation of the expressions of a template a constraint validator builds with
-     * {@link jakarta.validation.ConstraintValidatorContext#buildConstraintViolationWithTemplate(String)}: off by
-     * default, as the template may carry what was validated, only its variables resolve.
+     * {@link jakarta.validation.ConstraintValidatorContext#buildConstraintViolationWithTemplate(String)} in full: off by
+     * default, as the template may carry what was validated. An expression written in such a template is then
+     * evaluated only if it reads variables and the {@code formatter}, never a property or a method of a value; the
+     * text a message bundle supplies for it is evaluated in full.
      */
     public static final String CUSTOM_VIOLATION_EXPRESSIONS = "micronaut.validator.custom-violation-expressions";
 
@@ -77,6 +79,12 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     private static final char LEFT_BRACE = '{';
     private static final char RIGHT_BRACE = '}';
     private static final char DOLLAR = '$';
+    private static final String FORMATTER = "formatter";
+    // what follows the formatter in the one call a custom violation template may make
+    private static final String FORMAT_CALL = "format";
+    // the operators written as words, which may precede a parenthesis without calling anything
+    private static final Set<String> OPERATOR_KEYWORDS = Set.of("and", "or", "not", "empty", "eq", "ne", "lt", "gt",
+        "le", "ge", "div", "mod");
     private static final String VALIDATED_VALUE = "validatedValue";
     private static final String VALIDATED_PATH = "validatedPath";
     // how many bundle parameters one message may expand, all levels together
@@ -166,7 +174,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                                Map<String, Object> parameters) {
         Locale locale = messageContext.getLocale();
         int[] budget = {MAX_EXPANDED_TOKENS};
-        List<Token> tokens = expandUserBundles(tokenize(template), locale, new HashSet<>(), budget);
+        List<Token> tokens = expandUserBundles(tokenize(template, false), locale, new HashSet<>(), budget);
         List<Token> provider = new ArrayList<>();
         for (Token token : tokens) {
             Optional<String> replacement = token.kind() == Kind.TEXT ? Optional.empty()
@@ -200,10 +208,11 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                     result.append(DOLLAR);
                 }
                 result.append(attribute);
-            } else if (token.kind() == Kind.EXPRESSION && !customViolationExpressions
-                && interpolationContext instanceof DefaultMessageInterpolatorContext defaultContext && defaultContext.isCustomViolation()) {
-                // only a variable of a custom violation resolves: its template may carry what was validated
-                result.append(parameters.containsKey(token.value()) ? parameters.get(token.value()) : "${" + token.value() + RIGHT_BRACE);
+            } else if (token.kind() == Kind.EXPRESSION && !token.trusted() && !customViolationExpressions
+                && interpolationContext instanceof DefaultMessageInterpolatorContext defaultContext && defaultContext.isCustomViolation()
+                && !readsVariablesOnly(token.value())) {
+                // a custom violation template may carry what was validated: what reads more than variables is left
+                result.append(DOLLAR).append(LEFT_BRACE).append(token.value()).append(RIGHT_BRACE);
             } else if (token.kind() == Kind.EXPRESSION) {
                 result.append(evaluateExpression(token.value(), interpolationContext, locale));
             } else {
@@ -222,7 +231,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             }
             if (!expanding.add(token.value())) {
                 // a cycle is cut once and for all: the later pass leaves the token as it stands
-                result.add(new Token(token.kind(), token.value(), true));
+                result.add(new Token(token.kind(), token.value(), true, token.trusted()));
                 continue;
             }
             if (--budget[0] < 0) {
@@ -247,10 +256,11 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     }
 
     private static List<Token> replacement(Token token, String value) {
-        return tokenize(token.kind() == Kind.EXPRESSION ? "$" + value : value);
+        // the text of a message bundle is trusted, whatever template it is reached from
+        return tokenize(token.kind() == Kind.EXPRESSION ? "$" + value : value, true);
     }
 
-    private static List<Token> tokenize(String template) {
+    private static List<Token> tokenize(String template, boolean trusted) {
         List<Token> tokens = new ArrayList<>();
         StringBuilder text = new StringBuilder();
         for (int i = 0; i < template.length(); i++) {
@@ -269,10 +279,10 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                 int end = findExpressionEnd(template, start);
                 if (end >= 0) {
                     if (!text.isEmpty()) {
-                        tokens.add(new Token(Kind.TEXT, text.toString()));
+                        tokens.add(new Token(Kind.TEXT, text.toString(), false, trusted));
                         text.setLength(0);
                     }
-                    tokens.add(new Token(expression ? Kind.EXPRESSION : Kind.PARAMETER, template.substring(start, end)));
+                    tokens.add(new Token(expression ? Kind.EXPRESSION : Kind.PARAMETER, template.substring(start, end), false, trusted));
                     i = end;
                     continue;
                 }
@@ -280,7 +290,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             text.append(current);
         }
         if (!text.isEmpty()) {
-            tokens.add(new Token(Kind.TEXT, text.toString()));
+            tokens.add(new Token(Kind.TEXT, text.toString(), false, trusted));
         }
         return tokens;
     }
@@ -320,6 +330,80 @@ public final class ElMessageInterpolator implements MessageInterpolator {
             }
             return "${" + expression + "}";
         }
+    }
+
+    /**
+     * Whether an expression reads only variables, literals and operators, and calls nothing but
+     * {@code formatter.format}: no property, index or method of a value, which is what an expression of a
+     * custom violation template is limited to, as the {@code VARIABLES} level of the reference implementation
+     * limits it. A property access is a dot after a name, an index an opening bracket, a call an opening
+     * parenthesis after a name; a dot in a number and the text of a string literal are neither.
+     *
+     * @param expression The expression, without its delimiters
+     * @return Whether it reads variables only
+     */
+    static boolean readsVariablesOnly(String expression) {
+        char quote = 0;
+        for (int i = 0; i < expression.length(); i++) {
+            char current = expression.charAt(i);
+            if (quote != 0) {
+                if (current == ESCAPE) {
+                    i++;
+                } else if (current == quote) {
+                    quote = 0;
+                }
+                continue;
+            }
+            if (current == '\'' || current == '"') {
+                quote = current;
+            } else if (current == '[') {
+                return false;
+            } else if (current == '.') {
+                String name = nameBefore(expression, i);
+                boolean number = name.isEmpty()
+                    ? i + 1 < expression.length() && Character.isDigit(expression.charAt(i + 1))
+                    : Character.isDigit(name.charAt(0));
+                if (!number && !(FORMATTER.equals(name) && isFormatCall(expression, i + 1))) {
+                    return false;
+                }
+            } else if (current == '(') {
+                int end = i;
+                while (end > 0 && Character.isWhitespace(expression.charAt(end - 1))) {
+                    end--;
+                }
+                String name = nameBefore(expression, end);
+                // the format call follows a dot, which is checked to follow the formatter
+                boolean formatCall = FORMAT_CALL.equals(name) && end > name.length() && expression.charAt(end - name.length() - 1) == '.';
+                if (!name.isEmpty() && !OPERATOR_KEYWORDS.contains(name) && !formatCall) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    // whether the name at the offset is the format method of the formatter, and is called
+    private static boolean isFormatCall(String expression, int offset) {
+        int end = offset + FORMAT_CALL.length();
+        if (!expression.startsWith(FORMAT_CALL, offset) || (end < expression.length() && isNamePart(expression.charAt(end)))) {
+            return false;
+        }
+        while (end < expression.length() && Character.isWhitespace(expression.charAt(end))) {
+            end++;
+        }
+        return end < expression.length() && expression.charAt(end) == '(';
+    }
+
+    private static String nameBefore(String expression, int end) {
+        int start = end;
+        while (start > 0 && isNamePart(expression.charAt(start - 1))) {
+            start--;
+        }
+        return expression.substring(start, end);
+    }
+
+    private static boolean isNamePart(char c) {
+        return Character.isJavaIdentifierPart(c);
     }
 
     private static int findExpressionEnd(String template, int offset) {
@@ -378,11 +462,9 @@ public final class ElMessageInterpolator implements MessageInterpolator {
      * @param kind  What it is
      * @param value Its text, or the name it refers to
      * @param cycle Whether expanding it was cut as a cycle, so that no later pass expands it
+     * @param trusted Whether it comes from the text of a message bundle rather than from the template itself
      */
-    private record Token(Kind kind, String value, boolean cycle) {
-        Token(Kind kind, String value) {
-            this(kind, value, false);
-        }
+    private record Token(Kind kind, String value, boolean cycle, boolean trusted) {
     }
 
     private enum OptionalLocaleResolver implements InterpolatorLocaleResolver {

@@ -42,7 +42,11 @@ public final class ReflectiveValidation {
      */
     public static final String ENABLED = "micronaut.validation.reflection.enabled";
 
-    // read once: the property selects the profile of the JVM, a lookup per call read the system properties every time
+    /**
+     * Whether the types without a generated introspection are described reflectively, read once from the
+     * {@value #ENABLED} system property: the property selects the profile of the JVM, so it is not looked up on
+     * every call.
+     */
     private static final boolean IS_ENABLED = !StringUtils.FALSE.equalsIgnoreCase(System.getProperty(ENABLED, StringUtils.TRUE));
 
     private ReflectiveValidation() {

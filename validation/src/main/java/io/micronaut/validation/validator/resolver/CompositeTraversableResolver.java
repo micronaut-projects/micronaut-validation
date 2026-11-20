@@ -49,6 +49,9 @@ public class CompositeTraversableResolver implements TraversableResolver {
     }
 
     /**
+     * Whether no resolver is configured, so every node is reachable and cascadable. A subclass may answer
+     * otherwise, so the validator takes this for the composite itself only.
+     *
      * @return Whether no resolver is configured, so every node is reachable and cascadable
      * @since 5.3.0
      */
@@ -61,9 +64,12 @@ public class CompositeTraversableResolver implements TraversableResolver {
         if (traversableResolvers == null) {
             return true;
         }
-        return traversableResolvers.stream().allMatch(r ->
-                r.isReachable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)
-        );
+        for (TraversableResolver resolver : traversableResolvers) {
+            if (!resolver.isReachable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -71,8 +77,11 @@ public class CompositeTraversableResolver implements TraversableResolver {
         if (traversableResolvers == null) {
             return true;
         }
-        return traversableResolvers.stream().allMatch(r ->
-            r.isCascadable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)
-        );
+        for (TraversableResolver resolver : traversableResolvers) {
+            if (!resolver.isCascadable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

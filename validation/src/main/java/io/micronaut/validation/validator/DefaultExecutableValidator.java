@@ -404,6 +404,16 @@ final class DefaultExecutableValidator {
         return parameterName(method.getArguments()[index], getParameterNames(method), index);
     }
 
+    /**
+     * @param constructor The reference of a constructor node, which has no target method
+     * @param index The index of a parameter
+     * @return The name of the parameter, as the parameter name provider gives it where one is configured
+     */
+    String constructorParameterName(MethodReference<?, ?> constructor, int index) {
+        Argument<?>[] arguments = constructor.getArguments();
+        return parameterName(arguments[index], declarations.parameterNames(constructor.getDeclaringType(), arguments), index);
+    }
+
     private static String parameterName(Argument<?> argument, @Nullable List<String> parameterNames, int index) {
         if (parameterNames != null && parameterNames.size() > index) {
             return parameterNames.get(index);

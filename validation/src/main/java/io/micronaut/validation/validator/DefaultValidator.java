@@ -51,9 +51,11 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static io.micronaut.validation.ConstraintViolationExceptionUtil.createConstraintViolationException;
 import static io.micronaut.validation.validator.ValidationChecks.requireNonEmpty;
@@ -89,6 +91,8 @@ public class DefaultValidator
     private final ValidationTraversal traversal;
     private final DefaultExecutableValidator executables;
     private final DefaultBeanDefinitionValidator beanDefinitions;
+    // the descriptor of each class, described once: dropped with the other metadata when the validator closes
+    private final Map<Class<?>, BeanDescriptor> beanDescriptors = new ConcurrentHashMap<>();
 
     /**
      * Default constructor.
@@ -136,6 +140,7 @@ public class DefaultValidator
             constraints.clear();
             traversal.clear();
             declarations.clear();
+            beanDescriptors.clear();
         }
     }
 
@@ -179,6 +184,10 @@ public class DefaultValidator
 
     final String parameterName(MethodReference<?, ?> method, int index) {
         return executables.parameterName(method, index);
+    }
+
+    final String constructorParameterName(MethodReference<?, ?> constructor, int index) {
+        return executables.constructorParameterName(constructor, index);
     }
 
     /**
@@ -349,10 +358,12 @@ public class DefaultValidator
         if (clazz == null) {
             throw new IllegalArgumentException();
         }
-        BeanIntrospection<?> introspection = getBeanIntrospection(clazz);
-        return introspection == null
-            ? new EmptyDescriptor(clazz)
-            : new IntrospectedBeanDescriptor(introspection, validatorOverrides, declarations);
+        return beanDescriptors.computeIfAbsent(clazz, type -> {
+            BeanIntrospection<?> introspection = getBeanIntrospection(type);
+            return introspection == null
+                ? new EmptyDescriptor(type)
+                : new IntrospectedBeanDescriptor(introspection, validatorOverrides, declarations);
+        });
     }
 
     @Override

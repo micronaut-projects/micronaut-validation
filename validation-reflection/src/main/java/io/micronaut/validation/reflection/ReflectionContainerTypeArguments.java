@@ -19,6 +19,7 @@ import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.reflection.ReflectionArguments;
+import io.micronaut.validation.validator.ReflectionSupport;
 
 import java.util.Map;
 import java.util.Optional;
@@ -83,10 +84,13 @@ final class ReflectionContainerTypeArguments {
 
     @Nullable
     private static Integer readExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> extractorContainerType, int extractorTypeArgumentIndex) {
-        Integer declared = ReflectionGenericArguments.declaredTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
-        // an argument the type binds to a type, rather than passing one of its own variables on,
-        // keeps the index
-        return declared == null ? extractorTypeArgumentIndex : declared;
+        int declared = ReflectionGenericArguments.declaredTypeArgumentIndex(declaredType, extractorContainerType, extractorTypeArgumentIndex);
+        // an argument the type binds to a type is none of its own, as the generated introspection answers; one the
+        // hierarchy does not tell keeps the index
+        if (declared == ReflectionSupport.BOUND_TYPE_ARGUMENT) {
+            return null;
+        }
+        return declared == ReflectionSupport.UNDESCRIBED_TYPE_ARGUMENT ? extractorTypeArgumentIndex : declared;
     }
 
     /**
