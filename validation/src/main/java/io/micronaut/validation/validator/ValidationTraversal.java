@@ -153,7 +153,12 @@ final class ValidationTraversal {
                 constrainedSuperIntrospections = notIsolated;
             }
             Predicate<Class<?>> notIsolatedTypes = isolated.isEmpty() ? ALL_TYPES : type -> !isolated.containsKey(type);
+            DefaultConstraintValidatorContext.FailedSequences failed = new DefaultConstraintValidatorContext.FailedSequences();
             for (DefaultConstraintValidatorContext.ValidationGroup groupSequence : steps) {
+                // a failed step ends its sequence, not the other groups and sequences requested
+                if (failed.skips(groupSequence)) {
+                    continue;
+                }
                 if (cascadePerStep) {
                     canCascade = true;
                 }
@@ -174,7 +179,7 @@ final class ValidationTraversal {
                     }
 
                     if (validation.isFailed()) {
-                        break;
+                        failed.fail(groupSequence);
                     }
                 }
                 canCascade = false;
