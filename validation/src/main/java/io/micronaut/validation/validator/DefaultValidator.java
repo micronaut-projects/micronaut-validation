@@ -397,6 +397,7 @@ public class DefaultValidator
     public <T> Set<ConstraintViolation<T>> validateParameters(T object, Method method, Object[] parameterValues, Class<?>... groups) {
         requireNonNull("method", method);
         requireNonNull("groups", groups);
+        DefaultExecutableValidator.checkParameterValues(method.getParameterTypes(), parameterValues);
         return validateParameters(object, executables.executableMethod(object, method), parameterValues, groups);
     }
 
