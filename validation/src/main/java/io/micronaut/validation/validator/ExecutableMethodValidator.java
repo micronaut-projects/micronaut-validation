@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator;
 
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.type.Argument;
@@ -49,7 +48,7 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @throws ConstraintViolationException If a valid instance couldn't be constructed
      * @throws IllegalArgumentException If an argument is invalid
      */
-    @NonNull <T> T createValid(@NonNull Class<T> type, Object... arguments) throws ConstraintViolationException;
+    <T> T createValid(Class<T> type, Object... arguments) throws ConstraintViolationException;
 
     /**
      * Validate the parameter values of the given {@link ExecutableMethod}.
@@ -60,10 +59,10 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The object type
      * @return The constraint violations.
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateParameters(
-            @NonNull T object,
-            @NonNull ExecutableMethod method,
-            @NonNull Object[] parameterValues,
+    <T> Set<ConstraintViolation<T>> validateParameters(
+            T object,
+            ExecutableMethod method,
+            Object[] parameterValues,
             @Nullable Class<?>... groups);
 
     /**
@@ -75,10 +74,10 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The object type
      * @return The constraint violations.
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateParameters(
-        @NonNull T object,
-        @NonNull ExecutableMethod method,
-        @NonNull Object[] parameterValues,
+    <T> Set<ConstraintViolation<T>> validateParameters(
+        T object,
+        ExecutableMethod method,
+        Object[] parameterValues,
         @Nullable BeanValidationContext context);
 
     /**
@@ -90,10 +89,10 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The object type
      * @return The constraint violations.
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateParameters(
-            @NonNull T object,
-            @NonNull ExecutableMethod method,
-            @NonNull Collection<MutableArgumentValue<?>> argumentValues,
+    <T> Set<ConstraintViolation<T>> validateParameters(
+            T object,
+            ExecutableMethod method,
+            Collection<MutableArgumentValue<?>> argumentValues,
             @Nullable Class<?>... groups);
 
     /**
@@ -105,9 +104,9 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The object type
      * @return A set of contstraint violations
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateReturnValue(
-            @NonNull T object,
-            @NonNull ExecutableMethod<?, Object> executableMethod,
+    <T> Set<ConstraintViolation<T>> validateReturnValue(
+            T object,
+            ExecutableMethod<?, Object> executableMethod,
             @Nullable Object returnValue,
             @Nullable Class<?>... groups);
 
@@ -121,9 +120,9 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The object type
      * @return A set of contstraint violations
      */
-    @NonNull <T> Set<ConstraintViolation<T>> validateReturnValue(
-        @NonNull T object,
-        @NonNull ExecutableMethod<?, Object> executableMethod,
+    <T> Set<ConstraintViolation<T>> validateReturnValue(
+        T object,
+        ExecutableMethod<?, Object> executableMethod,
         @Nullable Object returnValue,
         @Nullable BeanValidationContext validationContext);
 
@@ -135,10 +134,9 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @param <T> The bean type.
      * @return The constraint violations
      */
-    @NonNull
     <T> Set<ConstraintViolation<T>> validateConstructorParameters(
-            @NonNull BeanIntrospection<? extends T> introspection,
-            @NonNull Object[] parameterValues,
+            BeanIntrospection<? extends T> introspection,
+            Object[] parameterValues,
             @Nullable Class<?>... groups);
 
     /**
@@ -151,9 +149,9 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @return A set of constraint violations, if any
      */
     <T> Set<ConstraintViolation<T>> validateConstructorParameters(
-            @NonNull Class<? extends T> beanType,
-            @NonNull Argument<?>[] constructorArguments,
-            @NonNull Object[] parameterValues,
+            Class<? extends T> beanType,
+            Argument<?>[] constructorArguments,
+            Object[] parameterValues,
             @Nullable Class<?>[] groups
     );
 
@@ -167,21 +165,21 @@ public interface ExecutableMethodValidator extends ExecutableValidator  {
      * @return A set of constraint violations, if any
      */
     <T> Set<ConstraintViolation<T>> validateConstructorParameters(
-        @NonNull Class<? extends T> beanType,
-        @NonNull Argument<?>[] constructorArguments,
-        @NonNull Object[] parameterValues,
+        Class<? extends T> beanType,
+        Argument<?>[] constructorArguments,
+        Object[] parameterValues,
         @Nullable BeanValidationContext validationContext
     );
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateParameters(@NonNull T object, @NonNull Method method, @NonNull Object[] parameterValues, @Nullable Class<?>... groups);
+    <T> Set<ConstraintViolation<T>> validateParameters(T object, Method method, Object[] parameterValues, @Nullable Class<?>... groups);
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateReturnValue(@NonNull T object, @NonNull Method method, @Nullable Object returnValue, @Nullable Class<?>... groups);
+    <T> Set<ConstraintViolation<T>> validateReturnValue(T object, Method method, @Nullable Object returnValue, @Nullable Class<?>... groups);
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateConstructorParameters(@NonNull Constructor<? extends T> constructor, @NonNull Object[] parameterValues, @Nullable Class<?>... groups);
+    <T> Set<ConstraintViolation<T>> validateConstructorParameters(Constructor<? extends T> constructor, Object[] parameterValues, @Nullable Class<?>... groups);
 
     @Override
-    @NonNull <T> Set<ConstraintViolation<T>> validateConstructorReturnValue(@NonNull Constructor<? extends T> constructor, @NonNull T createdObject, @Nullable Class<?>... groups);
+    <T> Set<ConstraintViolation<T>> validateConstructorReturnValue(Constructor<? extends T> constructor, T createdObject, @Nullable Class<?>... groups);
 }

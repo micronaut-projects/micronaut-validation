@@ -16,12 +16,11 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanWrapper;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.StringUtils;
-import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.AssertFalse;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Future;
@@ -94,7 +93,8 @@ final class InternalConstraintValidators {
         if (value instanceof BigDecimal decimalValue) {
             return decimalValue;
         }
-        return new BigDecimal(value.toString());
+        // the digits of the number, not of how it prints: 100.0 has no fraction
+        return new BigDecimal(value.toString()).stripTrailingZeros();
     };
 
     final DigitsValidator<CharSequence> digitsValidatorCharSequence =
@@ -105,16 +105,37 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true; // nulls are allowed according to spec
             }
-            final Long max = annotationMetadata.getValue(Long.class).orElseThrow(() ->
-                new ValidationException("@Max annotation specified without value")
-            );
+            final ConstraintMembers.LongBound bound = ConstraintMembers.longBound(annotationMetadata);
+            final long max = bound.bound();
 
             if (value instanceof BigInteger intValue) {
-                return intValue.compareTo(BigInteger.valueOf(max)) <= 0;
+                return intValue.compareTo(bound.integer()) <= 0;
             } else if (value instanceof BigDecimal decimalValue) {
-                return decimalValue.compareTo(BigDecimal.valueOf(max)) <= 0;
+                return decimalValue.compareTo(bound.decimal()) <= 0;
+            } else if (isFloatingPoint(value)) {
+                // compared without truncating the fraction; NaN is not a number below the bound
+                double d = value.doubleValue();
+                return !Double.isNaN(d) && d <= max;
             }
             return value.longValue() <= max;
+        };
+
+    final ConstraintValidator<Max, CharSequence> maxCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            BigDecimal number = parseDecimal(value);
+            return number != null && number.compareTo(ConstraintMembers.longBound(annotationMetadata).decimal()) <= 0;
+        };
+
+    final ConstraintValidator<Min, CharSequence> minCharSequenceValidator =
+        (value, annotationMetadata, context) -> {
+            if (value == null) {
+                return true; // nulls are allowed according to spec
+            }
+            BigDecimal number = parseDecimal(value);
+            return number != null && number.compareTo(ConstraintMembers.longBound(annotationMetadata).decimal()) >= 0;
         };
 
     final ConstraintValidator<Min, Number> minNumberValidator =
@@ -122,16 +143,19 @@ final class InternalConstraintValidators {
             if (value == null) {
                 return true; // nulls are allowed according to spec
             }
-            final Long max = annotationMetadata.getValue(Long.class).orElseThrow(() ->
-                new ValidationException("@Min annotation specified without value")
-            );
+            final ConstraintMembers.LongBound bound = ConstraintMembers.longBound(annotationMetadata);
+            final long min = bound.bound();
 
             if (value instanceof BigInteger intValue) {
-                return intValue.compareTo(BigInteger.valueOf(max)) >= 0;
+                return intValue.compareTo(bound.integer()) >= 0;
             } else if (value instanceof BigDecimal decimalValue) {
-                return decimalValue.compareTo(BigDecimal.valueOf(max)) >= 0;
+                return decimalValue.compareTo(bound.decimal()) >= 0;
+            } else if (isFloatingPoint(value)) {
+                // compared without truncating the fraction; NaN is not a number above the bound
+                double d = value.doubleValue();
+                return !Double.isNaN(d) && d >= min;
             }
-            return value.longValue() >= max;
+            return value.longValue() >= min;
         };
 
     final ConstraintValidator<Negative, Number> negativeNumberValidator =
@@ -293,8 +317,7 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(value, context.getClockProvider().getClock());
-            return comparable.compareTo(value) > 0;
+            return nowComparedTo(value, context.getClockProvider().getClock()) > 0;
         };
 
     final ConstraintValidator<Past, Date> pastDateConstraintValidator =
@@ -313,8 +336,8 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-            return comparable.compareTo(toLocalDateTime(value)) > 0;
+            // instants, not local times: a calendar of another zone is compared at the moment it represents
+            return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) > 0;
         };
 
     final ConstraintValidator<PastOrPresent, TemporalAccessor> pastOrPresentTemporalAccessorConstraintValidator =
@@ -323,8 +346,7 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(value, context.getClockProvider().getClock());
-            return comparable.compareTo(value) >= 0;
+            return nowComparedTo(value, context.getClockProvider().getClock()) >= 0;
         };
 
     final ConstraintValidator<PastOrPresent, Date> pastOrPresentDateConstraintValidator =
@@ -343,8 +365,8 @@ final class InternalConstraintValidators {
                 // null is valid according to spec
                 return true;
             }
-            Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-            return comparable.compareTo(toLocalDateTime(value)) >= 0;
+            // instants, not local times: a calendar of another zone is compared at the moment it represents
+            return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) >= 0;
         };
 
     final ConstraintValidator<Future, TemporalAccessor> futureTemporalAccessorConstraintValidator = (value, annotationMetadata, context) -> {
@@ -352,8 +374,7 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(value, context.getClockProvider().getClock());
-        return comparable.compareTo(value) < 0;
+        return nowComparedTo(value, context.getClockProvider().getClock()) < 0;
     };
 
     final ConstraintValidator<Future, Calendar> futureCalendarConstraintValidator = (value, annotationMetadata, context) -> {
@@ -361,8 +382,8 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-        return comparable.compareTo(toLocalDateTime(value)) < 0;
+        // instants, not local times: a calendar of another zone is compared at the moment it represents
+        return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) < 0;
     };
 
     final ConstraintValidator<Future, Date> futureDateConstraintValidator = (value, annotationMetadata, context) -> {
@@ -379,8 +400,7 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(value, context.getClockProvider().getClock());
-        return comparable.compareTo(value) <= 0;
+        return nowComparedTo(value, context.getClockProvider().getClock()) <= 0;
     };
 
     final ConstraintValidator<FutureOrPresent, Date> futureOrPresentDateConstraintValidator = (value, annotationMetadata, context) -> {
@@ -397,8 +417,8 @@ final class InternalConstraintValidators {
             // null is valid according to spec
             return true;
         }
-        Comparable comparable = getNow(LocalDateTime.now(), context.getClockProvider().getClock());
-        return comparable.compareTo(toLocalDateTime(value)) <= 0;
+        // instants, not local times: a calendar of another zone is compared at the moment it represents
+        return context.getClockProvider().getClock().instant().compareTo(value.toInstant()) <= 0;
     };
 
     /**
@@ -408,25 +428,60 @@ final class InternalConstraintValidators {
      * @param bigDecimal The big decimal
      * @return The result
      */
-    private static int compareNumber(@NonNull Number value, @NonNull BigDecimal bigDecimal) {
+    private static int compareNumber(Number value, BigDecimal bigDecimal) {
         int result;
         if (value instanceof BigDecimal decimalValue) {
             result = decimalValue.compareTo(bigDecimal);
         } else if (value instanceof BigInteger intValue) {
             result = new BigDecimal(intValue).compareTo(bigDecimal);
+        } else if (isFloatingPoint(value)) {
+            double d = value.doubleValue();
+            if (Double.isNaN(d)) {
+                // NaN is within no bound: reported as a violation
+                throw new NumberFormatException("NaN");
+            }
+            if (Double.isInfinite(d)) {
+                // an infinity lies beyond any bound, on its side
+                result = d > 0 ? 1 : -1;
+            } else {
+                result = BigDecimal.valueOf(d).compareTo(bigDecimal);
+            }
         } else {
-            result = BigDecimal.valueOf(value.doubleValue()).compareTo(bigDecimal);
+            // integral: exact, a long beyond 2^53 is not rounded through a double
+            result = BigDecimal.valueOf(value.longValue()).compareTo(bigDecimal);
         }
         return result;
     }
 
-    public static LocalDateTime toLocalDateTime(Calendar calendar) {
+    private static boolean isFloatingPoint(Number value) {
+        return value instanceof Double || value instanceof Float
+            || value instanceof java.util.concurrent.atomic.DoubleAdder
+            || value instanceof java.util.concurrent.atomic.DoubleAccumulator;
+    }
+
+    public static @Nullable LocalDateTime toLocalDateTime(@Nullable Calendar calendar) {
         if (calendar == null) {
             return null;
         }
         TimeZone tz = calendar.getTimeZone();
         ZoneId zid = tz == null ? ZoneId.systemDefault() : tz.toZoneId();
         return LocalDateTime.ofInstant(calendar.toInstant(), zid);
+    }
+
+    /**
+     * How the present compares to a value: a value of a zone or an offset by the instant it represents, as two
+     * equal instants are the same moment whatever their local times, where its natural order tells them apart.
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static int nowComparedTo(TemporalAccessor value, Clock clock) {
+        if (value instanceof ZonedDateTime || value instanceof OffsetDateTime) {
+            return clock.instant().compareTo(Instant.from(value));
+        }
+        if (value instanceof OffsetTime time) {
+            OffsetTime now = OffsetTime.now(clock);
+            return now.isAfter(time) ? 1 : now.isBefore(time) ? -1 : 0;
+        }
+        return ((Comparable) getNow(value, clock)).compareTo(value);
     }
 
     private static Comparable<? extends TemporalAccessor> getNow(TemporalAccessor value, Clock clock) {
@@ -476,5 +531,17 @@ final class InternalConstraintValidators {
             .stream()
             .<Map.Entry<Argument<Object>, ConstraintValidator<?, ?>>>map(p -> Map.entry(p.asArgument(), (ConstraintValidator<?, ?>) p.get(bean)))
             .toList();
+    }
+
+    /**
+     * The number a character sequence spells, null when it spells none: a value that is no number is invalid,
+     * not an error.
+     */
+    private static @Nullable BigDecimal parseDecimal(CharSequence value) {
+        try {
+            return new BigDecimal(value.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }

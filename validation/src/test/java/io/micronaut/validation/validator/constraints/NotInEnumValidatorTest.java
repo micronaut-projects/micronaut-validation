@@ -163,7 +163,7 @@ class NotInEnumValidatorTest {
     @Test
     void testManualValidator() {
         NotInEnumValidator notInEnumValidator = new NotInEnumValidator();
-        AnnotationValue<NotInEnum> ann = AnnotationValue.builder(NotInEnum.class).value(TestEnum.class).build();
+        AnnotationValue<NotInEnum> ann = AnnotationValue.builder(NotInEnum.class).value(TestEnum.class).member("$enumValues", new String[]{"ONE", "TWO"}).build();
         assertTrue(notInEnumValidator.isValid("THREE", ann, null));
         assertTrue(!notInEnumValidator.isValid("ONE", ann, null));
         assertTrue(notInEnumValidator.isValid(null, ann, null));
@@ -171,7 +171,7 @@ class NotInEnumValidatorTest {
         assertTrue(notInEnumValidator.isValid(TestEnum.ONE, ann, null)); // Enum type
 
         AnnotationValue<NotInEnum> insensitiveAnn = AnnotationValue.builder(NotInEnum.class)
-                .value(TestEnum.class)
+                .value(TestEnum.class).member("$enumValues", new String[]{"ONE", "TWO"})
                 .member("caseSensitive", false)
                 .build();
         assertTrue(!notInEnumValidator.isValid("one", insensitiveAnn, null)); // Should fail (insensitive match)

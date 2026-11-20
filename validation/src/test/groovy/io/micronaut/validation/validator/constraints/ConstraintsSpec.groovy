@@ -14,8 +14,11 @@ import spock.lang.Unroll
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
+import java.time.OffsetTime
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.ZonedDateTime
 
 import static java.math.BigInteger.ONE
 
@@ -293,6 +296,18 @@ class ConstraintsSpec extends AbstractTypeElementSpec {
         PastOrPresent  | LocalDateTime.parse("2020-01-01T00:00:00").toInstant(ZoneOffset.UTC)            | true | constraintMetadata(constraint, /@PastOrPresent/)
         PastOrPresent  | LocalDateTime.parse("2020-01-02T00:00:00").toInstant(ZoneOffset.UTC)            | false| constraintMetadata(constraint, /@PastOrPresent/)
         PastOrPresent  | null                                                                            | true | constraintMetadata(constraint, /@PastOrPresent/)
+
+        // the same instant in another zone or offset is the present, whatever its local time
+        PastOrPresent   | ZonedDateTime.parse("2020-01-01T02:00:00+02:00[Europe/Kiev]") | true  | constraintMetadata(constraint, /@PastOrPresent/)
+        FutureOrPresent | ZonedDateTime.parse("2020-01-01T02:00:00+02:00[Europe/Kiev]") | true  | constraintMetadata(constraint, /@FutureOrPresent/)
+        Past            | ZonedDateTime.parse("2020-01-01T02:00:00+02:00[Europe/Kiev]") | false | constraintMetadata(constraint, /@Past/)
+        Future          | ZonedDateTime.parse("2020-01-01T02:00:00+02:00[Europe/Kiev]") | false | constraintMetadata(constraint, /@Future/)
+        PastOrPresent   | OffsetDateTime.parse("2019-12-31T22:00:00-02:00")             | true  | constraintMetadata(constraint, /@PastOrPresent/)
+        FutureOrPresent | OffsetDateTime.parse("2019-12-31T22:00:00-02:00")             | true  | constraintMetadata(constraint, /@FutureOrPresent/)
+        Future          | OffsetDateTime.parse("2019-12-31T22:00:00-02:00")             | false | constraintMetadata(constraint, /@Future/)
+        PastOrPresent   | OffsetTime.parse("02:00:00+02:00")                             | true  | constraintMetadata(constraint, /@PastOrPresent/)
+        FutureOrPresent | OffsetTime.parse("02:00:00+02:00")                             | true  | constraintMetadata(constraint, /@FutureOrPresent/)
+        Past            | OffsetTime.parse("02:00:00+02:00")                             | false | constraintMetadata(constraint, /@Past/)
     }
 
     private class TestClockProvider implements ClockProvider {

@@ -1,0 +1,39 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+
+<suite name="Jakarta-Bean-Validation-TCK" verbose="1">
+    <!--
+        Generated descriptions, with micronaut.validation.reflection.enabled=false.
+        The audit retains six measured exclusions. Six XML tests name private
+        methods (Groups.convert and IgnoreAnnotations.foobar) that standard introspections
+        do not expose. Describing them requires the optional provider; validation does not
+        generate extra declaration classes. The full Jakarta stack tests all 1,054 cases.
+        This restricted suite runs 1,048 tests; excluded tests are not reported as skipped.
+
+        Reassess with -PtckIntrospectionSuite=tck-spec-tests.xml before removing this exclusion.
+    -->
+    <test name="Jakarta-Bean-Validation-TCK">
+        <packages>
+            <package name="org.hibernate.beanvalidation.tck.tests.*"/>
+        </packages>
+        <classes>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.groupconversion.GroupConversionTest">
+                <methods>
+                    <exclude name="testGroupConversionsAppliedOnConstructor"/>
+                    <exclude name="testGroupConversionsAppliedOnField"/>
+                    <exclude name="testGroupConversionsAppliedOnGetter"/>
+                    <exclude name="testGroupConversionsAppliedOnMethod"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsOnMethodTest">
+                <methods>
+                    <exclude name="testIgnoreAnnotationsOnMethodLevel"/>
+                </methods>
+            </class>
+            <class name="org.hibernate.beanvalidation.tck.tests.xmlconfiguration.methodvalidation.IgnoreAnnotationsInMethodConfigurationTest">
+                <methods>
+                    <exclude name="testIgnoreAnnotationsOnReturnValueParameterAndCrossParameter"/>
+                </methods>
+            </class>
+        </classes>
+    </test>
+</suite>

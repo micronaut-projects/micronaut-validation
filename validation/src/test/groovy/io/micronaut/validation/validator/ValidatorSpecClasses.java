@@ -4,7 +4,10 @@ import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.Introspected;
 import jakarta.inject.Singleton;
 
+import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -325,4 +328,68 @@ public class ValidatorSpecClasses {
     public record Ingredient(
         @NotBlank String name
     ) {}
+
+    // violations compare their beans and values by identity
+    @Introspected
+    public record SelfContaining(
+        List<@NotNull Object> items
+    ) {}
+
+    // a legacy @Valid on a map cascades its values and keeps the constraints of its keys
+    @Introspected
+    public record ValidMapWithKeys(
+        @Valid Map<@NotNull String, Ingredient> pantry
+    ) {}
+
+    // a cascade converting groups validates the bean in the groups converted to, as a requested group
+    public interface External {
+    }
+
+    public interface Checks {
+    }
+
+    public interface BaseGroup {
+    }
+
+    public interface DerivedGroup extends BaseGroup {
+    }
+
+    @Introspected
+    @GroupSequence({SequencedChild.class, Checks.class})
+    public record SequencedChild(
+        @Size(min = 5, groups = Checks.class) String name
+    ) {}
+
+    @Introspected
+    public record ConvertedToDefault(
+        @Valid @ConvertGroup(from = External.class, to = Default.class) SequencedChild child
+    ) {}
+
+    @Introspected
+    public record BaseGroupChild(
+        @NotNull(groups = BaseGroup.class) String name
+    ) {}
+
+    @Introspected
+    public record ConvertedToDerived(
+        @Valid @ConvertGroup(to = DerivedGroup.class) BaseGroupChild child
+    ) {}
+
+    // a field constraint reads the field, not a getter computing another value
+    @Introspected
+    public static class MaskedField {
+        @NotNull
+        public String value;
+
+        @NotNull
+        String packaged;
+
+        public String getValue() {
+            return "masked";
+        }
+
+        public String getPackaged() {
+            return "masked";
+        }
+    }
 }

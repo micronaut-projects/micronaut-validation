@@ -15,33 +15,106 @@
  */
 package io.micronaut.validation.transformer;
 
+import io.micronaut.annotation.processing.visitor.ElementProvider;
 import io.micronaut.core.annotation.AnnotationClassValue;
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.AnnotationValueBuilder;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Retainable;
 import io.micronaut.inject.annotation.AnnotationRemapper;
+import io.micronaut.inject.ast.AnnotationElement;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.EnumElement;
+import io.micronaut.inject.processing.JavaModelUtils;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.annotation.InEnum;
+import io.micronaut.validation.annotation.NotInEnum;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import jakarta.validation.Constraint;
+import jakarta.validation.ReportAsSingleViolation;
 import jakarta.validation.Valid;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
 
 import java.lang.annotation.Inherited;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.TypeElement;
 
 /**
- * The validation annotations remapper.
+ * The validation annotations remapper: it retains on each constraint occurrence what the validator reads of its
+ * definition. It applies to every package because a constraint is any annotation meta-annotated with
+ * {@link Constraint}.
  *
  * @author Denis Stepanov
  */
+@Internal
 public class ValidationAnnotationRemapper implements AnnotationRemapper {
+
+    // the attribute of a visitor context holding the definitions of the constraints of its compilation: core holds
+    // the remapper statically, so it keeps nothing of a compilation itself
+    private static final String DEFINITIONS = ValidationAnnotationRemapper.class.getName() + ".definitions";
 
     @Override
     public String getPackageName() {
         return AnnotationRemapper.ALL_PACKAGES;
     }
 
+    @SuppressWarnings("ReferenceEquality")
+    private static boolean isRewritten(AnnotationValue<?> rewritten, AnnotationValue<?> original) {
+        return rewritten != original;
+    }
+
     @Override
     public List<AnnotationValue<?>> remap(AnnotationValue<?> annotation, VisitorContext visitorContext) {
+        var contained = annotation.getAnnotations(AnnotationMetadata.VALUE_MEMBER);
+        if (!contained.isEmpty()) {
+            var rewritten = contained.stream().map(value -> visitorContext.getClassElement(value.getAnnotationName())
+                .map(type -> {
+                    var contract = type.getAnnotationMetadata().getAnnotation(Constraint.class);
+                    if (contract == null) {
+                        return value;
+                    }
+                    var builder = value.mutate().stereotype(contract);
+                    type.getAnnotationMetadata().findAnnotation(ReportAsSingleViolation.class).ifPresent(builder::stereotype);
+                    for (String name : type.getAnnotationNamesByStereotype(Constraint.class)) {
+                        type.getAnnotationValuesByName(name).forEach(builder::stereotype);
+                    }
+                    return retainedValue(remap(builder.build(), visitorContext).getFirst());
+                }).orElse(value)).toArray(AnnotationValue<?>[]::new);
+            // a container of no constraint, a repeated annotation of another kind, is left as it is: compared by
+            // identity, as equal values may differ in the stereotypes added
+            boolean changed = false;
+            for (int i = 0; i < rewritten.length && !changed; i++) {
+                changed = isRewritten(rewritten[i], contained.get(i));
+            }
+            if (changed) {
+                annotation = annotation.mutate().member(AnnotationMetadata.VALUE_MEMBER, rewritten).build();
+            }
+        }
+        if (annotation.getAnnotationName().equals(Constraint.class.getName())) {
+            // makes every constraint retainable, so a composing occurrence stays attributed to its composition
+            return List.of(
+                    annotation.mutate().stereotype(
+                            AnnotationValue.builder(Retainable.class).build()
+                    ).build());
+        }
+        if (annotation.getAnnotationName().equals(ReportAsSingleViolation.class.getName())) {
+            // read per constraint: retained, it stays on the occurrence
+            return List.of(
+                    annotation.mutate().stereotype(
+                            AnnotationValue.builder(Retainable.class).build()
+                    ).build());
+        }
         if (annotation.getAnnotationName().equals(Valid.class.getName())) {
             return List.of(
                     annotation.mutate().stereotype(
@@ -53,11 +126,15 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             Optional<AnnotationValue<?>> optionalConstraint = stereotypes.stream().filter(stereotype -> stereotype.getAnnotationName().equals(Constraint.class.getName())).findFirst();
             if (optionalConstraint.isPresent()) {
                 AnnotationValue<?> constraintAnnotationValue = optionalConstraint.get();
-                AnnotationValueBuilder<?> builder = annotation.mutate();
-                AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
-                if (validatedBy.length > 0) {
-                    builder = builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);
+                AnnotationValueBuilder<?> builder = annotation.mutate()
+                    .member(ValidationAnnotationUtil.CONSTRAINT_TYPE, new AnnotationClassValue<>(annotation.getAnnotationName()));
+                if (annotation.getAnnotationName().equals(InEnum.class.getName())
+                    || annotation.getAnnotationName().equals(NotInEnum.class.getName())) {
+                    annotation.stringValue("value").flatMap(visitorContext::getClassElement)
+                        .filter(EnumElement.class::isInstance).map(EnumElement.class::cast)
+                        .ifPresent(type -> builder.member(ValidationAnnotationUtil.ENUM_VALUES, type.values().toArray(String[]::new)));
                 }
+                definition(annotation.getAnnotationName(), constraintAnnotationValue, visitorContext).applyTo(annotation, builder);
                 return List.of(
                         builder.stereotype(
                         AnnotationValue.builder(Inherited.class).build()
@@ -65,5 +142,227 @@ public class ValidationAnnotationRemapper implements AnnotationRemapper {
             }
         }
         return List.of(annotation);
+    }
+
+    /**
+     * What every occurrence of a constraint retains of its definition, read once per constraint and compilation:
+     * a constraint used on many elements is described, and an invalid definition reported, once.
+     */
+    private static Definition definition(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
+        Map<String, Definition> definitions = definitions(visitorContext);
+        Definition definition = definitions.get(name);
+        if (definition == null) {
+            definition = describe(name, constraintAnnotationValue, visitorContext);
+            definitions.put(name, definition);
+        }
+        return definition;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Definition> definitions(VisitorContext visitorContext) {
+        if (visitorContext.getValue(DEFINITIONS) instanceof Map<?, ?> definitions) {
+            return (Map<String, Definition>) definitions;
+        }
+        Map<String, Definition> definitions = new ConcurrentHashMap<>();
+        visitorContext.put(DEFINITIONS, definitions);
+        return definitions;
+    }
+
+    private static Definition describe(String name, AnnotationValue<?> constraintAnnotationValue, VisitorContext visitorContext) {
+        AnnotationValueBuilder<?> builder = AnnotationValue.builder(name);
+        AnnotationClassValue<?>[] validatedBy = constraintAnnotationValue.annotationClassValues("validatedBy");
+        builder.member(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY, validatedBy);
+        if (validatedBy.length > 0) {
+            var targets = new LinkedHashSet<String>();
+            for (var validator : validatedBy) {
+                visitorContext.getClassElement(validator.getName()).ifPresent(type -> {
+                    var declared = type.getAnnotationMetadata().stringValues(SupportedValidationTarget.class);
+                    if (declared.length == 0) {
+                        targets.add(ValidationTarget.ANNOTATED_ELEMENT.name());
+                    } else {
+                        targets.addAll(List.of(declared));
+                    }
+                });
+            }
+            builder.member(ValidationAnnotationUtil.VALIDATION_TARGETS, targets.toArray(String[]::new));
+        }
+        visitorContext.getClassElement(name).ifPresent(type -> {
+            // also reports an invalid definition: only the remapper sees every use, a library constraint's included
+            ConstraintDefinitionMetadata.retain(type, visitorContext, builder);
+            if (visitorContext.getLanguage() == VisitorContext.Language.JAVA) {
+                JavaComposition.retainDirectCompositions(type, builder);
+            } else {
+                retainDeclaredCompositions(type, visitorContext, builder);
+            }
+            builder.member(ValidationAnnotationUtil.REPORT_AS_SINGLE_VIOLATION,
+                type.hasDeclaredAnnotation(ReportAsSingleViolation.class));
+            if (hasDirectAndContainerComposition(type, visitorContext)) {
+                builder.member(ValidationAnnotationUtil.COMPOSITION_ERROR, "Constraint is composed both directly and in a container: " + type.getName());
+            }
+        });
+        // described on an occurrence declaring nothing: a member of the constraint itself is a default only an
+        // occurrence not declaring it takes, the members of the validator are retained on every occurrence
+        Map<CharSequence, Object> retained = new LinkedHashMap<>();
+        Map<CharSequence, Object> defaults = new LinkedHashMap<>();
+        builder.build().getValues().forEach((member, value) ->
+            (member.toString().startsWith("$") ? retained : defaults).put(member, value));
+        return new Definition(Map.copyOf(retained), Map.copyOf(defaults));
+    }
+
+    static int composingOccurrences(ClassElement type, String constraint, VisitorContext context) {
+        if (context.getLanguage() == VisitorContext.Language.JAVA) {
+            return JavaComposition.composingOccurrences(type, constraint);
+        }
+        int count = type.getAnnotationValuesByName(constraint).size();
+        if (count == 0) {
+            for (String annotation : type.getDeclaredAnnotationNames()) {
+                for (var value : type.getAnnotationValuesByName(annotation)) {
+                    count += (int) value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream()
+                        .filter(nested -> nested.getAnnotationName().equals(constraint)).count();
+                }
+            }
+        }
+        return count;
+    }
+
+    private static boolean hasDirectAndContainerComposition(ClassElement type, VisitorContext context) {
+        Set<String> annotations = context.getLanguage() == VisitorContext.Language.JAVA
+            ? JavaComposition.declaredAnnotationNames(type)
+            : type.getAnnotationMetadata().getDeclaredAnnotationNames();
+        return hasDirectAndContainerComposition(annotations, context);
+    }
+
+    /**
+     * Whether a constraint and the container holding its repetitions are both declared. The container is the one
+     * the constraint declares as repeatable, whatever its name; an annotation the context cannot resolve is
+     * paired with a container named {@code List} nested in it.
+     */
+    private static boolean hasDirectAndContainerComposition(Set<String> declared, VisitorContext context) {
+        // the binary name of a nested container, Size$List, and its canonical name, Size.List, are the same type
+        Set<String> names = declared.stream().map(name -> name.replace('$', '.')).collect(Collectors.toSet());
+        for (String name : declared) {
+            Optional<ClassElement> element = context.getClassElement(name);
+            Optional<String> container = element.isPresent()
+                ? element.filter(AnnotationElement.class::isInstance).map(AnnotationElement.class::cast)
+                    .flatMap(AnnotationElement::getRepeatableContainer)
+                : Optional.of(name.replace('$', '.') + ".List");
+            if (container.map(it -> names.contains(it.replace('$', '.'))).orElse(false)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The constraints a constraint type declares itself, as the frontends other than javac read them: the
+     * retained composition can hold the constraints those compose too, which are not composing this one.
+     * Nothing is written when none is found, the composition then read as it is retained.
+     */
+    private static void retainDeclaredCompositions(ClassElement type, VisitorContext context, AnnotationValueBuilder<?> occurrence) {
+        AnnotationMetadata metadata = type.getAnnotationMetadata();
+        Set<String> names = new LinkedHashSet<>();
+        for (String name : metadata.getDeclaredAnnotationNames()) {
+            addConstraint(name, context, names);
+            for (AnnotationValue<?> declared : metadata.getDeclaredAnnotationValuesByName(name)) {
+                // the repetitions a container holds
+                for (AnnotationValue<?> contained : declared.getAnnotations(AnnotationMetadata.VALUE_MEMBER)) {
+                    addConstraint(contained.getAnnotationName(), context, names);
+                }
+            }
+        }
+        if (!names.isEmpty()) {
+            occurrence.member(ValidationAnnotationUtil.DIRECT_COMPOSING_CONSTRAINTS, names.toArray(String[]::new));
+        }
+    }
+
+    private static void addConstraint(String name, VisitorContext context, Set<String> names) {
+        if (context.getClassElement(name).map(element -> element.hasDeclaredAnnotation(Constraint.class)).orElse(false)) {
+            names.add(name);
+        }
+    }
+
+    private static AnnotationValue<?> retainedValue(AnnotationValue<?> value) {
+        var stereotypes = value.getStereotypes();
+        if (stereotypes == null || stereotypes.isEmpty()) {
+            return value;
+        }
+        // Nested annotation values do not pass through the metadata builder's retention step.
+        return value.mutate().retainStereotypes(
+            stereotypes.stream().map(ValidationAnnotationRemapper::retainedValue).toList()).build();
+    }
+
+    /**
+     * @param retained The members every occurrence retains
+     * @param defaults The defaults an occurrence not declaring the member takes
+     */
+    private record Definition(Map<CharSequence, Object> retained, Map<CharSequence, Object> defaults) {
+        void applyTo(AnnotationValue<?> occurrence, AnnotationValueBuilder<?> builder) {
+            builder.members(retained);
+            defaults.forEach((member, value) -> {
+                if (!occurrence.contains(member.toString())) {
+                    builder.members(Map.of(member, value));
+                }
+            });
+        }
+    }
+
+    // Keep javac-only AST adapters out of Kotlin and Groovy frontend class loading.
+    private static final class JavaComposition {
+        private static void retainDirectCompositions(ClassElement type, AnnotationValueBuilder<?> occurrence) {
+            if (type.getNativeType() instanceof ElementProvider provider
+                && provider.element() instanceof TypeElement element) {
+                // The retained stereotype list can include flattened descendants as well as direct constraints.
+                String[] names = declaredAnnotations(element).stream().filter(JavaComposition::isConstraint)
+                    .map(annotation -> JavaModelUtils.getClassName((TypeElement) annotation.getAnnotationType().asElement()))
+                    .distinct().toArray(String[]::new);
+                occurrence.member(ValidationAnnotationUtil.DIRECT_COMPOSING_CONSTRAINTS, names);
+            }
+        }
+
+        private static boolean isConstraint(AnnotationMirror annotation) {
+            return annotation.getAnnotationType().asElement().getAnnotationMirrors().stream()
+                .anyMatch(marker -> marker.getAnnotationType().toString().equals("jakarta.validation.Constraint"));
+        }
+
+        private static int composingOccurrences(ClassElement type, String constraint) {
+            if (type.getNativeType() instanceof ElementProvider provider
+                && provider.element() instanceof TypeElement element) {
+                // Read mirrors directly: the type's annotation metadata may still be being remapped.
+                return (int) declaredAnnotations(element).stream()
+                    .filter(annotation -> JavaModelUtils.getClassName((TypeElement) annotation.getAnnotationType().asElement()).equals(constraint))
+                    .count();
+            }
+            return type.getAnnotationValuesByName(constraint).size();
+        }
+
+        private static List<AnnotationMirror> declaredAnnotations(TypeElement element) {
+            var annotations = new ArrayList<AnnotationMirror>();
+            for (var annotation : element.getAnnotationMirrors()) {
+                annotations.add(annotation);
+                for (var member : annotation.getElementValues().entrySet()) {
+                    if (member.getKey().getSimpleName().contentEquals("value")
+                        && member.getValue().getValue() instanceof List<?> nested) {
+                        for (var value : nested) {
+                            if (value instanceof javax.lang.model.element.AnnotationValue entry
+                                && entry.getValue() instanceof AnnotationMirror mirror) {
+                                annotations.add(mirror);
+                            }
+                        }
+                    }
+                }
+            }
+            return annotations;
+        }
+
+        private static Set<String> declaredAnnotationNames(ClassElement type) {
+            if (type.getNativeType() instanceof ElementProvider provider
+                && provider.element() instanceof TypeElement element) {
+                // Read mirrors directly: the type's annotation metadata may still be being remapped.
+                return element.getAnnotationMirrors().stream()
+                    .map(annotation -> JavaModelUtils.getClassName((TypeElement) annotation.getAnnotationType().asElement()))
+                    .collect(Collectors.toSet());
+            }
+            return Set.of();
+        }
     }
 }

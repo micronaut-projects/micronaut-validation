@@ -9,11 +9,19 @@
 
 Micronaut validation
 
+The default `micronaut-validation` module uses generated metadata. Add `micronaut-validation-el` for reflection-free Jakarta EL message interpolation, or `micronaut-validation-reflection` for runtime member discovery and inaccessible field access. `micronaut-validation-jakarta` aggregates bootstrap, XML, reflection and EL support.
+
 ## Documentation
 
 See the [Documentation](https://micronaut-projects.github.io/micronaut-validation/latest/guide/) for more information.
 
 See the [Snapshot Documentation](https://micronaut-projects.github.io/micronaut-validation/snapshot/guide/) for the current development docs.
+
+## Jakarta Validation TCK Evidence
+
+The Jakarta Validation TCK workflow publishes immutable evidence under `tck-results/<workflow-run-id>/` and refreshes the latest evidence page at [Jakarta Validation TCK Evidence](https://micronaut-projects.github.io/micronaut-validation/tck-results/latest/).
+
+This link is a stable entry point for future upstream workflow results. It does not claim full upstream verification until the workflow has passed in the upstream repository.
 
 <!-- ## Examples
 

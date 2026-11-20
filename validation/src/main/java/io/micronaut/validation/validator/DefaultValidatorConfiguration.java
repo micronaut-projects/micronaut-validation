@@ -18,20 +18,17 @@ package io.micronaut.validation.validator;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.ExecutionHandleLocator;
 import io.micronaut.context.annotation.ConfigurationProperties;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionService;
 import io.micronaut.core.convert.ConversionServiceAware;
 import io.micronaut.core.type.Argument;
+import io.micronaut.core.util.SupplierUtil;
 import io.micronaut.core.util.Toggleable;
 import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.ExecutableMethod;
-import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
-import io.micronaut.inject.annotation.MutableAnnotationMetadata;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
+import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetResolver;
 import io.micronaut.validation.validator.constraints.DefaultConstraintValidators;
 import io.micronaut.validation.validator.constraints.DefaultInternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
@@ -42,32 +39,26 @@ import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import jakarta.inject.Inject;
 import jakarta.validation.ClockProvider;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
+import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
-import jakarta.validation.ValidatorContext;
 import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.Nullable;
 
-import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
-import java.lang.reflect.AnnotatedElement;
-import java.lang.reflect.AnnotatedParameterizedType;
-import java.lang.reflect.AnnotatedType;
 import java.lang.reflect.GenericArrayType;
-import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 /**
  * The default configuration for the validator.
@@ -75,11 +66,16 @@ import java.util.Optional;
  * @author graemerocher
  * @since 1.2
  */
-@ConfigurationProperties(ValidatorConfiguration.PREFIX)
-public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ValidatorContext, ConversionServiceAware {
+// the validator plumbing a factory hands its contexts is no configuration property
+@ConfigurationProperties(value = ValidatorConfiguration.PREFIX,
+    excludes = {"reflectionSupport", "constraintValidatorOverrides", "configuredConstraintValidatorFactory"})
+public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ConversionServiceAware, MicronautValidatorContext {
 
     @Nullable
     private InternalConstraintValidatorFactory constraintValidatorFactory;
+
+    @Nullable
+    private ConstraintValidatorFactory configuredConstraintValidatorFactory;
 
     @Nullable
     private ConstraintValidatorRegistry constraintValidatorRegistry;
@@ -90,30 +86,39 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     @Nullable
     private ClockProvider clockProvider;
 
-    @Nullable
-    private ClockProvider defaultClockProvider;
+    private final Supplier<ClockProvider> defaultClockProvider = SupplierUtil.memoized(DefaultClockProvider::new);
 
     @Nullable
     private TraversableResolver traversableResolver;
 
-    @Nullable
-    private TraversableResolver defaultTraversableResolver;
+    private final Supplier<TraversableResolver> defaultTraversableResolver = SupplierUtil.memoized(TraverseAll::new);
 
-    @Nullable
-    private MessageInterpolator defaultMessageInterpolator;
+    private final Supplier<MessageInterpolator> defaultMessageInterpolator =
+        SupplierUtil.memoized(() -> new DefaultMessageInterpolator(new DefaultMessages(), null));
 
     @Nullable
     private MessageInterpolator messageInterpolator;
+
+    @Nullable
+    private ParameterNameProvider defaultParameterNameProvider;
+
+    @Nullable
+    private ParameterNameProvider parameterNameProvider;
 
     @Nullable
     private ExecutionHandleLocator executionHandleLocator;
 
     private ConversionService conversionService = ConversionService.SHARED;
 
-    private BeanIntrospector beanIntrospector = BeanIntrospector.SHARED;
+    private ReflectionSupport reflectionSupport = ReflectionSupport.get();
+    private BeanIntrospector beanIntrospector = reflectionSupport.introspector();
+    // whether the metadata access was set explicitly rather than derived
+    private boolean metadataConfigured;
+    private ConstraintValidatorOverrides constraintValidatorOverrides = ConstraintValidatorOverrides.NONE;
 
     private boolean enabled = true;
     private boolean prependPropertyPath = true;
+    private boolean strictConstraintDefinitions = false;
 
     /**
      * Sets the conversion service.
@@ -132,7 +137,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ConstraintValidatorRegistry getConstraintValidatorRegistry() {
         if (constraintValidatorRegistry == null) {
             constraintValidatorRegistry = new DefaultConstraintValidators();
@@ -142,8 +146,17 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ConstraintValidatorFactory getConstraintValidatorFactory() {
+        if (configuredConstraintValidatorFactory != null) {
+            return configuredConstraintValidatorFactory;
+        }
+        return getInternalConstraintValidatorFactory();
+    }
+
+    @Override
+    @Internal
+    public final InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
         if (constraintValidatorFactory == null) {
-            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null);
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(beanIntrospector, null, reflectionSupport);
         }
         return constraintValidatorFactory;
     }
@@ -192,6 +205,25 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
+    @Override
+    public boolean isStrictConstraintDefinitions() {
+        return strictConstraintDefinitions;
+    }
+
+    /**
+     * Whether constraint definitions are checked against the Jakarta Validation rules.
+     * <p>
+     * Default: false
+     *
+     * @param strictConstraintDefinitions Whether constraint definitions are checked
+     * @return this configuration
+     * @since 5.3.0
+     */
+    public DefaultValidatorConfiguration setStrictConstraintDefinitions(boolean strictConstraintDefinitions) {
+        this.strictConstraintDefinitions = strictConstraintDefinitions;
+        return this;
+    }
+
     /**
      * Sets the constraint validator registry to use.
      *
@@ -205,7 +237,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ValueExtractorRegistry getValueExtractorRegistry() {
         if (valueExtractorRegistry == null) {
             valueExtractorRegistry = new DefaultValueExtractors();
@@ -226,7 +257,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public ClockProvider getClockProvider() {
         if (clockProvider == null) {
             return getDefaultClockProvider();
@@ -236,10 +266,7 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
 
     @Override
     public ClockProvider getDefaultClockProvider() {
-        if (defaultClockProvider == null) {
-            defaultClockProvider = new DefaultClockProvider();
-        }
-        return defaultClockProvider;
+        return defaultClockProvider.get();
     }
 
     /**
@@ -255,26 +282,11 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
     public TraversableResolver getDefaultTraversableResolver() {
-        if (defaultTraversableResolver == null) {
-            defaultTraversableResolver = new TraversableResolver() {
-                @Override
-                public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
-
-                @Override
-                public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
-                    return true;
-                }
-            };
-        }
-        return defaultTraversableResolver;
+        return defaultTraversableResolver.get();
     }
 
     @Override
-    @NonNull
     public TraversableResolver getTraversableResolver() {
         if (traversableResolver == null) {
             return getDefaultTraversableResolver();
@@ -294,7 +306,6 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return this;
     }
 
-    @NonNull
     @Override
     public MessageInterpolator getMessageInterpolator() {
         if (messageInterpolator == null) {
@@ -303,13 +314,9 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
         return messageInterpolator;
     }
 
-    @NonNull
     @Override
     public MessageInterpolator getDefaultMessageInterpolator() {
-        if (defaultMessageInterpolator == null) {
-            defaultMessageInterpolator = new DefaultMessageInterpolator(new DefaultMessages());
-        }
-        return defaultMessageInterpolator;
+        return defaultMessageInterpolator.get();
     }
 
     /**
@@ -325,12 +332,52 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    @NonNull
+    public ParameterNameProvider getParameterNameProvider() {
+        if (parameterNameProvider == null) {
+            return getDefaultParameterNameProvider();
+        }
+        return parameterNameProvider;
+    }
+
+    @Override
+    public ParameterNameProvider getDefaultParameterNameProvider() {
+        if (defaultParameterNameProvider == null) {
+            defaultParameterNameProvider = new DefaultParameterNameProvider(reflectionSupport);
+        }
+        return defaultParameterNameProvider;
+    }
+
+    /**
+     * Sets the parameter name provider to use.
+     * A {@link ParameterNameProvider} bean of the application is injected here and names the parameters of
+     * every validated executable.
+     *
+     * @param parameterNameProvider The parameter name provider
+     * @return this configuration
+     * @since 5.3.0
+     */
+    @Inject
+    public DefaultValidatorConfiguration setParameterNameProvider(@Nullable ParameterNameProvider parameterNameProvider) {
+        this.parameterNameProvider = parameterNameProvider;
+        return this;
+    }
+
+    @Override
     public ExecutionHandleLocator getExecutionHandleLocator() {
         if (executionHandleLocator == null) {
             executionHandleLocator = ExecutionHandleLocator.EMPTY;
         }
         return executionHandleLocator;
+    }
+
+    /**
+     * Shares the execution handle locator of another configuration: a context derived from a factory reads the
+     * methods of the beans its factory reads.
+     *
+     * @param executionHandleLocator The execution handle locator
+     */
+    void shareExecutionHandleLocator(ExecutionHandleLocator executionHandleLocator) {
+        this.executionHandleLocator = executionHandleLocator;
     }
 
     /**
@@ -341,11 +388,18 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
      */
     @Inject
     public DefaultValidatorConfiguration setExecutionHandleLocator(@Nullable BeanContext beanContext) {
+        if (beanContext != null && !metadataConfigured && reflectionSupport.classLoader() != beanContext.getClassLoader()) {
+            // a configuration the context manages reads the metadata of the loader of the context, as its constraint
+            // validator factory does, rather than the one of the thread that happened to create it
+            reflectionSupport = reflectionSupport.withClassLoader(beanContext.getClassLoader());
+            beanIntrospector = reflectionSupport.introspector();
+            defaultParameterNameProvider = null;
+        }
         this.executionHandleLocator = new ExecutionHandleLocator() {
 
             @Override
             public <T, R> Optional<ExecutableMethod<T, R>> findExecutableMethod(Class<T> beanType, String method, Class<?>... arguments) {
-                if (beanType == null) {
+                if (beanType == null || beanContext == null) {
                     return Optional.empty();
                 }
                 Collection<BeanDefinition<T>> definitions = beanContext.getBeanDefinitions(beanType);
@@ -371,94 +425,102 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     @Override
-    public ValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
+    public MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
         this.messageInterpolator = messageInterpolator;
         return this;
     }
 
     @Override
-    public ValidatorContext traversableResolver(TraversableResolver traversableResolver) {
+    public MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver) {
         this.traversableResolver = traversableResolver;
         return this;
     }
 
     @Override
-    public ValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
-        throw new UnsupportedOperationException("Method constraintValidatorFactory(..) not supported");
+    public MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
+        this.configuredConstraintValidatorFactory = factory;
+        this.constraintValidatorFactory = toInternalConstraintValidatorFactory(factory, reflectionSupport);
+        return this;
+    }
+
+    static InternalConstraintValidatorFactory toInternalConstraintValidatorFactory(ConstraintValidatorFactory factory, ReflectionSupport reflectionSupport) {
+        if (factory instanceof InternalConstraintValidatorFactory internalConstraintValidatorFactory) {
+            return internalConstraintValidatorFactory;
+        }
+        return new DelegatingInternalConstraintValidatorFactory(factory, reflectionSupport);
     }
 
     @Override
-    public ValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
-        throw new UnsupportedOperationException("Method parameterNameProvider(..) not supported");
+    public MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
+        return setParameterNameProvider(parameterNameProvider);
     }
 
     @Override
-    public ValidatorContext clockProvider(ClockProvider clockProvider) {
+    public MicronautValidatorContext clockProvider(ClockProvider clockProvider) {
         this.clockProvider = clockProvider;
         return this;
     }
 
     @Override
-    public ValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
-        List<AnnotatedType> annotatedTypes = new ArrayList<>();
-        Class<? extends ValueExtractor> extractorClass = extractor.getClass();
-        determineValueExtractorDefinitions(annotatedTypes, extractorClass);
-        if (annotatedTypes.size() != 1) {
-            throw new IllegalStateException("Expected to find one annotation type! Got: " + annotatedTypes);
-        }
-        ValueExtractorRegistry valueExtractorRegistry1 = getValueExtractorRegistry();
-        Argument<ValueExtractor<Object>> argument = (Argument<ValueExtractor<Object>>) argumentOf(annotatedTypes.get(0));
-        if (extractorClass.getAnnotations().length > 0) {
-            argument = Argument.of(
-                argument.getType(),
-                new AnnotationMetadataHierarchy(argument.getAnnotationMetadata(), annotationMetadataOf(extractorClass)),
-                argument.getTypeParameters());
-        }
-        valueExtractorRegistry1.addValueExtractor(new ValueExtractorDefinition<>(
-            argument,
-            (ValueExtractor<Object>) extractor
-        ));
+    public MicronautValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
+        addValueExtractor(extractor, false);
         return this;
     }
 
-    @NonNull
-    private static Argument<?> argumentOf(@NonNull AnnotatedType type) {
-        if (type instanceof AnnotatedParameterizedType annotatedParameterizedType) {
-            return Argument.of(
-                getClassFromType(type.getType()),
-                annotationMetadataOf(type),
-                Arrays.stream(annotatedParameterizedType.getAnnotatedActualTypeArguments()).map(DefaultValidatorConfiguration::argumentOf).toArray(Argument[]::new)
-            );
-        }
-        return Argument.of(getClassFromType(type.getType()), annotationMetadataOf(type));
+    /**
+     * Registers a value extractor described in full, so that nothing has to be read from its class.
+     *
+     * <p>The specification registers an extractor as an instance and says nothing else about it, so
+     * {@link #addValueExtractor(ValueExtractor)} has to read the {@code ValueExtractor} signature the class
+     * declares, which needs {@code micronaut-validation-reflection}. This overload takes that description
+     * instead: the container type, the extracted type, which type argument carries the extracted value, and
+     * whether the value is unwrapped by default.</p>
+     *
+     * @param definition The extractor and what it extracts
+     * @param <T>        The container type
+     * @return This context
+     * @since 5.3.0
+     */
+    @Override
+    public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {
+        getValueExtractorRegistry().addValueExtractor(definition);
+        return this;
     }
 
-    private static AnnotationMetadata annotationMetadataOf(AnnotatedElement annotatedElement) {
-        Annotation[] annotations = annotatedElement.getAnnotations();
-        if (annotations.length == 0) {
-            return AnnotationMetadata.EMPTY_METADATA;
+    /**
+     * Replaces a value extractor for the same container type and type argument if present.
+     *
+     * @param extractor The extractor
+     * @since 5.3.0
+     */
+    public void replaceValueExtractor(ValueExtractor<?> extractor) {
+        addValueExtractor(extractor, true);
+    }
+
+    /**
+     * Replaces a value extractor described in full, for the same container type and type argument if present.
+     *
+     * @param definition The extractor and what it extracts
+     * @param <T>        The container type
+     * @since 5.3.0
+     */
+    public <T> void replaceValueExtractor(ValueExtractorDefinition<T> definition) {
+        getValueExtractorRegistry().replaceValueExtractor(definition);
+    }
+
+    private void addValueExtractor(ValueExtractor<?> extractor, boolean replace) {
+        ValueExtractorRegistry valueExtractorRegistry1 = getValueExtractorRegistry();
+        Argument<ValueExtractor<Object>> argument =
+            (Argument<ValueExtractor<Object>>) reflectionSupport.valueExtractorArgument(extractor.getClass());
+        ValueExtractorDefinition<Object> definition = new ValueExtractorDefinition<>(
+            argument,
+            (ValueExtractor<Object>) extractor
+        );
+        if (replace) {
+            valueExtractorRegistry1.replaceValueExtractor(definition);
+        } else {
+            valueExtractorRegistry1.addValueExtractor(definition);
         }
-        MutableAnnotationMetadata mutableAnnotationMetadata = new MutableAnnotationMetadata();
-        for (Annotation annotation : annotations) {
-            Map<CharSequence, Object> values = new LinkedHashMap<>();
-            Class<? extends Annotation> annotationType = annotation.annotationType();
-            Method[] methods = annotationType.getMethods();
-            for (Method method : methods) {
-                if (!method.getDeclaringClass().equals(annotationType)) {
-                    continue;
-                }
-                try {
-                    Object value = method.invoke(annotation);
-                    if (value != null) {
-                        values.put(method.getName(), value);
-                    }
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-            }
-            mutableAnnotationMetadata.addAnnotation(annotationType.getName(), values);
-        }
-        return mutableAnnotationMetadata;
     }
 
     @Override
@@ -472,31 +534,58 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     }
 
     public final void setBeanIntrospector(BeanIntrospector beanIntrospector) {
-        this.beanIntrospector = beanIntrospector;
-    }
-
-    private static void determineValueExtractorDefinitions(List<AnnotatedType> valueExtractorDefinitions, Class<?> extractorImplementationType) {
-        if (!ValueExtractor.class.isAssignableFrom(extractorImplementationType)) {
-            return;
-        }
-
-        Class<?> superClass = extractorImplementationType.getSuperclass();
-        if (superClass != null && !Object.class.equals(superClass)) {
-            determineValueExtractorDefinitions(valueExtractorDefinitions, superClass);
-        }
-        for (Class<?> implementedInterface : extractorImplementationType.getInterfaces()) {
-            if (!ValueExtractor.class.equals(implementedInterface)) {
-                determineValueExtractorDefinitions(valueExtractorDefinitions, implementedInterface);
-            }
-        }
-        for (AnnotatedType annotatedInterface : extractorImplementationType.getAnnotatedInterfaces()) {
-            if (ValueExtractor.class.equals(getClassFromType(annotatedInterface.getType()))) {
-                valueExtractorDefinitions.add(annotatedInterface);
-            }
+        this.metadataConfigured = true;
+        this.reflectionSupport = reflectionSupport.withIntrospector(beanIntrospector);
+        // the introspector as the support reads it: without the reflection module, its generated introspections
+        this.beanIntrospector = reflectionSupport.introspector();
+        this.defaultParameterNameProvider = null;
+        if (constraintValidatorFactory == null || constraintValidatorFactory instanceof DefaultInternalConstraintValidatorFactory) {
+            constraintValidatorFactory = new DefaultInternalConstraintValidatorFactory(this.beanIntrospector, null, reflectionSupport);
         }
     }
 
+    @Override
+    public ConstraintValidatorOverrides getConstraintValidatorOverrides() {
+        return constraintValidatorOverrides;
+    }
+
+    /**
+     * Sets the validators a configuration defines for the constraints.
+     *
+     * @param constraintValidatorOverrides The configured validators
+     */
+    @Internal
+    public final void setConstraintValidatorOverrides(ConstraintValidatorOverrides constraintValidatorOverrides) {
+        this.constraintValidatorOverrides = constraintValidatorOverrides;
+    }
+
+    @Override
+    public ReflectionSupport getReflectionSupport() {
+        return reflectionSupport;
+    }
+
+    /**
+     * Sets the access provider used by this factory and its derived contexts.
+     * Configure it before constructing validators or their constraint validator factory.
+     * @param reflectionSupport The application access provider
+     */
+    @Internal
+    public final void setReflectionSupport(ReflectionSupport reflectionSupport) {
+        this.metadataConfigured = true;
+        this.reflectionSupport = reflectionSupport;
+        this.defaultParameterNameProvider = null;
+    }
+
+    /**
+     * Erases a caller-supplied generic signature.
+     *
+     * @param type The signature
+     * @return The raw class, retaining the historical Object[] erasure for generic arrays
+     * @deprecated Use {@link Argument#getType()} on a generated argument instead.
+     */
+    @Deprecated(since = "5.3.0", forRemoval = true)
     public static Class<?> getClassFromType(Type type) {
+        // a signature the caller holds, taken apart without reading a class
         if (type instanceof Class<?> classType) {
             return classType;
         }
@@ -510,5 +599,63 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
             return getClassFromType(wildcardType.getUpperBounds()[0]);
         }
         throw new IllegalArgumentException("Unknown type: " + type);
+    }
+
+    private record DelegatingInternalConstraintValidatorFactory(
+        ConstraintValidatorFactory delegate, ReflectionSupport reflectionSupport
+    ) implements InternalConstraintValidatorFactory {
+
+        @Override
+        public <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> key) {
+            return getRequiredInstance(key);
+        }
+
+        @Override
+        public void releaseInstance(ConstraintValidator<?, ?> instance) {
+            delegate.releaseInstance(instance);
+        }
+
+        @Override
+        public <T extends ConstraintValidator<?, ?>> @Nullable T getInstance(Class<T> validatorType,
+                                                                                      Class<?> targetType,
+                                                                                      ConstraintTarget constraintTarget) {
+            if (!isCompatible(validatorType, targetType, constraintTarget)) {
+                return null;
+            }
+            return getRequiredInstance(validatorType);
+        }
+
+        private <T extends ConstraintValidator<?, ?>> T getRequiredInstance(Class<T> validatorType) {
+            T validator = delegate.getInstance(validatorType);
+            if (validator == null) {
+                throw new ValidationException("ConstraintValidatorFactory returned null for " + validatorType.getName());
+            }
+            return validator;
+        }
+
+        private boolean isCompatible(Class<? extends ConstraintValidator<?, ?>> validatorType,
+                                            Class<?> targetType,
+                                            ConstraintTarget constraintTarget) {
+            Class<?> validatorTargetType = ConstraintValidatorTargetResolver.getTargetType(reflectionSupport, validatorType);
+            Class<?> resolvedTargetType = ConstraintValidatorTargetResolver.resolveTargetType(targetType);
+            return ConstraintValidatorTargetResolver.allowsConstraintTarget(ConstraintValidatorTargetResolver.validationTargets(reflectionSupport, validatorType), constraintTarget)
+                && validatorTargetType.isAssignableFrom(resolvedTargetType);
+        }
+    }
+
+    /**
+     * The default resolver: everything is reachable and cascadable. The validator recognizes it and skips
+     * building the paths it would be asked about.
+     */
+    static final class TraverseAll implements TraversableResolver {
+        @Override
+        public boolean isReachable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+            return true;
+        }
+
+        @Override
+        public boolean isCascadable(Object object, Path.Node node, Class<?> rootType, Path path, ElementType elementType) {
+            return true;
+        }
     }
 }

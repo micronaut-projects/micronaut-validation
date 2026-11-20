@@ -1,0 +1,71 @@
+Micronaut Validation separates the default lightweight validator from the optional Jakarta Validation compliance stack.
+
+The default dependency is appropriate for most Micronaut applications:
+
+dependency:micronaut-validation[groupId="io.micronaut.validation"]
+
+It validates using Micronaut introspection and compile-time metadata. It does not enable XML parsing, ServiceLoader bootstrap, or reflection fallback by default, and it has no Jakarta EL dependency. Add `micronaut-validation-el` to enable Jakarta EL interpolation.
+
+== Jakarta Compliance Dependency
+
+Use the aggregate module when an application, test suite, or library needs the Jakarta Validation provider bootstrap or other specification-oriented behavior:
+
+dependency:micronaut-validation-jakarta[groupId="io.micronaut.validation"]
+
+The aggregate explicitly includes `micronaut-validation-reflection`, bootstrap, XML, and the Jakarta EL implementation.
+
+== Module Model
+
+`micronaut-validation`::
+The default lightweight validation implementation. It uses generated annotation metadata and bean introspections and remains free of XML, reflection fallback, and `jakarta.validation.spi.ValidationProvider` ServiceLoader registration. Jakarta EL interpolation is provided separately by `micronaut-validation-el`.
+
+`micronaut-validation-reflection`::
+Optional. Describes reflectively what the annotation processors never saw, through the `micronaut-reflection` module of Micronaut core: a type without a generated introspection, a constraint whose composition is not retained in the metadata, and the executables the Jakarta Validation API names by their `java.lang.reflect.Method` or `Constructor`. Without it the validator reads generated metadata only, including when a field carries `@ReflectiveAccess`. The reflective description of the types can be switched off with the system property `micronaut.validation.reflection.enabled=false`.
+
+`micronaut-validation-bootstrap`::
+Provides the Jakarta `ValidationProvider`, `Configuration`, and `ValidatorFactory` bootstrap integration used by `jakarta.validation.Validation`. It uses generated metadata first and has no dependency on `micronaut-validation-reflection`. Bootstrap classes without generated constructors require the optional reflection provider.
+
+`micronaut-validation-xml`::
+Adds support for `META-INF/validation.xml` and Jakarta constraint mapping XML resources. A mapping is applied by decorating the bean introspections the validator reads with the annotation metadata it declares. Classes, declaration signatures, annotation members, and access use generated metadata first. Missing metadata requires `micronaut-validation-reflection`; XML does not independently authorize reflection.
+
+`micronaut-validation-el`::
+Adds Micronaut Jakarta EL and its runtime interpreter. Message interpolation uses generated bean introspections and container resolvers, with direct locale-aware formatter dispatch. It does not add the EL reflection companion or reflective bean, record, or static-field resolvers. An EL API jar alone does not activate this integration.
+
+`micronaut-validation-jakarta`::
+Aggregates reflection, bootstrap, and XML support for the Jakarta compliance stack, and includes `micronaut-validation-el`. Types without a generated introspection are described through `micronaut-validation-reflection`.
+
+== Choosing Modules
+
+Prefer `micronaut-validation` when you want Micronaut's compile-time validation model and GraalVM-friendly defaults. Add `micronaut-validation-reflection` to it when the validator has to describe types, constraints or executables the processors never saw.
+
+Use `micronaut-validation-jakarta` when you need Jakarta Validation bootstrap behavior, XML configuration, constraint mapping XML, Jakarta EL interpolation, or reflection fallback for specification compatibility.
+
+You can also depend on individual optional modules when only one part of the compliance stack is required.
+
+== Omissions
+
+The default `TraversableResolver` traverses every property: there is no resolver aware of Jakarta Persistence. The specification describes a default resolver that, with a persistence provider present, asks `jakarta.persistence.PersistenceUtil` whether a property is loaded and does not reach or cascade into a lazy association that is not, so validation never triggers its loading. Micronaut Validation does not provide one, with or without `micronaut-validation-jakarta`: validating an entity reads its lazy associations as any other property. An application validating persistence entities can register a `TraversableResolver` bean, or pass one to `Configuration.traversableResolver`, that consults `Persistence.getPersistenceUtil().isLoaded(...)`.
+
+== EL Interpolation Without Reflection
+
+dependency:micronaut-validation-el[groupId="io.micronaut.validation"]
+
+This module uses Micronaut Jakarta EL `1.1.1-SNAPSHOT`, including the interpreter with its separate optional reflection companion. Configure the Micronaut snapshot repository when consuming this development version.
+
+Annotate application beans with `@Introspected` for property expressions. Annotate methods with `@Executable` when expressions call them. The Jakarta `formatter.format(...)` variable is dispatched directly and supports the requested locale and variable arguments.
+
+The default EL sandbox remains enabled. Group and payload variables retain their `Class` values. Only `name` and `simpleName` are exposed through a generated class introspection; reflective properties such as `classLoader` remain unavailable. An unresolved or disallowed expression is left unchanged. Validation uses an explicit set of generated and container resolvers and method executors. Installing the EL reflection companion elsewhere in the application does not enable reflective property access or method invocation during validation. Generated `@Executable` methods and the locale-aware formatter remain available.
+
+A message template a constraint validator builds with `ConstraintValidatorContext.buildConstraintViolationWithTemplate`, or sets with `messageTemplate` of the Micronaut `ConstraintValidatorContext`, may carry the validated value, so by default an expression written in it is evaluated only at the level of variables, as the `VARIABLES` expression language feature level of the reference implementation evaluates it: variables such as `${validatedValue}` and the constraint attributes, literals, operators and `formatter.format(...)` are evaluated, while an expression reading a property, an index or a method of a value, such as `${validatedValue.toUpperCase()}`, is left as written. The text a message bundle supplies is trusted: a custom template that reuses a default message, `{jakarta.validation.constraints.DecimalMin.message}`, or names a bundle key whose text holds an expression such as `${inclusive ? 'or equal to' : ''}` has that text evaluated in full. The messages of constraints are evaluated in full. Set `micronaut.validator.custom-violation-expressions` to `true` to evaluate the expressions of custom violations as well; this applies to the interpolator bean of an application context, a factory bootstrapped through the Jakarta Validation API keeps the default. Whatever the template, `formatter.format(...)` rejects a width or precision above 1024, so that a template carrying the validated value cannot pad a message until the memory runs out; such an expression is left as written.
+
+Message interpolation expands user bundles recursively, applies provider messages, substitutes constraint attributes once, and evaluates EL expressions. Escaped text and substituted attribute values are never reinterpreted. Bundle cycles remain unresolved; nesting beyond 64 levels reports a validation error.
+
+The interpolator retains its application class loader for expression discovery, generated introspections, and message bundles. Validation can therefore run on worker threads with a different context class loader. Each interpolator caches up to 64 locale bundle sets, including missing resources. The cache belongs to the interpolator and is released with it; resources are treated as immutable for that interpolator's lifetime.
+
+=== Compiled Message Expressions
+
+Known expression fragments can be declared with Micronaut Jakarta EL's `@ELExpression` and typed with `@ELEnvironment` / `@ELVariable`. Add `io.micronaut.el:micronaut-jakarta-el-processor` to the annotation processor path, using the same version as the EL runtime. The validation interpolator discovers the resulting expression sources and tries them before the runtime interpreter.
+
+For example, declare `${validatedValue.toUpperCase()}` with a `String` variable named `validatedValue`. Use that exact fragment in the constraint's message. Compilation applies to the EL fragment, after bundle expansion and attribute substitution, rather than the complete validation message template. All occurrences of the compiled fragment must agree on variable types. Runtime bundle messages and undeclared expressions continue through the interpreter.
+
+Compiling validation annotation messages automatically is intentionally not enabled: localized bundles and runtime attribute substitution can change the final expression and its variable types. The `CompiledMessages` integration fixture verifies explicit compilation and runtime fallback together.

@@ -17,16 +17,29 @@ package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.validation.validator.extractors.DefaultValueExtractors;
+import io.micronaut.validation.validator.extractors.ValueExtractorDefinition;
+import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
+import jakarta.annotation.PreDestroy;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
-
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
-import jakarta.validation.ValidatorContext;
+import jakarta.validation.ValidationException;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.Nullable;
+
+import java.lang.ref.Cleaner;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.WeakHashMap;
 
 /**
  * Default validator factory implementation.
@@ -41,16 +54,24 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     private final Validator validator;
     private final ValidatorConfiguration configuration;
+    // the validators closed with the factory. A validator of a context is created per call and nothing says
+    // when its caller is done with it, so it is held weakly: one no longer in use is not kept until the
+    // factory closes
+    private final Set<DefaultValidator> ownedValidators = Collections.newSetFromMap(new WeakHashMap<>());
+    // the initialized constraint validators of the validators of contexts, held by the factory, not by the
+    // validator: one no longer in use releases them when collected, the others when the factory closes
+    private final Set<ConstraintValidatorInstances> ownedInstances = Collections.newSetFromMap(new IdentityHashMap<>());
+    // read without the monitor by getValidator: written under it once, when the factory closes
+    private volatile boolean closed;
 
-    /**
-     * The constructor.
-     */
+    /** The constructor. */
     public DefaultValidatorFactory() {
         this(new DefaultValidatorConfiguration());
     }
 
     /**
      * The constructor.
+     *
      * @param configuration The configuration.
      */
     public DefaultValidatorFactory(ValidatorConfiguration configuration) {
@@ -59,6 +80,7 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     /**
      * Default constructor.
+     *
      * @param validator The validator.
      * @param configuration The configuration.
      */
@@ -66,27 +88,26 @@ public class DefaultValidatorFactory implements ValidatorFactory {
     public DefaultValidatorFactory(Validator validator, ValidatorConfiguration configuration) {
         this.validator = validator;
         this.configuration = configuration;
-    }
-
-    @Override
-    public jakarta.validation.Validator getValidator() {
-        return validator;
-    }
-
-    @Override
-    public ValidatorContext usingContext() {
-        if (configuration instanceof ValidatorContext validatorContext) {
-            return validatorContext;
-        } else {
-            DefaultValidatorConfiguration newValidatorConfiguration = new DefaultValidatorConfiguration();
-            newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
-            return newValidatorConfiguration;
+        if (validator instanceof DefaultValidator defaultValidator) {
+            ownedValidators.add(defaultValidator);
         }
     }
 
     @Override
+    public jakarta.validation.Validator getValidator() {
+        requireOpen();
+        return validator;
+    }
+
+    @Override
+    public synchronized MicronautValidatorContext usingContext() {
+        requireOpen();
+        return new DefaultFactoryValidatorContext(newValidatorConfiguration());
+    }
+
+    @Override
     public MessageInterpolator getMessageInterpolator() {
-        throw new UnsupportedOperationException("Method getMessageInterpolator() not supported");
+        return configuration.getMessageInterpolator();
     }
 
     @Override
@@ -96,12 +117,12 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public ConstraintValidatorFactory getConstraintValidatorFactory() {
-        throw new UnsupportedOperationException("Method getConstraintValidatorFactory() not supported");
+        return configuration.getConstraintValidatorFactory();
     }
 
     @Override
     public ParameterNameProvider getParameterNameProvider() {
-        throw new UnsupportedOperationException("Method getParameterNameProvider() not supported");
+        return configuration.getParameterNameProvider();
     }
 
     @Override
@@ -111,11 +132,209 @@ public class DefaultValidatorFactory implements ValidatorFactory {
 
     @Override
     public <T> T unwrap(Class<T> type) {
-        throw new UnsupportedOperationException("Method unwrap(..) not supported");
+        if (type.isInstance(this)) {
+            return type.cast(this);
+        }
+        throw new ValidationException("Type " + type.getName() + " is not supported by unwrap");
     }
 
     @Override
+    @PreDestroy
     public void close() {
-        // no-op
+        List<DefaultValidator> closing;
+        List<ConstraintValidatorInstances> collected;
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+            ownedValidators.forEach(DefaultValidator::checkCloseAllowed);
+            closed = true;
+            closing = List.copyOf(ownedValidators);
+            ownedValidators.clear();
+            collected = new ArrayList<>(ownedInstances);
+            ownedInstances.clear();
+        }
+        RuntimeException failure = null;
+        for (DefaultValidator owned : closing) {
+            try {
+                owned.close();
+            } catch (RuntimeException e) {
+                failure = addFailure(failure, e);
+            }
+        }
+        // the validators of contexts collected before the factory closed: releasing is idempotent, so those
+        // closed above are skipped
+        for (ConstraintValidatorInstances instances : collected) {
+            try {
+                instances.close();
+            } catch (RuntimeException e) {
+                failure = addFailure(failure, e);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static RuntimeException addFailure(@Nullable RuntimeException failure, RuntimeException e) {
+        if (failure == null) {
+            return e;
+        }
+        failure.addSuppressed(e);
+        return failure;
+    }
+
+    private void requireOpen() {
+        if (closed) {
+            throw new ValidationException("Validator factory is closed");
+        }
+    }
+
+    /**
+     * Creates a validator for the given configuration.
+     *
+     * @param configuration The validator configuration
+     * @return The validator
+     * @since 5.3.0
+     */
+    protected jakarta.validation.Validator newValidator(ValidatorConfiguration configuration) {
+        return new DefaultValidator(configuration);
+    }
+
+    private DefaultValidatorConfiguration newValidatorConfiguration() {
+        return copyConfiguration(configuration);
+    }
+
+    private static DefaultValidatorConfiguration copyConfiguration(
+            ValidatorConfiguration configuration) {
+        DefaultValidatorConfiguration newValidatorConfiguration =
+                new DefaultValidatorConfiguration();
+        newValidatorConfiguration.setReflectionSupport(configuration.getReflectionSupport());
+        newValidatorConfiguration.setStrictConstraintDefinitions(
+                configuration.isStrictConstraintDefinitions());
+        newValidatorConfiguration.setBeanIntrospector(configuration.getBeanIntrospector());
+        newValidatorConfiguration.setConstraintValidatorOverrides(configuration.getConstraintValidatorOverrides());
+        newValidatorConfiguration.setConstraintValidatorRegistry(configuration.getConstraintValidatorRegistry());
+        newValidatorConfiguration.setValueExtractorRegistry(copyValueExtractorRegistry(configuration.getValueExtractorRegistry()));
+        newValidatorConfiguration.setClockProvider(configuration.getClockProvider());
+        newValidatorConfiguration.setTraversableResolver(configuration.getTraversableResolver());
+        newValidatorConfiguration.setMessageInterpolator(configuration.getMessageInterpolator());
+        newValidatorConfiguration.constraintValidatorFactory(configuration.getConstraintValidatorFactory());
+        newValidatorConfiguration.setParameterNameProvider(configuration.getParameterNameProvider());
+        newValidatorConfiguration.shareExecutionHandleLocator(configuration.getExecutionHandleLocator());
+        newValidatorConfiguration.setConversionService(configuration.getConversionService());
+        newValidatorConfiguration.setPrependPropertyPath(configuration.isPrependPropertyPath());
+        return newValidatorConfiguration;
+    }
+
+    private static ValueExtractorRegistry copyValueExtractorRegistry(ValueExtractorRegistry valueExtractorRegistry) {
+        if (valueExtractorRegistry instanceof DefaultValueExtractors defaultValueExtractors) {
+            return new DefaultValueExtractors(defaultValueExtractors);
+        }
+        return valueExtractorRegistry;
+    }
+
+    private final class DefaultFactoryValidatorContext implements MicronautValidatorContext {
+
+        private final DefaultValidatorConfiguration validatorConfiguration;
+
+        private DefaultFactoryValidatorContext(DefaultValidatorConfiguration validatorConfiguration) {
+            this.validatorConfiguration = validatorConfiguration;
+        }
+
+        @Override
+        public MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
+            validatorConfiguration.messageInterpolator(messageInterpolator);
+            return this;
+        }
+
+        @Override
+        public MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver) {
+            validatorConfiguration.traversableResolver(traversableResolver);
+            return this;
+        }
+
+        @Override
+        public MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
+            validatorConfiguration.constraintValidatorFactory(factory);
+            return this;
+        }
+
+        @Override
+        public MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
+            validatorConfiguration.parameterNameProvider(parameterNameProvider);
+            return this;
+        }
+
+        @Override
+        public MicronautValidatorContext clockProvider(ClockProvider clockProvider) {
+            validatorConfiguration.clockProvider(clockProvider);
+            return this;
+        }
+
+        @Override
+        public MicronautValidatorContext addValueExtractor(ValueExtractor<?> extractor) {
+            validatorConfiguration.addValueExtractor(extractor);
+            return this;
+        }
+
+        /**
+         * Registers a value extractor described in full, so that nothing has to be read from its
+         * class.
+         *
+         * @param definition The extractor and what it extracts
+         * @param <T> The container type
+         * @return This context
+         * @since 5.3.0
+         */
+        @Override
+        public <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition) {
+            validatorConfiguration.addValueExtractor(definition);
+            return this;
+        }
+
+        @Override
+        public jakarta.validation.Validator getValidator() {
+            synchronized (DefaultValidatorFactory.this) {
+                requireOpen();
+                jakarta.validation.Validator created =
+                        newValidator(copyConfiguration(validatorConfiguration));
+                if (created instanceof DefaultValidator defaultValidator) {
+                    ownedValidators.add(defaultValidator);
+                    ConstraintValidatorInstances instances = defaultValidator.validatorInstances();
+                    ownedInstances.add(instances);
+                    Cleaners.CLEANER.register(defaultValidator, new ReleaseInstances(DefaultValidatorFactory.this, instances));
+                }
+                return created;
+            }
+        }
+    }
+
+    /** The cleaner, created on the first validator of a context. */
+    private static final class Cleaners {
+        static final Cleaner CLEANER = Cleaner.create();
+    }
+
+    /**
+     * Releases the constraint validators of a collected validator of a context, unless the factory closed first.
+     *
+     * @param factory   The factory
+     * @param instances The instances of the validator
+     */
+    private record ReleaseInstances(DefaultValidatorFactory factory,
+                                    ConstraintValidatorInstances instances) implements Runnable {
+        @Override
+        public void run() {
+            synchronized (factory) {
+                if (!factory.ownedInstances.remove(instances)) {
+                    return;
+                }
+            }
+            try {
+                instances.close();
+            } catch (RuntimeException e) {
+                // nobody to report to on the cleaner thread; the validator is gone
+            }
+        }
     }
 }

@@ -1,0 +1,251 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.transformer;
+
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValueBuilder;
+import io.micronaut.inject.ast.AnnotationElement;
+import io.micronaut.inject.ast.AnnotationMemberElement;
+import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.visitor.ValidationVisitor;
+import jakarta.validation.Constraint;
+import jakarta.validation.OverridesAttribute;
+import jakarta.validation.constraintvalidation.SupportedValidationTarget;
+import jakarta.validation.constraintvalidation.ValidationTarget;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+/**
+ * Retains definition diagnostics and attributes requiring concrete runtime values.
+ *
+ * @since 5.3.0
+ */
+final class ConstraintDefinitionMetadata {
+    static final String STRICT_OPTION = ValidationVisitor.STRICT_DEFINITIONS_OPTION;
+
+    private static final String REPORTED = ConstraintDefinitionMetadata.class.getName() + ".reported";
+
+    private ConstraintDefinitionMetadata() { }
+
+    /** Reports an invalid definition where it is compiled, once for a constraint however often it is used. */
+    @SuppressWarnings("unchecked")
+    private static void report(ClassElement type, VisitorContext context, String error) {
+        Set<String> reported = context.get(REPORTED, Set.class).orElse(null);
+        if (reported == null) {
+            reported = new HashSet<>();
+            context.put(REPORTED, reported);
+        }
+        if (!reported.add(type.getName() + ": " + error)) {
+            return;
+        }
+        if (Boolean.parseBoolean(context.getOptions().get(STRICT_OPTION))) {
+            context.fail(error, type);
+        } else {
+            context.warn(error + ". The constraint fails with a ConstraintDefinitionException when a validator checking"
+                + " constraint definitions validates it; set the annotation processor option " + STRICT_OPTION
+                + "=true to fail the compilation instead", type);
+        }
+    }
+
+    static void retain(ClassElement type, VisitorContext context, AnnotationValueBuilder<?> occurrence) {
+        Map<String, Member> members = members(type);
+        Map<CharSequence, Object> defaults = defaults(type, context, members);
+        var declaredValues = occurrence.build();
+        List<String> runtimeAttributes = new ArrayList<>();
+        List<String> patternFlags = new ArrayList<>();
+        List<String> patternFlagArrays = new ArrayList<>();
+        for (var member : members.values()) {
+            var result = member.type();
+            var component = result.isArray() ? result.fromArray() : result;
+            boolean generatedTarget = member.name().equals("validationAppliesTo") && !result.isArray()
+                && component.getName().equals("jakarta.validation.ConstraintTarget");
+            boolean generatedFlags = component.getName().equals("jakarta.validation.constraints.Pattern$Flag");
+            if (generatedFlags) {
+                (result.isArray() ? patternFlagArrays : patternFlags).add(member.name());
+                Object defaultValue = defaults.get(member.name());
+                if (!declaredValues.contains(member.name()) && defaultValue != null) {
+                    // Custom enum defaults are not necessarily registered in the runtime annotation defaults registry.
+                    occurrence.members(Map.of(member.name(), defaultValue));
+                }
+            }
+            if ((component.isEnum() || component.isAssignable("java.lang.annotation.Annotation"))
+                && !generatedTarget && !generatedFlags) {
+                runtimeAttributes.add(member.name());
+            }
+        }
+        occurrence.member(ValidationAnnotationUtil.PATTERN_FLAGS, patternFlags.toArray(String[]::new));
+        occurrence.member(ValidationAnnotationUtil.PATTERN_FLAG_ARRAYS, patternFlagArrays.toArray(String[]::new));
+        occurrence.member(ValidationAnnotationUtil.RUNTIME_ATTRIBUTES, runtimeAttributes.toArray(String[]::new));
+        var contract = type.getAnnotationMetadata().getAnnotation(Constraint.class);
+        if (contract == null) {
+            return;
+        }
+        for (var reference : contract.annotationClassValues("validatedBy")) {
+            if (context.getClassElement(reference.getName()).isEmpty()) {
+                // Incomplete metadata must leave runtime definition checks available to the companion.
+                return;
+            }
+        }
+        occurrence.member(ValidationAnnotationUtil.DEFINITION_CHECKED, true);
+        String error = definitionError(type, context, members, defaults);
+        String compositionError = compositionError(type, context, members);
+        if (compositionError != null) {
+            report(type, context, compositionError);
+            occurrence.member(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR, compositionError);
+        }
+        if (error != null) {
+            report(type, context, error);
+            // the specification times the failure at validation, so the error is also retained for it
+            occurrence.member(ValidationAnnotationUtil.DEFINITION_ERROR, error);
+        }
+    }
+
+    private static @Nullable String definitionError(ClassElement type, VisitorContext context,
+                                          Map<String, Member> members, Map<CharSequence, Object> defaults) {
+        for (String name : members.keySet()) {
+            if (name.startsWith("valid") && !name.equals("validationAppliesTo")) {
+                return "Constraint member names must not start with 'valid': " + type.getName() + "." + name;
+            }
+        }
+        for (var required : Map.of("message", "java.lang.String", "groups", "java.lang.Class[]", "payload", "java.lang.Class[]").entrySet()) {
+            var member = members.get(required.getKey());
+            if (member == null || !name(member.type()).equals(required.getValue())) {
+                return "Invalid constraint member " + type.getName() + "." + required.getKey() + ": expected " + required.getValue();
+            }
+        }
+        for (String name : List.of("groups", "payload")) {
+            Object value = defaults.get(name);
+            if (!(value instanceof Object[] array) || array.length != 0) {
+                return "Constraint " + name + " member must default to an empty array: " + type.getName();
+            }
+        }
+        boolean generic = false;
+        int crossParameter = 0;
+        var contract = type.getAnnotationMetadata().getAnnotation(Constraint.class);
+        boolean declaresValidators = contract != null && contract.annotationClassValues("validatedBy").length > 0;
+        if (contract != null) {
+            for (var reference : contract.annotationClassValues("validatedBy")) {
+                var validator = context.getClassElement(reference.getName()).orElse(null);
+                if (validator == null) {
+                    return "Cannot resolve constraint validator " + reference.getName();
+                }
+                var validated = validator.getTypeArguments("jakarta.validation.ConstraintValidator").get("T");
+                if (validated != null && validated.getTypeArguments().values().stream()
+                    .anyMatch(argument -> !name(argument).equals("java.lang.Object"))) {
+                    // a validator of List<String> would be handed any list
+                    return "Constraint validator must validate a type whose type arguments are unbounded wildcards: "
+                        + type.getName() + " with " + validator.getName();
+                }
+                List<String> targets = List.of(validator.stringValues(SupportedValidationTarget.class));
+                generic |= targets.isEmpty() || targets.contains(ValidationTarget.ANNOTATED_ELEMENT.name());
+                if (targets.contains(ValidationTarget.PARAMETERS.name())) {
+                    crossParameter++;
+                    var arguments = validator.getTypeArguments("jakarta.validation.ConstraintValidator");
+                    var value = arguments.get("T");
+                    if (value != null && !name(value).equals("java.lang.Object") && !name(value).equals("java.lang.Object[]")) {
+                        return "Cross-parameter validator must validate Object or Object[]: " + type.getName();
+                    }
+                }
+            }
+        }
+        var target = members.get("validationAppliesTo");
+        if (target != null && (!name(target.type()).equals("jakarta.validation.ConstraintTarget")
+            || !"IMPLICIT".equals(String.valueOf(defaults.get("validationAppliesTo"))))) {
+            return "validationAppliesTo must return ConstraintTarget and default to IMPLICIT: " + type.getName();
+        }
+        if (crossParameter > 1) {
+            return "Cross-parameter constraints must not declare multiple cross-parameter validators: " + type.getName();
+        }
+        boolean genericAndCrossParameter = generic && crossParameter > 0;
+        // a constraint without validators, a pure composition, may declare it: what it applies to reaches the
+        // constraints composing it
+        if ((genericAndCrossParameter && target == null) || (!genericAndCrossParameter && target != null && declaresValidators)) {
+            return "validationAppliesTo is required only for constraints that are both generic and cross-parameter: " + type.getName();
+        }
+        return null;
+    }
+
+    private static @Nullable String compositionError(ClassElement type, VisitorContext context,
+                                                      Map<String, Member> members) {
+        for (var member : members.values()) {
+            for (var override : member.metadata().getAnnotationValuesByType(OverridesAttribute.class)) {
+                String constraint = override.annotationClassValue("constraint").orElseThrow().getName();
+                String name = override.stringValue("name").filter(value -> !value.isEmpty()).orElse(member.name());
+                var composing = context.getClassElement(constraint).orElse(null);
+                var overridden = composing == null ? null : members(composing).get(name);
+                if (overridden == null) {
+                    return "Cannot override the missing member " + constraint + "." + name + " from " + type.getName() + "." + member.name();
+                }
+                if (!name(overridden.type()).equals(name(member.type()))) {
+                    return "The member of " + type.getName() + " overriding " + constraint + "." + name + " does not have the type of that member";
+                }
+                int count = ValidationAnnotationRemapper.composingOccurrences(type, constraint, context);
+                int index = override.intValue("constraintIndex").orElse(-1);
+                if (count == 0 || index >= count || (index < 0 && count > 1)) {
+                    return "Invalid composition occurrence for " + type.getName() + "." + member.name();
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * The members of an annotation interface, with their own metadata and defaults.
+     */
+    private static Map<String, Member> members(ClassElement type) {
+        var members = new LinkedHashMap<String, Member>();
+        if (type instanceof AnnotationElement annotation) {
+            for (AnnotationMemberElement member : annotation.getMembers()) {
+                members.put(member.getName(), new Member(member.getName(), member.getType(), member.getAnnotationMetadata(),
+                    member.getDefaultValue().orElse(null)));
+            }
+        }
+        return members;
+    }
+
+    private static Map<CharSequence, Object> defaults(ClassElement type, VisitorContext context, Map<String, Member> members) {
+        Map<CharSequence, Object> defaults = new LinkedHashMap<>(context.getAnnotationDefaultValues(type.getName()));
+        members.values().forEach(member -> {
+            if (member.defaultValue() != null) {
+                defaults.putIfAbsent(member.name(), member.defaultValue());
+            }
+        });
+        return defaults;
+    }
+
+    private static String name(ClassElement type) {
+        return type.isArray() ? name(type.fromArray()) + "[]" : type.getName();
+    }
+
+    /**
+     * A member of an annotation interface.
+     *
+     * @param name Its name
+     * @param type Its type
+     * @param metadata Its own annotations
+     * @param defaultValue Its default, when the compiler gives it
+     */
+    private record Member(String name, ClassElement type, AnnotationMetadata metadata, @Nullable Object defaultValue) {
+    }
+}

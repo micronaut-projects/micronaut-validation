@@ -28,8 +28,8 @@ class RxJava3MethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == '<return value>[].title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[].title'
+        e.message == 'rxReturnInvalid.<return value>[].title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == 'rxReturnInvalid.<return value>[].title'
     }
 
     void "test reactive return type no validation"() {

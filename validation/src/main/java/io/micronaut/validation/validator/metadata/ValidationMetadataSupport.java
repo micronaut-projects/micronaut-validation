@@ -1,0 +1,316 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.validator.metadata;
+
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationUtil;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.EnumBeanIntrospection;
+import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.beans.BeanTypeHierarchy;
+import io.micronaut.core.type.Argument;
+import io.micronaut.inject.annotation.MutableAnnotationMetadata;
+import io.micronaut.validation.annotation.ValidatedElement;
+import io.micronaut.validation.validator.ReflectionSupport;
+import jakarta.validation.Constraint;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.AssertFalse;
+import jakarta.validation.constraints.AssertTrue;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Digits;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.FutureOrPresent;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Negative;
+import jakarta.validation.constraints.NegativeOrZero;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Null;
+import jakarta.validation.constraints.Past;
+import jakarta.validation.constraints.PastOrPresent;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
+import org.jspecify.annotations.Nullable;
+
+import java.lang.annotation.Annotation;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Resolves standard metadata before requesting optional runtime discovery.
+ *
+ * @since 5.3.0
+ */
+@Internal
+public final class ValidationMetadataSupport {
+    /** The name of an entry of {@link #DECLARED_PARAMETERS}: the type-use annotations a parameter declares. */
+    public static final String TYPE_USE = "io.micronaut.validation.internal.TypeUse";
+
+    /** Parameters before the existing visitor supplements inherited type-use annotations. */
+    public static final String DECLARED_PARAMETERS = "io.micronaut.validation.internal.DeclaredParameters";
+
+    private static final Map<String, Class<? extends Annotation>> STANDARD_CONSTRAINTS = byName(
+        AssertFalse.class, AssertTrue.class,
+        DecimalMax.class, DecimalMin.class,
+        Digits.class, Email.class,
+        Future.class, FutureOrPresent.class,
+        Max.class, Min.class,
+        Negative.class, NegativeOrZero.class,
+        NotBlank.class, NotEmpty.class,
+        NotNull.class, Null.class,
+        Past.class, PastOrPresent.class,
+        Pattern.class, Positive.class,
+        PositiveOrZero.class, Size.class);
+
+    private ValidationMetadataSupport() { }
+
+    /**
+     * @param name The standard constraint name
+     * @return Its API class literal, or null
+     */
+    public static @Nullable Class<? extends Annotation> standardConstraint(String name) {
+        return STANDARD_CONSTRAINTS.get(name);
+    }
+
+    @SafeVarargs
+    private static Map<String, Class<? extends Annotation>> byName(Class<? extends Annotation>... types) {
+        var byName = new HashMap<String, Class<? extends Annotation>>();
+        for (var type : types) {
+            byName.put(type.getName(), type);
+        }
+        return Map.copyOf(byName);
+    }
+
+    /**
+     * @param arguments The merged parameter arguments
+     * @param declaration The owning method's metadata
+     * @return Parameters carrying only declaration-owned annotations
+     */
+    public static Argument<?>[] declaredArguments(Argument<?>[] arguments, AnnotationMetadata declaration) {
+        var snapshot = declaration.getAnnotation(DECLARED_PARAMETERS);
+        if (snapshot == null) {
+            return arguments;
+        }
+        var annotations = snapshot.getAnnotations("arguments");
+        Argument<?>[] result = arguments.clone();
+        for (int i = 0; i < result.length && i < annotations.size(); i++) {
+            result[i] = typeUse(withoutAnnotations(arguments[i]), annotations.get(i));
+        }
+        return result;
+    }
+
+    private static Argument<?> withoutAnnotations(Argument<?> argument) {
+        return argument.withTypeParameters(
+            Arrays.stream(argument.getTypeParameters()).map(ValidationMetadataSupport::withoutAnnotations).toArray(Argument<?>[]::new)).withAnnotationMetadata(AnnotationMetadata.EMPTY_METADATA);
+    }
+
+    private static Argument<?> typeUse(Argument<?> argument, AnnotationValue<?> typeUse) {
+        var metadata = new MutableAnnotationMetadata();
+        for (var annotation : typeUse.getAnnotations("annotations")) {
+            var values = new LinkedHashMap<>(annotation.getValues());
+            if (annotation.getStereotypes() != null) {
+                values.put(AnnotationUtil.STEREOTYPES_MEMBER, annotation.getStereotypes());
+            }
+            metadata.addDeclaredAnnotation(annotation.getAnnotationName(), values);
+            if (annotation.getDefaultValues() != null) {
+                metadata.addDefaultAnnotationValues(annotation.getAnnotationName(), annotation.getDefaultValues());
+            }
+            if (annotation.getStereotypes() != null) {
+                for (var stereotype : annotation.getStereotypes()) {
+                    metadata.addDeclaredStereotype(List.of(annotation.getAnnotationName()), stereotype.getAnnotationName(), stereotype.getValues());
+                }
+            }
+        }
+        Argument<?>[] parameters = argument.getTypeParameters().clone();
+        var nested = typeUse.getAnnotations("arguments");
+        for (int i = 0; i < parameters.length && i < nested.size(); i++) {
+            parameters[i] = typeUse(parameters[i], nested.get(i));
+        }
+        var merged = ConfiguredMetadata.merge(argument.getAnnotationMetadata(), metadata);
+        if (merged.hasStereotype(Constraint.class) || merged.hasAnnotation(Valid.class)
+            || Arrays.stream(parameters).anyMatch(parameter -> parameter.getAnnotationMetadata().hasAnnotation(ValidatedElement.class))) {
+            merged = ConfiguredMetadata.markValidated(merged);
+        }
+        return argument.withTypeParameters(parameters).withAnnotationMetadata(merged);
+    }
+
+    /**
+     * @param introspection The introspection of the type declaring a method
+     * @param name The method name
+     * @param parameters The erased parameter types
+     * @return Whether the described type declares this bean method itself; true when the introspection does not
+     * describe its hierarchy
+     */
+    public static boolean declares(BeanIntrospection<?> introspection, String name, Class<?>[] parameters) {
+        var hierarchy = introspection.getTypeHierarchy().orElse(null);
+        return hierarchy == null || declaredMethod(hierarchy, name, parameters) != null;
+    }
+
+    /**
+     * @param hierarchy The hierarchy of an introspection
+     * @param name The method name
+     * @param parameters The erased parameter types
+     * @return The bean method the introspected type declares with that signature, or null
+     */
+    public static @Nullable BeanMethod<?, ?> declaredMethod(BeanTypeHierarchy hierarchy, String name, Class<?>[] parameters) {
+        // matched by signature: a decorated introspection hands out bean methods of its own
+        for (BeanMethod<?, ?> method : hierarchy.getDeclaredMethods()) {
+            if (method.getName().equals(name) && Arrays.equals(Argument.toClassArray(method.getArguments()), parameters)) {
+                return method;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * @param introspector The introspector
+     * @param type The type
+     * @return The hierarchy the introspection of the type describes, or null
+     */
+    public static @Nullable BeanTypeHierarchy hierarchy(BeanIntrospector introspector, Class<?> type) {
+        return introspector.findIntrospection(type).flatMap(BeanIntrospection::getTypeHierarchy).orElse(null);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The annotation interface
+     * @param value The attributes
+     * @param <T> The annotation type
+     * @return Its optional runtime implementation
+     */
+    public static <T extends Annotation> T create(ReflectionSupport reflectionSupport, Class<T> type, AnnotationValue<?> value) {
+        return reflectionSupport.annotation(type, value);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param name The type name
+     * @param loader The application loader
+     * @return An introspected class or optional runtime lookup
+     */
+    public static Class<?> type(ReflectionSupport reflectionSupport, String name, ClassLoader loader) {
+        var standard = standardConstraint(name);
+        if (standard != null) {
+            return standard;
+        }
+        return reflectionSupport.introspector().findIntrospectedType(name)
+            .orElseGet(() -> reflectionSupport.classForName(name, loader));
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The annotation interface
+     * @return Its optional member definitions
+     */
+    public static Map<String, AnnotationMember> annotationMembers(ReflectionSupport reflectionSupport, Class<? extends Annotation> type) {
+        if (standardConstraint(type.getName()) != type) {
+            return reflectionSupport.annotationMembers(type);
+        }
+        var members = new LinkedHashMap<String, AnnotationMember>();
+        members.put("message", new AnnotationMember(String.class, false));
+        members.put("groups", new AnnotationMember(Class[].class, false));
+        members.put("payload", new AnnotationMember(Class[].class, false));
+        switch (type.getName()) {
+            case "jakarta.validation.constraints.Min", "jakarta.validation.constraints.Max" -> members.put("value", new AnnotationMember(long.class, true));
+            case "jakarta.validation.constraints.DecimalMin", "jakarta.validation.constraints.DecimalMax" -> {
+                members.put("value", new AnnotationMember(String.class, true));
+                members.put("inclusive", new AnnotationMember(boolean.class, false));
+            }
+            case "jakarta.validation.constraints.Digits" -> {
+                members.put("integer", new AnnotationMember(int.class, true));
+                members.put("fraction", new AnnotationMember(int.class, true));
+            }
+            case "jakarta.validation.constraints.Size" -> {
+                members.put("min", new AnnotationMember(int.class, false));
+                members.put("max", new AnnotationMember(int.class, false));
+            }
+            case "jakarta.validation.constraints.Pattern", "jakarta.validation.constraints.Email" -> {
+                members.put("regexp", new AnnotationMember(String.class, type == Pattern.class));
+                members.put("flags", new AnnotationMember(Pattern.Flag[].class, false));
+            }
+            default -> { }
+        }
+        return Map.copyOf(members);
+    }
+
+    /**
+     * @param type The annotation interface
+     * @return Standard Jakarta defaults, or an empty map for application annotations
+     */
+    public static Map<CharSequence, Object> standardDefaults(Class<?> type) {
+        if (standardConstraint(type.getName()) != type) {
+            return Map.of();
+        }
+        var defaults = new LinkedHashMap<CharSequence, Object>();
+        defaults.put("message", "{" + type.getName() + ".message}");
+        defaults.put("groups", new Class<?>[0]);
+        defaults.put("payload", new Class<?>[0]);
+        switch (type.getName()) {
+            case "jakarta.validation.constraints.DecimalMin", "jakarta.validation.constraints.DecimalMax" -> defaults.put("inclusive", true);
+            case "jakarta.validation.constraints.Size" -> {
+                defaults.put("min", 0); defaults.put("max", Integer.MAX_VALUE);
+            }
+            case "jakarta.validation.constraints.Email" -> {
+                defaults.put("regexp", ".*"); defaults.put("flags", new Pattern.Flag[0]);
+            }
+            case "jakarta.validation.constraints.Pattern" -> defaults.put("flags", new Pattern.Flag[0]);
+            default -> { }
+        }
+        return defaults;
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The enum type
+     * @return Its optional runtime constants
+     */
+    public static List<Enum<?>> enumConstants(ReflectionSupport reflectionSupport, Class<?> type) {
+        if (type == Pattern.Flag.class) {
+            return List.of(Pattern.Flag.values());
+        }
+        // an introspected enum lists its constants without reading the class
+        var introspection = reflectionSupport.introspector().findIntrospection(type).orElse(null);
+        if (introspection instanceof EnumBeanIntrospection<?> enumIntrospection) {
+            return enumIntrospection.getConstants().stream().<Enum<?>>map(EnumBeanIntrospection.EnumConstant::getValue).toList();
+        }
+        return reflectionSupport.enumConstants(type);
+    }
+
+    /**
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param type The array component
+     * @param size The requested size
+     * @return Its optional typed array
+     */
+    public static Object[] typedArray(ReflectionSupport reflectionSupport, Class<?> type, int size) {
+        if (type == Pattern.Flag.class) {
+            return new Pattern.Flag[size];
+        }
+        return reflectionSupport.array(type, size);
+    }
+}

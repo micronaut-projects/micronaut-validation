@@ -19,6 +19,31 @@ class ReactiveMethodValidationSpec extends Specification {
     @AutoCleanup
     ApplicationContext applicationContext = ApplicationContext.run()
 
+    void "test the constraints of a publisher argument apply to the publisher itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        bookService.rxNullArgument(Mono.just("ok"))
+
+        then:
+        ConstraintViolationException e = thrown()
+        e.constraintViolations.size() == 1
+        e.constraintViolations.first().propertyPath.toString() == 'rxNullArgument.title'
+    }
+
+    void "test the constraints of a returned publisher apply to the publisher itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        Mono.from(bookService.rxNullReturn()).block()
+
+        then:
+        ConstraintViolationException e = thrown()
+        e.constraintViolations.size() == 1
+    }
+
     void "test reactive return type validation"() {
         given:
         BookService bookService = applicationContext.getBean(BookService)
@@ -29,8 +54,30 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         ConstraintViolationException e = thrown()
-        e.message == '<return value>[].title: must not be blank'
-        e.getConstraintViolations().first().propertyPath.toString() == '<return value>[].title'
+        e.message == 'rxReturnInvalid.<return value>[].title: must not be blank'
+        e.getConstraintViolations().first().propertyPath.toString() == 'rxReturnInvalid.<return value>[].title'
+        // the root bean is the bean the method was invoked on, not the publisher
+        BookService.isAssignableFrom(e.getConstraintViolations().first().rootBeanClass)
+    }
+
+    void "test a resubscribed publisher argument does not keep the violations of an earlier subscription"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+        def subscriptions = new java.util.concurrent.atomic.AtomicInteger()
+        Publisher<String> titles = Flux.defer { subscriptions.getAndIncrement() == 0 ? Flux.just("") : Flux.just("It") }
+        Flux<Book> books = Flux.from(bookService.rxSimple(titles))
+
+        when:
+        books.collectList().block()
+
+        then:
+        thrown(ConstraintViolationException)
+
+        when:
+        List<Book> second = books.collectList().block()
+
+        then:
+        second*.title == ["It"]
     }
 
     void "test reactive return type no validation"() {
@@ -81,7 +128,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "<return value>[]<publisher element>: must be greater than or equal to 10"
+        e.message == "rxLong.<return value>[]<publisher element>: must be greater than or equal to 10"
     }
 
     void "test reactive validation with valid argument"() {
@@ -160,7 +207,36 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "<completion stage element>: must be greater than or equal to 10"
+        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
+    }
+
+    void "a null completion stage violates the constraint on the stage itself"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+
+        when:
+        bookService.futureNullReturn().toCompletableFuture().get()
+
+        then:
+        ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
+        ((ConstraintViolationException) e.cause).constraintViolations*.propertyPath*.toString() == ["futureNullReturn.<return value>"]
+    }
+
+    void "test future validation of a return value completed later"() {
+        given:
+        BookService bookService = applicationContext.getBean(BookService)
+        def title = new CompletableFuture<String>()
+
+        when:
+        def result = bookService.futureLong(title)
+        title.complete("abc")
+        result.toCompletableFuture().get()
+
+        then:
+        ExecutionException e = thrown()
+        e.cause instanceof ConstraintViolationException
+        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
     }
 
     void "test future validation with invalid argument"() {

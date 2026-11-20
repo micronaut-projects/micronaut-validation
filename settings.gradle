@@ -20,6 +20,11 @@ dependencyResolutionManagement {
 rootProject.name = 'validation-parent'
 
 include 'validation'
+include 'validation-reflection'
+include 'validation-bootstrap'
+include 'validation-xml'
+include 'validation-jakarta'
+include 'validation-el'
 include 'validation-bom'
 include 'validation-processor'
 include 'test-suite'
@@ -30,10 +35,10 @@ include 'test-suite-python'
 include 'tests:jakarta-validation-tck'
 
 micronautBuild {
+    addSnapshotRepository()
     useStandardizedProjectNames.set(true)
     importMicronautCatalog()
     importMicronautCatalog("micronaut-reactor")
     importMicronautCatalog("micronaut-rxjava3")
     importMicronautCatalog("micronaut-kotlin")
 }
-

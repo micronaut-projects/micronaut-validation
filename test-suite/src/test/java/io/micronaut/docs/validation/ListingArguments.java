@@ -1,5 +1,7 @@
 package io.micronaut.docs.validation;
 
+import io.micronaut.core.annotation.ReflectiveAccess;
+
 import io.micronaut.core.annotation.Introspected;
 import org.jspecify.annotations.Nullable;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -9,6 +11,7 @@ import java.util.Optional;
 @Introspected
 public class ListingArguments {
     @PositiveOrZero
+    @ReflectiveAccess
     private Integer offset = 0;
     public ListingArguments(Integer offset) {
         this.offset = offset;

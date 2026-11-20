@@ -1,0 +1,29 @@
+plugins {
+    id 'java'
+}
+sourceSets {
+    generatedTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+configurations {
+    generatedTestImplementation.extendsFrom implementation
+    generatedTestRuntimeOnly.extendsFrom runtimeOnly
+}
+dependencies {
+    generatedTestAnnotationProcessor projects.micronautValidationProcessor
+    generatedTestAnnotationProcessor mn.micronaut.inject.java
+    generatedTestImplementation mnTest.junit.jupiter.api
+    generatedTestRuntimeOnly mnTest.junit.jupiter.engine
+    generatedTestRuntimeOnly libs.junit.platform.launcher
+}
+tasks.register('generatedTest', Test) {
+    group = 'verification'
+    description = 'Tests generated metadata with both reflection modules physically absent.'
+    testClassesDirs = sourceSets.generatedTest.output.classesDirs
+    classpath = sourceSets.generatedTest.runtimeClasspath
+    useJUnitPlatform()
+    shouldRunAfter tasks.named('test')
+}
+tasks.named('check') { dependsOn 'generatedTest' }

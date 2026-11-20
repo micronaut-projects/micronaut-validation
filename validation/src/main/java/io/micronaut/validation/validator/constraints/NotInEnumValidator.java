@@ -16,22 +16,25 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.NotInEnum;
 import jakarta.inject.Singleton;
+import org.jspecify.annotations.Nullable;
+
+import java.util.List;
 
 
-/**
- * Validator for the {@link NotInEnum} constraint.
- */
+/** Validator for the {@link NotInEnum} constraint. */
 @Singleton
+@Introspected
 public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object> {
+
+    private final EnumConstantNames enumConstantNames = new EnumConstantNames();
 
     @Override
     public boolean isValid(@Nullable Object value,
-                           @NonNull AnnotationValue<NotInEnum> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<NotInEnum> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (value == null) {
             return true;
         }
@@ -47,12 +50,11 @@ public class NotInEnumValidator implements ConstraintValidator<NotInEnum, Object
         } else if (value instanceof String stringValue) {
             boolean caseSensitive = annotationMetadata.booleanValue("caseSensitive").orElse(true);
 
-            Enum<?>[] constants = enumClass.getEnumConstants();
-            if (constants == null) {
+            List<String> constants = enumConstantNames.names(annotationMetadata, enumClass, context);
+            if (constants.isEmpty()) {
                 return true; // Invalid enum class, pass validation
             }
-            for (Enum<?> constant : constants) {
-                String name = constant.name();
+            for (String name : constants) {
                 if (caseSensitive ? name.equals(stringValue) : name.equalsIgnoreCase(stringValue)) {
                     return false; // Match found, validation fails
                 }
