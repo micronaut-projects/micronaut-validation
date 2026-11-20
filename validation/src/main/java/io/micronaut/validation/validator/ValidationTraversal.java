@@ -328,6 +328,27 @@ final class ValidationTraversal {
     }
 
     /**
+     * Validates a value against the constraints of a property, as {@code validateValue} does: against the
+     * constraints of each member declaring some, a field of a super type included, else of the property.
+     */
+    @SuppressWarnings("unchecked")
+    <R, T> void visitPropertyValue(DefaultConstraintValidatorContext<R> context,
+                                   BeanIntrospection<T> introspection,
+                                   BeanProperty<T, Object> property,
+                                   @Nullable Object value) {
+        PropertyPlan plan = propertyPlan(introspection, property);
+        if (plan.members().isEmpty()) {
+            visitElement(context, null, plan.argument(), property.getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            return;
+        }
+        for (MemberPlan member : plan.members()) {
+            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.member().getElementType(), member.implicitGroup())) {
+                visitElement(context, null, member.argument(), member.member().getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            }
+        }
+    }
+
+    /**
      * What validating a property reads from its metadata, prepared once per property. The arguments are the same
      * instances on every call, which is what lets the constraints of their metadata be cached.
      */
