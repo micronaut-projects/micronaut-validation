@@ -317,10 +317,8 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
     private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
                                                                AnnotationValue<? extends Annotation> annotationValue,
                                                                AnnotationMetadata annotationMetadata) {
-        List validatorClasses = validatorOverrides.validatorsOf((Class<Annotation>) type,
-            List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)));
         return DefaultConstraintDescriptor.of(reflectionSupport, (Class<Annotation>) type, (AnnotationValue<Annotation>) annotationValue,
-            annotationMetadata, validatorClasses);
+            annotationMetadata, validatorOverrides);
     }
 
     private ClassLoader currentClassLoader() {

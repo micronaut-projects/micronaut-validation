@@ -48,6 +48,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Internal Jakarta EL-backed message interpolator used only when the optional
@@ -441,15 +443,35 @@ public final class ElMessageInterpolator implements MessageInterpolator {
     public record LocaleFormatter(Locale locale) {
 
         /**
+         * The largest width or precision a format may ask for: a template carrying what was validated would
+         * otherwise pad a message until the memory runs out.
+         */
+        static final int MAX_WIDTH = 1024;
+        private static final Pattern FORMAT_SPECIFIER = Pattern.compile("%(\\d+\\$)?[-#+ 0,(<]*(\\d+)?(\\.(\\d+))?");
+
+        /**
          * Formats a message with the interpolation locale.
          *
          * @param format The format
          * @param args The arguments
          * @return The formatted message
+         * @throws IllegalArgumentException if a width or precision of the format is above {@value #MAX_WIDTH}
          */
         public String format(String format, Object... args) {
+            Matcher specifier = FORMAT_SPECIFIER.matcher(format);
+            while (specifier.find()) {
+                checkWidth(format, specifier.group(2));
+                checkWidth(format, specifier.group(4));
+            }
             try (Formatter formatter = new Formatter(locale)) {
                 return formatter.format(format, args).toString();
+            }
+        }
+
+        private static void checkWidth(String format, @Nullable String digits) {
+            // more digits than the bound has cannot be within it, and may not fit an int
+            if (digits != null && (digits.length() > 4 || Integer.parseInt(digits) > MAX_WIDTH)) {
+                throw new IllegalArgumentException("A width or precision above " + MAX_WIDTH + " in the format: " + format);
             }
         }
     }

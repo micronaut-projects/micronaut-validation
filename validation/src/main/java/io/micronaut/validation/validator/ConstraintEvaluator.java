@@ -256,7 +256,9 @@ final class ConstraintEvaluator {
         final String messageTemplate = contextTemplate != null ? contextTemplate : constraint.getMessageTemplate();
         final String message;
         try {
-            message = messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(context, constraint, elementValue));
+            // a template the validator set may carry what it validated, as one it builds a violation with does
+            message = messageInterpolator.interpolate(messageTemplate,
+                new DefaultMessageInterpolatorContext(context, constraint, elementValue, contextTemplate != null));
         } catch (ValidationException e) {
             throw e;
         } catch (RuntimeException e) {
@@ -321,13 +323,11 @@ final class ConstraintEvaluator {
             }
             for (AnnotationValue<? extends Annotation> annotationValue : uniqueAnnotationValues.values()) {
                 declarations.checkConstraintDefinition(constraintType, annotationValue);
-                List validatorClasses = validatorOverrides.validatorsOf((Class<Annotation>) constraintType,
-                    List.of(annotationValue.classValues(ValidationAnnotationUtil.CONSTRAINT_VALIDATED_BY)));
                 descriptors.add(DefaultConstraintDescriptor.of(reflectionSupport,
                     (Class<Annotation>) constraintType,
                     (AnnotationValue<Annotation>) annotationValue,
                     annotationMetadata,
-                    validatorClasses));
+                    validatorOverrides));
             }
         }
         return descriptors;

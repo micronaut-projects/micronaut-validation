@@ -19,8 +19,10 @@ import io.micronaut.core.beans.BeanIntrospection;
 import jakarta.validation.GroupDefinitionException;
 import jakarta.validation.GroupSequence;
 import jakarta.validation.groups.Default;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -51,16 +53,16 @@ final class GroupSequences {
                     converted.add(convertedGroup);
                 }
             }
-            ctx = new FindGroupContext(requested.defaultValidator(), Map.of(), List.copyOf(converted), true);
+            ctx = new FindGroupContext(requested.defaultValidator(), Map.of(), List.copyOf(converted), true, beanIntrospection);
         }
         // a requested group extending the default group validates its constraints itself, without the redefinition
         if (!ctx.definedGroups().contains(Default.class) || extendsDefaultGroup(ctx.definedGroups())) {
-            return findGroupSequences(requested);
+            return findGroupSequences(requested.withBean(beanIntrospection));
         }
         Class<Object>[] classGroupSequence = beanIntrospection.getAnnotationMetadata().classValues(GroupSequence.class);
         Class<?> defaultGroupType = beanIntrospection.getBeanType();
         if (classGroupSequence.length == 0) {
-            return findGroupSequences(requested);
+            return findGroupSequences(requested.withBean(beanIntrospection));
         }
         validateDefaultGroupSequence(defaultGroupType, classGroupSequence);
         // the other groups requested with the default group first: a failed step of the redefined sequence ends
@@ -123,6 +125,8 @@ final class GroupSequences {
                 }
             }
         }
+        // the steps form one sequence: a failed step ends it
+        dest.replaceAll(step -> step.inSequence(Default.class));
         return dest;
     }
 
@@ -154,16 +158,52 @@ final class GroupSequences {
             return;
         }
         int start = dest.size();
+        // a conversion applies once: the groups of the sequence a group converted to are not converted again,
+        // see Jakarta Validation 5.4.5
+        FindGroupContext memberCtx = group != requestedGroup ? ctx.withoutConversions() : ctx;
         for (Class<?> g : groupSequence) {
             if (g == Default.class) {
-                throw new GroupDefinitionException("Group sequence must not contain jakarta.validation.groups.Default");
+                // an interface sequence may contain the default group, see Jakarta Validation 5.4.2
+                expandDefaultGroupInSequence(memberCtx, dest, groupSequence, processedGroups);
+            } else {
+                findGroups(memberCtx, dest, g, processedGroups);
             }
-            findGroups(ctx, dest, g, processedGroups);
         }
         // every group the sequence expanded to, wherever the destination started
         for (int i = start; i < dest.size(); i++) {
             DefaultConstraintValidatorContext.ValidationGroup vg = dest.get(i);
             dest.set(i, new DefaultConstraintValidatorContext.ValidationGroup(true, true, vg.groups(), vg.requested()));
+        }
+    }
+
+    /**
+     * The default group in a sequence: the default group sequence the validated bean redefines, in its place, when
+     * none of its groups is also a group of the sequence, see Jakarta Validation 5.4.2.
+     */
+    static void expandDefaultGroupInSequence(FindGroupContext ctx,
+                                             List<DefaultConstraintValidatorContext.ValidationGroup> dest,
+                                             Class<?>[] groupSequence,
+                                             Set<Class<?>> processedGroups) {
+        BeanIntrospection<?> bean = ctx.bean();
+        if (bean == null) {
+            findGroups(ctx, dest, Default.class, processedGroups);
+            return;
+        }
+        Class<Object>[] redefined = bean.getAnnotationMetadata().classValues(GroupSequence.class);
+        if (redefined.length == 0) {
+            findGroups(ctx, dest, Default.class, processedGroups);
+            return;
+        }
+        Class<?> defaultGroupType = bean.getBeanType();
+        validateDefaultGroupSequence(defaultGroupType, redefined);
+        for (Class<?> group : redefined) {
+            if (group != defaultGroupType && Arrays.asList(groupSequence).contains(group)) {
+                throw new GroupDefinitionException("The default group sequence " + defaultGroupType.getName()
+                    + " redefines cannot be expanded in a sequence also containing " + group.getName());
+            }
+        }
+        for (Class<?> group : redefined) {
+            findGroups(ctx, dest, group == defaultGroupType ? Default.class : group, processedGroups);
         }
     }
 
@@ -217,7 +257,15 @@ final class GroupSequences {
     static void findGroups(FindGroupContext ctx, List<DefaultConstraintValidatorContext.ValidationGroup> dest, List<Class<?>> groupSequence, Set<Class<?>> processedGroups) {
         int start = dest.size();
         for (Class<?> g : groupSequence) {
+            int groupStart = dest.size();
             findGroups(ctx, dest, g, processedGroups);
+            // the steps of each requested sequence form a sequence of their own: a failed step ends it only
+            for (int i = groupStart; i < dest.size(); i++) {
+                DefaultConstraintValidatorContext.ValidationGroup step = dest.get(i);
+                if (step.isSequence() && step.sequence() == null) {
+                    dest.set(i, step.inSequence(g));
+                }
+            }
         }
         boolean anySequence = false;
         for (int i = start; i < dest.size() && !anySequence; i++) {
@@ -241,15 +289,26 @@ final class GroupSequences {
      * @param convertedGroups The conversions applying to the groups
      * @param definedGroups The groups requested
      * @param exact Whether the groups are validated below a conversion: each lists then the groups it extends
+     * @param bean The bean validated, whose redefined default group sequence a default group in a sequence
+     *             expands to, null when unknown
      */
     record FindGroupContext(
         DefaultValidator defaultValidator,
         Map<Class<?>, Class<?>> convertedGroups,
         List<Class<?>> definedGroups,
-        boolean exact
+        boolean exact,
+        @Nullable BeanIntrospection<?> bean
     ) {
         FindGroupContext(DefaultValidator defaultValidator, Map<Class<?>, Class<?>> convertedGroups, List<Class<?>> definedGroups) {
-            this(defaultValidator, convertedGroups, definedGroups, !convertedGroups.isEmpty());
+            this(defaultValidator, convertedGroups, definedGroups, !convertedGroups.isEmpty(), null);
+        }
+
+        FindGroupContext withBean(BeanIntrospection<?> beanIntrospection) {
+            return new FindGroupContext(defaultValidator, convertedGroups, definedGroups, exact, beanIntrospection);
+        }
+
+        FindGroupContext withoutConversions() {
+            return convertedGroups.isEmpty() ? this : new FindGroupContext(defaultValidator, Map.of(), definedGroups, exact, bean);
         }
 
         boolean isDefault() {

@@ -338,7 +338,8 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
-     * Validates the steps in turn, each in its groups, until a step fails; only the first step cascades.
+     * Validates the steps in turn, each in its groups; a failed step ends the steps of its sequence. Only the
+     * first step cascades.
      *
      * @param steps The steps, see {@link #findGroupSequences()}
      * @param validation Validates a step, told whether it may cascade
@@ -346,16 +347,20 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      */
     boolean validateInGroups(List<ValidationGroup> steps, GroupStep validation) {
         boolean canCascade = true;
+        FailedSequences failed = new FailedSequences();
         for (ValidationGroup step : steps) {
+            if (failed.skips(step)) {
+                continue;
+            }
             try (GroupsValidation groups = withGroupSequence(step)) {
                 validation.validate(canCascade);
                 if (groups.isFailed()) {
-                    return true;
+                    failed.fail(step);
                 }
             }
             canCascade = false;
         }
-        return false;
+        return failed.any();
     }
 
     /**
@@ -668,9 +673,48 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * @param requested The groups requested the step stands for, before any conversion: the groups the beans
      *                  cascaded to are validated in. The default group for every step of a redefined default
      *                  group sequence
+     * @param sequence The requested group whose sequence the step belongs to, the default group for a redefined
+     *                 default group sequence, null outside a sequence: a failed step ends the steps of its
+     *                 sequence only
      */
     @Internal
     record ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence,
-                           List<Class<?>> groups, List<Class<?>> requested) {
+                           List<Class<?>> groups, List<Class<?>> requested, @Nullable Class<?> sequence) {
+
+        ValidationGroup(boolean isSequence, boolean isRedefinedDefaultGroupSequence, List<Class<?>> groups, List<Class<?>> requested) {
+            this(isSequence, isRedefinedDefaultGroupSequence, groups, requested, null);
+        }
+
+        ValidationGroup inSequence(Class<?> sequence) {
+            return new ValidationGroup(isSequence, isRedefinedDefaultGroupSequence, groups, requested, sequence);
+        }
+    }
+
+    /**
+     * The sequences a failed step ended: their remaining steps are skipped while the other groups and sequences
+     * requested go on, see Jakarta Validation 5.4.2.
+     */
+    static final class FailedSequences {
+        private final List<@Nullable Class<?>> failed = new ArrayList<>(2);
+
+        /**
+         * @param step The step
+         * @return Whether a failed step ended the sequence of the step
+         */
+        boolean skips(ValidationGroup step) {
+            // a failed sequence step attributed to no requested sequence ends every sequence
+            return !failed.isEmpty() && step.isSequence() && (failed.contains(step.sequence()) || failed.contains(null));
+        }
+
+        /**
+         * @param step The step that failed
+         */
+        void fail(ValidationGroup step) {
+            failed.add(step.sequence());
+        }
+
+        boolean any() {
+            return !failed.isEmpty();
+        }
     }
 }
