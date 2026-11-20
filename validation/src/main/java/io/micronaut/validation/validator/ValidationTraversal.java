@@ -573,10 +573,9 @@ final class ValidationTraversal {
             }
         }
 
-        if (singleUnwrapByDefault != null && valueExtractorDefinitions.size() != 1) {
-            // only one extractor unwrapping by default
-            valueExtractorDefinitions = List.of(singleUnwrapByDefault);
-        }
+        // with other extractors, the one unwrapping by default reads the constraints declared on the container only:
+        // the others still validate the constraints of their type arguments and cascade into them
+        boolean unwrapsContainerOnly = singleUnwrapByDefault != null && valueExtractorDefinitions.size() != 1;
         // the element constraints split by where they apply; most elements declare none, which needs no list
         List<DefaultConstraintDescriptor<Annotation>> containerElementConstraints = List.of();
         List<DefaultConstraintDescriptor<Annotation>> containerConstraints = List.of();
@@ -621,18 +620,31 @@ final class ValidationTraversal {
                 }
                 declaredTypeArgumentIndex = null;
             }
+            List<DefaultConstraintDescriptor<Annotation>> extractedConstraints = containerElementConstraints;
+            if (unwrapsContainerOnly) {
+                if (valueExtractorDefinition == singleUnwrapByDefault) {
+                    if (containerElementConstraints.isEmpty()) {
+                        continue;
+                    }
+                    // the unwrapped value without the type arguments the other extractors validate
+                    containerValueArgument = Argument.of(containerValueArgument.getType(), containerValueArgument.getName());
+                    legacy = false;
+                } else {
+                    extractedConstraints = List.of();
+                }
+            }
             boolean elementValidated = ArgumentValidationMetadata.isValidated(reflectionSupport, containerValueArgument)
                 || ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerValueArgument);
             if (legacyKeys && !elementValidated) {
                 continue;
             }
-            if (!elementValidated && containerElementConstraints.isEmpty() && !legacy) {
+            if (!elementValidated && extractedConstraints.isEmpty() && !legacy) {
                 // nothing to validate at this level nor deeper: a generated metadata marks the levels, a reflective one does not
                 continue;
             }
 
             if (containerValue == null) {
-                constraints.validateConstraints(context, leftBean, containerValueArgument, null, containerElementConstraints);
+                constraints.validateConstraints(context, leftBean, containerValueArgument, null, extractedConstraints);
                 continue;
             }
 
@@ -640,7 +652,7 @@ final class ValidationTraversal {
             try {
                 valueExtractor.extractValues(containerValue, new ContainerValueReceiver<>(context, leftBean,
                     containerArgument.getType(), declaredTypeArgumentIndex, unwrapping, containerValueArgument,
-                    containerElementConstraints, canCascade, legacy));
+                    extractedConstraints, canCascade, legacy));
             } catch (ValidationException e) {
                 throw e;
             } catch (Exception e) {
