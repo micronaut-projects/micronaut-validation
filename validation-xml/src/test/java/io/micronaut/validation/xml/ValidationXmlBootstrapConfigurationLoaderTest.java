@@ -215,6 +215,19 @@ class ValidationXmlBootstrapConfigurationLoaderTest {
     }
 
     @Test
+    void schemaBooleansAreReadAsTheSchemaDefinesThem() {
+        for (var entry : java.util.Map.of("1", true, "0", false, " true ", true, "false", false).entrySet()) {
+            BootstrapConfiguration configuration = new ValidationXmlBootstrapConfigurationLoader()
+                .parse(new ByteArrayInputStream(("""
+                    <validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+                        <executable-validation enabled="%s"/>
+                    </validation-config>
+                    """.formatted(entry.getKey())).getBytes(StandardCharsets.UTF_8)));
+            assertEquals(entry.getValue(), configuration.isExecutableValidationEnabled(), entry.getKey());
+        }
+    }
+
+    @Test
     void emptyExecutableTypesAreRejected() {
         assertThrows(jakarta.validation.ValidationException.class, () -> new ValidationXmlBootstrapConfigurationLoader()
             .parse(new ByteArrayInputStream("""

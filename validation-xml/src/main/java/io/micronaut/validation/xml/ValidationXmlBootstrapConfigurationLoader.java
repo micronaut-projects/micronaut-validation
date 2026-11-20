@@ -130,7 +130,7 @@ public final class ValidationXmlBootstrapConfigurationLoader implements Bootstra
                     case "property" -> properties.put(element.getAttribute("name"), XmlMappingSupport.text(element));
                     case "executable-validation" -> {
                         if (element.hasAttribute("enabled")) {
-                            executableValidationEnabled = Boolean.parseBoolean(element.getAttribute("enabled"));
+                            executableValidationEnabled = XmlMappingSupport.xsdBoolean(element.getAttribute("enabled"));
                         }
                         executableTypes.addAll(executableTypes(element));
                     }

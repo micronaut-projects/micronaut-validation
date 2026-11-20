@@ -112,7 +112,23 @@ final class XmlMappingSupport {
     }
 
     static boolean booleanAttribute(Element element, String name, boolean defaultValue) {
-        return element.hasAttribute(name) ? Boolean.parseBoolean(element.getAttribute(name)) : defaultValue;
+        return element.hasAttribute(name) ? xsdBoolean(element.getAttribute(name)) : defaultValue;
+    }
+
+    /**
+     * A value of the XML Schema type {@code boolean}: {@code true}, {@code false}, {@code 1} or {@code 0}, its
+     * surrounding white space collapsed.
+     *
+     * @param value The value
+     * @return The boolean
+     * @throws ValidationException if the value is none of those
+     */
+    static boolean xsdBoolean(String value) {
+        return switch (value.strip()) {
+            case "true", "1" -> true;
+            case "false", "0" -> false;
+            default -> throw new ValidationException("Invalid boolean in validation XML: " + value);
+        };
     }
 
     /**

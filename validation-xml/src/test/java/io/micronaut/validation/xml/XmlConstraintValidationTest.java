@@ -87,6 +87,21 @@ class XmlConstraintValidationTest {
     }
 
     @Test
+    void ignoreAnnotationsOneIsTrue() {
+        String mapping = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="io.micronaut.validation.xml.XmlConstraintValidationTest$Named" ignore-annotations="1"/>
+            </constraint-mappings>
+            """;
+        try (ValidatorFactory factory = factory(mapping)) {
+            assertEquals(0, factory.getValidator().validate(new Named()).size());
+        }
+        try (ValidatorFactory factory = factory(mapping.replace("\"1\"", "\"0\""))) {
+            assertEquals(1, factory.getValidator().validate(new Named()).size());
+        }
+    }
+
+    @Test
     void aConstraintMappedTwiceOnOneElementKeepsBothOccurrences() {
         String mapping = """
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
