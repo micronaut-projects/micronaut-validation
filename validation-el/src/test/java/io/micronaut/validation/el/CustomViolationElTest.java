@@ -16,7 +16,9 @@
 package io.micronaut.validation.el;
 
 import io.micronaut.context.ApplicationContext;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Introspected;
+import jakarta.inject.Singleton;
 import io.micronaut.validation.validator.Validator;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintValidator;
@@ -46,6 +48,28 @@ class CustomViolationElTest {
             assertEquals("${validatedValue.toUpperCase()}", messageOf(context, new Upper()));
             assertEquals("<fmt>", messageOf(context, new Formatted()));
         }
+    }
+
+    @Test
+    void onlyVariablesOfATemplateAValidatorSetAreEvaluatedByDefault() {
+        try (ApplicationContext context = ApplicationContext.run()) {
+            assertEquals("${validatedValue.toUpperCase()}", messageOf(context, new MicronautUpper()));
+            assertEquals("2 ${validatedValue.toUpperCase()}", messageOf(context, new MicronautMixed()));
+        }
+    }
+
+    @Test
+    void aFormatOfACustomViolationCannotPadWithoutBound() {
+        try (ApplicationContext context = ApplicationContext.run()) {
+            String message = messageOf(context, new Padded());
+            assertTrue(message.length() < 1000, "a message of " + message.length() + " characters");
+        }
+    }
+
+    @Test
+    void aFormatPadsWithinTheBound() {
+        assertEquals("    x", new ElMessageInterpolator.LocaleFormatter(java.util.Locale.ROOT).format("%5s", "x"));
+        assertEquals("00042", new ElMessageInterpolator.LocaleFormatter(java.util.Locale.ROOT).format("%05d", 42));
     }
 
     @Test
@@ -107,7 +131,8 @@ class CustomViolationElTest {
             "abc", "${1 + 1} ${validatedValue}",
             "upper", "${validatedValue.toUpperCase()}",
             "fmt", "${formatter.format('<%s>', validatedValue)}",
-            "bundle", "{review.custom.upper}");
+            "bundle", "{review.custom.upper}",
+            "pad", "${formatter.format('%20000000%')}");
 
         @Override
         public boolean isValid(String value, ConstraintValidatorContext context) {
@@ -151,6 +176,58 @@ class CustomViolationElTest {
     public static class Bundled {
         @CustomTemplate
         public String value = "bundle";
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    @Introspected
+    public static class Padded {
+        @CustomTemplate
+        public String value = "pad";
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    // a template the validator sets through the context of Micronaut, which may carry what it validated as well
+
+    @Constraint(validatedBy = {})
+    @Retention(RetentionPolicy.RUNTIME)
+    public @interface MicronautTemplate {
+        String message() default "default";
+
+        Class<?>[] groups() default {};
+
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    @Singleton
+    public static final class MicronautTemplateValidator implements io.micronaut.validation.validator.constraints.ConstraintValidator<MicronautTemplate, String> {
+        @Override
+        public boolean isValid(String value, AnnotationValue<MicronautTemplate> annotationMetadata,
+                               io.micronaut.validation.validator.constraints.ConstraintValidatorContext context) {
+            context.messageTemplate(value);
+            return false;
+        }
+    }
+
+    @Introspected
+    public static class MicronautUpper {
+        @MicronautTemplate
+        public String value = "${validatedValue.toUpperCase()}";
+
+        public String getValue() {
+            return value;
+        }
+    }
+
+    @Introspected
+    public static class MicronautMixed {
+        @MicronautTemplate
+        public String value = "${1 + 1} ${validatedValue.toUpperCase()}";
 
         public String getValue() {
             return value;
