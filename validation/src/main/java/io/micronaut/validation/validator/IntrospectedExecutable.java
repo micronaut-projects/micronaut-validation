@@ -97,12 +97,16 @@ final class IntrospectedExecutable<T, R> implements ExecutableMethod<T, R> {
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof IntrospectedExecutable<?, ?> other && method.equals(other.method);
+        // the same method of a super type describes a different executable on each type overriding it
+        return o instanceof IntrospectedExecutable<?, ?> other
+            && declaringType == other.declaringType
+            && beanMethod.equals(other.beanMethod)
+            && method.equals(other.method);
     }
 
     @Override
     public int hashCode() {
-        return method.hashCode();
+        return 31 * (31 * declaringType.hashCode() + beanMethod.hashCode()) + method.hashCode();
     }
 
     @Override
