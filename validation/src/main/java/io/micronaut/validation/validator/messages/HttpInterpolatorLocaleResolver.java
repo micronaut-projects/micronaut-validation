@@ -25,6 +25,9 @@ import java.util.Locale;
 import java.util.Optional;
 
 @Internal
+// the HTTP server is optional: the class is required before the bean, so that a definition the absent class cannot
+// load is left out, of a native image as well
+@Requires(classes = HttpLocaleResolver.class)
 @Requires(beans = HttpLocaleResolver.class)
 @Singleton
 class HttpInterpolatorLocaleResolver implements InterpolatorLocaleResolver {
