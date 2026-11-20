@@ -21,7 +21,7 @@ class BookInfoSpec extends Specification {
 
         then:
         ConstraintViolationException exception = thrown()
-        "setBookAuthors.authors[1]<list element>: must not be blank" == exception.message // <1>
+        "setBookAuthors.authors[1].<list element>: must not be blank" == exception.message // <1>
     }
 
     void testSectionsAreValidated() {
@@ -34,7 +34,7 @@ class BookInfoSpec extends Specification {
 
         then:
         ConstraintViolationException exception = thrown()
-        "setBookSectionPages.sectionStartPages[]<map key>: must not be blank" == exception.message // <2>
+        "setBookSectionPages.sectionStartPages<K>[].<map key>: must not be blank" == exception.message // <2>
     }
     // end::validate-iterables[]
 }

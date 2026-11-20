@@ -258,11 +258,11 @@ class ValidatorSpec extends Specification {
         violations.size() == 2
         violations[0].invalidValue == 'X'
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
-        violations[0].propertyPath.toString() == 'names[0]<list element>'
+        violations[0].propertyPath.toString() == 'names[0].<list element>'
 
         violations[1].invalidValue == 'TooLongName'
         violations[1].messageTemplate == '{jakarta.validation.constraints.Size.message}'
-        violations[1].propertyPath.toString() == 'names[2]<list element>'
+        violations[1].propertyPath.toString() == 'names[2].<list element>'
     }
 
     void "validate property argument - with iterable constraints"() {
@@ -309,11 +309,11 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        violations[0].invalidValue == -10
-        violations[0].propertyPath.toString() == 'numbers[Bob]<map value>'
+        violations[0].invalidValue == ""
+        violations[0].propertyPath.toString() == 'numbers<K>[].<map key>'
 
-        violations[1].invalidValue == ""
-        violations[1].propertyPath.toString() == 'numbers[]<map key>'
+        violations[1].invalidValue == -10
+        violations[1].propertyPath.toString() == 'numbers[Bob].<map value>'
     }
 
     void "test validate property argument cascade"() {
@@ -413,8 +413,8 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        violations[0].getPropertyPath().toString() == "matrix[0][1]<list element>"
-        violations[1].getPropertyPath().toString() == "matrix[1][0]<list element>"
+        violations[0].getPropertyPath().toString() == "matrix[0].<list element>[1].<list element>"
+        violations[1].getPropertyPath().toString() == "matrix[1].<list element>[0].<list element>"
     }
 
     void "test validate argument annotations null"() {
@@ -508,8 +508,8 @@ class ValidatorSpec extends Specification {
 
         then:
         violations.size() == 2
-        violations[0].getPropertyPath().toString() == "deposit.banknotes[0]<list element>"
-        violations[1].getPropertyPath().toString() == "deposit.banknotes[3]<list element>"
+        violations[0].getPropertyPath().toString() == "deposit.banknotes[0].<list element>"
+        violations[1].getPropertyPath().toString() == "deposit.banknotes[3].<list element>"
         violations[0].getPropertyPath().size() == 3
 
         when:
@@ -552,7 +552,7 @@ class ValidatorSpec extends Specification {
         then:
         violations.size() == 3
         violations[0].getPropertyPath().toString() == "createAccount.client.name"
-        violations[1].getPropertyPath().toString() == "createAccount.clientsWithAccess[]<map key>"
+        violations[1].getPropertyPath().toString() == "createAccount.clientsWithAccess<K>[].<map key>"
         violations[2].getPropertyPath().toString() == "createAccount.clientsWithAccess[spouse].name"
 
         when:
@@ -637,7 +637,7 @@ class ValidatorSpec extends Specification {
         violations = violations.sort{it -> it.getPropertyPath().toString() }
 
         expect:
-        violations[0].getPropertyPath().toString() == "getClientsWithAccess.<return value>[]<map key>"
+        violations[0].getPropertyPath().toString() == "getClientsWithAccess.<return value><K>[].<map key>"
         violations[1].getPropertyPath().toString() == "getClientsWithAccess.<return value>[spouse].name"
 
         when:
@@ -680,10 +680,10 @@ class ValidatorSpec extends Specification {
         expect:
         violations.size() == 2
 
-        violations[0].propertyPath.toString() == "getAllAccounts.<return value>[0][0].name"
+        violations[0].propertyPath.toString() == "getAllAccounts.<return value>[0].<map value>[0].name"
         violations[0].invalidValue == "Too long name"
 
-        violations[1].propertyPath.toString() == "getAllAccounts.<return value>[33][1].name"
+        violations[1].propertyPath.toString() == "getAllAccounts.<return value>[33].<map value>[1].name"
         violations[1].invalidValue == ""
     }
 
@@ -912,7 +912,7 @@ class ValidatorSpec extends Specification {
         def violations = validator.validate(new ValidatorSpecClasses.ValidMapWithKeys(pantry))
 
         then:
-        violations*.propertyPath*.toString().sort() == ['pantry[]<map key>', 'pantry[pepper].name']
+        violations*.propertyPath*.toString().sort() == ['pantry<K>[].<map key>', 'pantry[pepper].name']
     }
 
     void "test a non-numeric string fails Min and Max instead of throwing"() {

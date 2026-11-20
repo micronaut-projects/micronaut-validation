@@ -158,10 +158,6 @@ final class InternalConstraintValidators {
             return value.longValue() >= min;
         };
 
-    private static boolean isNegativeZero(double d) {
-        return d == 0 && Double.doubleToRawLongBits(d) != 0L;
-    }
-
     final ConstraintValidator<Negative, Number> negativeNumberValidator =
         (value, annotationMetadata, context) -> {
             // null is allowed according to spec
@@ -550,5 +546,9 @@ final class InternalConstraintValidators {
         } catch (NumberFormatException e) {
             return null;
         }
+    }
+
+    private static boolean isNegativeZero(double d) {
+        return d == 0 && Double.doubleToRawLongBits(d) != 0L;
     }
 }
