@@ -183,6 +183,41 @@ class ReproducersTest {
     }
 
     @Test
+    void overridingGetterDuplicatesSuperclassContainerElementConstraints() throws Exception {
+        assertAgree(validate("""
+            @Introspected
+            public class Subject extends Base {
+                @Override
+                @NotNull public Map<String, List<String>> getMap() { return super.getMap(); }
+                public static Object instance() { return new Subject(); }
+            }
+
+            @Introspected
+            class Base {
+                private Map<String, List<String>> map = Map.of("k", List.of(""));
+                public Map<String, List<@NotBlank String>> getMap() { return map; }
+            }
+            """));
+    }
+
+    @Test
+    void classLevelConstraintOfTheSameTypeOnSuperclassAndSubclass() throws Exception {
+        // validation reports both, the descriptor of the subclass only its own
+        assertMetadataAgrees("""
+            @Introspected
+            @FuzzClassCheck(mode = 1)
+            public class Subject extends Base {
+                public static Object instance() { return new Subject(); }
+            }
+
+            @Introspected
+            @FuzzClassCheck(mode = 0)
+            class Base {
+            }
+            """);
+    }
+
+    @Test
     void validateValueOnSubclassOverridingGetter() throws Exception {
         // validateValue ignores the constraint of the superclass field once a subclass overrides the getter
         assertAgree(Differential.run("""
