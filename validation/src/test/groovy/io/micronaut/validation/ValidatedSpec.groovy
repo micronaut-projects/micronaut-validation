@@ -145,7 +145,8 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.constraintViolations.size() == 2
+        // the same @NotNull on the field and on the getter of Bar reports one violation, as the reference implementation does
+        e.constraintViolations.size() == 1
         e.constraintViolations*.propertyPath*.toString().every { it == "cascadeValidateReturnValue.<return value>.prop" }
         e.constraintViolations*.message.every { it == "must not be null" }
 
@@ -163,7 +164,8 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.constraintViolations.size() == 2
+        // the same @NotNull on the field and on the getter of Bar reports one violation, as the reference implementation does
+        e.constraintViolations.size() == 1
         e.constraintViolations*.propertyPath*.toString().every { it == "validateReturnList.<return value>[0].prop" }
         e.constraintViolations*.message.every { it == "must not be null" }
 
@@ -181,7 +183,8 @@ class ValidatedSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.constraintViolations.size() == 2
+        // the same @NotNull on the field and on the getter of Bar reports one violation, as the reference implementation does
+        e.constraintViolations.size() == 1
         e.constraintViolations*.propertyPath*.toString().every { it == "validateMap.<return value>[barObj].prop" }
         e.constraintViolations*.message.every { it == "must not be null" }
 
