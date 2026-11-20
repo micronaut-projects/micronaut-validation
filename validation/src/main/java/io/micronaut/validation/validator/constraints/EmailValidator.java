@@ -59,35 +59,32 @@ public class EmailValidator extends AbstractPatternValidator<Email> {
             @Nullable CharSequence value,
             AnnotationValue<Email> annotationMetadata,
             ConstraintValidatorContext context) {
-        if (value == null || value.length() == 0) {
+        if (value == null) {
             return true;
         }
-
-        String stringValue = value.toString();
-        int i = stringValue.lastIndexOf('@');
-
-        // no @ character
-        if (i < 0) {
+        // an empty value is a valid address, as the reference implementation has it, but still has to match the
+        // regular expression the constraint declares
+        if (value.length() > 0 && !isValidAddress(value.toString())) {
             return false;
         }
 
-        String localPart = stringValue.substring(0, i);
-        String domainPart = stringValue.substring(i + 1);
-
-        boolean isValid;
-        if (!isValidEmailLocalPart(localPart)) {
-            isValid = false;
-        } else {
-            isValid = DomainNameUtil.isValidEmailDomainAddress(domainPart);
-        }
-
         final Pattern pattern = getOptionalPattern(annotationMetadata);
-        if (pattern == null || !isValid) {
-            return isValid;
+        if (pattern == null) {
+            return true;
         }
 
         Matcher m = pattern.matcher(value);
         return m.matches();
+    }
+
+    private boolean isValidAddress(String stringValue) {
+        int i = stringValue.lastIndexOf('@');
+        if (i < 0) {
+            return false;
+        }
+        String localPart = stringValue.substring(0, i);
+        String domainPart = stringValue.substring(i + 1);
+        return isValidEmailLocalPart(localPart) && DomainNameUtil.isValidEmailDomainAddress(domainPart);
     }
 
     private boolean isValidEmailLocalPart(String localPart) {

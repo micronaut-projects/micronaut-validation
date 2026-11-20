@@ -279,7 +279,9 @@ class ReproducersTest {
             public class Subject {
                 @Email private CharSequence value = "";
                 private Set<@Email CharSequence> values = Set.of("");
+                @Email(regexp = ".+@example[.]com") private String matched = "";
                 public CharSequence getValue() { return value; }
+                public String getMatched() { return matched; }
                 public Set<CharSequence> getValues() { return values; }
                 public static Object instance() { return new Subject(); }
             }
