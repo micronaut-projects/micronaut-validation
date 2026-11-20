@@ -158,6 +158,10 @@ final class InternalConstraintValidators {
             return value.longValue() >= min;
         };
 
+    private static boolean isNegativeZero(double d) {
+        return d == 0 && Double.doubleToRawLongBits(d) != 0L;
+    }
+
     final ConstraintValidator<Negative, Number> negativeNumberValidator =
         (value, annotationMetadata, context) -> {
             // null is allowed according to spec
@@ -174,7 +178,9 @@ final class InternalConstraintValidators {
                 value instanceof Float ||
                 value instanceof DoubleAdder ||
                 value instanceof DoubleAccumulator) {
-                return value.doubleValue() < 0;
+                // -0.0 is negative, as the reference implementation compares it
+                double d = value.doubleValue();
+                return d < 0 || isNegativeZero(d);
             }
             return value.longValue() < 0;
         };
@@ -237,7 +243,8 @@ final class InternalConstraintValidators {
                 value instanceof Float ||
                 value instanceof DoubleAdder ||
                 value instanceof DoubleAccumulator) {
-                return value.doubleValue() >= 0;
+                double d = value.doubleValue();
+                return d >= 0 && !isNegativeZero(d);
             }
             return value.longValue() >= 0;
         };
