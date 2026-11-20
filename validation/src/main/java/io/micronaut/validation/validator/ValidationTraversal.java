@@ -507,7 +507,11 @@ final class ValidationTraversal {
                                           @Nullable E containerValue,
                                           List<DefaultConstraintDescriptor<Annotation>> elementConstraints,
                                           boolean canCascade) {
-        if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)) {
+        if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument)
+            && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)
+            // the processor marks the type of a cascaded getter returning an array, not the getter: its elements
+            // are cascaded all the same
+            && !(annotationMetadata.hasStereotype(Valid.class) && Object[].class.isAssignableFrom(containerArgument.getType()))) {
             return false;
         }
         boolean isLegacyValid = annotationMetadata.hasAnnotation(Valid.class)
@@ -711,8 +715,10 @@ final class ValidationTraversal {
             return;
         }
         if (!checkCascadable || isCascadable(context, leftBean)) {
+            // the containers of the cascaded bean report their own types, not one unwrapped around the bean
             try (ValidationPath.ContextualPath ignore = context.getCurrentPath().cascaded();
-                 DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.enteringCascadedBean()) {
+                 DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.enteringCascadedBean();
+                 DefaultConstraintValidatorContext.ValidationCloseable ignore3 = context.withUnwrappedContainer(null)) {
                 doValidate(context, beanIntrospection, elementValue);
             }
         }
@@ -781,7 +787,9 @@ final class ValidationTraversal {
         }
 
         private void validateContainerValue(@Nullable String name, ValidationPath.ContainerContext containerContext, Object value) {
-            if (name != null && !legacy) {
+            // an element of a container cascaded the legacy way has its node too: its own constraints report on it,
+            // and a cascade into it drops the node again
+            if (name != null) {
                 try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addContainerElementNode(name, containerContext)) {
                     validateContainerValue(value);
                 }
