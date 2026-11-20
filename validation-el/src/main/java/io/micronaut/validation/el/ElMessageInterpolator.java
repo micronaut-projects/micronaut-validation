@@ -205,10 +205,8 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                 continue;
             }
             if (attribute != null) {
-                // Attribute values are final text, never input for another interpolation pass.
-                if (token.kind() == Kind.EXPRESSION) {
-                    result.append(DOLLAR);
-                }
+                // Attribute values are final text, never input for another interpolation pass. An attribute is an
+                // EL variable as well: ${value} renders its value, as {value} does
                 result.append(attribute);
             } else if (token.kind() == Kind.EXPRESSION && !token.trusted() && !customViolationExpressions
                 && interpolationContext instanceof DefaultMessageInterpolatorContext defaultContext && defaultContext.isCustomViolation()
