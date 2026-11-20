@@ -112,7 +112,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxSimple.title[]<publisher element>: must not be blank"
+        e.message == "rxSimple.title[].<publisher element>: must not be blank"
         def path = e.getConstraintViolations().first().propertyPath.iterator()
         path.next().getName() == 'rxSimple'
         path.next().getName() == 'title'
@@ -128,7 +128,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxLong.<return value>[]<publisher element>: must be greater than or equal to 10"
+        e.message == "rxLong.<return value>[].<publisher element>: must be greater than or equal to 10"
     }
 
     void "test reactive validation with valid argument"() {
@@ -179,7 +179,7 @@ class ReactiveMethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxValidWithTypeParameter.books[][1].title: must not be blank"
+        e.message == "rxValidWithTypeParameter.books[].<publisher element>[1].title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 
@@ -193,7 +193,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureSimple.title<completion stage element>: must not be blank"
+        e.cause.message == "futureSimple.title.<completion stage element>: must not be blank"
         e.cause.getConstraintViolations().first().propertyPath.toString().startsWith('futureSimple.title')
     }
 
@@ -207,7 +207,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
+        e.cause.message == "futureLong.<return value>.<completion stage element>: must be greater than or equal to 10"
     }
 
     void "a null completion stage violates the constraint on the stage itself"() {
@@ -236,7 +236,7 @@ class ReactiveMethodValidationSpec extends Specification {
         then:
         ExecutionException e = thrown()
         e.cause instanceof ConstraintViolationException
-        e.cause.message == "futureLong.<return value><completion stage element>: must be greater than or equal to 10"
+        e.cause.message == "futureLong.<return value>.<completion stage element>: must be greater than or equal to 10"
     }
 
     void "test future validation with invalid argument"() {

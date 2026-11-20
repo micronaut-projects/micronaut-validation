@@ -22,13 +22,13 @@ class IntrospectionModeSpec extends Specification {
         def violations = validator.validate(new Names())
 
         then:
-        violations*.propertyPath*.toString() == ["strings[0]<list element>"]
+        violations*.propertyPath*.toString() == ["strings[0].<list element>"]
     }
 
     void "the constraints on the type arguments of a getter are validated without a generated introspection"() {
         expect:
-        validator.validate(new Holder.NotIntrospected())*.propertyPath*.toString() == ["strings[0]<list element>"]
-        validator.validate(new Holder.NotIntrospectedField())*.propertyPath*.toString() == ["strings[0]<list element>"]
+        validator.validate(new Holder.NotIntrospected())*.propertyPath*.toString() == ["strings[0].<list element>"]
+        validator.validate(new Holder.NotIntrospectedField())*.propertyPath*.toString() == ["strings[0].<list element>"]
     }
 
     void "a group conversion on a return value that is not cascaded is a declaration error"() {
@@ -52,7 +52,7 @@ class IntrospectionModeSpec extends Specification {
         def violations = validator.validate(new User())
 
         then:
-        violations*.propertyPath*.toString().sort() == ["addresses[0].zip", "nested[k][0]<list element>"]
+        violations*.propertyPath*.toString().sort() == ["addresses[0].zip", "nested[k].<map value>[0].<list element>"]
     }
 
     void "nested container elements described by the bridge are validated at every depth"() {

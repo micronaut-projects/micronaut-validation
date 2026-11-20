@@ -1,0 +1,75 @@
+plugins {
+    id "java-library"
+    id "io.micronaut.build.internal.validation-base"
+}
+
+// A differential fuzzer: generates constrained beans and values, compiles them with the Micronaut annotation
+// processors, and compares what Micronaut Validation reports against Hibernate Validator, the Jakarta
+// Validation reference implementation. Not part of check: run it with the fuzz task.
+dependencies {
+    implementation mn.micronaut.inject.java
+    implementation mn.micronaut.inject
+    implementation mn.micronaut.context
+
+    implementation projects.micronautValidation
+    implementation projects.micronautValidationProcessor
+
+    implementation libs.hibernate.validator
+    implementation libs.expressly
+
+    testImplementation(mnTest.micronaut.test.junit5)
+    testRuntimeOnly(mnTest.junit.jupiter.engine)
+    testRuntimeOnly(libs.junit.platform.launcher)
+}
+
+def fuzzProperties = ['fuzz.minimize', 'fuzz.seed', 'fuzz.batches', 'fuzz.batchSize', 'fuzz.report', 'fuzz.keepSources', 'fuzz.replay']
+
+tasks.withType(Test).configureEach {
+    useJUnitPlatform()
+    jvmArgs '-Duser.language=en', '-Duser.country=US', '-Duser.timezone=UTC'
+    maxHeapSize = '2g'
+}
+
+test {
+    description = "Runs a short fixed-seed fuzzing smoke test of the harness and the reproducers of the differences fixed."
+    useJUnitPlatform()
+    systemProperty 'fuzz.batches', '1'
+    systemProperty 'fuzz.batchSize', '8'
+    systemProperty 'fuzz.failOnDifference', 'false'
+}
+
+tasks.register('reproducers', Test) {
+    group = 'verification'
+    description = 'Runs only the minimal reproducers of the differences the fuzzer found, with their output; each fails if its difference comes back.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform {
+        includeTags 'reproducer'
+    }
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = true
+        exceptionFormat = 'full'
+    }
+}
+
+tasks.register('fuzz', Test) {
+    group = 'verification'
+    description = 'Runs the differential validation fuzzer. Use -Pfuzz.seed=..., -Pfuzz.batches=..., -Pfuzz.batchSize=...'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    outputs.upToDateWhen { false }
+    fuzzProperties.each { key ->
+        def value = providers.gradleProperty(key).orNull
+        if (value != null) {
+            systemProperty key, value
+        }
+    }
+    useJUnitPlatform {
+        excludeTags 'reproducer'
+    }
+    systemProperty 'fuzz.report', providers.gradleProperty('fuzz.report').getOrElse(layout.buildDirectory.dir('fuzz-report').get().asFile.absolutePath)
+    testLogging {
+        showStandardStreams = true
+    }
+}

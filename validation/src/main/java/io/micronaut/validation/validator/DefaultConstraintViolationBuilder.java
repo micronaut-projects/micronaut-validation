@@ -40,6 +40,8 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
     private final ContainerElementNodeBuilderDefinedContext nodeBuilderDefinedContext = new DefaultContainerElementNodeBuilderDefinedContext();
 
     private ValidationPath.@Nullable MutableContainerContext next;
+    // the bean node of a class-level constraint, left out for a node added in its place
+    private Path.@Nullable Node removedBeanNode;
 
     DefaultConstraintViolationBuilder(String messageTemplate,
                                       DefaultConstraintValidatorContext<R> constraintValidatorContext,
@@ -55,6 +57,7 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         }
         if (kind == ElementKind.BEAN) {
             Path.Node node = validationPath.removeLast();
+            removedBeanNode = node;
             ValidationPath.DefaultNode defaultNode = (ValidationPath.DefaultNode) node;
             next = new ValidationPath.MutableContainerContext(defaultNode.containerContext);
         }
@@ -84,6 +87,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
 
     @Override
     public LeafNodeBuilderCustomizableContext addBeanNode() {
+        if (next != null && removedBeanNode != null) {
+            // a bean node added to a class-level violation follows the bean node of the constraint, as the
+            // reference implementation reports it
+            validationPath.add(removedBeanNode);
+            next = null;
+        }
         ValidationPath.MutableContainerContext containerContext = newMutableContainerContext();
         validationPath.addBeanNode(containerContext);
         return new DefaultLeafNodeBuilderCustomizableContext(containerContext);

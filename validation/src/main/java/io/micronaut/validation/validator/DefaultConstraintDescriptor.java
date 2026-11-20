@@ -121,8 +121,9 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
         this.validatorOverrides = validatorOverrides;
         this.message = annotationValue.stringValue(ATTRIBUTE_MESSAGE).orElse(null);
         this.defaultMessage = annotationValue.getDefaultValues() == null ? null : (String) annotationValue.getDefaultValues().get(ATTRIBUTE_MESSAGE);
-        this.groups = Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS)));
-        this.payload = (Set) Set.copyOf(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD)));
+        // in declaration order, which the groups attribute keeps
+        this.groups = Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(annotationValue.classValues(ATTRIBUTE_GROUPS))));
+        this.payload = (Set) Collections.unmodifiableSet(new LinkedHashSet<>(Arrays.asList(annotationValue.classValues(ATTRIBUTE_PAYLOAD))));
         this.builtInValidators = validatedBy.contains(ConstraintValidatorOverrides.BuiltIn.class);
         this.validatedBy = builtInValidators
             ? validatedBy.stream().filter(validator -> (Object) validator != ConstraintValidatorOverrides.BuiltIn.class).toList()
@@ -324,9 +325,10 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
     }
 
     /**
-     * Two descriptors of one occurrence of a constraint are equal: the same constraint, the same attributes, read
-     * from the same element. A descriptor built again for an element, as a validation without a constraint cache
-     * does, equals the one built before, and so do the violations reporting them.
+     * Two descriptors are equal when they describe the same constraint with the same attributes, as the reference
+     * implementation compares them: a descriptor built again for an element, as a validation without a constraint
+     * cache does, equals the one built before, and the same constraint declared on a field and on the getter
+     * overriding its accessor reports one violation.
      */
     @Override
     public boolean equals(Object o) {
@@ -335,7 +337,6 @@ final class DefaultConstraintDescriptor<T extends Annotation> implements Constra
         }
         return o instanceof DefaultConstraintDescriptor<?> that
             && type == that.type
-            && annotationMetadata == that.annotationMetadata
             && annotationValue.equals(that.annotationValue);
     }
 

@@ -32,13 +32,13 @@ public interface DecimalMaxValidator<T> extends ConstraintValidator<DecimalMax, 
 
     @Override
     default boolean isValid(@Nullable T value, AnnotationValue<DecimalMax> annotationMetadata, ConstraintValidatorContext context) {
+        // the bound of the occurrence, parsed once
+        final ConstraintMembers.DecimalLimit limit = ConstraintMembers.decimalLimit(annotationMetadata);
         if (value == null) {
             // null considered valid according to spec
             return true;
         }
 
-        // the bound of the occurrence, parsed once
-        final ConstraintMembers.DecimalLimit limit = ConstraintMembers.decimalLimit(annotationMetadata);
         final BigDecimal bigDecimal = limit.bound();
 
 

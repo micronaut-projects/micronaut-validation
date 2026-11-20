@@ -27,6 +27,8 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * The default error messages.
@@ -44,6 +46,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
     private static final char L_BRACE = '{';
     private static final char R_BRACE = '}';
     private static final char DOLL_BRACE = '$';
+    private static final Pattern CONDITIONAL = Pattern.compile("\\s*(\\w+)\\s*==\\s*(true|false)\\s*\\?\\s*'([^']*)'\\s*:\\s*'([^']*)'\\s*");
 
     @Nullable
     private final InterpolatorLocaleResolver interpolatorLocaleResolver;
@@ -113,6 +116,9 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     String variableName = template.substring(i + 2, end);
                     Object variableValue = resolveVariable(variableName, context, depth);
                     if (variableValue == null) {
+                        variableValue = conditional(variableName, context);
+                    }
+                    if (variableValue == null) {
                         builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
                         builder.append(variableText(variableValue));
@@ -147,7 +153,32 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                 builder.append(c);
             }
         }
-        return builder.toString();
+        if (isVariable) {
+            // an unbalanced '{' is not a parameter: the text is kept as written
+            messageBuilder.append(L_BRACE).append(variableBuilder);
+        }
+        return messageBuilder.toString();
+    }
+
+    /**
+     * Evaluates the one form of expression the default messages of the built-in constraints use,
+     * {@code ${attribute == true ? 'text' : 'other'}}, so that they read the same without an EL implementation.
+     *
+     * @param expression The expression
+     * @param context The context
+     * @return The text, or null if the expression has another form
+     */
+    @Nullable
+    private static String conditional(String expression, MessageSource.MessageContext context) {
+        Matcher matcher = CONDITIONAL.matcher(expression);
+        if (!matcher.matches()) {
+            return null;
+        }
+        Object value = context.getVariables().get(matcher.group(1));
+        if (!(value instanceof Boolean b)) {
+            return null;
+        }
+        return b == Boolean.parseBoolean(matcher.group(2)) ? matcher.group(3) : matcher.group(4);
     }
 
     private static Object variableText(Object value) {

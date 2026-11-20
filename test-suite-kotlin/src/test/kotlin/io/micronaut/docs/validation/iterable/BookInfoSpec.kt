@@ -19,7 +19,7 @@ class BookInfoSpec {
             ConstraintViolationException::class.java
         ) { bookInfoService.setBookAuthors("My Book", authors) }
         Assertions.assertEquals(
-            "setBookAuthors.authors[1]<list element>: must not be blank",
+            "setBookAuthors.authors[1].<list element>: must not be blank",
             exception.message
         ) // <1>
     }
@@ -37,7 +37,7 @@ class BookInfoSpec {
             )
         }
         Assertions.assertEquals(
-            "setBookSectionPages.sectionStartPages[]<map key>: must not be blank",
+            "setBookSectionPages.sectionStartPages<K>[].<map key>: must not be blank",
             exception.message
         ) // <2>
     } // end::validate-iterables[]

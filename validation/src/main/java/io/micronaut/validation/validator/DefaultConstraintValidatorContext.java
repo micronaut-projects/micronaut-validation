@@ -267,7 +267,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * @param containerType The declared container type
      * @return The closeable restoring the previous state
      */
-    public ValidationCloseable withUnwrappedContainer(Class<?> containerType) {
+    public ValidationCloseable withUnwrappedContainer(@Nullable Class<?> containerType) {
         Class<?> previous = this.unwrappedContainerType;
         this.unwrappedContainerType = containerType;
         return () -> this.unwrappedContainerType = previous;
