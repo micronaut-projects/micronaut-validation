@@ -64,7 +64,8 @@ final class OutcomeNormalizer {
                 + ";descriptor=" + descriptor(violation.getConstraintDescriptor()));
         }
         outcomes.sort(String::compareTo);
-        return outcomes.toString();
+        // one violation per line so that differences can be paired; the text values are hex encoded and never contain a newline
+        return "[" + String.join("\n", outcomes) + "]";
     }
 
     private static String descriptor(ConstraintDescriptor<?> descriptor) {
@@ -95,7 +96,9 @@ final class OutcomeNormalizer {
             && (category.getMessage().contains("micronaut-validation-reflection") || rootMessage(category).contains("@ReflectiveAccess"))) {
             return "CAPABILITY_ERROR";
         }
-        return "EXCEPTION:" + category.getClass().getName();
+        // lines starting with '#' are diagnostics and are never compared
+        return "EXCEPTION:" + category.getClass().getName() + "\n#" + failure.getClass().getName() + ": "
+            + String.valueOf(rootMessage(failure)).replace('\n', ' ');
     }
 
     private static String rootMessage(Throwable failure) {

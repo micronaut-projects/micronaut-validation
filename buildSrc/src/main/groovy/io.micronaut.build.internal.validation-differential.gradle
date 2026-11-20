@@ -34,6 +34,7 @@ def configureCampaign = { Test task, String count ->
     task.maxHeapSize = '1g'
     task.inputs.property('seed', providers.gradleProperty('fuzzSeed').orElse('631530'))
     task.inputs.property('limitMinutes', providers.gradleProperty('fuzzLimitMinutes').orElse('30'))
+    task.inputs.property('randomModels', providers.gradleProperty('fuzzRandomModels').orElse(''))
     task.inputs.property('count', providers.gradleProperty('fuzzCount').orElse(count))
     task.inputs.files(sourceSets.worker.output, configurations.workerRuntimeClasspath,
         configurations.defaultStack, configurations.jakartaStack, configurations.referenceStack,
@@ -43,6 +44,8 @@ def configureCampaign = { Test task, String count ->
         task.systemProperty 'fuzz.count', providers.gradleProperty('fuzzCount').orElse(count).get()
         task.systemProperty 'fuzz.limitMinutes', providers.gradleProperty('fuzzLimitMinutes').orElse('30').get()
         task.systemProperty 'fuzz.output', layout.buildDirectory.dir('differential').get().asFile.absolutePath
+        task.systemProperty 'fuzz.randomModels', providers.gradleProperty('fuzzRandomModels').orElse(count == '2000' ? '60' : '2000').get()
+        task.systemProperty 'fuzz.reportOnly', providers.gradleProperty('fuzzReportOnly').orElse('false').get()
         task.systemProperty 'fuzz.processors', configurations.modelProcessors.asPath
         ['default', 'jakarta', 'reference'].each { profile ->
             task.systemProperty "fuzz.${profile}Classpath", (sourceSets.worker.output + configurations.workerRuntimeClasspath
@@ -58,5 +61,15 @@ tasks.register('fuzzCampaign', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     outputs.upToDateWhen { false }
+    configureCampaign(it, '50000')
+}
+
+tasks.register('fuzzRandom', Test) {
+    group = 'verification'
+    description = 'Manual random differential campaign against Hibernate Validator (-PfuzzRandomModels, -PfuzzSeed, -PfuzzReportOnly).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    outputs.upToDateWhen { false }
+    filter { includeTestsMatching 'io.micronaut.validation.differential.RandomDifferentialTest' }
     configureCampaign(it, '50000')
 }

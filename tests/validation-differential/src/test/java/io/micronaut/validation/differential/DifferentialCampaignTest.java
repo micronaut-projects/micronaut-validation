@@ -149,12 +149,17 @@ class DifferentialCampaignTest {
     }
 
     private static String mismatch(ModelDescription model, int operation, Results results) {
-        if (!results.jakarta.equals(results.reference)) { return "Jakarta/reference mismatch"; }
+        if (!comparable(results.jakarta).equals(comparable(results.reference))) { return "Jakarta/reference mismatch"; }
         if (model.comprehensiveOnly()) { return null; }
         if (model.expectsCapability(operation)) {
             return results.generated.equals("CAPABILITY_ERROR") ? null : "Missing expected default capability error";
         }
-        return results.generated.equals(results.reference) ? null : "Default/reference mismatch";
+        return comparable(results.generated).equals(comparable(results.reference)) ? null : "Default/reference mismatch";
+    }
+
+    /** Drops the diagnostic lines (prefixed with '#') that workers append to exception outcomes. */
+    static String comparable(String outcome) {
+        return outcome.lines().filter(line -> !line.startsWith("#")).collect(java.util.stream.Collectors.joining("\n"));
     }
 
     private static boolean sameFailureShape(Results original, Results candidate) {
