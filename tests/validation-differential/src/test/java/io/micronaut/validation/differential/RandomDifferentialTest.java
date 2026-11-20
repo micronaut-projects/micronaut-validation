@@ -63,6 +63,8 @@ class RandomDifferentialTest {
     private int generated;
     private int compileFailures;
     private int scratch;
+    /** Signatures with the declared type erased whose first occurrence was already shrunk. */
+    private final Set<String> shrunkShapes = new TreeSet<>();
 
     /** One kind of difference. */
     private static final class Finding {
@@ -97,6 +99,7 @@ class RandomDifferentialTest {
                     current.add(RandomBeanModel.of("Random" + batch + "_" + i, random.nextLong()));
                 }
                 runBatch(current, output.resolve("batch-" + (batch++ % 4)), random);
+                writeReport(true);
             }
         } catch (IllegalStateException deadlineReached) {
             if (!String.valueOf(deadlineReached.getMessage()).contains("deadline")) {
@@ -187,7 +190,10 @@ class RandomDifferentialTest {
                 finding.occurrences++;
                 if (finding.reproduction == null) {
                     finding.example = "operation=" + operation + " input=" + input + "\n" + describe(outcomes);
-                    RandomBeanModel minimized = shrink ? shrink(model, operation, input, signature) : model;
+                    // shrinking costs a compile and three worker JVMs per round: shrink once per signature shape and keep
+                    // the unminimized model for the same difference on another declared type
+                    boolean firstOfShape = shrunkShapes.add(shape(signature));
+                    RandomBeanModel minimized = shrink && firstOfShape ? shrink(model, operation, input, signature) : model;
                     saveReproduction(finding, minimized, operation, input);
                 }
             }
@@ -222,7 +228,7 @@ class RandomDifferentialTest {
         boolean leftViolations = left.startsWith("[");
         boolean rightViolations = right.startsWith("[");
         if (!leftViolations || !rightViolations) {
-            result.add("OUTCOME micronaut=" + shape(left) + " reference=" + shape(right)
+            result.add("OUTCOME micronaut=" + shapeOf(left) + " reference=" + shapeOf(right)
                 + (rightViolations ? " " + constraintsOf(model, right) : leftViolations ? " " + constraintsOf(model, left) : ""));
             return result;
         }
@@ -248,7 +254,13 @@ class RandomDifferentialTest {
         return result;
     }
 
-    private static String shape(String outcome) {
+    /** The signature without the declared type: {@code DIFF NotNull on Optional<X> PROPERTY: message} to {@code DIFF NotNull on * PROPERTY: message}. */
+    static String shape(String signature) {
+        return signature.startsWith("OUTCOME ") ? signature
+            : signature.replaceFirst(" on .*? ((?:[A-Z_]+>)*[A-Z_]+)(:|$)", " on * $1$2");
+    }
+
+    private static String shapeOf(String outcome) {
         if (outcome.startsWith("[")) {
             return outcome.equals("[]") ? "valid" : "violations";
         }
@@ -269,6 +281,8 @@ class RandomDifferentialTest {
         String where(RandomBeanModel model) {
             List<String> kinds = new ArrayList<>();
             String leaf = null;
+            String declared = "";
+            List<String> arguments = List.of();
             for (String node : path.substring(1, path.length() - 1).split(", (?=[A-Z_]+:)")) {
                 if (node.isEmpty()) {
                     continue;
@@ -277,10 +291,33 @@ class RandomDifferentialTest {
                 kinds.add(parts[0]);
                 if (parts[0].equals("PROPERTY") && parts.length > 1) {
                     leaf = parts[1];
+                } else if (parts[0].equals("METHOD") || parts[0].equals("CONSTRUCTOR")) {
+                    arguments = argumentTypes(node);
+                } else if (parts[0].equals("PARAMETER")) {
+                    int at = node.lastIndexOf(":parameter=");
+                    int index = at < 0 ? -1 : Integer.parseInt(node.substring(at + 11).replaceAll("\\D.*$", ""));
+                    declared = index >= 0 && index < arguments.size() ? arguments.get(index) : "?";
                 }
             }
-            String declared = leaf == null ? "" : model.describeLeaf(leaf);
+            if (leaf != null) {
+                declared = model.describeLeaf(leaf);
+            }
             return declared + " " + String.join(">", kinds);
+        }
+
+        /** Simple names of the {@code arguments=[class:a.B, ...]} of a method or constructor node. */
+        private static List<String> argumentTypes(String node) {
+            int start = node.indexOf(":arguments=[");
+            if (start < 0) {
+                return List.of();
+            }
+            int end = node.indexOf(']', start);
+            List<String> types = new ArrayList<>();
+            for (String argument : node.substring(start + 12, end < 0 ? node.length() : end).split(", ")) {
+                String type = argument.startsWith("class:") ? argument.substring(6) : argument;
+                types.add(type.substring(type.lastIndexOf('.') + 1));
+            }
+            return types;
         }
 
         String differingFields(Violation other) {

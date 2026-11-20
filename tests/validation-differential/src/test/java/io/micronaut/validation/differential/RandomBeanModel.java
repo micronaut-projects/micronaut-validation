@@ -359,7 +359,7 @@ final class RandomBeanModel {
         } else if (message == 7) {
             parts.add("message = \"{jakarta.validation.constraints." + type + ".message} [nested]\"");
         } else if (message == 8) {
-            parts.add("message = \"literal \\\\{escaped} and \\\\$ dollar\"");
+            parts.add("message = \"literal \\\\{escaped\\\\} and \\\\$ dollar\"");
         }
         return "@" + CONSTRAINT_PACKAGE[0] + type + (parts.isEmpty() ? "" : "(" + String.join(", ", parts) + ")");
     }

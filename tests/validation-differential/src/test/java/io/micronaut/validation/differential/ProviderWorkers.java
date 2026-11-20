@@ -166,6 +166,10 @@ final class ProviderWorkers implements AutoCloseable {
                 }
                 String response = responses.poll(remaining, TimeUnit.NANOSECONDS);
                 if (response == null) {
+                    if (System.nanoTime() >= deadline) {
+                        // the wait was cut short by the campaign deadline, not by a slow worker
+                        throw new IllegalStateException("Differential campaign deadline reached: INCOMPLETE");
+                    }
                     return "TIMEOUT";
                 }
                 if (response.startsWith(prefix) || response.equals("EXITED") || response.startsWith("READER_ERROR:")) {
