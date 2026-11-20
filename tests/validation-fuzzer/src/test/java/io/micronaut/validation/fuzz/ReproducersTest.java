@@ -320,7 +320,8 @@ class ReproducersTest {
 
     @Test
     void sizeWithMinGreaterThanMax() throws Exception {
-        assertAgree(validate("""
+        // both reject the definition, whatever the value; the messages are each implementation's own
+        assertSameException(validate("""
             @Introspected
             public class Subject {
                 @Size(min = 3, max = 1) private String value = "ab";
@@ -328,6 +329,40 @@ class ReproducersTest {
                 public static Object instance() { return new Subject(); }
             }
             """));
+        assertSameException(validate("""
+            @Introspected
+            public class Subject {
+                @Size(min = -1) private String value;
+                @Digits(integer = -1, fraction = 0) private Integer number;
+                public String getValue() { return value; }
+                public Integer getNumber() { return number; }
+                public static Object instance() { return new Subject(); }
+            }
+            """));
+        assertSameException(validate("""
+            @Introspected
+            public class Subject {
+                @Pattern(regexp = "(") private String value;
+                public String getValue() { return value; }
+                public static Object instance() { return new Subject(); }
+            }
+            """));
+        assertSameException(validate("""
+            @Introspected
+            public class Subject {
+                @DecimalMax("abc") private Integer value;
+                public Integer getValue() { return value; }
+                public static Object instance() { return new Subject(); }
+            }
+            """));
+    }
+
+    private static void assertSameException(Differential.Result result) {
+        System.out.println(result);
+        java.util.function.Function<java.util.List<String>, java.util.List<String>> type =
+            lines -> lines.stream().map(l -> l.replaceAll("^(throws \\w+):.*", "$1")).toList();
+        Assertions.assertTrue(result.hibernate().get(0).startsWith("throws "), result::toString);
+        Assertions.assertEquals(type.apply(result.hibernate()), type.apply(result.micronaut()), result::toString);
     }
 
     // ---------------------------------------------------------------- metadata

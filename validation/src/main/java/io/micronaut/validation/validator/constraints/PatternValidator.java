@@ -32,11 +32,11 @@ public class PatternValidator extends AbstractPatternValidator<Pattern> {
 
     @Override
     public boolean isValid(@Nullable CharSequence value, AnnotationValue<Pattern> annotationMetadata, ConstraintValidatorContext context) {
+        java.util.regex.Pattern regex = getPattern(annotationMetadata);
         if (value == null) {
             // null valid according to spec
             return true;
         }
-        java.util.regex.Pattern regex = getPattern(annotationMetadata);
         return regex.matcher(value).matches();
     }
 }

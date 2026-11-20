@@ -74,6 +74,17 @@ final class ConstraintMembers {
      * @param max The maximum size
      */
     record Size(int min, int max) {
+        Size {
+            if (min < 0) {
+                throw new ValidationException("The min parameter of @Size cannot be negative.");
+            }
+            if (max < 0) {
+                throw new ValidationException("The max parameter of @Size cannot be negative.");
+            }
+            if (max < min) {
+                throw new ValidationException("The length of @Size cannot be negative: min " + min + " is greater than max " + max + ".");
+            }
+        }
     }
 
     /**
@@ -81,6 +92,14 @@ final class ConstraintMembers {
      * @param fraction The digits of the fraction allowed
      */
     record Digits(int integer, int fraction) {
+        Digits {
+            if (integer < 0) {
+                throw new ValidationException("The length of the integer part of @Digits cannot be negative.");
+            }
+            if (fraction < 0) {
+                throw new ValidationException("The length of the fraction part of @Digits cannot be negative.");
+            }
+        }
     }
 
     /**

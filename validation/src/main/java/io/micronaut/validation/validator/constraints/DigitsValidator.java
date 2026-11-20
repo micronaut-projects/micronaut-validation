@@ -32,11 +32,11 @@ import java.math.BigDecimal;
 public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
     @Override
     default boolean isValid(@Nullable T value, AnnotationValue<Digits> annotationMetadata, ConstraintValidatorContext context) {
+        final ConstraintMembers.Digits digits = ConstraintMembers.digits(annotationMetadata);
         if (value == null) {
             // null valid according to spec
             return true;
         }
-        final ConstraintMembers.Digits digits = ConstraintMembers.digits(annotationMetadata);
         final int intMax = digits.integer();
 
         if (intMax < 0) {
