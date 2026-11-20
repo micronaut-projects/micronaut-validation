@@ -456,6 +456,10 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
         @Override
         public boolean hasConstraints() {
+            if (!groups.isEmpty() || scope != Scope.HIERARCHY || !declaredOn.isEmpty()) {
+                // a finder narrowed by groups, scope or element type has the constraints it finds
+                return !getConstraintDescriptors().isEmpty();
+            }
             if (ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())) {
                 return true;
             }
@@ -534,7 +538,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
         @Override
         public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
-            return new IntrospectedPropertyDescriptor(beanProperty, new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
+            return new IntrospectedPropertyDescriptor(beanProperty, IntrospectedExecutableDescriptors.requestedGroups(reflectionSupport, requested), scope, declaredOn);
         }
 
         @Override
@@ -698,7 +702,7 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
         @Override
         public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
-            return new BeanConstraintFinder(new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
+            return new BeanConstraintFinder(IntrospectedExecutableDescriptors.requestedGroups(reflectionSupport, requested), scope, declaredOn);
         }
 
         @Override

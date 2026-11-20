@@ -25,6 +25,7 @@ import io.micronaut.validation.validator.constraints.ConstraintValidatorTargetRe
 import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.validation.ConstraintDeclarationException;
 import jakarta.validation.ConstraintTarget;
+import jakarta.validation.GroupSequence;
 import jakarta.validation.Valid;
 import jakarta.validation.constraintvalidation.ValidationTarget;
 import jakarta.validation.groups.ConvertGroup;
@@ -182,6 +183,34 @@ final class IntrospectedExecutableDescriptors {
             : supported.contains(ValidationTarget.ANNOTATED_ELEMENT);
     }
 
+    /**
+     * The groups a finder matches: those requested, and the groups of each requested group sequence, as validating
+     * the sequence validates them, see Jakarta Validation 7.2.
+     *
+     * @param reflectionSupport The metadata access, reading the sequences
+     * @param requested The groups requested
+     * @return The groups
+     */
+    static Set<Class<?>> requestedGroups(ReflectionSupport reflectionSupport, Class<?>... requested) {
+        Set<Class<?>> groups = new LinkedHashSet<>();
+        for (Class<?> group : requested) {
+            addGroupAndSequence(reflectionSupport, group, groups);
+        }
+        return groups;
+    }
+
+    private static void addGroupAndSequence(ReflectionSupport reflectionSupport, Class<?> group, Set<Class<?>> groups) {
+        if (!groups.add(group)) {
+            return;
+        }
+        Class<?>[] sequence = reflectionSupport.introspector().findIntrospection(group)
+            .map(introspection -> (Class<?>[]) introspection.classValues(GroupSequence.class))
+            .orElse(new Class<?>[0]);
+        for (Class<?> member : sequence) {
+            addGroupAndSequence(reflectionSupport, member, groups);
+        }
+    }
+
     static boolean matchesGroups(ConstraintDescriptor<?> descriptor, Set<Class<?>> requested) {
         if (requested.isEmpty()) {
             return true;
@@ -240,7 +269,7 @@ final class IntrospectedExecutableDescriptors {
 
         @Override
         public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
-            return withGroups(new LinkedHashSet<>(List.of(requested)));
+            return withGroups(requestedGroups(reflectionSupport, requested));
         }
 
         @Override
