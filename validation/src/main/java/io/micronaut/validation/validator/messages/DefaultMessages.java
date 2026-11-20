@@ -62,8 +62,8 @@ public final class DefaultMessages extends StaticMessageSource {
     public DefaultMessages() {
         addMessage(AssertTrue.class.getName() + MESSAGE_SUFFIX, "must be true");
         addMessage(AssertFalse.class.getName() + MESSAGE_SUFFIX, "must be false");
-        addMessage(DecimalMax.class.getName() + MESSAGE_SUFFIX, "must be less than or equal to {value}");
-        addMessage(DecimalMin.class.getName() + MESSAGE_SUFFIX, "must be greater than or equal to {value}");
+        addMessage(DecimalMax.class.getName() + MESSAGE_SUFFIX, "must be less than ${inclusive == true ? 'or equal to ' : ''}{value}");
+        addMessage(DecimalMin.class.getName() + MESSAGE_SUFFIX, "must be greater than ${inclusive == true ? 'or equal to ' : ''}{value}");
         addMessage(Digits.class.getName() + MESSAGE_SUFFIX, "numeric value out of bounds (<{integer} digits>.<{fraction} digits> expected)");
         addMessage(Email.class.getName() + MESSAGE_SUFFIX, "must be a well-formed email address");
         addMessage(Future.class.getName() + MESSAGE_SUFFIX, "must be a future date");
