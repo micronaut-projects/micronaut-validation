@@ -32,6 +32,14 @@ class ReproducersTest {
         return Differential.run(body, (v, bean) -> v.validate(bean));
     }
 
+    private static Class<?> group(Object bean, String name) {
+        try {
+            return Class.forName(bean.getClass().getPackageName() + "." + name, false, bean.getClass().getClassLoader());
+        } catch (ClassNotFoundException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
     private static void assertAgree(Differential.Result result) {
         System.out.println(result);
         Assertions.assertTrue(result.agree(), result::toString);
@@ -215,6 +223,25 @@ class ReproducersTest {
             class Base {
             }
             """);
+    }
+
+    @Test
+    void classLevelConstraintDoesNotInheritTheGroupsOfTheSuperclassOne() throws Exception {
+        // the constraint of the subclass took the groups of the superclass constraint of the same type
+        String body = """
+            @Introspected
+            @FuzzClassCheck(mode = 3)
+            public class Subject extends Base {
+                public static Object instance() { return new Subject(); }
+            }
+
+            @Introspected
+            @FuzzClassCheck(mode = 0, groups = {Default.class, G2.class})
+            class Base {
+            }
+            """;
+        assertMetadataAgrees(body);
+        assertAgree(Differential.run(body, (v, bean) -> v.validate(bean, group(bean, "G2"))));
     }
 
     @Test

@@ -213,12 +213,15 @@ public final class ConstraintContainers {
     private static List<? extends AnnotationValue<? extends Annotation>> declaredValues(AnnotationMetadata annotationMetadata, String name) {
         List<AnnotationValue<? extends Annotation>> values = new ArrayList<>();
         Set<String> declared = annotationMetadata.getDeclaredAnnotationNames();
+        // read from the declared metadata: the one of a type merges the members of a constraint of the same type a
+        // super type declares into its own
+        AnnotationMetadata declaredMetadata = annotationMetadata.getDeclaredMetadata();
         if (declared.contains(name)) {
-            values.addAll(annotationMetadata.getAnnotationValuesByName(name));
+            values.addAll(declaredMetadata.getAnnotationValuesByName(name));
         }
         String containerName = annotationMetadata.findRepeatableAnnotation(name).orElse(name + "$List");
         if (declared.contains(containerName)) {
-            for (AnnotationValue<?> container : annotationMetadata.getAnnotationValuesByName(containerName)) {
+            for (AnnotationValue<?> container : declaredMetadata.getAnnotationValuesByName(containerName)) {
                 for (AnnotationValue<Annotation> value : container.getAnnotations(AnnotationMetadata.VALUE_MEMBER)) {
                     if (value.getAnnotationName().equals(name)) {
                         values.add(value);

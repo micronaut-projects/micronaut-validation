@@ -273,10 +273,12 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
      * the bean declares too keeps its own, which the inherited metadata of the bean hides.
      */
     private Set<ConstraintDescriptor<?>> hierarchyClassConstraintDescriptors() {
-        Map<String, ConstraintDescriptor<?>> descriptors = constraintDescriptorsByKey(beanAnnotationMetadata);
         if (declarations == null) {
-            return new LinkedHashSet<>(descriptors.values());
+            return constraintDescriptors(beanAnnotationMetadata);
         }
+        // what the bean declares itself: its inherited metadata merges the members of a super type constraint of the
+        // same type into its own
+        Map<String, ConstraintDescriptor<?>> descriptors = constraintDescriptorsByKey(declaredMetadata(beanAnnotationMetadata));
         for (BeanIntrospection<?> superIntrospection : declarations.superIntrospections(beanIntrospection)) {
             constraintDescriptorsByKey(declaredMetadata(superIntrospection.getAnnotationMetadata())).forEach(descriptors::putIfAbsent);
         }
