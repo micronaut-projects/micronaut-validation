@@ -6,7 +6,7 @@ pluginManagement {
 }
 
 plugins {
-    id 'io.micronaut.build.shared.settings' version '8.1.4'
+    id 'io.micronaut.build.shared.settings' version '8.1.5'
 }
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
@@ -33,6 +33,7 @@ include 'test-suite-kotlin'
 include 'test-suite-python'
 
 include 'tests:jakarta-validation-tck'
+include 'tests:validation-differential'
 include 'tests:validation-fuzzer'
 
 micronautBuild {
