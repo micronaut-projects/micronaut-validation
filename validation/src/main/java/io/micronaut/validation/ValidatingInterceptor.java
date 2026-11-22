@@ -29,11 +29,13 @@ import io.micronaut.validation.validator.ReactiveValidator;
 import io.micronaut.validation.validator.ReflectionSupport;
 import io.micronaut.validation.validator.Validator;
 import io.micronaut.validation.validator.ValidatorConfiguration;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
 import jakarta.inject.Singleton;
 import jakarta.validation.Constraint;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.ValidatorFactory;
+import jakarta.validation.executable.ExecutableType;
 import jakarta.validation.executable.ExecutableValidator;
 import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Publisher;
@@ -61,6 +63,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     private final @Nullable ExecutableValidator executableValidator;
     private final @Nullable ExecutableMethodValidator micronautValidator;
     private final ConversionService conversionService;
+    private final ValidatorConfiguration validatorConfiguration;
     private final boolean isPrependPropertyPath;
     /**
      * What intercepting a method reads of it, by method: its groups, the kind of its result and whether its return
@@ -83,6 +86,7 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
                                  ConversionService conversionService,
                                  ValidatorConfiguration validatorConfiguration) {
         this.conversionService = conversionService;
+        this.validatorConfiguration = validatorConfiguration;
         this.reflectionSupport = validatorConfiguration.getReflectionSupport();
         isPrependPropertyPath = validatorConfiguration.isPrependPropertyPath();
         this.methodPlans = new ConcurrentHashMap<>();
@@ -114,6 +118,9 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     @Override
     public Object intercept(MethodInvocationContext<Object, Object> context) {
         MethodPlan plan = plan(context);
+        if (!plan.validated()) {
+            return context.proceed();
+        }
         if (executableValidator != null) {
             Method targetMethod = reflectionSupport.targetMethod(context.getExecutableMethod());
             if (context.getArguments().length != 0) {
@@ -221,11 +228,40 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
             InterceptedMethod.ResultType resultType = micronautValidator instanceof ReactiveValidator
                 ? InterceptedMethod.of(context, conversionService).resultType()
                 : InterceptedMethod.ResultType.SYNCHRONOUS;
-            plan = new MethodPlan(context.classValues(Validated.class, "groups"), resultType,
+            plan = new MethodPlan(validatedOnExecution(executableMethod), context.classValues(Validated.class, "groups"), resultType,
                 !returnType.isVoid() && requiresValidation(returnType.asArgument()));
             methodPlans.put(key, plan);
         }
         return plan;
+    }
+
+    /**
+     * Whether interception validates a method: executable validation is enabled, and a {@code ValidateOnExecution}
+     * includes the method or the executable types validated by default include its kind, a getter or another method.
+     * A method a {@code ValidateOnExecution} leaves out is never intercepted.
+     */
+    private boolean validatedOnExecution(ExecutableMethod<Object, Object> method) {
+        if (!validatorConfiguration.isExecutableValidationEnabled()) {
+            return false;
+        }
+        if (method.hasDeclaredAnnotation(ValidationMetadataSupport.VALIDATED_ON_EXECUTION)) {
+            return true;
+        }
+        return validatorConfiguration.getDefaultValidatedExecutableTypes()
+            .contains(isGetter(method) ? ExecutableType.GETTER_METHODS : ExecutableType.NON_GETTER_METHODS);
+    }
+
+    /**
+     * A getter as the specification defines it: no parameter, a result, and a name starting with {@code get}, or
+     * with {@code is} for a {@code boolean}.
+     */
+    private static boolean isGetter(ExecutableMethod<Object, Object> method) {
+        if (method.getArguments().length != 0 || method.getReturnType().isVoid()) {
+            return false;
+        }
+        String name = method.getMethodName();
+        return (name.startsWith("get") && name.length() > 3)
+            || (name.startsWith("is") && name.length() > 2 && (Class<?>) method.getReturnType().getType() == boolean.class);
     }
 
     private static boolean requiresValidation(Argument<?> argument) {
@@ -276,11 +312,12 @@ public class ValidatingInterceptor implements MethodInterceptor<Object, Object> 
     }
 
     /**
+     * @param validated Whether interception validates the method at all
      * @param groups The groups the method is validated in
      * @param resultType The kind of its result
      * @param returnValueValidated Whether its return value can produce a violation at all
      */
-    private record MethodPlan(Class<?>[] groups, InterceptedMethod.ResultType resultType, boolean returnValueValidated) {
+    private record MethodPlan(boolean validated, Class<?>[] groups, InterceptedMethod.ResultType resultType, boolean returnValueValidated) {
     }
 
     /**

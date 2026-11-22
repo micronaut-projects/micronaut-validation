@@ -74,6 +74,12 @@ public final class ValidationMetadataSupport {
     /** Parameters before the existing visitor supplements inherited type-use annotations. */
     public static final String DECLARED_PARAMETERS = "io.micronaut.validation.internal.DeclaredParameters";
 
+    /**
+     * Marks a method a {@code @ValidateOnExecution} includes, on the method, on a method it overrides or on the type
+     * declaring either: interception validates it whatever executable types are validated by default.
+     */
+    public static final String VALIDATED_ON_EXECUTION = "io.micronaut.validation.internal.ValidatedOnExecution";
+
     private static final Map<String, Class<? extends Annotation>> STANDARD_CONSTRAINTS = byName(
         AssertFalse.class, AssertTrue.class,
         DecimalMax.class, DecimalMin.class,

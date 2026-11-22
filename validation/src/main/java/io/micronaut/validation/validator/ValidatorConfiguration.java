@@ -27,7 +27,9 @@ import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
 import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
+import jakarta.validation.executable.ExecutableType;
 
+import java.util.Set;
 
 /**
  * Configuration for the {@link Validator}.
@@ -46,6 +48,14 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      * Whether the validator is enabled.
      */
     String ENABLED = PREFIX + ".enabled";
+
+    /**
+     * The executable types method interception validates by default without the Jakarta Validation modules: every
+     * constrained method, getters included.
+     *
+     * @since 5.3.0
+     */
+    Set<ExecutableType> MICRONAUT_VALIDATED_EXECUTABLE_TYPES = Set.of(ExecutableType.GETTER_METHODS, ExecutableType.NON_GETTER_METHODS);
 
     /**
      * @return The constraint registry to use.
@@ -136,6 +146,38 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
      */
     default boolean isStrictConstraintDefinitions() {
         return false;
+    }
+
+    /**
+     * Whether method interception validates executables at all. With {@code false}, no intercepted method is
+     * validated, whatever {@link jakarta.validation.executable.ValidateOnExecution} declares, as the specification
+     * has it for {@code BootstrapConfiguration.isExecutableValidationEnabled()}. It does not affect the executable
+     * validation API.
+     * <p>
+     * Default: true
+     *
+     * @return Whether method interception validates executables
+     * @since 5.3.0
+     */
+    default boolean isExecutableValidationEnabled() {
+        return true;
+    }
+
+    /**
+     * The kinds of executables method interception validates when {@link jakarta.validation.executable.ValidateOnExecution}
+     * does not decide for a method: {@link ExecutableType#GETTER_METHODS} for the getters,
+     * {@link ExecutableType#NON_GETTER_METHODS} for the other methods. A method a {@code ValidateOnExecution}
+     * includes is validated whatever these are.
+     * <p>
+     * Default: getters and other methods, every constrained method; the specification defaults to constructors and
+     * methods that are not getters, which the Jakarta Validation modules configure.
+     *
+     * @return The executable types validated by default, without {@link ExecutableType#ALL}, {@link ExecutableType#NONE}
+     * or {@link ExecutableType#IMPLICIT}
+     * @since 5.3.0
+     */
+    default Set<ExecutableType> getDefaultValidatedExecutableTypes() {
+        return MICRONAUT_VALIDATED_EXECUTABLE_TYPES;
     }
 
     /**

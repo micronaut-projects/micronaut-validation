@@ -317,9 +317,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation && !inheritedValidation) {
             return;
         }
-        // a method @ValidateOnExecution leaves out is vetoed: still described, but not validated when invoked
-        if (!isPrivate && !validatedOnExecution(element)) {
-            element.annotate(Vetoed.class);
+        // a method @ValidateOnExecution leaves out is vetoed: still described, but not validated when invoked; one it
+        // includes is validated whatever executable types are configured
+        Optional<Boolean> declaredOnExecution = isPrivate ? Optional.empty() : declaredOnExecution(element);
+        if (declaredOnExecution.isPresent()) {
+            if (declaredOnExecution.get()) {
+                element.annotate(ValidationMetadataSupport.VALIDATED_ON_EXECUTION);
+            } else {
+                element.annotate(Vetoed.class);
+            }
         }
         boolean vetoed = element.hasStereotype(Vetoed.class);
         if (isPrivate) {
@@ -343,9 +349,9 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     /**
      * Whether the executable types {@code @ValidateOnExecution} declares include a method: the declaration of the
      * method, else the one of a method it overrides or of the type declaring that one, else the one of its own
-     * type. A method nothing declares it for is validated.
+     * type. Empty for a method nothing declares it for, which the executable types validated by default decide.
      */
-    static boolean validatedOnExecution(MethodElement method) {
+    static Optional<Boolean> declaredOnExecution(MethodElement method) {
         boolean getter = isGetter(method);
         Optional<ExecutableType[]> types = executableTypes(method.getMethodAnnotationMetadata());
         if (types.isEmpty()) {
@@ -360,7 +366,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (types.isEmpty()) {
             types = typeExecutableTypes(method.getDeclaringType());
         }
-        return types.map(executableTypes -> includes(executableTypes, getter)).orElse(true);
+        return types.map(executableTypes -> includes(executableTypes, getter));
     }
 
     private static Optional<ExecutableType[]> executableTypes(AnnotationMetadata metadata) {

@@ -38,6 +38,7 @@ import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolator;
 import io.micronaut.validation.validator.messages.DefaultMessages;
 import jakarta.inject.Inject;
+import jakarta.validation.BootstrapConfiguration;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
@@ -48,6 +49,7 @@ import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
 import jakarta.validation.ValidationException;
 import jakarta.validation.Validator;
+import jakarta.validation.executable.ExecutableType;
 import jakarta.validation.valueextraction.ValueExtractor;
 import org.jspecify.annotations.Nullable;
 
@@ -57,7 +59,9 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.lang.reflect.WildcardType;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /**
@@ -68,7 +72,7 @@ import java.util.function.Supplier;
  */
 // the validator plumbing a factory hands its contexts is no configuration property
 @ConfigurationProperties(value = ValidatorConfiguration.PREFIX,
-    excludes = {"reflectionSupport", "constraintValidatorOverrides", "configuredConstraintValidatorFactory"})
+    excludes = {"reflectionSupport", "constraintValidatorOverrides", "configuredConstraintValidatorFactory", "bootstrapConfiguration"})
 public class DefaultValidatorConfiguration implements ValidatorConfiguration, Toggleable, ConversionServiceAware, MicronautValidatorContext {
 
     @Nullable
@@ -117,6 +121,13 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     private ConstraintValidatorOverrides constraintValidatorOverrides = ConstraintValidatorOverrides.NONE;
 
     private boolean enabled = true;
+    @Nullable
+    private Boolean executableValidationEnabled;
+    @Nullable
+    private Set<ExecutableType> defaultValidatedExecutableTypes;
+    // the bootstrap configuration of the Jakarta Validation modules, read when interception first asks for it
+    @Nullable
+    private Supplier<BootstrapConfiguration> bootstrapConfiguration;
     private boolean prependPropertyPath = true;
     private boolean strictConstraintDefinitions = false;
 
@@ -185,6 +196,90 @@ public class DefaultValidatorConfiguration implements ValidatorConfiguration, To
     public DefaultValidatorConfiguration setEnabled(boolean enabled) {
         this.enabled = enabled;
         return this;
+    }
+
+    @Override
+    public boolean isExecutableValidationEnabled() {
+        Boolean configured = executableValidationEnabled;
+        if (configured != null) {
+            return configured;
+        }
+        Supplier<BootstrapConfiguration> bootstrap = bootstrapConfiguration;
+        return bootstrap == null || bootstrap.get().isExecutableValidationEnabled();
+    }
+
+    /**
+     * Sets whether method interception validates executables at all. With {@code false} no intercepted method is
+     * validated, whatever {@code @ValidateOnExecution} declares.
+     * <p>
+     * Default: true, or what {@code META-INF/validation.xml} declares with the Jakarta Validation modules
+     *
+     * @param executableValidationEnabled Whether method interception validates executables
+     * @return this configuration
+     * @since 5.3.0
+     */
+    public DefaultValidatorConfiguration setExecutableValidationEnabled(boolean executableValidationEnabled) {
+        this.executableValidationEnabled = executableValidationEnabled;
+        return this;
+    }
+
+    @Override
+    public Set<ExecutableType> getDefaultValidatedExecutableTypes() {
+        Set<ExecutableType> configured = defaultValidatedExecutableTypes;
+        if (configured != null) {
+            return configured;
+        }
+        Supplier<BootstrapConfiguration> bootstrap = bootstrapConfiguration;
+        return bootstrap == null ? MICRONAUT_VALIDATED_EXECUTABLE_TYPES : normalized(bootstrap.get().getDefaultValidatedExecutableTypes());
+    }
+
+    /**
+     * Sets the kinds of executables method interception validates when {@code @ValidateOnExecution} does not decide
+     * for a method: {@code GETTER_METHODS} for the getters, {@code NON_GETTER_METHODS} for the other methods,
+     * {@code ALL} for both and {@code NONE} for neither. {@code CONSTRUCTORS} is accepted and has no effect, as the
+     * constructor of a bean is not validated when it is created.
+     * <p>
+     * Default: {@code GETTER_METHODS, NON_GETTER_METHODS}, or what {@code META-INF/validation.xml} declares, by default
+     * {@code CONSTRUCTORS, NON_GETTER_METHODS}, with the Jakarta Validation modules
+     *
+     * @param defaultValidatedExecutableTypes The executable types validated by default
+     * @return this configuration
+     * @since 5.3.0
+     */
+    public DefaultValidatorConfiguration setDefaultValidatedExecutableTypes(Collection<ExecutableType> defaultValidatedExecutableTypes) {
+        this.defaultValidatedExecutableTypes = normalized(defaultValidatedExecutableTypes);
+        return this;
+    }
+
+    /**
+     * Internal to the Jakarta Validation modules: the bootstrap configuration whose executable validation settings
+     * apply where none is configured, read on first use.
+     *
+     * @param bootstrapConfiguration The bootstrap configuration
+     * @return this configuration
+     * @since 5.3.0
+     */
+    @Internal
+    public DefaultValidatorConfiguration setBootstrapConfiguration(Supplier<BootstrapConfiguration> bootstrapConfiguration) {
+        this.bootstrapConfiguration = SupplierUtil.memoized(bootstrapConfiguration);
+        return this;
+    }
+
+    /**
+     * The executable types as interception reads them: {@code ALL} stands for every type, and {@code NONE} and
+     * {@code IMPLICIT} for none of them.
+     */
+    private static Set<ExecutableType> normalized(Collection<ExecutableType> types) {
+        if (types.contains(ExecutableType.ALL)) {
+            return Set.of(ExecutableType.CONSTRUCTORS, ExecutableType.GETTER_METHODS, ExecutableType.NON_GETTER_METHODS);
+        }
+        Set<ExecutableType> normalized = new HashSet<>(types.size());
+        for (ExecutableType type : types) {
+            if (type != ExecutableType.NONE && type != ExecutableType.IMPLICIT) {
+                normalized.add(type);
+            }
+        }
+        return Set.copyOf(normalized);
     }
 
     @Override
