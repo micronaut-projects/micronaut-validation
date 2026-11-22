@@ -55,7 +55,9 @@ public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
             return false;
         }
 
-        int intLen = bigDecimal.precision() - bigDecimal.scale();
+        // counted as a long: the scale of a value such as 1E2147483647 is so far below zero that the difference
+        // overflows an int
+        long intLen = (long) bigDecimal.precision() - bigDecimal.scale();
         int fracLen = Math.max(bigDecimal.scale(), 0);
 
         return intMax >= intLen && fracMax >= fracLen;
