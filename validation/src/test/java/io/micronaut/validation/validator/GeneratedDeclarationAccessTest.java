@@ -85,13 +85,6 @@ class GeneratedDeclarationAccessTest {
     }
 
     @Test
-    void selectedFieldAccessDoesNotReadAPrivateFieldThroughItsGetter() {
-        // with field access selected, the field declaration is validated against the field, never against the getter
-        ValidationException error = assertThrows(ValidationException.class, () -> validator.validate(new PrivateFieldWithGetter()));
-        assertTrue(error.getMessage().contains("micronaut-validation-reflection"), error::getMessage);
-    }
-
-    @Test
     void anInaccessibleFieldFieldAccessDoesNotCoverIsValidatedThroughItsGetter() {
         // field access of the default visibility does not cover a private field: its declaration uses the property
         var bean = new PrivateFieldOfDefaultVisibility();
@@ -186,12 +179,6 @@ class GeneratedDeclarationAccessTest {
     static class PrivateFieldOfDefaultVisibility {
         private java.util.List<@NotNull String> items = java.util.Arrays.asList((String) null);
         public java.util.List<@NotNull String> getItems() { return items; }
-    }
-
-    @Introspected(accessKind = {Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD}, visibility = Introspected.Visibility.ANY)
-    static class PrivateFieldWithGetter {
-        @NotNull private String value;
-        public String getValue() { return "getter"; }
     }
 
     @Introspected(accessKind = Introspected.AccessKind.FIELD, visibility = Introspected.Visibility.ANY)

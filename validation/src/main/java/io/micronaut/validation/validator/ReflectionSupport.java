@@ -238,18 +238,10 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
-     * Whether the property lists a getter the generated dispatch reads without reflection, and the type did not
-     * select direct access to the field. A type selecting field access with {@link Introspected.Visibility#ANY}
-     * asks for its inaccessible fields themselves: a field declaration is then validated against the field, never
-     * against a getter that may return another value. Otherwise an inaccessible field is not one field access
-     * covers, and its declaration is validated through the getter of its property.
+     * Whether a property lists a getter the generated dispatch reads without reflection.
      */
     private static boolean hasGeneratedGetter(BeanProperty<?, ?> property) {
         if (property.isWriteOnly()) {
-            return false;
-        }
-        BeanIntrospection<?> introspection = property.getDeclaringBean();
-        if (!introspection.getBeanType().isRecord() && selectsAnyField(introspection)) {
             return false;
         }
         for (BeanPropertyMember<?, ?> candidate : property.getMembers()) {
@@ -259,15 +251,13 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
         // an unannotated getter is not listed as a member: the property reads it when the introspection reads
         // properties through methods, a record or the default access kind
-        return true;
-    }
-
-    private static boolean selectsAnyField(BeanIntrospection<?> introspection) {
-        var metadata = introspection.getAnnotationMetadata();
-        return Arrays.asList(metadata.enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class))
-                .contains(Introspected.AccessKind.FIELD)
-            && Arrays.asList(metadata.enumValues(Introspected.class, "visibility", Introspected.Visibility.class))
-                .contains(Introspected.Visibility.ANY);
+        BeanIntrospection<?> introspection = property.getDeclaringBean();
+        if (introspection.getBeanType().isRecord()) {
+            return true;
+        }
+        Introspected.AccessKind[] kinds = introspection.getAnnotationMetadata()
+            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class);
+        return kinds.length == 0 || Arrays.asList(kinds).contains(Introspected.AccessKind.METHOD);
     }
 
     /**
