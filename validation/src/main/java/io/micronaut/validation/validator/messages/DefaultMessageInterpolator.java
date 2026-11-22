@@ -117,6 +117,10 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     if (variableValue == null) {
                         variableValue = conditional(variableName, context);
                     }
+                    if (variableValue == null && context.getVariables().containsKey(variableName)) {
+                        // a variable that is null, ${validatedValue} of a null value, renders as EL renders it: empty
+                        variableValue = "";
+                    }
                     if (variableValue == null) {
                         builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
