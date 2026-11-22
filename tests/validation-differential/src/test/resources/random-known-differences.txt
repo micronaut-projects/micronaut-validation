@@ -1,0 +1,11 @@
+# Signatures of documented, intended deviations from Hibernate Validator, one per line.
+#
+# Validator.validateProperty does not honor @Valid, as Jakarta Validation 3.1 requires (section 6.1.1, TCK
+# ValidatePropertyTest.testValidIsNotHonoredValidateProperty). Hibernate Validator 9.1 cascades into the beans of the
+# validated bean and reports their constraints on a property of the same name as the validated one. Documented in
+# src/main/docs/guide/generatedMetadata.adoc (Maintainer Verification); see ValidatePropertyDoesNotCascadeTest.
+MISSING Email on CharSequence PROPERTY>PROPERTY>CONTAINER_ELEMENT
+MISSING Future on CharSequence PROPERTY>PROPERTY>CONTAINER_ELEMENT
+MISSING NotNull on String[] PROPERTY>PROPERTY
+MISSING Positive on List<OffsetTime> PROPERTY>PROPERTY>CONTAINER_ELEMENT
+MISSING Size on Bean PROPERTY>PROPERTY

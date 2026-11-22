@@ -50,6 +50,8 @@ The differential test suite uses Hibernate Validator 9.1.4.Final as a reference 
 ./gradlew :micronaut-tests:micronaut-validation-differential:fuzzCampaign -PfuzzSeed=631530 -PfuzzCount=50000
 ----
 
+Where the reference implementation departs from the specification, validation follows the specification, and the differential tests list the difference as known in `random-known-differences.txt`. `Validator.validateProperty` does not honor `@Valid`, as the specification requires: Hibernate Validator 9.1 validates the cascaded beans of the property's bean as well and reports the constraints they declare on a property of the same name as the validated one.
+
 Campaigns have a 30-minute deadline, configurable with `-PfuzzLimitMinutes`. Interrupted or timed-out campaigns are incomplete. Reproductions and campaign status are written under `tests/validation-differential/build/differential`; no recurring campaign is scheduled.
 
 The `nativeSmokeJvm` task exercises generated member access, bootstrap, XML mappings, resource bundles, and EL on a classpath without validation, core, or EL reflection companions. It runs as part of `check`. Run the same scenario as a native executable with a GraalVM installation:
