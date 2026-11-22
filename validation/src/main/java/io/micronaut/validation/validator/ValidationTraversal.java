@@ -507,14 +507,17 @@ final class ValidationTraversal {
                              @Nullable E elementValue,
                              boolean canCascade,
                              Cascade cascade) {
-        boolean cascaded = canCascade && (cascade == Cascade.LEGACY || annotationMetadata.hasStereotype(Valid.class));
+        boolean cascaded = canCascade && (cascade == Cascade.LEGACY || annotationMetadata.hasStereotype(Valid.class))
+            && context.containerPass() != DefaultConstraintValidatorContext.ContainerPass.CONSTRAINTS;
         List<DefaultConstraintDescriptor<Annotation>> elementConstraints = constraints.getConstraints(context, annotationMetadata);
 
         if (visitContainer(context, leftBean, elementArgument, annotationMetadata, elementValue, elementConstraints, canCascade)) {
             return;
         }
 
-        constraints.validateConstraints(context, leftBean, elementArgument, elementValue, elementConstraints);
+        if (context.containerPass() != DefaultConstraintValidatorContext.ContainerPass.CASCADE) {
+            constraints.validateConstraints(context, leftBean, elementArgument, elementValue, elementConstraints);
+        }
 
         if (cascaded && elementValue != null) {
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.convertGroups(elementArgument.getAnnotationMetadata())) {
@@ -552,11 +555,25 @@ final class ValidationTraversal {
         }
 
         Class<E> extractorLookupType = containerArgument.getType();
-        // a cascade follows the runtime type of the container, a declared Iterable holding a List is indexed
-        if (containerValue != null
-            && (isLegacyValid || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, containerArgument))
-            && !hasConstrainedTypeArgument(context, containerArgument)) {
-            extractorLookupType = (Class<E>) containerValue.getClass();
+        DefaultConstraintValidatorContext.ContainerPass pass = context.containerPass();
+        // a cascade follows the runtime type of the container, a declared Iterable holding a List is indexed, and the
+        // constraints of the elements the declared type, as the reference implementation resolves the extractors
+        if (containerValue != null && pass != DefaultConstraintValidatorContext.ContainerPass.CONSTRAINTS
+            && (isLegacyValid || ArgumentValidationMetadata.hasCascadedTypeArgument(reflectionSupport, containerArgument))) {
+            Class<E> runtimeType = (Class<E>) containerValue.getClass();
+            if (pass == DefaultConstraintValidatorContext.ContainerPass.CASCADE || !hasConstrainedTypeArgument(context, containerArgument)) {
+                extractorLookupType = runtimeType;
+            } else if (runtimeType != extractorLookupType
+                && !findValueExtractors(runtimeType).equals(findValueExtractors(extractorLookupType))) {
+                // constrained and cascaded elements read through different extractors: once for each
+                try (DefaultConstraintValidatorContext.ValidationCloseable ignored = context.withContainerPass(DefaultConstraintValidatorContext.ContainerPass.CONSTRAINTS)) {
+                    visitContainer(context, leftBean, containerArgument, annotationMetadata, containerValue, elementConstraints, canCascade);
+                }
+                try (DefaultConstraintValidatorContext.ValidationCloseable ignored = context.withContainerPass(DefaultConstraintValidatorContext.ContainerPass.CASCADE)) {
+                    visitContainer(context, leftBean, containerArgument, annotationMetadata, containerValue, elementConstraints, canCascade);
+                }
+                return true;
+            }
         }
         List<ValueExtractorDefinition<E>> valueExtractorDefinitions = findValueExtractors(extractorLookupType);
         if (valueExtractorDefinitions.isEmpty()) {
@@ -617,7 +634,9 @@ final class ValidationTraversal {
                 (onElement ? containerElementConstraints : containerConstraints).add(constraint);
             }
         }
-        constraints.validateConstraints(context, leftBean, containerArgument, containerValue, containerConstraints);
+        if (pass != DefaultConstraintValidatorContext.ContainerPass.CASCADE) {
+            constraints.validateConstraints(context, leftBean, containerArgument, containerValue, containerConstraints);
+        }
 
         for (ValueExtractorDefinition<E> valueExtractorDefinition : valueExtractorDefinitions) {
 
@@ -825,7 +844,9 @@ final class ValidationTraversal {
         }
 
         private void validateContainerValue(Object value) {
-            constraints.validateConstraints(context, leftBean, valueArgument, value, elementConstraints);
+            if (context.containerPass() != DefaultConstraintValidatorContext.ContainerPass.CASCADE) {
+                constraints.validateConstraints(context, leftBean, valueArgument, value, elementConstraints);
+            }
             try (DefaultConstraintValidatorContext.ValidationCloseable ignored = unwrapping
                 ? context.withUnwrappedContainer(context.reportedContainerType(containerType))
                 : () -> { }) {

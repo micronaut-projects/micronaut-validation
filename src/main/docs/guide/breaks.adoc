@@ -27,6 +27,7 @@ This section documents breaking changes between Micronaut Validation versions:
 * `@Digits` rejects a value whose integer part has more digits than an `int` counts, such as `1E2147483647`, which it accepted before because the count overflowed. The reference implementation still accepts such a value.
 * `DefaultValidator.validatedAnnotatedElement` validates a `null` value against the constraints of the element, so that `@NotNull` reports it; it returned no message for a `null` value before.
 * The evaluation of a constraint annotated with `@ReportAsSingleViolation` stops on the first failure, as the Javadoc of `ReportAsSingleViolation` requires: the validator of the composed constraint runs first, and when it fails, or once a composing constraint fails, the composing constraints after it are not evaluated. A composing validator with side effects, or one that throws, is no longer called after a failure.
+* The cascade into a container element follows the runtime type of the container when the element is constrained too, as it already did for an element cascaded only: with `Iterable<@NotNull @Valid Child>` holding a `List`, a violation of a child reports its index, `children[1].name` (previously `children[].name`). The constraints of the element are still validated through the extractor of the declared type.
 
 === Micronaut Validation 5.0.0
 

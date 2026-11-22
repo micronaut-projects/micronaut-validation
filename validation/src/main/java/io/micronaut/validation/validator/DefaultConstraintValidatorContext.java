@@ -82,6 +82,10 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     private ElementType elementType = ElementType.FIELD;
     @Nullable
     private Class<?> unwrappedContainerType;
+    // the container elements are visited for one of the two things they do, through different extractors: their
+    // constraints, through the extractor of the declared container type, or their cascade, through the one of
+    // the runtime type. Up to the next cascaded bean
+    private ContainerPass containerPass = ContainerPass.ALL;
     @Nullable
     private Class<?> implicitGroup;
     @Nullable
@@ -274,6 +278,26 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     /**
+     * Visits the elements of a container for their constraints only, or for their cascade only, up to the next
+     * cascaded bean.
+     *
+     * @param pass What the elements are visited for
+     * @return The closeable restoring the previous state
+     */
+    ValidationCloseable withContainerPass(ContainerPass pass) {
+        ContainerPass previous = this.containerPass;
+        this.containerPass = pass;
+        return () -> this.containerPass = previous;
+    }
+
+    /**
+     * @return What the elements of a container are visited for
+     */
+    ContainerPass containerPass() {
+        return containerPass;
+    }
+
+    /**
      * @param containerType The container type holding the values
      * @return The container type to report: the declared one when its value was unwrapped
      */
@@ -384,8 +408,14 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      */
     public ValidationCloseable enteringCascadedBean() {
         List<AnnotationValue<ConvertGroup>> prevAppliedConversions = appliedConversions;
+        ContainerPass prevContainerPass = containerPass;
         appliedConversions = List.of();
-        return () -> appliedConversions = prevAppliedConversions;
+        // a cascaded bean is validated in full
+        containerPass = ContainerPass.ALL;
+        return () -> {
+            appliedConversions = prevAppliedConversions;
+            containerPass = prevContainerPass;
+        };
     }
 
     private List<Class<?>> requestedGroups() {
@@ -636,6 +666,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
         copy.elementType = elementType;
         copy.implicitGroup = implicitGroup;
         copy.unwrappedContainerType = unwrappedContainerType;
+        copy.containerPass = containerPass;
         return copy;
     }
 
@@ -658,6 +689,18 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
     }
 
     @Internal
+    /**
+     * What the elements of a container are visited for.
+     */
+    enum ContainerPass {
+        /** Their constraints and their cascade. */
+        ALL,
+        /** Their constraints only, through the extractor of the declared container type. */
+        CONSTRAINTS,
+        /** Their cascade only, through the extractor of the runtime container type. */
+        CASCADE
+    }
+
     interface ValidationCloseable extends AutoCloseable {
 
         @Override
