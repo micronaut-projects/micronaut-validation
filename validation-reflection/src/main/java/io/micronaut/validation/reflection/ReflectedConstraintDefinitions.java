@@ -28,8 +28,15 @@ import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
+import java.lang.reflect.TypeVariable;
+import java.lang.reflect.WildcardType;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Constraint definition checks for annotation types without retained processor diagnostics: their declared
@@ -173,21 +180,57 @@ final class ReflectedConstraintDefinitions {
     }
 
     /**
-     * Whether the type a validator validates is raw or has only unbounded wildcards for type arguments, which a
-     * wildcard resolves to Object: a validator of {@code List<String>} would be handed any list.
+     * Whether the type a validator validates is raw or has only unbounded wildcards for type arguments: a
+     * validator of {@code List<String>}, or of {@code List<Object>}, would be handed any list. Read from the
+     * declared signature, where a wildcard is still told apart from {@code Object}.
      */
     private static boolean isWildcardParameterized(Class<?> validator) {
-        Argument<?> signature = ReflectionArguments.resolveGenericToArgument(validator, ConstraintValidator.class);
-        Argument<?>[] typeParameters = signature == null ? Argument.ZERO_ARGUMENTS : signature.getTypeParameters();
-        if (typeParameters.length != 2) {
+        Type validated = validatedType(validator, validator, new HashMap<>());
+        if (!(validated instanceof ParameterizedType parameterized)) {
             return true;
         }
-        for (Argument<?> typeArgument : typeParameters[1].getTypeParameters()) {
-            if (typeArgument.getType() != Object.class) {
+        for (Type typeArgument : parameterized.getActualTypeArguments()) {
+            if (!(typeArgument instanceof WildcardType wildcard) || wildcard.getLowerBounds().length != 0
+                || Arrays.stream(wildcard.getUpperBounds()).anyMatch(bound -> bound != Object.class)) {
                 return false;
             }
         }
         return true;
+    }
+
+    /**
+     * The second type argument of {@link ConstraintValidator} as the hierarchy of a validator binds it, a type
+     * variable of a super type resolved to what the validator binds it to.
+     */
+    private static @Nullable Type validatedType(Type type, Class<?> raw, Map<TypeVariable<?>, Type> bindings) {
+        Map<TypeVariable<?>, Type> own = new HashMap<>();
+        if (type instanceof ParameterizedType parameterized) {
+            TypeVariable<?>[] variables = raw.getTypeParameters();
+            Type[] arguments = parameterized.getActualTypeArguments();
+            for (int i = 0; i < variables.length && i < arguments.length; i++) {
+                Type argument = arguments[i];
+                own.put(variables[i], argument instanceof TypeVariable<?> variable ? bindings.getOrDefault(variable, argument) : argument);
+            }
+        }
+        if (raw == ConstraintValidator.class) {
+            TypeVariable<?>[] variables = raw.getTypeParameters();
+            return variables.length == 2 ? own.get(variables[1]) : null;
+        }
+        List<Type> supertypes = new ArrayList<>(Arrays.asList(raw.getGenericInterfaces()));
+        if (raw.getGenericSuperclass() != null) {
+            supertypes.add(raw.getGenericSuperclass());
+        }
+        for (Type supertype : supertypes) {
+            Class<?> superRaw = supertype instanceof ParameterizedType parameterized && parameterized.getRawType() instanceof Class<?> c
+                ? c : supertype instanceof Class<?> c ? c : null;
+            if (superRaw != null && ConstraintValidator.class.isAssignableFrom(superRaw)) {
+                Type found = validatedType(supertype, superRaw, own);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     private static Method requiredMember(Class<? extends Annotation> annotationType, String name) {

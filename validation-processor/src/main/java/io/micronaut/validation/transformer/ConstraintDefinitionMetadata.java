@@ -20,6 +20,7 @@ import io.micronaut.core.annotation.AnnotationValueBuilder;
 import io.micronaut.inject.ast.AnnotationElement;
 import io.micronaut.inject.ast.AnnotationMemberElement;
 import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.WildcardElement;
 import io.micronaut.inject.visitor.VisitorContext;
 import io.micronaut.validation.validator.ValidationAnnotationUtil;
 import io.micronaut.validation.visitor.ValidationVisitor;
@@ -151,8 +152,8 @@ final class ConstraintDefinitionMetadata {
                     return "Cannot resolve constraint validator " + reference.getName();
                 }
                 var validated = validator.getTypeArguments("jakarta.validation.ConstraintValidator").get("T");
-                if (validated != null && validated.getTypeArguments().values().stream()
-                    .anyMatch(argument -> !name(argument).equals("java.lang.Object"))) {
+                if (validated != null && !validated.isRawType() && validated.getTypeArguments().values().stream()
+                    .anyMatch(argument -> !isUnboundedWildcard(argument))) {
                     // a validator of List<String> would be handed any list
                     return "Constraint validator must validate a type whose type arguments are unbounded wildcards: "
                         + type.getName() + " with " + validator.getName();
@@ -232,6 +233,15 @@ final class ConstraintDefinitionMetadata {
             }
         });
         return defaults;
+    }
+
+    /**
+     * Whether a type argument is {@code ?}, or {@code ? extends Object}: {@code Object} itself is no wildcard, and a
+     * validator of {@code List<Object>} would be handed any list.
+     */
+    private static boolean isUnboundedWildcard(ClassElement argument) {
+        return argument instanceof WildcardElement wildcard && wildcard.getLowerBounds().isEmpty()
+            && wildcard.getUpperBounds().stream().allMatch(bound -> name(bound).equals("java.lang.Object"));
     }
 
     private static String name(ClassElement type) {

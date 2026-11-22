@@ -48,6 +48,54 @@ class GeneratedConstraintDefinitionsTest {
     }
 
     @Test
+    void aValidatorOfATypeWithAnObjectTypeArgumentIsAnInvalidDefinition() {
+        var configuration = new DefaultValidatorConfiguration().setStrictConstraintDefinitions(true);
+        try (var factory = new DefaultValidatorFactory(configuration)) {
+            // List<Object> is no unbounded wildcard: such a validator would be handed a List<String>
+            assertThrows(ConstraintDefinitionException.class, () -> factory.getValidator().validate(new ObjectListBean(List.of())));
+            assertEquals(1, factory.getValidator().validate(new WildcardListBean(List.of())).size());
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
+    @Constraint(validatedBy = ObjectListValidator.class)
+    @interface ObjectList {
+        String message() default "objects";
+        Class<?>[] groups() default {};
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    public static final class ObjectListValidator implements jakarta.validation.ConstraintValidator<ObjectList, List<Object>> {
+        @Override
+        public boolean isValid(List<Object> value, jakarta.validation.ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
+    @Constraint(validatedBy = WildcardListValidator.class)
+    @interface WildcardList {
+        String message() default "wildcards";
+        Class<?>[] groups() default {};
+        Class<? extends Payload>[] payload() default {};
+    }
+
+    public static final class WildcardListValidator implements jakarta.validation.ConstraintValidator<WildcardList, List<?>> {
+        @Override
+        public boolean isValid(List<?> value, jakarta.validation.ConstraintValidatorContext context) {
+            return false;
+        }
+    }
+
+    @Introspected
+    record ObjectListBean(@ObjectList List<String> values) { }
+
+    @Introspected
+    record WildcardListBean(@WildcardList List<String> values) { }
+
+    @Test
     void nestedCompositionOverridesUseBinaryAnnotationNames() {
         var configuration = new DefaultValidatorConfiguration().setStrictConstraintDefinitions(true);
         try (var factory = new DefaultValidatorFactory(configuration)) {
