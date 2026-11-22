@@ -18,6 +18,8 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.core.annotation.AnnotationValue;
 import org.jspecify.annotations.Nullable;
 
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -25,17 +27,17 @@ import java.util.function.Function;
 /**
  * What a built-in validator reads of a constraint occurrence, its members converted once: the validator is handed
  * the same annotation value on every validation of an element. Values are compared by identity, as equal values
- * of different elements may be distinct instances; the cache is dropped whole past its bound, so the occurrences
- * of XML mappings or of factories built over and over cannot grow it without end.
+ * of different elements may be distinct instances, and held weakly: what is read of an occurrence lives as long as
+ * the occurrence, so the occurrences of XML mappings or of closed factories, which may name the classes of an
+ * application loader, are not retained, and the occurrences of a large application are not dropped and read again.
  *
  * @param <T> What is read
  * @since 5.3.0
  */
 final class AnnotationValueCache<T> {
 
-    private static final int MAX_ENTRIES = 1024;
-
-    private final Map<Key, T> values = new ConcurrentHashMap<>();
+    private final Map<Object, T> values = new ConcurrentHashMap<>();
+    private final ReferenceQueue<AnnotationValue<?>> collected = new ReferenceQueue<>();
     private final Function<AnnotationValue<?>, T> reader;
 
     /**
@@ -50,28 +52,59 @@ final class AnnotationValueCache<T> {
      * @return What is read of it
      */
     T get(AnnotationValue<?> annotationValue) {
-        Key key = new Key(annotationValue);
-        T value = values.get(key);
+        T value = values.get(new Lookup(annotationValue));
         if (value == null) {
+            expunge();
             value = reader.apply(annotationValue);
-            if (values.size() >= MAX_ENTRIES) {
-                values.clear();
-            }
-            values.put(key, value);
+            values.put(new WeakKey(annotationValue, collected), value);
         }
         return value;
     }
 
+    /** Drops what was read of the occurrences collected since. */
+    private void expunge() {
+        for (Object key = collected.poll(); key != null; key = collected.poll()) {
+            values.remove(key);
+        }
+    }
+
     /**
-     * An occurrence compared by identity.
-     *
-     * @param value The occurrence
+     * An occurrence held weakly, compared by identity: once collected it equals only itself.
      */
-    private record Key(AnnotationValue<?> value) {
+    private static final class WeakKey extends WeakReference<AnnotationValue<?>> {
+        private final int hash;
+
+        WeakKey(AnnotationValue<?> value, ReferenceQueue<AnnotationValue<?>> queue) {
+            super(value, queue);
+            this.hash = System.identityHashCode(value);
+        }
+
+        @Override
+        public int hashCode() {
+            return hash;
+        }
+
         @Override
         @SuppressWarnings("ReferenceEquality")
         public boolean equals(@Nullable Object o) {
-            return o instanceof Key other && other.value == value;
+            if (o == this) {
+                return true;
+            }
+            AnnotationValue<?> value = get();
+            return value != null && (o instanceof Lookup lookup ? lookup.value == value : o instanceof WeakKey other && other.get() == value);
+        }
+    }
+
+    /**
+     * An occurrence looked up, compared by identity with the one a key holds.
+     *
+     * @param value The occurrence
+     */
+    private record Lookup(AnnotationValue<?> value) {
+        @Override
+        @SuppressWarnings("ReferenceEquality")
+        public boolean equals(@Nullable Object o) {
+            return o instanceof WeakKey key ? key.get() == value : o instanceof Lookup other && other.value == value;
         }
 
         @Override
