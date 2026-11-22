@@ -195,9 +195,11 @@ final class ConstraintEvaluator {
                     }
                     throw new UnexpectedTypeException("Cannot find a constraint validator for constraint: " + constraintType.getName() + " and type: " + elementArgument.getType());
                 }
+                boolean failed;
                 try {
                     int reportedBefore = context.reportedViolations();
-                    if (!validator.isValid(elementValue, constraint.getAnnotationValue(), context)) {
+                    failed = !validator.isValid(elementValue, constraint.getAnnotationValue(), context);
+                    if (failed) {
                         if (!context.isDefaultConstraintViolationDisabled()) {
                             context.addViolation(createConstraintViolation(context, leftBean, elementValue, constraint));
                         } else if (context.reportedViolations() == reportedBefore) {
@@ -211,7 +213,11 @@ final class ConstraintEvaluator {
                     throw new ValidationException("Cannot call 'isValid' on: " + validator.getClass().getName(), e);
                 }
 
-                validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
+                // the evaluation of the constraints composing one reported as a single violation stops on the first
+                // failure, as ReportAsSingleViolation requires: the failure of the composed validator is the first
+                if (!failed || !constraint.isReportAsSingleViolation()) {
+                    validateComposingConstraints(context, leftBean, elementArgument, elementValue, constraint);
+                }
             } finally {
                 context.endConstraint();
             }
@@ -233,7 +239,13 @@ final class ConstraintEvaluator {
             Set<ConstraintViolation<R>> violations = context.getOverallViolations();
             int before = violations.size();
             int reportedBefore = context.reportedViolations();
-            validateConstraints(context, leftBean, elementArgument, elementValue, composingConstraints);
+            // evaluated one by one, up to the first that fails, as ReportAsSingleViolation requires
+            for (DefaultConstraintDescriptor<Annotation> composingConstraint : composingConstraints) {
+                validateConstraints(context, leftBean, elementArgument, elementValue, List.of(composingConstraint));
+                if (context.reportedViolations() > reportedBefore) {
+                    break;
+                }
+            }
             if (context.reportedViolations() > reportedBefore) {
                 Iterator<ConstraintViolation<R>> iterator = violations.iterator();
                 for (int i = 0; iterator.hasNext(); i++) {
