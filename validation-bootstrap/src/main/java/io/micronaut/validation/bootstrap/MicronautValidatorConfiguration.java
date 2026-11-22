@@ -128,21 +128,32 @@ public final class MicronautValidatorConfiguration
     private BootstrapConfiguration bootstrapConfiguration() {
         BootstrapConfiguration configuration = bootstrapConfiguration;
         if (configuration == null) {
-            var loaders = BootstrapServiceDiscovery.configurationLoaders(classLoader);
-            if (loaders.isEmpty() && !ignoreXmlConfiguration && classLoader.getResource("META-INF/validation.xml") != null) {
+            if (!ignoreXmlConfiguration && BootstrapServiceDiscovery.configurationLoaders(classLoader).isEmpty()
+                && classLoader.getResource("META-INF/validation.xml") != null) {
                 // a file the provider would silently drop: the configuration it holds must not be lost unnoticed
                 throw new ValidationException("META-INF/validation.xml is present but micronaut-validation-xml, which reads it, is not on the class path:"
                     + " add it, or call ignoreXmlConfiguration()");
             }
-            configuration = loaders
-                .stream()
-                .map(loader -> loader.load(classLoader))
-                .flatMap(Optional::stream)
-                .findFirst()
-                .orElseGet(DefaultBootstrapConfiguration::empty);
+            configuration = loadBootstrapConfiguration(classLoader);
             bootstrapConfiguration = configuration;
         }
         return configuration;
+    }
+
+    /**
+     * The bootstrap configuration {@code META-INF/validation.xml} declares, read by the loaders on the class path,
+     * the empty one without a file or a loader.
+     *
+     * @param classLoader The class loader of the file
+     * @return The bootstrap configuration
+     */
+    static BootstrapConfiguration loadBootstrapConfiguration(ClassLoader classLoader) {
+        return BootstrapServiceDiscovery.configurationLoaders(classLoader)
+            .stream()
+            .map(loader -> loader.load(classLoader))
+            .flatMap(Optional::stream)
+            .findFirst()
+            .orElseGet(DefaultBootstrapConfiguration::empty);
     }
 
     @Override
@@ -438,6 +449,9 @@ public final class MicronautValidatorConfiguration
         if (shouldApplyClockProvider(configurationState)) {
             validatorConfiguration.clockProvider(configurationState.getClockProvider());
         }
+        // the executable validation the configuration declares, which a container intercepting methods reads
+        validatorConfiguration.setBootstrapConfiguration(() -> configurationState instanceof Configuration<?> configuration
+            && !configurationState.isIgnoreXmlConfiguration() ? configuration.getBootstrapConfiguration() : DefaultBootstrapConfiguration.empty());
         applyValueExtractors(configurationState, validatorConfiguration);
         return new BootstrapValidatorFactory(
             createValidator(validatorConfiguration),

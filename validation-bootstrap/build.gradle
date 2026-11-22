@@ -8,6 +8,7 @@ dependencies {
     api projects.micronautValidation
 
     testAnnotationProcessor mn.micronaut.inject.java
+    testAnnotationProcessor projects.micronautValidationProcessor
     testImplementation mn.micronaut.inject.java.test
     testImplementation projects.micronautValidationReflection
     testImplementation mnTest.micronaut.test.junit5

@@ -22,3 +22,26 @@ snippet::io.micronaut.docs.validation.PersonServiceSpec[tags="imports,test",inde
 
 <1> The method is called with a blank string
 <2> An exception occurs
+
+== Which Methods Are Validated
+
+By default every method of a bean that declares constraints, or `@Valid`, is validated when it is invoked, getters included. Two configuration properties change this, as the integration chapter of the Jakarta Validation specification describes it for a container:
+
+`micronaut.validator.executable-validation-enabled`::
+Set to `false` to validate no intercepted method at all, whatever `@ValidateOnExecution` declares. The executable validation API of `Validator.forExecutables()` is not affected. Default: `true`.
+
+`micronaut.validator.default-validated-executable-types`::
+The kinds of methods validated when `@ValidateOnExecution` does not decide for a method: `GETTER_METHODS` for getters (a method without parameters whose name starts with `get`, or with `is` for a `boolean`), `NON_GETTER_METHODS` for the other methods, `ALL` for both and `NONE` for neither. Default: `GETTER_METHODS,NON_GETTER_METHODS`. The specification defaults to `CONSTRUCTORS,NON_GETTER_METHODS`, which leaves the getters out.
+
+[source,yaml]
+----
+micronaut:
+  validator:
+    default-validated-executable-types: CONSTRUCTORS,NON_GETTER_METHODS
+----
+
+A method annotated with `jakarta.validation.executable.ValidateOnExecution`, or overriding a method so annotated, or declared by a type so annotated, is validated or not as the annotation declares, whatever the default executable types are. A method the annotation leaves out is not intercepted.
+
+With `micronaut-validation-bootstrap` on the classpath, which `micronaut-validation-xml` and `micronaut-validation-jakarta` include, an application context follows the `executable-validation` element of `META-INF/validation.xml` instead, and the defaults of the specification without it: constrained getters are then validated only where `@ValidateOnExecution` asks for them. The two properties above, when set, decide over the file.
+
+NOTE: The constructor of a bean is not validated when the bean context creates it, whatever the executable types include: `CONSTRUCTORS` is accepted and has no effect. Constrained configuration values a constructor receives through `@Value` or `@Property` are validated as before. Use `Validator.forExecutables().validateConstructorParameters(...)` or `createValid` to validate a constructor explicitly.

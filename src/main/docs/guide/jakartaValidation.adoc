@@ -34,6 +34,10 @@ Adds Micronaut Jakarta EL and its runtime interpreter. Message interpolation use
 `micronaut-validation-jakarta`::
 Aggregates reflection, bootstrap, and XML support for the Jakarta compliance stack, and includes `micronaut-validation-el`. Types without a generated introspection are described through `micronaut-validation-reflection`.
 
+== Method Interception
+
+An application context with `micronaut-validation-bootstrap`, which `micronaut-validation-xml` and `micronaut-validation-jakarta` include, intercepts methods the way the specification asks of a container: it reads `BootstrapConfiguration.isExecutableValidationEnabled()` and `getDefaultValidatedExecutableTypes()`, that is the `executable-validation` element of `META-INF/validation.xml`, and the defaults of the specification, constructors and methods that are not getters, without it. A constrained getter is then validated only where `@ValidateOnExecution` asks for it, whereas the default module validates every constrained method. The configuration properties `micronaut.validator.executable-validation-enabled` and `micronaut.validator.default-validated-executable-types`, described in the section on validating bean methods, decide over the file. The constructor of a bean is not validated when the bean context creates it.
+
 == Choosing Modules
 
 Prefer `micronaut-validation` when you want Micronaut's compile-time validation model and GraalVM-friendly defaults. Add `micronaut-validation-reflection` to it when the validator has to describe types, constraints or executables the processors never saw.
