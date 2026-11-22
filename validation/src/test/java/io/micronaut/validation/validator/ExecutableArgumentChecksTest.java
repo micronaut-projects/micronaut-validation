@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
- * The executable validation API rejects parameter values that do not match the executable, as
+ * The executable validation API rejects a parameter array that is null or does not have one value per parameter, as
  * {@code ExecutableValidator} specifies.
  */
 class ExecutableArgumentChecksTest {
@@ -41,14 +41,14 @@ class ExecutableArgumentChecksTest {
     }
 
     @Test
-    void aParameterValueOfAnotherTypeIsRejected() throws Exception {
+    void aParameterArrayOfAnotherLengthIsRejected() throws Exception {
         try (var factory = new DefaultValidatorFactory()) {
             var executables = factory.getValidator().forExecutables();
             var method = Service.class.getMethod("save", String.class, String.class);
             assertEquals(0, executables.validateParameters(new Service(), method, new Object[]{"x", "y"}).size());
-            assertThrows(IllegalArgumentException.class, () -> executables.validateParameters(new Service(), method, new Object[]{"x", 42}));
+            assertThrows(IllegalArgumentException.class, () -> executables.validateParameters(new Service(), method, new Object[]{"x"}));
             var constructor = Service.class.getConstructor(String.class);
-            assertThrows(IllegalArgumentException.class, () -> executables.validateConstructorParameters(constructor, new Object[]{42}));
+            assertThrows(IllegalArgumentException.class, () -> executables.validateConstructorParameters(constructor, new Object[]{}));
         }
     }
 

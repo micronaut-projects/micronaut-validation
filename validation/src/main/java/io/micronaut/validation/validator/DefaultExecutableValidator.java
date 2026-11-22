@@ -24,7 +24,6 @@ import io.micronaut.core.beans.BeanIntrospection;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.convert.ConversionService;
-import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ArgumentValue;
 import io.micronaut.core.type.MutableArgumentValue;
@@ -186,12 +185,14 @@ final class DefaultExecutableValidator {
     }
 
     /**
-     * The parameter values a caller passes with a {@link java.lang.reflect.Method} or a {@link Constructor} match it,
-     * as {@code ExecutableValidator} requires.
+     * The parameter values a caller passes with a {@link java.lang.reflect.Method} or a {@link Constructor}, as
+     * {@code ExecutableValidator} requires: an array of one value per parameter. The values are not checked against
+     * the parameter types, which the specification leaves to the caller: the TCK passes an {@code Integer} for a
+     * {@code long}.
      *
      * @param parameterTypes The types of the parameters of the executable
      * @param parameterValues The values
-     * @throws IllegalArgumentException if the values are null, of another number, or a value is of another type
+     * @throws IllegalArgumentException if the values are null or of another number
      */
     static void checkParameterValues(Class<?>[] parameterTypes, Object @Nullable [] parameterValues) {
         if (parameterValues == null) {
@@ -199,13 +200,6 @@ final class DefaultExecutableValidator {
         }
         if (parameterValues.length != parameterTypes.length) {
             throw new IllegalArgumentException("Expected exactly [" + parameterTypes.length + "] parameter values, got [" + parameterValues.length + "]");
-        }
-        for (int i = 0; i < parameterTypes.length; i++) {
-            Object value = parameterValues[i];
-            if (value != null && !ReflectionUtils.getWrapperType(parameterTypes[i]).isInstance(value)) {
-                throw new IllegalArgumentException("The parameter value at index " + i + " of type " + value.getClass().getName()
-                    + " does not match the parameter type " + parameterTypes[i].getName());
-            }
         }
     }
 
