@@ -92,6 +92,15 @@ class GeneratedDeclarationAccessTest {
     }
 
     @Test
+    void anInaccessibleFieldFieldAccessDoesNotCoverIsValidatedThroughItsGetter() {
+        // field access of the default visibility does not cover a private field: its declaration uses the property
+        var bean = new PrivateFieldOfDefaultVisibility();
+        assertEquals(1, validator.validate(bean).size());
+        bean.items = java.util.List.of("valid");
+        assertTrue(validator.validate(bean).isEmpty());
+    }
+
+    @Test
     void privateMethodValidationRequiresTheOptionalProvider() throws Exception {
         var bean = new PrivateExecutable();
         var method = PrivateExecutable.class.getDeclaredMethod("process", String.class);
@@ -171,6 +180,12 @@ class GeneratedDeclarationAccessTest {
         DifferentValues() { this(null, null); }
         DifferentValues(String value, String returned) { this.value = value; this.returned = returned; }
         @NotNull public String getValue() { return returned; }
+    }
+
+    @Introspected(accessKind = {Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD})
+    static class PrivateFieldOfDefaultVisibility {
+        private java.util.List<@NotNull String> items = java.util.Arrays.asList((String) null);
+        public java.util.List<@NotNull String> getItems() { return items; }
     }
 
     @Introspected(accessKind = {Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD}, visibility = Introspected.Visibility.ANY)
