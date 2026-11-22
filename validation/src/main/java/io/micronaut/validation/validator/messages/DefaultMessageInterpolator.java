@@ -23,7 +23,6 @@ import jakarta.inject.Singleton;
 import io.micronaut.validation.validator.MessageAttributes;
 import jakarta.validation.MessageInterpolator;
 
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
@@ -181,13 +180,8 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
         return b == Boolean.parseBoolean(matcher.group(2)) ? matcher.group(3) : matcher.group(4);
     }
 
-    private static Object variableText(Object value) {
-        if (value.getClass().isArray()) {
-            // an array is interpolated by its elements, as the reference implementation does
-            String text = Arrays.deepToString(new Object[] {value});
-            return text.substring(1, text.length() - 1);
-        }
-        return value;
+    private static String variableText(Object value) {
+        return MessageAttributes.text(value);
     }
 
     @Nullable

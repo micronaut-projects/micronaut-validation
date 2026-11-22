@@ -209,7 +209,7 @@ public final class ElMessageInterpolator implements MessageInterpolator {
                 if (token.kind() == Kind.EXPRESSION) {
                     result.append(DOLLAR);
                 }
-                result.append(attribute);
+                result.append(MessageAttributes.text(attribute));
             } else if (token.kind() == Kind.EXPRESSION && !token.trusted() && !customViolationExpressions
                 && interpolationContext instanceof DefaultMessageInterpolatorContext defaultContext && defaultContext.isCustomViolation()
                 && !readsVariablesOnly(token.value())) {

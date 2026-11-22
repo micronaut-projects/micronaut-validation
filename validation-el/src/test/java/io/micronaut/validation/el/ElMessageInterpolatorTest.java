@@ -149,6 +149,16 @@ class ElMessageInterpolatorTest {
     }
 
     @Test
+    void interpolatesAnArrayParameterByItsElements() {
+        ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
+
+        // as the reference implementation and the default interpolator render it, not by the identity of the array
+        assertEquals("groups [] payload [interface java.lang.Runnable] flags [1, 2]", interpolator.interpolate(
+            "groups {groups} payload {payload} flags {flags}",
+            new TestContext(3, Map.of("groups", new Class<?>[0], "payload", new Class<?>[]{Runnable.class}, "flags", new int[]{1, 2}))));
+    }
+
+    @Test
     void leavesElExpressionsForValidatedValueToElPass() {
         ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
 

@@ -18,6 +18,7 @@ package io.micronaut.validation.validator;
 import io.micronaut.core.annotation.Internal;
 import jakarta.validation.metadata.ConstraintDescriptor;
 
+import java.util.Arrays;
 import java.util.Map;
 
 /**
@@ -46,6 +47,21 @@ public final class MessageAttributes {
             return source.messageAttributes();
         }
         return descriptor.getAttributes();
+    }
+
+    /**
+     * The text a message renders for the value of a parameter: an array by its elements, as the reference
+     * implementation renders it, not by its identity.
+     *
+     * @param value The value of the parameter
+     * @return The text
+     */
+    public static String text(Object value) {
+        if (value.getClass().isArray()) {
+            String text = Arrays.deepToString(new Object[] {value});
+            return text.substring(1, text.length() - 1);
+        }
+        return value.toString();
     }
 
     /**
