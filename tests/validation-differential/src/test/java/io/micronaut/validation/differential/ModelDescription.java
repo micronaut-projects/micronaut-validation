@@ -35,8 +35,11 @@ record ModelDescription(String name, Kind kind, int minimum, int maximum, int wi
     boolean comprehensiveOnly() { return kind == Kind.XML || kind == Kind.BOOTSTRAP || kind == Kind.EXTRACTORS; }
 
     boolean expectsCapability(int operation) {
-        // Jakarta custom validators initialize a concrete annotation through the optional provider.
-        return kind == Kind.CUSTOM || (kind == Kind.PRIVATE_FIELDS && !permission);
+        // Direct access to an inaccessible field needs the optional provider: @ReflectiveAccess registers the field for
+        // native images but does not authorize reflection in the default module (breaks.adoc, generatedMetadata.adoc).
+        // A Jakarta custom validator of a public constraint is initialized with the annotation builder the processor
+        // registers, so CUSTOM models must match the reference in the default profile as well.
+        return kind == Kind.PRIVATE_FIELDS;
     }
 
     List<ModelDescription> smaller() {
