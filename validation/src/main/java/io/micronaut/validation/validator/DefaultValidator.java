@@ -269,8 +269,8 @@ public class DefaultValidator
         }
 
         DefaultConstraintValidatorContext<T> constraintValidationContext = new DefaultConstraintValidatorContext<>(this, introspection, object, context);
-        constraintValidationContext.validateInGroups(constraintValidationContext.findGroupSequences(introspection), firstStep ->
-            traversal.visitProperty(constraintValidationContext, introspection, object, property.get(), false));
+        traversal.validatePropertyInSequences(constraintValidationContext, introspection, declaringTypes ->
+            traversal.visitProperty(constraintValidationContext, introspection, object, property.get(), false, declaringTypes));
         return Collections.unmodifiableSet(constraintValidationContext.getOverallViolations());
     }
 
@@ -299,8 +299,8 @@ public class DefaultValidator
             if (traversal.isNotReachable(constraintContext, null)) {
                 return Collections.unmodifiableSet(constraintContext.getOverallViolations());
             }
-            constraintContext.validateInGroups(constraintContext.findGroupSequences(introspection), firstStep ->
-                traversal.visitPropertyValue(constraintContext, introspection, beanProperty, value));
+            traversal.validatePropertyInSequences(constraintContext, introspection, declaringTypes ->
+                traversal.visitPropertyValue(constraintContext, introspection, beanProperty, value, declaringTypes));
         }
         return Collections.unmodifiableSet(constraintContext.getOverallViolations());
     }

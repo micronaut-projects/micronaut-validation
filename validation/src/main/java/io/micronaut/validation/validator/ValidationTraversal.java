@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 /**
@@ -280,12 +281,12 @@ final class ValidationTraversal {
      * Visits the members of a property the types the filter accepts declare: a type redefining the default
      * group sequence validates its members in its own passes.
      */
-    private <R, T> void visitProperty(DefaultConstraintValidatorContext<R> context,
-                                      BeanIntrospection<T> introspection,
-                                      T object,
-                                      BeanProperty<T, Object> property,
-                                      boolean canCascade,
-                                      Predicate<Class<?>> declaringTypes) {
+    <R, T> void visitProperty(DefaultConstraintValidatorContext<R> context,
+                              BeanIntrospection<T> introspection,
+                              T object,
+                              BeanProperty<T, Object> property,
+                              boolean canCascade,
+                              Predicate<Class<?>> declaringTypes) {
         if (property.isWriteOnly()) {
             return;
         }
@@ -336,12 +337,52 @@ final class ValidationTraversal {
                                    BeanIntrospection<T> introspection,
                                    BeanProperty<T, Object> property,
                                    @Nullable Object value) {
+        visitPropertyValue(context, introspection, property, value, ALL_TYPES);
+    }
+
+    /**
+     * Validates one property of a bean, or a value against it, the way {@link #doValidate} validates the bean: the
+     * declarations of the bean checked, and the members a super type redefining the default group sequence declares
+     * validated in that sequence.
+     *
+     * @param context The context
+     * @param introspection The bean
+     * @param visit Visits the property, given the types whose members to validate
+     * @param <R> The root bean type
+     * @param <T> The bean type
+     */
+    <R, T> void validatePropertyInSequences(DefaultConstraintValidatorContext<R> context,
+                                            BeanIntrospection<T> introspection,
+                                            Consumer<Predicate<Class<?>>> visit) {
+        declarations.checkBeanDeclarations(introspection);
+        Map<Class<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> isolated = context.findIsolatedGroupSequences(introspection);
+        Predicate<Class<?>> notIsolatedTypes = isolated.isEmpty() ? ALL_TYPES : type -> !isolated.containsKey(type);
+        context.validateInGroups(context.findGroupSequences(introspection), firstStep -> visit.accept(notIsolatedTypes));
+        for (Map.Entry<Class<?>, List<DefaultConstraintValidatorContext.ValidationGroup>> entry : isolated.entrySet()) {
+            Class<?> isolatedType = entry.getKey();
+            context.validateInGroups(entry.getValue(), firstStep -> visit.accept(type -> type == isolatedType));
+        }
+    }
+
+    /**
+     * Validates a value against the members of a property the types the filter accepts declare.
+     */
+    <R, T> void visitPropertyValue(DefaultConstraintValidatorContext<R> context,
+                                   BeanIntrospection<T> introspection,
+                                   BeanProperty<T, Object> property,
+                                   @Nullable Object value,
+                                   Predicate<Class<?>> declaringTypes) {
         PropertyPlan plan = propertyPlan(introspection, property);
         if (plan.members().isEmpty()) {
-            visitElement(context, null, plan.argument(), property.getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            if (declaringTypes.test(introspection.getBeanType())) {
+                visitElement(context, null, plan.argument(), property.getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            }
             return;
         }
         for (MemberPlan member : plan.members()) {
+            if (!declaringTypes.test(member.member().getDeclaringType())) {
+                continue;
+            }
             try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.member().getElementType(), member.implicitGroup())) {
                 visitElement(context, null, member.argument(), member.member().getAnnotationMetadata(), value, false, Cascade.CHECKED);
             }
