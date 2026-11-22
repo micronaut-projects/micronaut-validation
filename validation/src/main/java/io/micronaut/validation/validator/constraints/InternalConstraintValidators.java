@@ -472,18 +472,12 @@ final class InternalConstraintValidators {
     }
 
     /**
-     * How the present compares to a value: a value of a zone or an offset by the instant it represents, as two
-     * equal instants are the same moment whatever their local times, where its natural order tells them apart.
+     * How the present compares to a value, by the natural order of its type, as the reference implementation
+     * compares it: a value of a zone or an offset at the instant of the present but with a later local time,
+     * 13:00 in Paris when it is 12:00 UTC, is after the present.
      */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private static int nowComparedTo(TemporalAccessor value, Clock clock) {
-        if (value instanceof ZonedDateTime || value instanceof OffsetDateTime) {
-            return clock.instant().compareTo(Instant.from(value));
-        }
-        if (value instanceof OffsetTime time) {
-            OffsetTime now = OffsetTime.now(clock);
-            return now.isAfter(time) ? 1 : now.isBefore(time) ? -1 : 0;
-        }
         return ((Comparable) getNow(value, clock)).compareTo(value);
     }
 
