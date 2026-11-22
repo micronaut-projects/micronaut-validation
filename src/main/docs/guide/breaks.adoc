@@ -25,6 +25,7 @@ This section documents breaking changes between Micronaut Validation versions:
 * `Path.toString()` renders a container element node the way the reference implementation does: a dot precedes it, and a node of a map key names the key type parameter, as in `authors[1].<list element>` and `sectionStartPages<K>[].<map key>` (previously `authors[1]<list element>` and `sectionStartPages[]<map key>`). Code that compares or parses path strings must be updated; the nodes of the path are unchanged.
 * A constraint declared next to a composed constraint that composes the same constraint type is validated once for each occurrence declared, and no longer once more through the composition. Two constraint descriptors are equal when their constraint type and attributes are equal.
 * `@Digits` rejects a value whose integer part has more digits than an `int` counts, such as `1E2147483647`, which it accepted before because the count overflowed. The reference implementation still accepts such a value.
+* `DefaultValidator.validatedAnnotatedElement` validates a `null` value against the constraints of the element, so that `@NotNull` reports it; it returned no message for a `null` value before.
 
 === Micronaut Validation 5.0.0
 

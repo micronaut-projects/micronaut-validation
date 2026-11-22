@@ -315,7 +315,8 @@ public class DefaultValidator
 
         final DefaultConstraintValidatorContext<Object> context = new DefaultConstraintValidatorContext<>(this, null, value, BeanValidationContext.DEFAULT);
 
-        Argument<Object> type = value != null ? Argument.of((Class<Object>) value.getClass(), element.getAnnotationMetadata()) : Argument.OBJECT_ARGUMENT;
+        // a null value is validated against the constraints of the element too
+        Argument<Object> type = Argument.of(value != null ? (Class<Object>) value.getClass() : Object.class, element.getAnnotationMetadata());
         try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addPropertyNode(element.getName())) {
             context.validateInGroups(context.findGroupSequences(), canCascade ->
                 traversal.visitElement(context, element, type, value, canCascade));
