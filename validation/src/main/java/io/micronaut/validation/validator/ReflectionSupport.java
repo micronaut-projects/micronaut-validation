@@ -238,10 +238,18 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
     }
 
     /**
-     * Whether a property lists a getter the generated dispatch reads without reflection.
+     * Whether property access was selected for the fields of the property's type, and the property lists a getter
+     * the generated dispatch reads without reflection. Where field access is selected, a field declaration is
+     * validated against the field itself, never against a getter that may return another value.
      */
     private static boolean hasGeneratedGetter(BeanProperty<?, ?> property) {
         if (property.isWriteOnly()) {
+            return false;
+        }
+        BeanIntrospection<?> introspection = property.getDeclaringBean();
+        boolean record = introspection.getBeanType().isRecord();
+        if (!record && Arrays.asList(introspection.getAnnotationMetadata()
+            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class)).contains(Introspected.AccessKind.FIELD)) {
             return false;
         }
         for (BeanPropertyMember<?, ?> candidate : property.getMembers()) {
@@ -251,13 +259,7 @@ public interface ReflectionSupport extends RuntimeValidationAccess {
         }
         // an unannotated getter is not listed as a member: the property reads it when the introspection reads
         // properties through methods, a record or the default access kind
-        BeanIntrospection<?> introspection = property.getDeclaringBean();
-        if (introspection.getBeanType().isRecord()) {
-            return true;
-        }
-        Introspected.AccessKind[] kinds = introspection.getAnnotationMetadata()
-            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class);
-        return kinds.length == 0 || Arrays.asList(kinds).contains(Introspected.AccessKind.METHOD);
+        return true;
     }
 
     /**

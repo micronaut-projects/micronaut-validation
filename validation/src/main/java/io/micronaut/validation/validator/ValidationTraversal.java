@@ -409,6 +409,9 @@ final class ValidationTraversal {
                     Object value;
                     try {
                         value = plan.reader().read(object);
+                    } catch (ValidationException e) {
+                        // a declaration the generated metadata cannot read reports the capability it needs itself
+                        throw e;
                     } catch (Exception e) {
                         throw new ValidationException("Failed to get the value of property: " + property.getName(), e);
                     }

@@ -75,13 +75,20 @@ class GeneratedDeclarationAccessTest {
     @Test
     void annotatedPrivateFieldStillRequiresTheReflectionModule() {
         var error = assertThrows(ValidationException.class, () -> validator.validate(new Authorized()));
-        assertTrue(error.getCause().getMessage().contains("micronaut-validation-reflection"));
+        assertTrue(error.getMessage().contains("micronaut-validation-reflection"));
     }
 
     @Test
     void privateFieldWithoutPermissionFailsEvenWithAnyVisibilityAndTypeAnnotation() {
         ValidationException error = assertThrows(ValidationException.class, () -> validator.validate(new Unauthorized()));
-        assertTrue(error.getCause().getMessage().contains("micronaut-validation-reflection"));
+        assertTrue(error.getMessage().contains("micronaut-validation-reflection"));
+    }
+
+    @Test
+    void selectedFieldAccessDoesNotReadAPrivateFieldThroughItsGetter() {
+        // with field access selected, the field declaration is validated against the field, never against the getter
+        ValidationException error = assertThrows(ValidationException.class, () -> validator.validate(new PrivateFieldWithGetter()));
+        assertTrue(error.getMessage().contains("micronaut-validation-reflection"), error::getMessage);
     }
 
     @Test
@@ -164,6 +171,12 @@ class GeneratedDeclarationAccessTest {
         DifferentValues() { this(null, null); }
         DifferentValues(String value, String returned) { this.value = value; this.returned = returned; }
         @NotNull public String getValue() { return returned; }
+    }
+
+    @Introspected(accessKind = {Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD}, visibility = Introspected.Visibility.ANY)
+    static class PrivateFieldWithGetter {
+        @NotNull private String value;
+        public String getValue() { return "getter"; }
     }
 
     @Introspected(accessKind = Introspected.AccessKind.FIELD, visibility = Introspected.Visibility.ANY)

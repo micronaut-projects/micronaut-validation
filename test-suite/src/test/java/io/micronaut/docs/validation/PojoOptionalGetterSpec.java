@@ -17,7 +17,7 @@ class PojoOptionalGetterSpec {
     @Test
     void differentlyTypedGetterDoesNotAuthorizePrivateFieldReflection(MockService service) {
         var failure = assertThrows(jakarta.validation.ValidationException.class, () -> service.validate(new ListingArguments(0)));
-        assertTrue(failure.getCause().getMessage().contains("micronaut-validation-reflection"));
+        assertTrue(failure.getMessage().contains("micronaut-validation-reflection"), failure::getMessage);
     }
 
     @Requires(property = "spec.name", value = "PojoOptionalGetterSpec")

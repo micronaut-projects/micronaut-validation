@@ -165,7 +165,7 @@ class ValidatorSpec extends Specification {
 
         then:
         def error = thrown(jakarta.validation.ValidationException)
-        error.cause.message.contains('micronaut-validation-reflection')
+        error.message.contains('micronaut-validation-reflection')
     }
 
     void "test validate value"() {
