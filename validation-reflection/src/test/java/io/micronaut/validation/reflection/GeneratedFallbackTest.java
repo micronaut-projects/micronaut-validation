@@ -50,6 +50,44 @@ class GeneratedFallbackTest {
     }
 
     @Test
+    void typedAttributesAreReadThroughTheGeneratedBuilderAsTheyAreReadReflectively() throws Exception {
+        var support = new ReflectionValidationSupport();
+        var occurrence = BeanIntrospector.SHARED.getIntrospection(LeveledBean.class).getRequiredProperty("value", String.class)
+            .getAnnotationMetadata().getAnnotation(Leveled.class);
+        assertNotNull(occurrence);
+        var attributes = support.annotationAttributes(Leveled.class, occurrence);
+        assertNotNull(attributes);
+        assertSame(Level.HIGH, attributes.get("level"));
+        // the same attributes the members of the annotation answer
+        var annotation = support.annotation(Leveled.class, occurrence);
+        var reflected = new java.util.HashMap<String, Object>();
+        for (var member : Leveled.class.getDeclaredMethods()) {
+            reflected.put(member.getName(), member.invoke(annotation));
+        }
+        assertEquals(reflected.keySet(), attributes.keySet());
+        for (var entry : reflected.entrySet()) {
+            Object value = attributes.get(entry.getKey());
+            assertTrue(java.util.Objects.deepEquals(entry.getValue(), value), entry.getKey());
+        }
+    }
+
+    public enum Level { LOW, HIGH }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.TYPE_USE})
+    @Constraint(validatedBy = {})
+    @NotNull
+    public @interface Leveled {
+        String message() default "leveled";
+        Class<?>[] groups() default {};
+        Class<? extends Payload>[] payload() default {};
+        Level level() default Level.LOW;
+    }
+
+    @Introspected
+    record LeveledBean(@Leveled(level = Level.HIGH) String value) { }
+
+    @Test
     void genericSignaturesUseTheConfiguredIntrospector() {
         var lookups = new AtomicInteger();
         var introspector = (BeanIntrospector) Proxy.newProxyInstance(BeanIntrospector.class.getClassLoader(),
