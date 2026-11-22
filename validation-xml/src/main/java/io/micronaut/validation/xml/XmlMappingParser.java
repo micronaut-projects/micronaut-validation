@@ -126,6 +126,8 @@ final class XmlMappingParser {
             XmlMappingSupport.validateVersion(root, SUPPORTED_MAPPING_VERSIONS, "constraint mapping XML");
             XmlMappingSupport.validateRootElements(root, ROOT_ELEMENT_NAMES, "constraint mapping XML");
             XmlMappingSupport.validateMappingStructure(root);
+            // then the mapping schema the API ships: a wrong root, a repeated singleton element or a malformed value
+            XmlMappingSupport.validateSchema(document, "validation-mapping", "constraint mapping XML");
             String defaultPackage = XmlMappingSupport.textOfChild(root, "default-package");
             Map<String, ConstraintDefinition> mappingConstraintDefinitions = constraintDefinitions(root, defaultPackage);
             for (var definition : mappingConstraintDefinitions.entrySet()) {

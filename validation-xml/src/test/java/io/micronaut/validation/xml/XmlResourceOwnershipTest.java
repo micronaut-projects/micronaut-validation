@@ -31,7 +31,7 @@ class XmlResourceOwnershipTest {
     @Test
     void closesEveryOwnedStreamOnceWhenTheFirstMappingIsMalformed() {
         TrackedStream malformed = new TrackedStream("<broken>", false);
-        TrackedStream unread = new TrackedStream("<constraint-mappings version=\"3.1\"/>", false);
+        TrackedStream unread = new TrackedStream("<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\" version=\"3.1\"/>", false);
         assertThrows(ValidationException.class, () -> provider(malformed, unread));
         assertEquals(1, malformed.closed);
         assertEquals(1, unread.closed);
@@ -39,7 +39,7 @@ class XmlResourceOwnershipTest {
 
     @Test
     void closesSuccessfulMappingsOnce() {
-        TrackedStream stream = new TrackedStream("<constraint-mappings version=\"3.1\"/>", false);
+        TrackedStream stream = new TrackedStream("<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\" version=\"3.1\"/>", false);
         provider(stream);
         assertEquals(1, stream.closed);
     }
@@ -47,7 +47,7 @@ class XmlResourceOwnershipTest {
     @Test
     void preservesParseCauseAndSuppressedCleanupFailures() {
         TrackedStream malformed = new TrackedStream("<broken>", true);
-        TrackedStream unread = new TrackedStream("<constraint-mappings version=\"3.1\"/>", true);
+        TrackedStream unread = new TrackedStream("<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\" version=\"3.1\"/>", true);
         ValidationException error = assertThrows(ValidationException.class, () -> provider(malformed, unread));
         assertNotNull(error.getCause());
         assertEquals(1, error.getSuppressed().length);
@@ -61,7 +61,7 @@ class XmlResourceOwnershipTest {
         for (String declaration : List.of("<!ENTITY external SYSTEM 'file:///does-not-exist'>",
             "<!ENTITY % external SYSTEM 'https://example.invalid/evil.dtd'>%external;")) {
             TrackedStream stream = new TrackedStream("<!DOCTYPE constraint-mappings [" + declaration + "]>"
-                + "<constraint-mappings version=\"3.1\"/>", false);
+                + "<constraint-mappings xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\" version=\"3.1\"/>", false);
             ValidationException error = assertThrows(ValidationException.class, () -> provider(stream));
             assertNotNull(error.getCause());
             assertEquals(1, stream.closed);

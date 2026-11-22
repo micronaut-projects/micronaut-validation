@@ -102,6 +102,24 @@ class XmlConstraintValidationTest {
     }
 
     @Test
+    void aMappingTheSchemaRejectsIsAValidationException() {
+        assertThrows(ValidationException.class, () -> factory("<wrong-root xmlns=\"https://jakarta.ee/xml/ns/validation/mapping\" version=\"3.1\"/>").close());
+        String twoMessages = """
+            <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
+                <bean class="io.micronaut.validation.xml.XmlConstraintValidationTest$Named">
+                    <field name="name">
+                        <constraint annotation="jakarta.validation.constraints.NotNull">
+                            <message>first</message>
+                            <message>second</message>
+                        </constraint>
+                    </field>
+                </bean>
+            </constraint-mappings>
+            """;
+        assertThrows(ValidationException.class, () -> factory(twoMessages).close());
+    }
+
+    @Test
     void aConstraintMappedTwiceOnOneElementKeepsBothOccurrences() {
         String mapping = """
             <constraint-mappings xmlns="https://jakarta.ee/xml/ns/validation/mapping" version="3.1">
