@@ -211,8 +211,11 @@ public final class MicronautValidatorConfiguration
     }
 
     @Override
-    public MicronautValidatorConfiguration addProperty(String name, String value) {
-        properties.put(name, value);
+    public MicronautValidatorConfiguration addProperty(String name, @Nullable String value) {
+        // a property without value is ignored, as the reference implementation ignores it
+        if (value != null) {
+            properties.put(name, value);
+        }
         return this;
     }
 

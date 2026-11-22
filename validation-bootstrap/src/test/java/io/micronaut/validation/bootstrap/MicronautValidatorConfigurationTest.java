@@ -49,6 +49,19 @@ class MicronautValidatorConfigurationTest {
     }
 
     @Test
+    void aPropertyWithoutValueIsIgnoredAsTheReferenceImplementationIgnoresIt() {
+        var configuration = new MicronautValidatorConfiguration();
+        configuration.ignoreXmlConfiguration();
+        configuration.addProperty("some.property", "kept");
+        configuration.addProperty("some.property", null);
+        configuration.addProperty("other.property", null);
+        assertEquals(Map.of("some.property", "kept"), configuration.getProperties());
+        try (ValidatorFactory validatorFactory = configuration.buildValidatorFactory()) {
+            assertNotNull(validatorFactory.getValidator());
+        }
+    }
+
+    @Test
     void anXmlNamedClassOfTheWrongTypeIsAValidationException() {
         var configuration = new MicronautValidatorConfiguration();
         assertThrows(jakarta.validation.ValidationException.class,
