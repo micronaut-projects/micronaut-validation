@@ -5,11 +5,6 @@
         <property name="maxTestClassesBeforeRestart">40</property>
     </engine>
 
-    <container qualifier="odi" default="true">
-        <configuration>
-<!--            <property name="enableConversationScope">true</property>-->
-<!--            <property name="environment">EE_INJECT</property>-->
-        </configuration>
-    </container>
+    <container qualifier="micronaut" default="true"/>
 
 </arquillian>

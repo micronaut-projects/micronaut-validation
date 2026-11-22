@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.constraints.Digits;
@@ -32,18 +31,19 @@ import java.math.BigDecimal;
 @FunctionalInterface
 public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
     @Override
-    default boolean isValid(@Nullable T value, @NonNull AnnotationValue<Digits> annotationMetadata, @NonNull ConstraintValidatorContext context) {
+    default boolean isValid(@Nullable T value, AnnotationValue<Digits> annotationMetadata, ConstraintValidatorContext context) {
         if (value == null) {
             // null valid according to spec
             return true;
         }
-        final int intMax = annotationMetadata.get("integer", int.class).orElse(0);
+        final ConstraintMembers.Digits digits = ConstraintMembers.digits(annotationMetadata);
+        final int intMax = digits.integer();
 
         if (intMax < 0) {
             throw new IllegalArgumentException("The length of the integer part cannot be negative.");
         }
 
-        final int fracMax = annotationMetadata.get("fraction", int.class).orElse(0);
+        final int fracMax = digits.fraction();
         if (fracMax < 0) {
             throw new IllegalArgumentException("The length of the fraction part cannot be negative.");
         }
@@ -66,5 +66,5 @@ public interface DigitsValidator<T> extends ConstraintValidator<Digits, T> {
      * @param value The value
      * @return The big decimal
      */
-    BigDecimal getBigDecimal(@NonNull T value);
+    BigDecimal getBigDecimal(T value);
 }

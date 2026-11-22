@@ -23,7 +23,6 @@ import jakarta.validation.constraints.Size
 import jakarta.validation.metadata.BeanDescriptor
 import spock.lang.AutoCleanup
 import spock.lang.Issue
-import spock.lang.PendingFeature
 import spock.lang.Shared
 import spock.lang.Specification
 
@@ -55,9 +54,9 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == []
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof Size
-        violations[0].constraintDescriptor.annotation.min() == 1
-        violations[0].constraintDescriptor.annotation.max() == 10
+        violations[0].constraintDescriptor.type == Size
+        violations[0].constraintDescriptor.attributes.get("min") == 1
+        violations[0].constraintDescriptor.attributes.get("max") == 10
 
         violations[1].invalidValue == 50
         violations[1].propertyPath.iterator().next().name == 'pages'
@@ -65,18 +64,18 @@ class ValidatorSpec extends Specification {
         violations[1].rootBeanClass == Book
         violations[1].messageTemplate == '{jakarta.validation.constraints.Min.message}'
         violations[1].constraintDescriptor != null
-        violations[1].constraintDescriptor.annotation instanceof Min
-        violations[1].constraintDescriptor.annotation.value() == 100l
+        violations[1].constraintDescriptor.type == Min
+        violations[1].constraintDescriptor.attributes.get("value") == 100l
 
         violations[2].invalidValue == null
         violations[2].propertyPath.iterator().next().name == 'primaryAuthor'
         violations[2].constraintDescriptor != null
-        violations[2].constraintDescriptor.annotation instanceof NotNull
+        violations[2].constraintDescriptor.type == NotNull
 
         violations[3].invalidValue == ''
         violations[3].propertyPath.iterator().next().name == 'title'
         violations[3].constraintDescriptor != null
-        violations[3].constraintDescriptor.annotation instanceof NotBlank
+        violations[3].constraintDescriptor.type == NotBlank
 
     }
 
@@ -90,9 +89,9 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == []
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof Size
-        violations[0].constraintDescriptor.annotation.min() == 1
-        violations[0].constraintDescriptor.annotation.max() == 2
+        violations[0].constraintDescriptor.type == Size
+        violations[0].constraintDescriptor.attributes.get("min") == 1
+        violations[0].constraintDescriptor.attributes.get("max") == 2
 
         when:
         arrayTest = new ObjectArray(strings: ["a", "b", "c"] as String[])
@@ -103,9 +102,9 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ["a", "b", "c"]
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof Size
-        violations[0].constraintDescriptor.annotation.min() == 1
-        violations[0].constraintDescriptor.annotation.max() == 2
+        violations[0].constraintDescriptor.type == Size
+        violations[0].constraintDescriptor.attributes.get("min") == 1
+        violations[0].constraintDescriptor.attributes.get("max") == 2
 
         when:
         arrayTest = new ObjectArray(numbers: [] as Long[])
@@ -116,9 +115,9 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == []
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof Size
-        violations[0].constraintDescriptor.annotation.min() == 1
-        violations[0].constraintDescriptor.annotation.max() == 2
+        violations[0].constraintDescriptor.type == Size
+        violations[0].constraintDescriptor.attributes.get("min") == 1
+        violations[0].constraintDescriptor.attributes.get("max") == 2
 
         when:
         arrayTest = new ObjectArray(numbers: [1L, 2L, 3L] as long[])
@@ -129,9 +128,9 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == [1L, 2L, 3L]
         violations[0].messageTemplate == '{jakarta.validation.constraints.Size.message}'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof Size
-        violations[0].constraintDescriptor.annotation.min() == 1
-        violations[0].constraintDescriptor.annotation.max() == 2
+        violations[0].constraintDescriptor.type == Size
+        violations[0].constraintDescriptor.attributes.get("min") == 1
+        violations[0].constraintDescriptor.attributes.get("max") == 2
     }
 
     void "test validate bean property doesn't cascade"() {
@@ -153,23 +152,20 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ''
         violations[0].propertyPath.iterator().next().name == 'title'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof NotBlank
+        violations[0].constraintDescriptor.type == NotBlank
 
     }
 
-    @PendingFeature
     @Issue("https://github.com/micronaut-projects/micronaut-validation/pull/165")
     void "test validate bean property with Optional getter"() {
         given:
         OptionalGetters g = new OptionalGetters(alpha: "non alpha with space");
-        def violations = validator.validateProperty(g, "alpha")
+        when:
+        validator.validateProperty(g, "alpha")
 
-        expect:
-        violations.size() == 1
-        violations[0].invalidValue == 'non alpha with space'
-        violations[0].propertyPath.iterator().next().name == 'alpha'
-        violations[0].constraintDescriptor.annotation instanceof Pattern
-        violations[0].message == 'must match "[a-z]+"'
+        then:
+        def error = thrown(jakarta.validation.ValidationException)
+        error.cause.message.contains('micronaut-validation-reflection')
     }
 
     void "test validate value"() {
@@ -181,7 +177,7 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ''
         violations[0].propertyPath.iterator().next().name == 'title'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof NotBlank
+        violations[0].constraintDescriptor.type == NotBlank
     }
 
     void "test cascade to bean"() {
@@ -208,13 +204,13 @@ class ValidatorSpec extends Specification {
         v1.rootBean.is(b)
         v1.leafBean instanceof Author
         v1.constraintDescriptor != null
-        v1.constraintDescriptor.annotation instanceof Max
-        v1.constraintDescriptor.annotation.value() == 100l
+        v1.constraintDescriptor.type == Max
+        v1.constraintDescriptor.attributes.get("value") == 100l
 
         v2.messageTemplate == '{jakarta.validation.constraints.NotBlank.message}'
         v2.propertyPath.toString() == 'primaryAuthor.name'
         v2.constraintDescriptor != null
-        v2.constraintDescriptor.annotation instanceof NotBlank
+        v2.constraintDescriptor.type == NotBlank
     }
 
     void "test cascade to bean - handle cycle"() {
@@ -239,13 +235,13 @@ class ValidatorSpec extends Specification {
         v1.rootBean.is(b)
         v1.leafBean instanceof Author
         v1.constraintDescriptor != null
-        v1.constraintDescriptor.annotation instanceof Max
-        v1.constraintDescriptor.annotation.value() == 100l
+        v1.constraintDescriptor.type == Max
+        v1.constraintDescriptor.attributes.get("value") == 100l
 
         v2.messageTemplate == '{jakarta.validation.constraints.NotBlank.message}'
         v2.propertyPath.toString() == 'primaryAuthor.name'
         v2.constraintDescriptor != null
-        v2.constraintDescriptor.annotation instanceof NotBlank
+        v2.constraintDescriptor.type == NotBlank
     }
 
     // PROPERTY GENERIC ARGUMENT (Java only)
@@ -277,9 +273,9 @@ class ValidatorSpec extends Specification {
 
         expect:
         violations.size() == 2
-        violations[0].constraintDescriptor.annotation instanceof Size
+        violations[0].constraintDescriptor.type == Size
 
-        violations[1].constraintDescriptor.annotation instanceof NotBlank
+        violations[1].constraintDescriptor.type == NotBlank
         violations[1].getPropertyPath().size() == 2
 
         when:
@@ -448,7 +444,7 @@ class ValidatorSpec extends Specification {
         def objectWithOptional = new ValidatorSpecClasses.ClassWithOptional(0)
         def violations = validator.validate(objectWithOptional)
 
-        violations[0].constraintDescriptor.annotation instanceof Min
+        violations[0].constraintDescriptor.type == Min
         violations[0].propertyPath.toString() == "number<T Integer>"
     }
 
@@ -468,11 +464,11 @@ class ValidatorSpec extends Specification {
         constraintViolations[0].invalidValue == 50
         constraintViolations[0].propertyPath.toString() == 'saveBook.pages'
         constraintViolations[0].constraintDescriptor != null
-        constraintViolations[0].constraintDescriptor.annotation instanceof  Min
-        constraintViolations[0].constraintDescriptor.annotation.value() == 100l
+        constraintViolations[0].constraintDescriptor.type == Min
+        constraintViolations[0].constraintDescriptor.attributes.get("value") == 100l
 
         constraintViolations[1].constraintDescriptor != null
-        constraintViolations[1].constraintDescriptor.annotation instanceof  NotBlank
+        constraintViolations[1].constraintDescriptor.type == NotBlank
     }
 
     void "test executable validator - cascade"() {
@@ -492,12 +488,12 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
         violations[0].propertyPath.toString() == 'saveBook.book.authors[0].name'
         violations[0].constraintDescriptor != null
-        violations[0].constraintDescriptor.annotation instanceof NotBlank
+        violations[0].constraintDescriptor.type == NotBlank
 
         violations[1].invalidValue == "X"
         violations[1].propertyPath.toString() == 'saveBook.book.name'
         violations[1].constraintDescriptor != null
-        violations[1].constraintDescriptor.annotation instanceof Size
+        violations[1].constraintDescriptor.type == Size
     }
 
     void "test validate method argument generic annotations"() {
@@ -596,7 +592,7 @@ class ValidatorSpec extends Specification {
         violations.size() == 1
         violations[0].invalidValue == 0
         violations[0].getPropertyPath().toString() == "optionalMethod.number"
-        violations[0].constraintDescriptor.annotation instanceof Min
+        violations[0].constraintDescriptor.type == Min
 
         violations[0].getPropertyPath().size() == 2
         def path = violations[0].getPropertyPath().iterator()
@@ -721,9 +717,9 @@ class ValidatorSpec extends Specification {
         beanDescriptor.isBeanConstrained()
         beanDescriptor.getConstrainedProperties().size() == 4
         descriptors.size() == 1
-        descriptors.first().annotation instanceof Size
-        descriptors.first().annotation.min() == 1
-        descriptors.first().annotation.max() == 10
+        descriptors.first().type == Size
+        descriptors.first().attributes.get("min") == 1
+        descriptors.first().attributes.get("max") == 10
     }
 
     void "test empty bean descriptor"() {
@@ -734,6 +730,15 @@ class ValidatorSpec extends Specification {
         expect:
         !beanDescriptor.isBeanConstrained()
         beanDescriptor.getConstrainedProperties().size() == 0
+    }
+
+    void "test descriptor returns null for unconstrained property"() {
+        given:
+        BeanDescriptor beanDescriptor = validator.getConstraintsForClass(PartiallyConstrainedBook)
+
+        expect:
+        beanDescriptor.getConstraintsForProperty("title")
+        beanDescriptor.getConstraintsForProperty("subtitle") == null
     }
 
     void "test cascade to container of non-introspected class" () {
@@ -832,15 +837,205 @@ class ValidatorSpec extends Specification {
         violations[0].invalidValue == ""
     }
 
-    void "test a constrained @Value property is validated at injection time without @Introspected"() {
+    void "test an iterable backed by a list keeps iterable element paths"() {
+        when:
+        def violations = validator.validate(new IterableElements(items: [""]))
+
+        then:
+        violations.size() == 1
+        def nodes = violations[0].propertyPath.toList()
+        nodes[1].name == '<iterable element>'
+        nodes[1].index == null
+    }
+
+    void "test a custom report keeps the validated value and its bean"() {
+        given:
+        def bean = new CustomReported(text: "bad")
+
+        when:
+        def violations = validator.validate(bean)
+
+        then:
+        violations.size() == 1
+        violations[0].message == 'custom report'
+        violations[0].invalidValue == 'bad'
+        violations[0].leafBean.is(bean)
+    }
+
+    void "test violations do not hash the validated graph"() {
+        given:
+        def items = new ArrayList<Object>()
+        items.add(items)
+        items.add(null)
+        items.add(null)
+
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.SelfContaining(items))
+
+        then:
+        violations.size() == 2
+    }
+
+    void "test a field constraint reads the field its generated code reaches"() {
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.MaskedField())
+
+        then:
+        violations*.propertyPath*.toString().sort() == ['packaged', 'value']
+    }
+
+    void "test a group converted to the default group runs the default sequence the bean redefines"() {
+        when:
+        def violations = validator.validate(
+            new ValidatorSpecClasses.ConvertedToDefault(new ValidatorSpecClasses.SequencedChild("ab")),
+            ValidatorSpecClasses.External)
+
+        then:
+        violations*.propertyPath*.toString() == ['child.name']
+    }
+
+    void "test a group converted to validates the groups it extends"() {
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.ConvertedToDerived(new ValidatorSpecClasses.BaseGroupChild(null)))
+
+        then:
+        violations*.propertyPath*.toString() == ['child.name']
+    }
+
+    void "test a legacy valid map keeps the constraints of its keys"() {
+        given:
+        def pantry = new HashMap<String, ValidatorSpecClasses.Ingredient>()
+        pantry.put(null, new ValidatorSpecClasses.Ingredient("salt"))
+        pantry.put("pepper", new ValidatorSpecClasses.Ingredient(""))
+
+        when:
+        def violations = validator.validate(new ValidatorSpecClasses.ValidMapWithKeys(pantry))
+
+        then:
+        violations*.propertyPath*.toString().sort() == ['pantry[]<map key>', 'pantry[pepper].name']
+    }
+
+    void "test a non-numeric string fails Min and Max instead of throwing"() {
+        when:
+        def violations = validator.validate(new NumericText(value: "abc"))
+
+        then:
+        violations.size() == 2
+    }
+
+    void "test a calendar of another zone is compared at its instant"() {
+        given:
+        def tokyo = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"))
+        tokyo.setTimeInMillis(System.currentTimeMillis() - 60_000)
+
+        expect: "a minute ago is past, wherever its calendar is"
+        validator.validate(new PastCalendar(past: tokyo, future: tokyo))*.propertyPath*.toString() == ['future']
+    }
+
+    void "test a bean with only container element constraints is constrained"() {
+        given:
+        def descriptor = validator.getConstraintsForClass(ElementsOnly)
+
+        expect:
+        descriptor.isBeanConstrained()
+        descriptor.constrainedProperties*.propertyName == ['items']
+    }
+
+    void "test a long email domain is rejected without exhausting the stack"() {
+        when:
+        def violations = validator.validate(new LongEmail(email: "a@" + ("a." * 5000) + "com"))
+
+        then:
+        violations.size() == 1
+    }
+
+    void "test a group conversion leaves the constraints next to it in the requested groups"() {
+        when:
+        def violations = validator.validate(new ConvertingParent())
+
+        then:
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'child'
+    }
+
+    void "test group conversions chain across cascaded relationships"() {
+        when:
+        def violations = validator.validate(new ChainRoot(mid: new ChainMid(leaf: new ChainLeaf())))
+
+        then:
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'mid.leaf.value'
+    }
+
+    void "test the redefined default sequence runs when another group is requested with it"() {
+        when:
+        def violations = validator.validate(new RedefinedDefault(), jakarta.validation.groups.Default, OtherGroup)
+
+        then:
+        violations*.propertyPath*.toString() as Set == ['checked', 'other'] as Set
+    }
+
+    void "test cycle detection tracks instances, not equal beans"() {
+        given:
+        def child = new EqualNode(name: null)
+        def root = new EqualNode(name: "root", child: child)
+
+        when:
+        def violations = validator.validate(root)
+
+        then: "the child equal to the root is still validated"
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'child.name'
+    }
+
+    void "test a constraint repeating a group builds its descriptor"() {
+        when:
+        def violations = validator.validate(new RepeatedGroup())
+
+        then:
+        violations.size() == 1
+        validator.getConstraintsForClass(RepeatedGroup).getConstraintsForProperty("name")
+            .constraintDescriptors[0].groups == [jakarta.validation.groups.Default] as Set
+    }
+
+    void "test unwrap of an unsupported type throws a validation exception"() {
+        when:
+        applicationContext.getBean(ValidatorFactory).unwrap(String)
+
+        then:
+        thrown(jakarta.validation.ValidationException)
+    }
+
+    void "test an unconstrained property is never read"() {
+        when:
+        def violations = validator.validate(new UnconstrainedGetter(name: ""))
+
+        then: "the throwing getter of the unconstrained property is not called"
+        violations.size() == 1
+        violations[0].propertyPath.toString() == 'name'
+    }
+
+    void "test the class-level constraints of a bean descriptor are filtered"() {
+        given:
+        def descriptor = validator.getConstraintsForClass(ClassLevelConstrained)
+
+        expect:
+        descriptor.findConstraints().getConstraintDescriptors().size() == 1
+        descriptor.findConstraints().unorderedAndMatchingGroups(jakarta.validation.groups.Default).getConstraintDescriptors().size() == 1
+        descriptor.findConstraints().unorderedAndMatchingGroups(UnrelatedGroup).getConstraintDescriptors().isEmpty()
+        descriptor.findConstraints().declaredOn(java.lang.annotation.ElementType.FIELD).getConstraintDescriptors().isEmpty()
+        descriptor.findConstraints().declaredOn(java.lang.annotation.ElementType.TYPE).getConstraintDescriptors().size() == 1
+        !descriptor.findConstraints().unorderedAndMatchingGroups(UnrelatedGroup).hasConstraints()
+    }
+
+    void "test a constrained @Value field is validated at inject time without @Introspected"() {
         when:
         applicationContext.getBean(A)
-        then:
+        then: "the definition validates the value it injects, no introspection of the bean needed"
         BeanInstantiationException e = thrown()
-        e.message.contains('''io.micronaut.validation.validator.A.number - must be less than or equal to 20''')
+        e.message.contains('''number - must be less than or equal to 20''')
         and:
         ClassUtils.forName('io.micronaut.validation.validator.$A$Definition', getClass().getClassLoader()).isPresent()
-        ClassUtils.forName('io.micronaut.validation.validator.$A$Definition$Intercepted', getClass().getClassLoader()).isEmpty()
     }
 
     void "test @Introspected is required to validate the bean after construction"() {
@@ -1076,6 +1271,14 @@ class Book {
 }
 
 @Introspected
+class PartiallyConstrainedBook {
+    @NotBlank
+    String title
+
+    String subtitle
+}
+
+@Introspected
 class Author {
     @NotBlank
     String name
@@ -1091,6 +1294,7 @@ class OptionalGetters {
 
     @Nullable
     @Pattern(regexp = "[a-z]+")
+    @io.micronaut.core.annotation.ReflectiveAccess
     String alpha
 
     Optional<String> getAlpha() {
@@ -1142,4 +1346,120 @@ class MyBookService {
     MyBook saveBook(@Valid MyBook book) {
         book
     }
+}
+
+@Introspected
+class UnconstrainedGetter {
+    @NotBlank
+    String name
+
+    String getBroken() {
+        throw new IllegalStateException("an unconstrained property must not be read")
+    }
+}
+
+interface UnrelatedGroup {}
+
+@Introspected
+@io.micronaut.validation.validator.ClassLevelCheck
+class ClassLevelConstrained {
+}
+
+@Introspected
+class EqualNode {
+    @NotNull
+    String name
+    @Valid
+    EqualNode child
+
+    @Override
+    boolean equals(Object o) { o instanceof EqualNode }
+
+    @Override
+    int hashCode() { 1 }
+}
+
+@Introspected
+class RepeatedGroup {
+    @NotNull(groups = [jakarta.validation.groups.Default, jakarta.validation.groups.Default])
+    String name
+}
+
+@Introspected
+class LongEmail {
+    @jakarta.validation.constraints.Email
+    String email
+}
+
+interface BasicGroup {}
+interface AdvancedGroup {}
+interface ChecksGroup {}
+interface OtherGroup {}
+
+@Introspected
+class ConvertingParent {
+    @NotNull
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = jakarta.validation.groups.Default, to = BasicGroup)
+    ChainLeaf child
+}
+
+@Introspected
+class ChainRoot {
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = jakarta.validation.groups.Default, to = BasicGroup)
+    ChainMid mid
+}
+
+@Introspected
+class ChainMid {
+    @Valid
+    @jakarta.validation.groups.ConvertGroup(from = BasicGroup, to = AdvancedGroup)
+    ChainLeaf leaf
+}
+
+@Introspected
+class ChainLeaf {
+    @NotNull(groups = AdvancedGroup)
+    String value
+}
+
+@Introspected
+@jakarta.validation.GroupSequence([RedefinedDefault, ChecksGroup])
+class RedefinedDefault {
+    @NotNull(groups = ChecksGroup)
+    String checked
+    @NotNull(groups = OtherGroup)
+    String other
+}
+
+@Introspected
+class NumericText {
+    @Min(1L)
+    @Max(10L)
+    String value
+}
+
+@Introspected
+class PastCalendar {
+    @jakarta.validation.constraints.Past
+    Calendar past
+    @jakarta.validation.constraints.Future
+    Calendar future
+}
+
+@Introspected
+class ElementsOnly {
+    List<@NotBlank String> items
+}
+
+@Introspected
+class CustomReported {
+    @CustomReport
+    String text
+}
+
+@Introspected
+class IterableElements {
+    Iterable<@NotBlank String> items
 }

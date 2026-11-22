@@ -15,7 +15,6 @@
  */
 package io.micronaut.validation.validator.messages;
 
-import org.jspecify.annotations.NonNull;
 
 import java.util.Locale;
 import java.util.Optional;
@@ -23,13 +22,12 @@ import java.util.Optional;
 /**
  * Resolves the Locale for the {@link DefaultMessageInterpolator}.
  * @author Sergio del Amo
- * @since 4.9.
+ * @since 4.9.0
  */
 public interface InterpolatorLocaleResolver {
     /**
      *
      * @return If the locale could be resolved.
      */
-    @NonNull
     Optional<Locale> resolve();
 }

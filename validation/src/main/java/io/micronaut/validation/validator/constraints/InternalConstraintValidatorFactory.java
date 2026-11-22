@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import jakarta.validation.ConstraintTarget;
 import jakarta.validation.ConstraintValidator;
@@ -40,8 +39,8 @@ public interface InternalConstraintValidatorFactory extends ConstraintValidatorF
      * @param <T>              The validator type
      * @return a new instance or null if not supported
      */
-    @Nullable <T extends ConstraintValidator<?, ?>> T getInstance(@NonNull Class<T> validatorType,
-                                                                  @NonNull Class<?> targetType,
-                                                                  @NonNull ConstraintTarget constraintTarget);
+    @Nullable <T extends ConstraintValidator<?, ?>> T getInstance(Class<T> validatorType,
+                                                                  Class<?> targetType,
+                                                                  ConstraintTarget constraintTarget);
 
 }

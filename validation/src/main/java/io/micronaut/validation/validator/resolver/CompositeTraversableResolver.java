@@ -22,6 +22,8 @@ import jakarta.inject.Singleton;
 
 import jakarta.validation.Path;
 import jakarta.validation.TraversableResolver;
+import org.jspecify.annotations.Nullable;
+
 import java.lang.annotation.ElementType;
 import java.util.List;
 
@@ -36,7 +38,7 @@ import java.util.List;
 @Internal
 public class CompositeTraversableResolver implements TraversableResolver {
 
-    private final List<TraversableResolver> traversableResolvers;
+    private final @Nullable List<TraversableResolver> traversableResolvers;
 
     /**
      * Default constructor.
@@ -46,14 +48,28 @@ public class CompositeTraversableResolver implements TraversableResolver {
         this.traversableResolvers = CollectionUtils.isEmpty(traversableResolvers) ? null : traversableResolvers;
     }
 
+    /**
+     * Whether no resolver is configured, so every node is reachable and cascadable. A subclass may answer
+     * otherwise, so the validator takes this for the composite itself only.
+     *
+     * @return Whether no resolver is configured, so every node is reachable and cascadable
+     * @since 5.3.0
+     */
+    public boolean traversesAll() {
+        return traversableResolvers == null;
+    }
+
     @Override
     public boolean isReachable(Object traversableObject, Path.Node traversableProperty, Class<?> rootBeanType, Path pathToTraversableObject, ElementType elementType) {
         if (traversableResolvers == null) {
             return true;
         }
-        return traversableResolvers.stream().allMatch(r ->
-                r.isReachable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)
-        );
+        for (TraversableResolver resolver : traversableResolvers) {
+            if (!resolver.isReachable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override
@@ -61,8 +77,11 @@ public class CompositeTraversableResolver implements TraversableResolver {
         if (traversableResolvers == null) {
             return true;
         }
-        return traversableResolvers.stream().allMatch(r ->
-            r.isCascadable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)
-        );
+        for (TraversableResolver resolver : traversableResolvers) {
+            if (!resolver.isCascadable(traversableObject, traversableProperty, rootBeanType, pathToTraversableObject, elementType)) {
+                return false;
+            }
+        }
+        return true;
     }
 }

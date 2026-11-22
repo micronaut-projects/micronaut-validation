@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
 import io.micronaut.core.util.CollectionUtils;
 import java.util.List;
 
@@ -26,7 +25,6 @@ import java.util.List;
  */
 @Internal
 record DefaultBeanValidationContext(
-    @NonNull
     List<Class<?>> groups)
     implements BeanValidationContext {
     public DefaultBeanValidationContext {

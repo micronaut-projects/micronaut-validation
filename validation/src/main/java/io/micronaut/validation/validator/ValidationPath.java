@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
@@ -30,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Path implementation.
@@ -68,7 +68,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         return remove(size() - 1);
     }
 
-    Node peekLast() {
+    @Nullable Node peekLast() {
         return isEmpty() ? null : get(size() - 1);
     }
 
@@ -127,7 +127,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         return addNode(new ValidationPath.DefaultPropertyNode(name, containerContext));
     }
 
-    ContextualPath addParameterNode(String name, int index) {
+    ContextualPath addParameterNode(@Nullable String name, int index) {
         return addNode(new ValidationPath.DefaultParameterNode(name, index));
     }
 
@@ -157,7 +157,17 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         };
     }
 
-    ContextualPath addConstructorNode(String simpleName, Argument<?>... constructorArguments) {
+    /**
+     * @param type A type
+     * @return The name of the type without its package and enclosing types, the name of its constructor nodes
+     */
+    static String simpleName(Class<?> type) {
+        String name = type.getName();
+        return name.substring(Math.max(name.lastIndexOf('.'), name.lastIndexOf('$')) + 1);
+    }
+
+    @SuppressWarnings("unchecked")
+    ContextualPath addConstructorNode(String simpleName, Class<?> declaringType, Argument<?>... constructorArguments) {
         final ValidationPath.DefaultConstructorNode node = new ValidationPath.DefaultConstructorNode(new MethodReference<>() {
 
             @Override
@@ -167,17 +177,19 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
 
             @Override
             public Method getTargetMethod() {
-                return null;
+                // a constructor is no method: the parameter names of a constructor node are read from its Constructor
+                throw new UnsupportedOperationException("A constructor of " + declaringType.getName() + " has no target method");
             }
 
             @Override
             public ReturnType<Object> getReturnType() {
-                return null;
+                // a constructor returns the object it creates
+                return ReturnType.of((Class<Object>) declaringType);
             }
 
             @Override
             public Class getDeclaringType() {
-                return null;
+                return declaringType;
             }
 
             @Override
@@ -204,7 +216,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         };
     }
 
-    public Node last() {
+    public @Nullable Node last() {
         return peekLast();
     }
 
@@ -251,12 +263,12 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Class<?> getContainerClass() {
+        public @Nullable Class<?> getContainerClass() {
             return containerContext.containerClass();
         }
 
         @Override
-        public Integer getTypeArgumentIndex() {
+        public @Nullable Integer getTypeArgumentIndex() {
             return containerContext.typeArgumentIndex();
         }
 
@@ -275,12 +287,12 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Class<?> getContainerClass() {
+        public @Nullable Class<?> getContainerClass() {
             return containerContext.containerClass();
         }
 
         @Override
-        public Integer getTypeArgumentIndex() {
+        public @Nullable Integer getTypeArgumentIndex() {
             return containerContext.typeArgumentIndex();
         }
 
@@ -336,16 +348,16 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
      * Default node implementation.
      */
     abstract static class DefaultNode implements Node {
-        protected final String name;
+        protected final @Nullable String name;
         protected final ContainerContext containerContext;
 
-        public DefaultNode(String name, ContainerContext containerContext) {
+        public DefaultNode(@Nullable String name, ContainerContext containerContext) {
             this.name = name;
             this.containerContext = containerContext;
         }
 
         @Override
-        public String getName() {
+        public @Nullable String getName() {
             return name;
         }
 
@@ -355,18 +367,19 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Integer getIndex() {
+        public @Nullable Integer getIndex() {
             return containerContext.index();
         }
 
         @Override
-        public Object getKey() {
+        public @Nullable Object getKey() {
             return containerContext.key();
         }
 
         @Override
         public String toString() {
-            return name;
+            // a bean node has no name
+            return name == null ? "" : name;
         }
 
         @Override
@@ -381,6 +394,72 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
             return ConstraintTarget.IMPLICIT;
         }
 
+        /**
+         * Nodes are values, as in the reference implementation: two violations of one constraint on the same
+         * element, reported by two steps of a validation, are the same violation.
+         */
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof DefaultNode that) || getKind() != that.getKind()) {
+                return false;
+            }
+            return Objects.equals(name, that.name)
+                && isInIterable() == that.isInIterable()
+                && Objects.equals(getIndex(), that.getIndex())
+                && Objects.equals(getKey(), that.getKey())
+                && Objects.equals(containerClass(this), containerClass(that))
+                && Objects.equals(typeArgumentIndex(this), typeArgumentIndex(that))
+                && parameterIndex(this) == parameterIndex(that)
+                && Objects.equals(parameterTypes(this), parameterTypes(that));
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(getKind(), name, getIndex(), getKey());
+        }
+
+        private static @Nullable Class<?> containerClass(Node node) {
+            if (node instanceof ContainerElementNode n) {
+                return n.getContainerClass();
+            }
+            if (node instanceof PropertyNode n) {
+                return n.getContainerClass();
+            }
+            if (node instanceof BeanNode n) {
+                return n.getContainerClass();
+            }
+            return null;
+        }
+
+        private static @Nullable Integer typeArgumentIndex(Node node) {
+            if (node instanceof ContainerElementNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            if (node instanceof PropertyNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            if (node instanceof BeanNode n) {
+                return n.getTypeArgumentIndex();
+            }
+            return null;
+        }
+
+        private static int parameterIndex(Node node) {
+            return node instanceof ParameterNode n ? n.getParameterIndex() : -1;
+        }
+
+        private static @Nullable List<Class<?>> parameterTypes(Node node) {
+            if (node instanceof MethodNode n) {
+                return n.getParameterTypes();
+            }
+            if (node instanceof ConstructorNode n) {
+                return n.getParameterTypes();
+            }
+            return null;
+        }
     }
 
     /**
@@ -416,17 +495,17 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
      */
     private static final class DefaultContainerElementNode extends DefaultNode implements ContainerElementNode {
 
-        public DefaultContainerElementNode(@Nullable String name, @NonNull ContainerContext containerContext) {
+        public DefaultContainerElementNode(@Nullable String name, ContainerContext containerContext) {
             super(name, containerContext);
         }
 
         @Override
-        public Class<?> getContainerClass() {
+        public @Nullable Class<?> getContainerClass() {
             return containerContext.containerClass();
         }
 
         @Override
-        public Integer getTypeArgumentIndex() {
+        public @Nullable Integer getTypeArgumentIndex() {
             return containerContext.typeArgumentIndex();
         }
 
@@ -436,12 +515,12 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Integer getIndex() {
+        public @Nullable Integer getIndex() {
             return containerContext.index();
         }
 
         @Override
-        public Object getKey() {
+        public @Nullable Object getKey() {
             return containerContext.key();
         }
 
@@ -455,7 +534,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
     /**
      * Default constructor node.
      */
-    private static final class DefaultConstructorNode extends DefaultMethodNode implements ConstructorNode {
+    static final class DefaultConstructorNode extends DefaultMethodNode implements ConstructorNode {
         public DefaultConstructorNode(MethodReference<Object, Object> methodReference) {
             super(methodReference);
         }
@@ -467,31 +546,31 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
     }
 
     public interface ContainerContext {
-        static ContainerContext indexed(Class<?> containerClass, int index, Integer typeArgumentIndex) {
+        static ContainerContext indexed(Class<?> containerClass, int index, @Nullable Integer typeArgumentIndex) {
             return new ValidationPath.DefaultContainerContext(containerClass, index, null, true, typeArgumentIndex);
         }
 
-        static ContainerContext keyed(Class<?> containerClass, Object key, Integer typeArgumentIndex) {
+        static ContainerContext keyed(Class<?> containerClass, @Nullable Object key, @Nullable Integer typeArgumentIndex) {
             return new ValidationPath.DefaultContainerContext(containerClass, null, key, true, typeArgumentIndex);
         }
 
-        static ContainerContext iterable(Class<?> containerClass, Integer typeArgumentIndex) {
+        static ContainerContext iterable(Class<?> containerClass, @Nullable Integer typeArgumentIndex) {
             return new ValidationPath.DefaultContainerContext(containerClass, null, null, true, typeArgumentIndex);
         }
 
-        static ContainerContext value(Class<?> containerClass, Integer typeArgumentIndex) {
+        static ContainerContext value(Class<?> containerClass, @Nullable Integer typeArgumentIndex) {
             return new ValidationPath.DefaultContainerContext(containerClass, null, null, false, typeArgumentIndex);
         }
 
-        Class<?> containerClass();
+        @Nullable Class<?> containerClass();
 
-        Integer index();
+        @Nullable Integer index();
 
-        Object key();
+        @Nullable Object key();
 
         boolean isInIterable();
 
-        Integer typeArgumentIndex();
+        @Nullable Integer typeArgumentIndex();
     }
 
     /**
@@ -557,17 +636,17 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Class<?> containerClass() {
+        public @Nullable Class<?> containerClass() {
             return containerClass;
         }
 
         @Override
-        public Integer index() {
+        public @Nullable Integer index() {
             return index;
         }
 
         @Override
-        public Object key() {
+        public @Nullable Object key() {
             return key;
         }
 
@@ -577,7 +656,7 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         }
 
         @Override
-        public Integer typeArgumentIndex() {
+        public @Nullable Integer typeArgumentIndex() {
             return typeArgumentIndex;
         }
 

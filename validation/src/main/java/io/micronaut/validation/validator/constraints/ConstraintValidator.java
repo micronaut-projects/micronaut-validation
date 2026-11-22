@@ -17,7 +17,6 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Indexed;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.Constraint;
@@ -35,7 +34,7 @@ import java.lang.annotation.Annotation;
  */
 @Indexed(ConstraintValidator.class)
 @FunctionalInterface
-public interface ConstraintValidator<A extends Annotation, T> extends jakarta.validation.ConstraintValidator<A, T> {
+public interface ConstraintValidator<A extends Annotation, T extends @Nullable Object> extends jakarta.validation.ConstraintValidator<A, T> {
 
     /**
      * A constraint validator that just returns the object as being valid.
@@ -55,11 +54,11 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
      */
     boolean isValid(
             @Nullable T value,
-            @NonNull AnnotationValue<A> annotationMetadata,
-            @NonNull ConstraintValidatorContext context);
+            AnnotationValue<A> annotationMetadata,
+            ConstraintValidatorContext context);
 
     @Override
-    default boolean isValid(T value, jakarta.validation.ConstraintValidatorContext context) {
+    default boolean isValid(@Nullable T value, jakarta.validation.ConstraintValidatorContext context) {
         // simply adapt the interfaces for now.
         return isValid(value, new AnnotationValue<>(Constraint.class.getName()), new ConstraintValidatorContext() {
 
@@ -73,7 +72,6 @@ public interface ConstraintValidator<A extends Annotation, T> extends jakarta.va
                 return context.getDefaultConstraintMessageTemplate();
             }
 
-            @NonNull
             @Override
             public ClockProvider getClockProvider() {
                 return context.getClockProvider();

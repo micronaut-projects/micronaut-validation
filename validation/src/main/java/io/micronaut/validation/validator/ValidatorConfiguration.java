@@ -16,15 +16,18 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.ExecutionHandleLocator;
-import org.jspecify.annotations.NonNull;
+import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.beans.BeanIntrospector;
 import io.micronaut.core.convert.ConversionServiceProvider;
 import io.micronaut.validation.validator.constraints.ConstraintValidatorRegistry;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
 import io.micronaut.validation.validator.extractors.ValueExtractorRegistry;
 import jakarta.validation.ClockProvider;
 import jakarta.validation.ConstraintValidatorFactory;
 import jakarta.validation.MessageInterpolator;
+import jakarta.validation.ParameterNameProvider;
 import jakarta.validation.TraversableResolver;
+
 
 /**
  * Configuration for the {@link Validator}.
@@ -47,63 +50,69 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     /**
      * @return The constraint registry to use.
      */
-    @NonNull
     ConstraintValidatorRegistry getConstraintValidatorRegistry();
 
     /**
      * @return The constraint factory to use.
      * @since 4.3.0
      */
-    @NonNull
     ConstraintValidatorFactory getConstraintValidatorFactory();
 
     /**
      * @return The value extractor registry
      */
-    @NonNull
     ValueExtractorRegistry getValueExtractorRegistry();
 
     /**
      * @return The clock provider
      */
-    @NonNull
     ClockProvider getClockProvider();
 
     /**
      * @return The default clock provider
      */
-    @NonNull
     ClockProvider getDefaultClockProvider();
 
     /**
      * @return The traversable resolver to use
      */
-    @NonNull
     TraversableResolver getTraversableResolver();
 
     /**
      * @return The default traversable resolver to use
      */
-    @NonNull
     TraversableResolver getDefaultTraversableResolver();
 
     /**
      * @return The message interpolator
      */
-    @NonNull
     MessageInterpolator getMessageInterpolator();
 
     /**
      * @return The default message interpolator
      */
-    @NonNull
     MessageInterpolator getDefaultMessageInterpolator();
+
+    /**
+     * @return The parameter name provider
+     * @since 5.3.0
+     */
+    default ParameterNameProvider getParameterNameProvider() {
+        return getDefaultParameterNameProvider();
+    }
+
+    /**
+     * @return The default parameter name provider
+     * @since 5.3.0
+     */
+    default ParameterNameProvider getDefaultParameterNameProvider() {
+        return new DefaultParameterNameProvider();
+    }
 
     /**
      * The execution handler locator to use.
      * @return The locator
      */
-    @NonNull
     ExecutionHandleLocator getExecutionHandleLocator();
 
     /**
@@ -116,10 +125,57 @@ public interface ValidatorConfiguration extends ConversionServiceProvider {
     boolean isPrependPropertyPath();
 
     /**
+     * Whether constraint definitions are checked against the Jakarta Validation rules: a constraint declares
+     * the {@code message}, {@code groups} and {@code payload} members with the types and defaults the
+     * specification sets, and {@code validationAppliesTo} only when it is both generic and cross-parameter.
+     * <p>
+     * Default: false, a constraint may omit the members it does not need
+     *
+     * @return Whether constraint definitions are checked
+     * @since 5.3.0
+     */
+    default boolean isStrictConstraintDefinitions() {
+        return false;
+    }
+
+    /**
      * The bean introspector.
      * @return The introspector
      */
     default BeanIntrospector getBeanIntrospector() {
         return BeanIntrospector.SHARED;
+    }
+
+    /**
+     * Internal to the validator: an implementation keeps the default.
+     *
+     * @return The validators a configuration defines for the constraints
+     * @since 5.3.0
+     */
+    @Internal
+    default ConstraintValidatorOverrides getConstraintValidatorOverrides() {
+        return ConstraintValidatorOverrides.NONE;
+    }
+
+    /**
+     * Internal to the validator: an implementation keeps the default.
+     *
+     * @return The metadata access support selected for this configuration
+     * @since 5.3.0
+     */
+    @Internal
+    default ReflectionSupport getReflectionSupport() {
+        return ReflectionSupport.get();
+    }
+
+    /**
+     * Internal to the validator: an implementation keeps the default.
+     *
+     * @return The constraint validator factory the validator resolves validators through
+     * @since 5.3.0
+     */
+    @Internal
+    default InternalConstraintValidatorFactory getInternalConstraintValidatorFactory() {
+        return DefaultValidatorConfiguration.toInternalConstraintValidatorFactory(getConstraintValidatorFactory(), getReflectionSupport());
     }
 }

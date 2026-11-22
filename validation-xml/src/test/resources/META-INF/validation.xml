@@ -1,0 +1,4 @@
+<validation-config xmlns="https://jakarta.ee/xml/ns/validation/configuration" version="3.1">
+    <clock-provider>io.micronaut.validation.xml.TestClockProvider</clock-provider>
+    <property name="micronaut.validator.spec.reflection.enabled">true</property>
+</validation-config>

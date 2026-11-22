@@ -186,4 +186,33 @@ abstract class AbstractTest {
         anns.get(0).intValue("min").get() == 2
     }
 
+
+    void "constraints a super type declares on a type variable argument are inherited"() {
+        given:
+        def definition = buildBeanDefinition('test.Test','''
+package test;
+
+import java.util.List;
+
+import jakarta.validation.constraints.NotNull;
+
+@jakarta.inject.Singleton
+class Test implements TestBase<String> {
+    @Override
+    public void setList(List<String> list) {
+    }
+}
+
+interface TestBase<T> {
+    @io.micronaut.context.annotation.Executable
+    void setList(List<@NotNull T> list);
+}
+''')
+        when:
+        def method = definition.getRequiredMethod("setList", List<String>)
+
+        then:
+        method.arguments[0].typeParameters.size() == 1
+        method.arguments[0].typeParameters[0].annotationMetadata.hasAnnotation(NotNull)
+    }
 }

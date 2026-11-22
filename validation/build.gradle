@@ -1,5 +1,7 @@
 plugins {
     id "io.micronaut.build.internal.validation-module"
+    id "io.micronaut.build.internal.validation-compiler-fixtures"
+    id "io.micronaut.build.internal.validation-native-smoke"
     alias(libs.plugins.jmh)
 }
 
@@ -39,6 +41,13 @@ dependencies {
     jmhAnnotationProcessor(projects.micronautValidationProcessor)
     jmhAnnotationProcessor(mn.micronaut.inject.java)
     jmh(libs.jmh.core)
+}
+
+noReflection {
+    allowIn("io.micronaut.validation.validator.ConstraintValidatorServiceDiscovery", "SERVICE_LOADING")
+    allowIn("io.micronaut.validation.validator.ReflectionSupportServiceDiscovery", "SERVICE_LOADING")
+    // the deprecated DefaultValidatorConfiguration.getClassFromType erases a signature the caller holds
+    allowIn("io.micronaut.validation.validator.DefaultValidatorConfiguration", "GENERIC_SIGNATURES")
 }
 
 spotless {

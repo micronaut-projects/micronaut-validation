@@ -50,9 +50,11 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -64,6 +66,16 @@ import java.util.stream.Stream;
  */
 @Internal
 final class ArchiveCompiler {
+
+    /**
+     * Whether the deployment is compiled with the Micronaut annotation processor. Without it the archive has
+     * no generated bean introspections and everything the validator reads comes from the reflection bridge.
+     */
+    private static final boolean PROCESSOR_ENABLED =
+        !"false".equalsIgnoreCase(System.getProperty("micronaut.validation.tck.processor.enabled", "true"));
+    static final String EXTRA_CLASSPATH_PROPERTY = "micronaut.validation.tck.archive.classpath";
+    private static final String WEB_INF_CLASSES = "/WEB-INF/classes";
+
     private final DeploymentDir deploymentDir;
     private final Archive<?> deploymentArchive;
 
@@ -72,7 +84,7 @@ final class ArchiveCompiler {
         this.deploymentArchive = deploymentArchive;
     }
 
-    void compile() throws ArchiveCompilationException, ArchiveCompilerException {
+    void compile() throws ArchiveCompilerException {
         try {
             if (deploymentArchive instanceof WebArchive) {
                 compileWar();
@@ -84,51 +96,65 @@ final class ArchiveCompiler {
         }
     }
 
-    private void compileWar() throws ArchiveCompilationException, IOException {
+    private void compileWar() throws ArchiveCompilerException, IOException {
         List<File> sourceFiles = new ArrayList<>();
         for (Map.Entry<ArchivePath, Node> entry : deploymentArchive.getContent().entrySet()) {
             String path = entry.getKey().get();
-            if (path.startsWith("/WEB-INF/classes") && path.endsWith(".class")) {
-                String sourceFile = path.replace("/WEB-INF/classes", "")
-                    .replace(".class", ".java");
-
-                if (sourceFile.contains("$") && !sourceFile.endsWith("$Dollar.java")) {
-                    // skip nested classes
-                    //
-                    // special case for $Dollar, which is the only class in CDI TCK
-                    // whose name actually intentionally contains '$'
-                    //
-                    // this is crude, maybe there's a better way?
-                    continue;
-                }
-
-                Path sourceFilePath = deploymentDir.source.resolve(sourceFile.substring(1)); // sourceFile begins with `/`
-
-                Files.createDirectories(sourceFilePath.getParent()); // make sure the directory exists
-                try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
-                    if (in == null) {
-                        // This might be a non-inner class defined in another class
-                        continue;
-                    }
-                    Files.copy(in, sourceFilePath);
-                }
-
-                sourceFiles.add(sourceFilePath.toFile());
+            if (path.startsWith(WEB_INF_CLASSES) && path.endsWith(".class")) {
+                copySourceFile(path, sourceFiles);
+            } else if (path.startsWith(WEB_INF_CLASSES)) {
+                copyResourceFile(path, entry.getValue());
             } else if (path.startsWith("/WEB-INF/lib") && path.endsWith(".jar")) {
-                String jarFile = path.replace("/WEB-INF/lib", "");
-                Path jarFilePath = deploymentDir.lib.resolve(jarFile.substring(1)); // jarFile begins with `/`
-
-                Files.createDirectories(jarFilePath.getParent()); // make sure the directory exists
-                try (InputStream in = entry.getValue().getAsset().openStream()) {
-                    Files.copy(in, jarFilePath);
-                }
+                copyJarFile(path, entry.getValue());
             }
         }
 
         doCompile(sourceFiles, deploymentDir.target.toFile());
     }
 
-    private void doCompile(Collection<File> testSources, File outputDir) throws ArchiveCompilationException, IOException {
+    private void copySourceFile(String path, List<File> sourceFiles) throws ArchiveCompilerException, IOException {
+        String sourceFile = path.replace(WEB_INF_CLASSES, "")
+            .replace(".class", ".java");
+        if (sourceFile.contains("$") && !sourceFile.contains("NestedContainerElementConstraintsTest$") && !sourceFile.endsWith("$Dollar.java")) {
+            // A deployed nested XML model needs its enclosing source processed as well.
+            sourceFile = sourceFile.substring(0, sourceFile.indexOf('$')) + ".java";
+        }
+        Path sourceFilePath = resolveUnderRoot(deploymentDir.source, sourceFile.substring(1));
+        if (sourceFiles.contains(sourceFilePath.toFile())) { return; }
+        Files.createDirectories(sourceFilePath.getParent());
+        try (InputStream in = ArchiveCompiler.class.getResourceAsStream(sourceFile)) {
+            if (in != null) {
+                Files.copy(in, sourceFilePath);
+                sourceFiles.add(sourceFilePath.toFile());
+            }
+        }
+    }
+
+    private void copyResourceFile(String path, Node node) throws ArchiveCompilerException, IOException {
+        if (node.getAsset() == null) {
+            return;
+        }
+        String resourceFile = path.replace(WEB_INF_CLASSES, "");
+        if (resourceFile.isEmpty()) {
+            return;
+        }
+        copyArchiveAsset(node, deploymentDir.target, resourceFile);
+    }
+
+    private void copyJarFile(String path, Node node) throws ArchiveCompilerException, IOException {
+        String jarFile = path.replace("/WEB-INF/lib", "");
+        copyArchiveAsset(node, deploymentDir.lib, jarFile);
+    }
+
+    private static void copyArchiveAsset(Node node, Path root, String archivePath) throws ArchiveCompilerException, IOException {
+        Path target = resolveUnderRoot(root, archivePath.substring(1));
+        Files.createDirectories(target.getParent());
+        try (InputStream in = node.getAsset().openStream()) {
+            Files.copy(in, target);
+        }
+    }
+
+    private void doCompile(Collection<File> testSources, File outputDir) throws ArchiveCompilerException, IOException {
         DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         try (StandardJavaFileManager mgr = compiler.getStandardFileManager(diagnostics, null, null)) {
@@ -137,7 +163,7 @@ final class ArchiveCompiler {
                 null,
                 mgr,
                 diagnostics,
-                Arrays.asList("-d", targetDir, "-verbose", "-parameters"),
+                compilerOptions(targetDir),
                 null,
                 mgr.getJavaFileObjectsFromFiles(
                     Stream.concat(
@@ -148,12 +174,58 @@ final class ArchiveCompiler {
                     ).toList()
                 )
             );
-            task.setProcessors(getAnnotationProcessors());
+            task.setProcessors(PROCESSOR_ENABLED ? getAnnotationProcessors() : List.of());
             Boolean success = task.call();
             if (!Boolean.TRUE.equals(success)) {
                 outputDiagnostics(diagnostics);
             }
         }
+    }
+
+    private List<String> compilerOptions(String targetDir) throws IOException {
+        List<String> options = new ArrayList<>(Arrays.asList("-d", targetDir, "-verbose", "-parameters"));
+        if (!PROCESSOR_ENABLED) {
+            // no bean introspections are generated: the validator describes the archive reflectively
+            options.add("-proc:none");
+        } else {
+            // the archives map types declaring no constraint in XML: describe every introspection
+            options.add("-Amicronaut.validation.describeAllIntrospections=true");
+        }
+        options.add("-classpath");
+        options.add(compilerClasspath());
+        return options;
+    }
+
+    private String compilerClasspath() throws IOException {
+        Set<String> classpath = new LinkedHashSet<>();
+        addClasspathEntries(classpath, System.getProperty("java.class.path"));
+        addClasspathEntries(classpath, System.getProperty(EXTRA_CLASSPATH_PROPERTY));
+        classpath.add(deploymentDir.target.toString());
+        try (Stream<Path> stream = Files.walk(deploymentDir.lib)) {
+            stream.filter(path -> path.toString().endsWith(".jar"))
+                .map(Path::toString)
+                .forEach(classpath::add);
+        }
+        return String.join(File.pathSeparator, classpath);
+    }
+
+    private static void addClasspathEntries(Set<String> classpath, String pathList) {
+        if (pathList == null || pathList.isBlank()) {
+            return;
+        }
+        classpath.addAll(Arrays.asList(pathList.split(File.pathSeparator)));
+    }
+
+    static Path resolveUnderRoot(Path root, String relativePath) throws ArchiveCompilerException {
+        if (relativePath.isBlank() || relativePath.contains("\\") || relativePath.indexOf(':') > -1) {
+            throw new ArchiveCompilerException("Unsafe archive entry path: " + relativePath);
+        }
+        Path normalizedRoot = root.toAbsolutePath().normalize();
+        Path resolved = normalizedRoot.resolve(relativePath).normalize();
+        if (!resolved.startsWith(normalizedRoot)) {
+            throw new ArchiveCompilerException("Archive entry escapes deployment directory: " + relativePath);
+        }
+        return resolved;
     }
 
     private Path applicationClass(Collection<File> testSources) throws IOException {
@@ -215,6 +287,20 @@ final class ArchiveCompiler {
                 "classNames = {" + importBeans.stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}" +
                 ") ";
         }
+        // Nested models without source annotations need the complete core 5.3 visitor pipeline.
+        // The container test already imports its field-only fixtures above; importing its
+        // inaccessible helper getters would request unsupported generated invocation.
+        List<String> nestedModels = deploymentArchive.getContent().keySet().stream()
+            .map(path -> path.get().replace(WEB_INF_CLASSES, ""))
+            .filter(path -> path.contains("/org/hibernate/beanvalidation/tck/") && path.contains("$") && path.endsWith(".class"))
+            .filter(path -> !path.contains("NestedContainerElementConstraintsTest$"))
+            .filter(path -> !path.matches(".*\\$[0-9].*"))
+            .map(path -> path.substring(1, path.length() - ".class".length()).replace('/', '.'))
+            .distinct().toList();
+        for (var entry : nestedModels.stream().collect(Collectors.groupingBy(name -> name.substring(0, name.lastIndexOf('.')))).entrySet()) {
+            annotations += "@io.micronaut.context.annotation.ClassImport(targetPackage = \"" + entry.getKey()
+                + "\", classNames = {" + entry.getValue().stream().map(c -> "\"" + c + "\"").collect(Collectors.joining(", ")) + "}) ";
+        }
         final Path packagePath = deploymentDir.target.resolve(
             packageName.replace('.', '/')
         );
@@ -226,8 +312,8 @@ final class ArchiveCompiler {
         return applicationSource;
     }
 
-    private void outputDiagnostics(DiagnosticCollector<JavaFileObject> diagnostics) throws ArchiveCompilationException {
-        throw new ArchiveCompilationException("Compilation failed:\n" + diagnostics.getDiagnostics()
+    private void outputDiagnostics(DiagnosticCollector<JavaFileObject> diagnostics) throws ArchiveCompilerException {
+        throw new ArchiveCompilerException("Compilation failed:\n" + diagnostics.getDiagnostics()
             .stream()
             .map(it -> {
                 System.out.println(it);

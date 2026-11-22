@@ -16,13 +16,14 @@
 package io.micronaut.validation.validator.messages;
 
 import io.micronaut.context.MessageSource;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.util.ArgumentUtils;
 import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
+import io.micronaut.validation.validator.MessageAttributes;
 import jakarta.validation.MessageInterpolator;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,6 +36,9 @@ import java.util.Optional;
  */
 @Singleton
 public class DefaultMessageInterpolator implements MessageInterpolator {
+
+    // how deep bundle messages are interpolated within one another: a message referring to itself stops there
+    private static final int MAX_BUNDLE_DEPTH = 10;
 
     private static final char QUOT = '\\';
     private static final char L_BRACE = '{';
@@ -68,7 +72,11 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
         this(messageSource, Optional::empty);
     }
 
-    private String interpolate(@NonNull String template, MessageSource.@NonNull MessageContext context) {
+    private String interpolate(String template, MessageSource.MessageContext context) {
+        return interpolate(template, context, 0);
+    }
+
+    private String interpolate(String template, MessageSource.MessageContext context, int depth) {
         ArgumentUtils.requireNonNull("template", template);
         ArgumentUtils.requireNonNull("context", context);
 
@@ -86,13 +94,34 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     builder.append(R_BRACE);
                 } else if (c == DOLL_BRACE) {
                     builder.append(DOLL_BRACE);
+                } else if (c == QUOT) {
+                    // an escaped backslash is the backslash itself
+                    builder.append(QUOT);
                 } else {
                     builder.append(QUOT);
                     builder.append(c);
                 }
                 continue;
             }
-            if (c == L_BRACE) {
+            if (c == DOLL_BRACE && !isVariable && i + 1 < template.length() && template.charAt(i + 1) == L_BRACE) {
+                // ${name} is an expression of the Jakarta EL syntax, which this interpolator cannot evaluate.
+                // A bare variable of it — ${validatedValue} of the built-in constraints — is resolved anyway,
+                // so that a message reads the same whether or not an EL implementation is on the class path;
+                // anything else is left to the interpolator that can evaluate it.
+                int end = template.indexOf(R_BRACE, i + 2);
+                if (end > -1) {
+                    String variableName = template.substring(i + 2, end);
+                    Object variableValue = resolveVariable(variableName, context, depth);
+                    if (variableValue == null) {
+                        builder.append(DOLL_BRACE).append(L_BRACE).append(variableName).append(R_BRACE);
+                    } else {
+                        builder.append(variableText(variableValue));
+                    }
+                    i = end;
+                    continue;
+                }
+                builder.append(c);
+            } else if (c == L_BRACE) {
                 if (!isVariable) {
                     isVariable = true;
                     builder = variableBuilder;
@@ -105,14 +134,11 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
                     isVariable = false;
                     String variableName = variableBuilder.toString();
                     variableBuilder.setLength(0);
-                    Object variableValue = context.getVariables().get(variableName);
-                    if (variableValue == null) {
-                        variableValue = messageSource.getMessage(variableName, context).orElse(null);
-                    }
+                    Object variableValue = resolveVariable(variableName, context, depth);
                     if (variableValue == null) {
                         builder.append(L_BRACE).append(variableName).append(R_BRACE);
                     } else {
-                        builder.append(variableValue);
+                        builder.append(variableText(variableValue));
                     }
                 } else {
                     builder.append(c);
@@ -122,6 +148,29 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
             }
         }
         return builder.toString();
+    }
+
+    private static Object variableText(Object value) {
+        if (value.getClass().isArray()) {
+            // an array is interpolated by its elements, as the reference implementation does
+            String text = Arrays.deepToString(new Object[] {value});
+            return text.substring(1, text.length() - 1);
+        }
+        return value;
+    }
+
+    @Nullable
+    private Object resolveVariable(String variableName, MessageSource.MessageContext context, int depth) {
+        Object variableValue = context.getVariables().get(variableName);
+        if (variableValue == null) {
+            // the message of a bundle is interpolated by the rules of this interpolator, not by the ones of the
+            // message source: a quote stays, an unknown parameter stays a parameter
+            String rawMessage = messageSource.getRawMessage(variableName, context).orElse(null);
+            if (rawMessage != null) {
+                variableValue = depth >= MAX_BUNDLE_DEPTH ? rawMessage : interpolate(rawMessage, context, depth + 1);
+            }
+        }
+        return variableValue;
     }
 
     @Override
@@ -134,7 +183,7 @@ public class DefaultMessageInterpolator implements MessageInterpolator {
 
     @Override
     public String interpolate(String messageTemplate, Context context, Locale locale) {
-        var attributes = new HashMap<>(context.getConstraintDescriptor().getAttributes());
+        var attributes = new HashMap<>(MessageAttributes.of(context.getConstraintDescriptor()));
         attributes.put("validatedValue", context.getValidatedValue());
         if (context instanceof DefaultMessageInterpolatorContext interpolatorContext) {
             attributes.put("validatedPath", interpolatorContext.getValidatorContext().getCurrentPath());

@@ -15,27 +15,49 @@
  */
 package io.micronaut.validation.validator;
 
+import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanConstructor;
 import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanMethod;
 import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanPropertyMember;
+import io.micronaut.core.type.Argument;
 import io.micronaut.core.util.ArgumentUtils;
-import jakarta.validation.Constraint;
+import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.GroupSequence;
+import jakarta.validation.Payload;
 import jakarta.validation.Valid;
+import jakarta.validation.groups.Default;
 import jakarta.validation.metadata.BeanDescriptor;
 import jakarta.validation.metadata.ConstraintDescriptor;
 import jakarta.validation.metadata.ConstructorDescriptor;
 import jakarta.validation.metadata.ContainerElementTypeDescriptor;
 import jakarta.validation.metadata.ElementDescriptor;
+import jakarta.validation.metadata.ExecutableDescriptor;
 import jakarta.validation.metadata.GroupConversionDescriptor;
 import jakarta.validation.metadata.MethodDescriptor;
 import jakarta.validation.metadata.MethodType;
+import jakarta.validation.metadata.ParameterDescriptor;
 import jakarta.validation.metadata.PropertyDescriptor;
 import jakarta.validation.metadata.Scope;
+import jakarta.validation.metadata.ValidateUnwrappedValue;
+import org.jspecify.annotations.Nullable;
 
 import java.lang.annotation.Annotation;
 import java.lang.annotation.ElementType;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -46,63 +68,179 @@ import java.util.stream.Collectors;
  * @since 1.2.0
  */
 @Internal
-class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
+public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.ConstraintFinder {
 
     private final BeanIntrospection<?> beanIntrospection;
+    private final ReflectionSupport reflectionSupport;
+    private final AnnotationMetadata beanAnnotationMetadata;
+    private final ConstraintValidatorOverrides validatorOverrides;
+    private final IntrospectedExecutableDescriptors executables;
+    // what each element declares itself, read once: a metadata hierarchy builds it anew on every call
+    private final Map<AnnotationMetadata, AnnotationMetadata> declaredMetadata = Collections.synchronizedMap(new IdentityHashMap<>());
+    @Nullable
+    private final ValidatorDeclarations declarations;
+
+    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection,
+                               ConstraintValidatorOverrides validatorOverrides,
+                               ValidatorDeclarations declarations) {
+        this(declarations.reflectionSupport(), beanIntrospection, validatorOverrides, declarations);
+    }
 
     /**
-     * Default constructor.
-     *
+     * Creates a descriptor with the application's captured access provider.
+     * @param reflectionSupport The access provider
      * @param beanIntrospection The bean introspection
+     * @param validatorOverrides The configured validators of the constraints
      */
-    IntrospectedBeanDescriptor(BeanIntrospection<?> beanIntrospection) {
+    public IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
+            ConstraintValidatorOverrides validatorOverrides) {
+        this(reflectionSupport, beanIntrospection, validatorOverrides, null);
+    }
+
+    private IntrospectedBeanDescriptor(ReflectionSupport reflectionSupport, BeanIntrospection<?> beanIntrospection,
+            ConstraintValidatorOverrides validatorOverrides, @Nullable ValidatorDeclarations declarations) {
         ArgumentUtils.requireNonNull("beanIntrospection", beanIntrospection);
         this.beanIntrospection = beanIntrospection;
+        this.reflectionSupport = reflectionSupport;
+        this.beanAnnotationMetadata = beanIntrospection.getAnnotationMetadata();
+        this.validatorOverrides = validatorOverrides;
+        this.executables = new IntrospectedExecutableDescriptors(this::constraintDescriptors, declarations, reflectionSupport);
+        this.declarations = declarations;
     }
 
     @Override
     public boolean isBeanConstrained() {
-        return hasConstraints();
+        return hasConstraints() || !getConstrainedProperties().isEmpty();
     }
 
+    @Nullable
     @Override
     public PropertyDescriptor getConstraintsForProperty(String propertyName) {
+        if (propertyName == null) {
+            throw new IllegalArgumentException("Property name cannot be null");
+        }
         return beanIntrospection.getProperty(propertyName)
             .map(IntrospectedPropertyDescriptor::new)
+            .filter(IntrospectedBeanDescriptor::isConstrained)
+            .map(PropertyDescriptor.class::cast)
             .orElse(null);
     }
 
     @Override
     public Set<PropertyDescriptor> getConstrainedProperties() {
-        return beanIntrospection.getIndexedProperties(Constraint.class)
+        return beanIntrospection.getBeanProperties()
             .stream()
             .map(IntrospectedPropertyDescriptor::new)
-            .collect(Collectors.toSet());
+            .filter(IntrospectedBeanDescriptor::isConstrained)
+            .collect(Collectors.toCollection(LinkedHashSet::new));
     }
 
+    /**
+     * Whether a property declares something to validate: constraints, a cascade or constrained container elements.
+     */
+    private static boolean isConstrained(PropertyDescriptor property) {
+        return property.hasConstraints() || property.isCascaded() || !property.getConstrainedContainerElementTypes().isEmpty();
+    }
+
+    /**
+     * The executables come from the introspection — the {@code @Executable} methods and the constructor of a
+     * generated one, every public method and the constructor of a reflective one.
+     */
+    @Nullable
     @Override
     public MethodDescriptor getConstraintsForMethod(String methodName, Class<?>... parameterTypes) {
+        if (methodName == null) {
+            throw new IllegalArgumentException("Method name cannot be null");
+        }
+        for (BeanMethod<?, ?> method : beanIntrospection.getBeanMethods()) {
+            if (method.getName().equals(methodName) && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes)) {
+                MethodDescriptor descriptor = executables.method(method);
+                return IntrospectedExecutableDescriptors.isConstrained(descriptor) ? descriptor : null;
+            }
+        }
         return null;
     }
 
     @Override
     public Set<MethodDescriptor> getConstrainedMethods(MethodType methodType, MethodType... methodTypes) {
-        return Collections.emptySet();
+        Set<MethodType> requested = new HashSet<>(Arrays.asList(methodTypes));
+        requested.add(methodType);
+        Map<String, MethodDescriptor> methods = new LinkedHashMap<>();
+        for (BeanMethod<?, ?> method : beanIntrospection.getBeanMethods()) {
+            if (!requested.contains(isGetter(method) ? MethodType.GETTER : MethodType.NON_GETTER)) {
+                continue;
+            }
+            MethodDescriptor descriptor = executables.method(method);
+            if (IntrospectedExecutableDescriptors.isConstrained(descriptor)) {
+                methods.putIfAbsent(signature(descriptor.getName(), method.getArguments()), descriptor);
+            }
+        }
+        return new LinkedHashSet<>(methods.values());
     }
 
+    @Nullable
     @Override
     public ConstructorDescriptor getConstraintsForConstructor(Class<?>... parameterTypes) {
+        for (BeanConstructor<?> constructor : constructors()) {
+            if (Arrays.equals(Argument.toClassArray(constructor.getArguments()), parameterTypes)) {
+                ConstructorDescriptor descriptor = executables.constructor(constructor);
+                return IntrospectedExecutableDescriptors.isConstrained(descriptor) ? descriptor : null;
+            }
+        }
         return null;
     }
 
     @Override
     public Set<ConstructorDescriptor> getConstrainedConstructors() {
-        return Collections.emptySet();
+        Map<String, ConstructorDescriptor> constructors = new LinkedHashMap<>();
+        for (BeanConstructor<?> constructor : constructors()) {
+            ConstructorDescriptor descriptor = executables.constructor(constructor);
+            if (IntrospectedExecutableDescriptors.isConstrained(descriptor)) {
+                constructors.putIfAbsent(signature(descriptor), descriptor);
+            }
+        }
+        return new LinkedHashSet<>(constructors.values());
+    }
+
+    /**
+     * The constructors the introspection knows: every one of a reflective introspection, and of a generated
+     * introspection the ones it describes - all the declared constructors of a type introspected with
+     * {@code constructors = true}, else the one it instantiates through.
+     */
+    @SuppressWarnings("unchecked")
+    private List<BeanConstructor<?>> constructors() {
+        return (List<BeanConstructor<?>>) (List<?>) beanIntrospection.getConstructors();
+    }
+
+    private static boolean isGetter(BeanMethod<?, ?> method) {
+        if (method.getArguments().length != 0 || method.getReturnType().getType() == void.class) {
+            return false;
+        }
+        String name = method.getName();
+        return (name.startsWith("get") && name.length() > 3)
+            // the JavaBeans rule the specification follows: an is-method returns the primitive boolean
+            || (name.startsWith("is") && name.length() > 2 && method.getReturnType().getType() == boolean.class);
+    }
+
+    private static String signature(String name, Argument<?>[] arguments) {
+        StringBuilder signature = new StringBuilder(name).append('(');
+        for (Argument<?> argument : arguments) {
+            signature.append(argument.getType().getName()).append(',');
+        }
+        return signature.append(')').toString();
+    }
+
+    private static String signature(ExecutableDescriptor descriptor) {
+        StringBuilder signature = new StringBuilder(descriptor instanceof MethodDescriptor ? descriptor.getName() : "").append('(');
+        for (ParameterDescriptor parameter : descriptor.getParameterDescriptors()) {
+            signature.append(parameter.getElementClass().getName()).append(',');
+        }
+        return signature.append(')').toString();
     }
 
     @Override
     public boolean hasConstraints() {
-        return beanIntrospection.getIndexedProperty(Constraint.class).isPresent();
+        return ConstraintContainers.hasConstraints(reflectionSupport, beanAnnotationMetadata, currentClassLoader());
     }
 
     @Override
@@ -112,38 +250,117 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
     @Override
     public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-        return this;
+        return findConstraints().unorderedAndMatchingGroups(groups);
     }
 
     @Override
     public ConstraintFinder lookingAt(Scope scope) {
-        return this;
+        return findConstraints().lookingAt(scope);
     }
 
     @Override
     public ConstraintFinder declaredOn(ElementType... types) {
-        return this;
+        return findConstraints().declaredOn(types);
     }
 
     @Override
     public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-        return Collections.emptySet();
+        return constraintDescriptors(beanAnnotationMetadata);
     }
 
     @Override
     public ConstraintFinder findConstraints() {
-        return this;
+        return new BeanConstraintFinder(Set.of(), Scope.HIERARCHY, Set.of());
     }
 
     /**
-     * Internal implementation of {@link PropertyDescriptor}.
+     * The groups requested and those of the default group sequence of the bean when the default group is among
+     * them, as the section 4.4.2 redefines it.
+     */
+    private Set<Class<?>> effectiveGroups(Set<Class<?>> groups) {
+        Set<Class<?>> effective = new LinkedHashSet<>(groups);
+        if (groups.contains(Default.class)) {
+            for (Class<?> group : beanAnnotationMetadata.classValues(GroupSequence.class)) {
+                if (group != beanIntrospection.getBeanType()) {
+                    effective.add(group);
+                }
+            }
+        }
+        return effective;
+    }
+
+    private Set<ConstraintDescriptor<?>> constraintDescriptors(AnnotationMetadata annotationMetadata) {
+        return new LinkedHashSet<>(constraintDescriptorsByKey(annotationMetadata).values());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Map<String, ConstraintDescriptor<?>> constraintDescriptorsByKey(AnnotationMetadata annotationMetadata) {
+        Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
+        // the types are filtered to the declared constraints already, when the element declares any
+        for (Class<? extends Annotation> type : constraintTypes(annotationMetadata)) {
+            for (AnnotationValue<? extends Annotation> annotationValue : ConstraintContainers.values(reflectionSupport, annotationMetadata, type)) {
+                descriptors.putIfAbsent(
+                    ConstraintAnnotationKey.of(type, annotationValue),
+                    constraintDescriptor(type, annotationValue, annotationMetadata)
+                );
+            }
+        }
+        return descriptors;
+    }
+
+    /** The constraint types of a metadata, loaded by the context class loader. */
+    private List<Class<? extends Annotation>> constraintTypes(AnnotationMetadata annotationMetadata) {
+        return List.copyOf(ConstraintContainers.constraintTypes(reflectionSupport, annotationMetadata, currentClassLoader()));
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private DefaultConstraintDescriptor<?> constraintDescriptor(Class<? extends Annotation> type,
+                                                               AnnotationValue<? extends Annotation> annotationValue,
+                                                               AnnotationMetadata annotationMetadata) {
+        return DefaultConstraintDescriptor.of(reflectionSupport, (Class<Annotation>) type, (AnnotationValue<Annotation>) annotationValue,
+            annotationMetadata, validatorOverrides);
+    }
+
+    private ClassLoader currentClassLoader() {
+        return reflectionSupport.classLoader();
+    }
+
+    /**
+     * @param metadata The metadata of an element
+     * @return What the element declares itself, the same instance on every call
+     */
+    private AnnotationMetadata declaredMetadata(AnnotationMetadata metadata) {
+        AnnotationMetadata declared = declaredMetadata.get(metadata);
+        if (declared == null) {
+            declared = metadata.getDeclaredMetadata();
+            declaredMetadata.put(metadata, declared);
+        }
+        return declared;
+    }
+
+    /**
+     * A property. Its constraints are those of its metadata; when the introspection knows the members of the
+     * property — an introspection separating the declarations does — the finder can look at the local element only,
+     * at the fields or the methods only, and the constraints of a member are attributed to the member.
      */
     private final class IntrospectedPropertyDescriptor implements PropertyDescriptor, ConstraintFinder {
 
         private final BeanProperty<?, ?> beanProperty;
+        private final AnnotationMetadata annotationMetadata;
+        private final Set<Class<?>> groups;
+        private final Scope scope;
+        private final Set<ElementType> declaredOn;
 
         IntrospectedPropertyDescriptor(BeanProperty<?, ?> beanProperty) {
+            this(beanProperty, Set.of(), Scope.HIERARCHY, Set.of());
+        }
+
+        private IntrospectedPropertyDescriptor(BeanProperty<?, ?> beanProperty, Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
             this.beanProperty = beanProperty;
+            this.annotationMetadata = beanProperty.getAnnotationMetadata();
+            this.groups = groups;
+            this.scope = scope;
+            this.declaredOn = declaredOn;
         }
 
         @Override
@@ -153,22 +370,144 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
 
         @Override
         public boolean isCascaded() {
-            return beanProperty.hasAnnotation(Valid.class);
+            if (annotationMetadata.hasStereotype(Valid.class)) {
+                return true;
+            }
+            for (BeanProperty<?, ?> superProperty : superProperties()) {
+                if (declaredMetadata(superProperty.getAnnotationMetadata()).hasStereotype(Valid.class)) {
+                    return true;
+                }
+            }
+            for (BeanPropertyMember<?, ?> member : members()) {
+                if (member.getAnnotationMetadata().hasStereotype(Valid.class)) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         @Override
         public Set<GroupConversionDescriptor> getGroupConversions() {
-            return Collections.emptySet();
+            Set<GroupConversionDescriptor> conversions = new LinkedHashSet<>(IntrospectedExecutableDescriptors.groupConversions(annotationMetadata));
+            for (BeanProperty<?, ?> superProperty : superProperties()) {
+                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(declaredMetadata(superProperty.getAnnotationMetadata())));
+            }
+            for (BeanPropertyMember<?, ?> member : members()) {
+                conversions.addAll(IntrospectedExecutableDescriptors.groupConversions(member.getAnnotationMetadata()));
+            }
+            return conversions;
         }
 
+        /**
+         * The container elements of every member: the field and the getters of the type and of its
+         * interfaces may each declare a container type of their own — {@code Roles}, {@code Set<@NotBlank String>},
+         * {@code Iterable<@NotNull String>} — and each is a container element type of the property.
+         */
         @Override
         public Set<ContainerElementTypeDescriptor> getConstrainedContainerElementTypes() {
-            return Collections.emptySet();
+            List<? extends BeanPropertyMember<?, ?>> members = members();
+            if (members.isEmpty()) {
+                List<BeanProperty<?, ?>> superProperties = superProperties();
+                if (superProperties.isEmpty()) {
+                    return executables.containerElements(beanProperty.asArgument());
+                }
+                // an interface can declare another container than the implementation — Iterable<@NotNull String>
+                // where the class returns a Set — and each is a container element type of the property
+                Map<Class<?>, List<Argument<?>>> byContainerType = new LinkedHashMap<>();
+                byContainerType.computeIfAbsent(beanProperty.getType(), ignored -> new ArrayList<>()).add(beanProperty.asArgument());
+                for (BeanProperty<?, ?> superProperty : superProperties) {
+                    byContainerType.computeIfAbsent(superProperty.getType(), ignored -> new ArrayList<>()).add(superProperty.asArgument());
+                }
+                Set<ContainerElementTypeDescriptor> containerElements = new LinkedHashSet<>();
+                for (List<Argument<?>> arguments : byContainerType.values()) {
+                    containerElements.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
+                }
+                return containerElements;
+            }
+            // the type arguments of the members merged per container type: a field and a getter can constrain
+            // them differently, an interface getter can declare another container than the implementation
+            Map<Class<?>, List<Argument<?>>> byContainer = new LinkedHashMap<>();
+            for (BeanPropertyMember<?, ?> member : members) {
+                byContainer.computeIfAbsent(member.asArgument().getType(), ignored -> new ArrayList<>()).add(member.asArgument());
+            }
+            Set<ContainerElementTypeDescriptor> descriptors = new LinkedHashSet<>();
+            for (List<Argument<?>> arguments : byContainer.values()) {
+                descriptors.addAll(executables.containerElements(ExecutableHierarchy.mergeArgument(arguments)));
+            }
+            return descriptors;
         }
 
         @Override
         public boolean hasConstraints() {
-            return beanProperty.hasStereotype(Constraint.class);
+            if (ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, currentClassLoader())) {
+                return true;
+            }
+            for (BeanProperty<?, ?> superProperty : superProperties()) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, declaredMetadata(superProperty.getAnnotationMetadata()), currentClassLoader())) {
+                    return true;
+                }
+            }
+            for (BeanPropertyMember<?, ?> member : members()) {
+                if (ConstraintContainers.hasConstraints(reflectionSupport, member.getAnnotationMetadata(), currentClassLoader())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /**
+         * The members of the property, where the introspection tells apart what each declares: a reflective
+         * introspection reads the field of the type and the getter of every type of the hierarchy declaring
+         * one, so a member is attributed to the type declaring it. The members a generated introspection lists
+         * for a type introspected with {@code members = true} are the field and the getter of that type alone,
+         * with what the super types declare merged into the getter, so reading them here would lose the
+         * declaring types the specification attributes constraints to; the super types are read from their
+         * own introspections instead, see {@link #superProperties()}.
+         */
+        private List<? extends BeanPropertyMember<?, ?>> members() {
+            return reflectionSupport.separatesDeclarations(beanIntrospection)
+                ? beanProperty.getMembers()
+                : List.of();
+        }
+
+        /**
+         * The property as the super types of the bean declare it, the closest first. A generated
+         * introspection merges what a super type declares into the metadata of the property, so the
+         * declaring type of a constraint — which the specification needs for {@link Scope#LOCAL_ELEMENT},
+         * for the implicit group of an interface and for constraints that add up across a hierarchy — is
+         * read back from the introspections of the super types themselves.
+         *
+         * @return The property of each super type declaring one, empty when the introspection knows its
+         * members already or when there is nothing to read the super types from
+         */
+        private List<BeanProperty<?, ?>> superProperties() {
+            if (declarations == null || reflectionSupport.separatesDeclarations(beanIntrospection)) {
+                return List.of();
+            }
+            List<BeanProperty<?, ?>> properties = new ArrayList<>();
+            for (BeanIntrospection<?> superIntrospection : declarations.superIntrospections(beanIntrospection)) {
+                superIntrospection.getProperty(beanProperty.getName()).ifPresent(properties::add);
+            }
+            return properties;
+        }
+
+        /**
+         * The constraints the super types declare on the property, attributed to the type declaring each:
+         * an interface puts its constraints in the implicit group of the interface.
+         */
+        private Map<String, ConstraintDescriptor<?>> superConstraintDescriptors() {
+            Map<String, ConstraintDescriptor<?>> descriptors = new LinkedHashMap<>();
+            for (BeanProperty<?, ?> superProperty : superProperties()) {
+                Class<?> declaringType = superProperty.getDeclaringType();
+                AnnotationMetadata declared = declaredMetadata(superProperty.getAnnotationMetadata());
+                for (Map.Entry<String, ConstraintDescriptor<?>> entry : constraintDescriptorsByKey(declared).entrySet()) {
+                    ConstraintDescriptor<?> descriptor = declaringType.isInterface()
+                        ? new ImplicitGroupConstraintDescriptor<>(entry.getValue(), declaringType)
+                        : entry.getValue();
+                    descriptors.put(entry.getKey(), descriptor);
+                }
+            }
+            return descriptors;
         }
 
         @Override
@@ -177,37 +516,203 @@ class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescriptor.Co
         }
 
         @Override
-        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... groups) {
-            return this;
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
+            return new IntrospectedPropertyDescriptor(beanProperty, new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
         }
 
         @Override
-        public ConstraintFinder lookingAt(Scope scope) {
-            return this;
+        public ConstraintFinder lookingAt(Scope requested) {
+            return new IntrospectedPropertyDescriptor(beanProperty, groups, requested, declaredOn);
         }
 
         @Override
         public ConstraintFinder declaredOn(ElementType... types) {
-            return this;
+            return new IntrospectedPropertyDescriptor(beanProperty, groups, scope, new LinkedHashSet<>(List.of(types)));
         }
 
-        @SuppressWarnings("unchecked")
         @Override
         public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-            return beanProperty.getAnnotationTypesByStereotype(Constraint.class)
-                .stream().flatMap(type -> beanProperty.getAnnotationValuesByType(type).stream().map(annotationValue -> {
-                    AnnotationValue<? extends Annotation> annotation = beanProperty.getAnnotation(type);
-                        return (DefaultConstraintDescriptor<?>) new DefaultConstraintDescriptor(
-                        type,
-                        annotation,
-                        beanProperty
-                    );
-                })).collect(Collectors.toSet());
+            List<? extends BeanPropertyMember<?, ?>> members = members();
+            Set<ConstraintDescriptor<?>> descriptors;
+            if (members.isEmpty()) {
+                // the members are unknown: the metadata of the property, as validated, with what the super
+                // types declare attributed to them rather than to the type inheriting it
+                Map<String, ConstraintDescriptor<?>> byKey = new LinkedHashMap<>(constraintDescriptorsByKey(annotationMetadata));
+                AnnotationMetadata declared = declaredMetadata(annotationMetadata);
+                if (scope != Scope.LOCAL_ELEMENT) {
+                    byKey.putAll(superConstraintDescriptors());
+                } else if (declared != annotationMetadata) {
+                    // a hierarchy of metadata tells what the property declares itself, a constraint redeclared
+                    // as the super type declares it included
+                    byKey = new LinkedHashMap<>(constraintDescriptorsByKey(declared));
+                } else {
+                    superConstraintDescriptors().keySet().forEach(byKey::remove);
+                }
+                descriptors = new LinkedHashSet<>(byKey.values());
+            } else {
+                descriptors = new LinkedHashSet<>();
+                for (BeanPropertyMember<?, ?> member : members) {
+                    if (scope == Scope.LOCAL_ELEMENT && member.getDeclaringType() != beanIntrospection.getBeanType()) {
+                        continue;
+                    }
+                    if (!declaredOn.isEmpty() && !declaredOn.contains(member.getElementType())) {
+                        continue;
+                    }
+                    for (ConstraintDescriptor<?> descriptor : constraintDescriptors(member.getAnnotationMetadata())) {
+                        // a constraint an interface declares is in the group of the interface for the types implementing it
+                        boolean implicit = member.getDeclaringType().isInterface() && member.getDeclaringType() != beanIntrospection.getBeanType();
+                        descriptors.add(implicit ? new ImplicitGroupConstraintDescriptor<>(descriptor, member.getDeclaringType()) : descriptor);
+                    }
+                }
+            }
+            if (groups.isEmpty()) {
+                return descriptors;
+            }
+            Set<Class<?>> effective = effectiveGroups(groups);
+            Set<ConstraintDescriptor<?>> matching = new LinkedHashSet<>();
+            for (ConstraintDescriptor<?> descriptor : descriptors) {
+                if (IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective)) {
+                    matching.add(descriptor);
+                }
+            }
+            return matching;
         }
 
         @Override
         public ConstraintFinder findConstraints() {
-            return this;
+            return new IntrospectedPropertyDescriptor(beanProperty);
+        }
+    }
+
+    /**
+     * A constraint declared by an interface member belongs to the group of the interface as well, as the
+     * section 4.4.2 of the specification defines the implicit grouping.
+     *
+     * @param delegate      The constraint descriptor
+     * @param implicitGroup The interface declaring the member
+     * @param <A>           The annotation type
+     */
+    private record ImplicitGroupConstraintDescriptor<A extends Annotation>(ConstraintDescriptor<A> delegate, Class<?> implicitGroup) implements ConstraintDescriptor<A>, MessageAttributes.Source {
+
+        @Override
+        public Map<String, Object> messageAttributes() {
+            return MessageAttributes.of(delegate);
+        }
+
+        public Class<?> getType() {
+            return ((DefaultConstraintDescriptor<?>) delegate).getType();
+        }
+
+        @Override
+        public A getAnnotation() {
+            return delegate.getAnnotation();
+        }
+
+        @Override
+        public String getMessageTemplate() {
+            return delegate.getMessageTemplate();
+        }
+
+        @Override
+        public Set<Class<?>> getGroups() {
+            Set<Class<?>> groups = delegate.getGroups();
+            if (!groups.isEmpty() && !groups.contains(Default.class)) {
+                return groups;
+            }
+            Set<Class<?>> implicit = new LinkedHashSet<>(groups);
+            implicit.add(Default.class);
+            implicit.add(implicitGroup);
+            return implicit;
+        }
+
+        @Override
+        public Set<Class<? extends Payload>> getPayload() {
+            return delegate.getPayload();
+        }
+
+        @Override
+        public ConstraintTarget getValidationAppliesTo() {
+            return delegate.getValidationAppliesTo();
+        }
+
+        @Override
+        public List<Class<? extends ConstraintValidator<A, ?>>> getConstraintValidatorClasses() {
+            return delegate.getConstraintValidatorClasses();
+        }
+
+        @Override
+        public Map<String, Object> getAttributes() {
+            return delegate.getAttributes();
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getComposingConstraints() {
+            return delegate.getComposingConstraints();
+        }
+
+        @Override
+        public boolean isReportAsSingleViolation() {
+            return delegate.isReportAsSingleViolation();
+        }
+
+        @Override
+        public ValidateUnwrappedValue getValueUnwrapping() {
+            return delegate.getValueUnwrapping();
+        }
+
+        @Override
+        public <U> U unwrap(Class<U> type) {
+            return delegate.unwrap(type);
+        }
+    }
+
+    /** The class-level constraints of the bean, narrowed by groups, scope and element type. */
+    private final class BeanConstraintFinder implements ConstraintFinder {
+
+        private final Set<Class<?>> groups;
+        private final Scope scope;
+        private final Set<ElementType> declaredOn;
+
+        private BeanConstraintFinder(Set<Class<?>> groups, Scope scope, Set<ElementType> declaredOn) {
+            this.groups = groups;
+            this.scope = scope;
+            this.declaredOn = declaredOn;
+        }
+
+        @Override
+        public ConstraintFinder unorderedAndMatchingGroups(Class<?>... requested) {
+            return new BeanConstraintFinder(new LinkedHashSet<>(List.of(requested)), scope, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder lookingAt(Scope requested) {
+            return new BeanConstraintFinder(groups, requested, declaredOn);
+        }
+
+        @Override
+        public ConstraintFinder declaredOn(ElementType... types) {
+            return new BeanConstraintFinder(groups, scope, new LinkedHashSet<>(List.of(types)));
+        }
+
+        @Override
+        public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
+            if (!declaredOn.isEmpty() && !declaredOn.contains(ElementType.TYPE)) {
+                return Set.of();
+            }
+            Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
+                ? declaredMetadata(beanAnnotationMetadata)
+                : beanAnnotationMetadata);
+            if (groups.isEmpty()) {
+                return descriptors;
+            }
+            Set<Class<?>> effective = effectiveGroups(groups);
+            descriptors.removeIf(descriptor -> !IntrospectedExecutableDescriptors.matchesGroups(descriptor, effective));
+            return descriptors;
+        }
+
+        @Override
+        public boolean hasConstraints() {
+            return !getConstraintDescriptors().isEmpty();
         }
     }
 }

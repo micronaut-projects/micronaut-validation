@@ -15,11 +15,13 @@
  */
 package io.micronaut.validation.visitor;
 
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
 import io.micronaut.core.annotation.Vetoed;
+import io.micronaut.inject.ast.AnnotationElement;
 import io.micronaut.inject.ast.ClassElement;
 import io.micronaut.inject.ast.ConstructorElement;
 import io.micronaut.inject.ast.FieldElement;
@@ -31,9 +33,15 @@ import io.micronaut.inject.processing.ProcessingException;
 import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
+import io.micronaut.validation.validator.ValidationAnnotationUtil;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.executable.ExecutableType;
+import jakarta.validation.executable.ValidateOnExecution;
+import org.jspecify.annotations.Nullable;
 
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -48,12 +56,26 @@ import java.util.stream.Stream;
 @Internal
 public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
+    /**
+     * The annotation processor option making an invalid constraint definition a compilation error. Without
+     * it the definition is reported as a warning and, as the specification asks, fails when it is validated.
+     */
+    public static final String STRICT_DEFINITIONS_OPTION = "micronaut.validation.strictConstraintDefinitions";
+
     private static final String ANN_CASCADE = "io.micronaut.validation.annotation.ValidatedElement";
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
+    // a file name may be 255 bytes long; a builder adds two separators and "$AnnotationBuilder" to its two names
+    private static final int MAX_FILE_NAME = 255;
+    private static final int BUILDER_NAME_OVERHEAD = 20;
 
-    private ClassElement classElement;
+    private @Nullable ClassElement classElement;
     private final Set<Object> visited = new HashSet<>();
+    private @Nullable VisitorContext visitorContext;
+    private final Set<String> importedTypes = new HashSet<>();
+    private final Set<String> registeredBuilders = new HashSet<>();
+    private final Set<String> warnedUnbuildable = new HashSet<>();
+    private @Nullable Set<String> shippedBuilders;
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
@@ -61,11 +83,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     }
 
     @Override
+    public Set<String> getSupportedOptions() {
+        return Set.of(STRICT_DEFINITIONS_OPTION);
+    }
+
+    @Override
     public int getOrder() {
         return 10; // Should run before ConfigurationReaderVisitor
     }
 
-    @NonNull
     @Override
     public VisitorKind getVisitorKind() {
         return VisitorKind.ISOLATING;
@@ -74,10 +100,172 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
         visited.clear();
+        visitorContext = context;
         classElement = element;
-        if (classElement.isInterface() && classElement.hasAnnotation("jakarta.validation.GroupSequence")) {
+        if (classElement.isInterface() && (classElement.hasAnnotation("jakarta.validation.GroupSequence")
+            || classElement.isAssignable("jakarta.validation.groups.Default"))) {
             classElement.annotate(Introspected.class);
         }
+        introspectGroups(classElement.getAnnotationMetadata(), context);
+        recordGroups(classElement.getAnnotationMetadata());
+    }
+
+    /**
+     * Introspects the groups the annotations of an element and of its type arguments name, so that the validator
+     * reads the sequence a group declares without reflection.
+     */
+    private static void introspectGroups(TypedElement element, VisitorContext context, Set<Object> visited) {
+        introspectGroups(element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata(), context);
+        // only types are tracked: a Groovy member of a primitive type has no native type
+        if (element instanceof ClassElement type && (type.isPrimitive() || !visited.add(type.getNativeType()))) {
+            return;
+        }
+        ClassElement generic = element.getGenericType();
+        if (generic != element) {
+            introspectGroups(generic, context, visited);
+        }
+        generic.getTypeArguments().values().forEach(argument -> introspectGroups(argument, context, visited));
+    }
+
+    private static void introspectGroups(AnnotationMetadata metadata, VisitorContext context) {
+        for (String name : metadata.getAnnotationNames()) {
+            for (AnnotationValue<?> value : metadata.getAnnotationValuesByName(name)) {
+                introspectGroups(value, context);
+                // the repetitions a container holds
+                value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).forEach(contained -> introspectGroups(contained, context));
+            }
+        }
+    }
+
+    private static void introspectGroups(AnnotationValue<?> annotation, VisitorContext context) {
+        for (var group : annotation.annotationClassValues("groups")) {
+            context.getClassElement(group.getName()).filter(ClassElement::isInterface)
+                .filter(type -> !type.getName().startsWith("jakarta.validation.") && !type.hasDeclaredAnnotation(Introspected.class))
+                .ifPresent(type -> type.annotate(Introspected.class));
+        }
+    }
+
+    private static void introspectGroups(MethodElement element, VisitorContext context) {
+        introspectGroups(element.getMethodAnnotationMetadata(), context);
+        introspectGroups(element.getGenericReturnType(), context, new HashSet<>());
+        for (ParameterElement parameter : element.getParameters()) {
+            introspectGroups(parameter, context, new HashSet<>());
+        }
+    }
+
+    /**
+     * Records the generic hierarchy of every group a constraint or a group conversion names, so that the validator
+     * reads the groups a group extends without reading the class, introspected or not.
+     */
+    private void recordGroups(AnnotationMetadata metadata) {
+        if (visitorContext == null || classElement == null) {
+            return;
+        }
+        for (String constraint : metadata.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
+            registerAnnotationBuilder(constraint);
+            for (var occurrence : metadata.getAnnotationValuesByName(constraint)) {
+                for (var group : occurrence.annotationClassValues("groups")) {
+                    recordGroup(group.getName());
+                }
+            }
+        }
+        for (var conversion : metadata.getAnnotationValuesByName("jakarta.validation.groups.ConvertGroup")) {
+            conversion.annotationClassValue("from").ifPresent(group -> recordGroup(group.getName()));
+            conversion.annotationClassValue("to").ifPresent(group -> recordGroup(group.getName()));
+        }
+    }
+
+    /**
+     * Registers the builder of a constraint and of the constraints it composes (micronaut-core#14055), so that a
+     * Jakarta validator is initialized with, and a descriptor answers, an annotation instance without reflection.
+     * The constraints this module registers itself, an annotation core cannot build from generated code because it
+     * or a member type is not public, and one whose builder name would not fit a file name are left out.
+     */
+    private void registerAnnotationBuilder(String constraint) {
+        VisitorContext context = visitorContext;
+        ClassElement origin = classElement;
+        if (context == null || origin == null || shippedBuilders(context).contains(constraint)
+            || !registeredBuilders.add(origin.getName() + ":" + constraint)) {
+            return;
+        }
+        context.getClassElement(constraint).filter(AnnotationElement.class::isInstance).ifPresent(type -> {
+            // core names the builder after its owner and the whole annotation name, and writes a service entry
+            // under that name: past the file name limit of the file system the compilation fails
+            boolean buildable = buildable(type, new HashSet<>());
+            if (origin.getName().length() + constraint.length() + BUILDER_NAME_OVERHEAD <= MAX_FILE_NAME && buildable) {
+                context.registerAnnotationBuilder(type, origin);
+            } else if (!buildable && hasTypedMembers((AnnotationElement) type) && warnedUnbuildable.add(constraint)) {
+                // its enum or annotation attributes are typed by the generated builder only: without one, a
+                // descriptor answers them with the reflection module alone
+                context.warn("ConstraintDescriptor.getAttributes() of " + constraint + " requires micronaut-validation-reflection:"
+                    + " make the annotation, its enum and annotation member types and the types enclosing them public", type);
+            }
+            for (String composing : type.getAnnotationNamesByStereotype(ANN_CONSTRAINT)) {
+                if (!composing.equals(constraint)) {
+                    registerAnnotationBuilder(composing);
+                }
+            }
+        });
+    }
+
+    /**
+     * The constraints whose builders this module generates itself, read from the {@code @RegisterAnnotations} its
+     * {@code ConstraintAnnotationBuilders} declares.
+     */
+    private Set<String> shippedBuilders(VisitorContext context) {
+        Set<String> shipped = shippedBuilders;
+        if (shipped == null) {
+            shipped = context.getClassElement("io.micronaut.validation.validator.metadata.ConstraintAnnotationBuilders")
+                .map(type -> Set.of(type.getAnnotationMetadata().stringValues("io.micronaut.core.annotation.RegisterAnnotations")))
+                .orElse(Set.of());
+            shippedBuilders = shipped;
+        }
+        return shipped;
+    }
+
+    private static boolean hasTypedMembers(AnnotationElement annotation) {
+        for (var member : annotation.getMembers()) {
+            ClassElement memberType = member.getType().isArray() ? member.getType().fromArray() : member.getType();
+            if (memberType.isEnum() || memberType instanceof AnnotationElement) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether generated code can implement an annotation: it, the annotation and enum types of its members and
+     * the types enclosing them are public.
+     */
+    private static boolean buildable(ClassElement type, Set<String> visited) {
+        if (!visited.add(type.getName())) {
+            return true;
+        }
+        for (ClassElement current = type; current != null; current = current.getEnclosingType().orElse(null)) {
+            if (!current.isPublic()) {
+                return false;
+            }
+        }
+        if (type instanceof AnnotationElement annotation) {
+            for (var member : annotation.getMembers()) {
+                ClassElement memberType = member.getType().isArray() ? member.getType().fromArray() : member.getType();
+                if ((memberType.isEnum() || memberType instanceof AnnotationElement) && !buildable(memberType, visited)) {
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private void recordGroup(String name) {
+        VisitorContext context = visitorContext;
+        ClassElement origin = classElement;
+        if (context == null || origin == null || name.equals("jakarta.validation.groups.Default")
+            || !importedTypes.add(originKey(origin, name))) {
+            return;
+        }
+        context.getClassElement(name).filter(ClassElement::isInterface)
+            .ifPresent(group -> context.tryRecordTypeHierarchy(group, origin));
     }
 
     @Override
@@ -85,6 +273,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
+        introspectGroups(element, context);
         if (!visited.add(element)) {
             return;
         }
@@ -98,14 +287,24 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     @Override
     public void visitMethod(MethodElement element, VisitorContext context) {
-        if (classElement == null || element.hasStereotype(Vetoed.class)) {
+        if (classElement == null) {
+            return;
+        }
+        introspectGroups(element, context);
+        if (element.isStatic()) {
             return;
         }
         if (!visited.add(element)) {
             return;
         }
-
-        element.getOverriddenMethods().forEach(m -> inheritAnnotationsForMethod(element, m));
+        var overridden = element.getOverriddenMethods();
+        // what the override declares itself, recorded before the inherited annotations are copied in
+        if (!overridden.isEmpty() && (requiresValidation(element) || overridden.stream().anyMatch(ValidationVisitor::requiresValidation))) {
+            var declared = Stream.of(element.getParameters()).map(parameter -> declaredTypeUse(parameter, new HashSet<>()))
+                .toArray(AnnotationValue<?>[]::new);
+            element.annotate(ValidationMetadataSupport.DECLARED_PARAMETERS, builder -> builder.member("arguments", declared));
+        }
+        overridden.forEach(parent -> inheritAnnotationsForMethod(element, parent));
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();
@@ -114,14 +313,88 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         boolean parametersRequireValidation = parametersRequireValidation(element, requireOnConstraint);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), requireOnConstraint);
         boolean methodAnnotatedForValidation = returnTypeRequiresValidation(element, true);
-        if (parametersRequireValidation || returnTypeRequiresValidation || methodAnnotatedForValidation) {
-            if (isPrivate) {
-                throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
-            } else {
-                element.annotate(RequiresValidation.class);
-                classElement.annotate(RequiresValidation.class);
+        boolean inheritedValidation = overridden.stream().anyMatch(ValidationVisitor::requiresValidation);
+        if (!parametersRequireValidation && !returnTypeRequiresValidation && !methodAnnotatedForValidation && !inheritedValidation) {
+            return;
+        }
+        // a method @ValidateOnExecution leaves out is vetoed: still described, but not validated when invoked
+        if (!isPrivate && !validatedOnExecution(element)) {
+            element.annotate(Vetoed.class);
+        }
+        boolean vetoed = element.hasStereotype(Vetoed.class);
+        if (isPrivate) {
+            if (vetoed) {
+                return;
+            }
+            throw new ProcessingException(element, "Method annotated for validation but is declared private. Change the method to be non-private in order for AOP advice to be applied.");
+        }
+        // a MethodDescriptor is read from an executable bean method of the introspection
+        element.annotate(Executable.class);
+        if (classElement.isInterface() || classElement.isAbstract()) {
+            classElement.annotate(Introspected.class);
+        }
+        if (vetoed) {
+            return;
+        }
+        element.annotate(RequiresValidation.class);
+        classElement.annotate(RequiresValidation.class);
+    }
+
+    /**
+     * Whether the executable types {@code @ValidateOnExecution} declares include a method: the declaration of the
+     * method, else the one of a method it overrides or of the type declaring that one, else the one of its own
+     * type. A method nothing declares it for is validated.
+     */
+    static boolean validatedOnExecution(MethodElement method) {
+        boolean getter = isGetter(method);
+        Optional<ExecutableType[]> types = executableTypes(method.getMethodAnnotationMetadata());
+        if (types.isEmpty()) {
+            for (MethodElement overridden : method.getOverriddenMethods()) {
+                types = executableTypes(overridden.getMethodAnnotationMetadata())
+                    .or(() -> typeExecutableTypes(overridden.getDeclaringType()));
+                if (types.isPresent()) {
+                    break;
+                }
             }
         }
+        if (types.isEmpty()) {
+            types = typeExecutableTypes(method.getDeclaringType());
+        }
+        return types.map(executableTypes -> includes(executableTypes, getter)).orElse(true);
+    }
+
+    private static Optional<ExecutableType[]> executableTypes(AnnotationMetadata metadata) {
+        if (!metadata.hasDeclaredAnnotation(ValidateOnExecution.class)) {
+            return Optional.empty();
+        }
+        ExecutableType[] types = metadata.enumValues(ValidateOnExecution.class, "type", ExecutableType.class);
+        return Optional.of(types.length == 0 ? new ExecutableType[] {ExecutableType.IMPLICIT} : types);
+    }
+
+    private static Optional<ExecutableType[]> typeExecutableTypes(ClassElement type) {
+        // on a type, the implicit type leaves the default
+        return executableTypes(type.getAnnotationMetadata())
+            .filter(types -> !(types.length == 1 && types[0] == ExecutableType.IMPLICIT));
+    }
+
+    private static boolean includes(ExecutableType[] types, boolean getter) {
+        for (ExecutableType type : types) {
+            if (type == ExecutableType.ALL || type == ExecutableType.IMPLICIT
+                || (type == ExecutableType.GETTER_METHODS && getter)
+                || (type == ExecutableType.NON_GETTER_METHODS && !getter)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isGetter(MethodElement method) {
+        if (method.getParameters().length != 0 || method.getReturnType().isVoid()) {
+            return false;
+        }
+        String name = method.getName();
+        return (name.startsWith("get") && name.length() > 3)
+            || (name.startsWith("is") && name.length() > 2 && method.getReturnType().getName().equals("boolean"));
     }
 
     @Override
@@ -129,6 +402,7 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (classElement == null) {
             return;
         }
+        introspectGroups(element, context, new HashSet<>());
         if (!visited.add(element)) {
             return;
         }
@@ -136,6 +410,38 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             element.annotate(RequiresValidation.class);
             classElement.annotate(RequiresValidation.class);
         }
+    }
+
+    static boolean requiresValidation(MethodElement method) {
+        if (method.hasStereotype(ANN_CONSTRAINT) || method.hasStereotype(ANN_VALID)
+            || method.hasStereotype("jakarta.validation.groups.ConvertGroup")
+            || method.hasAnnotation("jakarta.validation.groups.ConvertGroup$List")
+            || hasValidation(method.getGenericReturnType(), new HashSet<>())) {
+            return true;
+        }
+        for (ParameterElement parameter : method.getParameters()) {
+            if (hasValidation(parameter, new HashSet<>())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    static boolean hasValidation(TypedElement element, Set<Object> visited) {
+        AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
+        if (metadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(metadata) || metadata.hasStereotype(ANN_VALID)
+            || metadata.hasStereotype("jakarta.validation.groups.ConvertGroup")
+            || metadata.hasAnnotation("jakarta.validation.groups.ConvertGroup$List")) {
+            return true;
+        }
+        if (element instanceof ClassElement type && type.isPrimitive() || !visited.add(element.getNativeType())) {
+            return false;
+        }
+        ClassElement generic = element.getGenericType();
+        if (generic != element && hasValidation(generic, visited)) {
+            return true;
+        }
+        return generic.getTypeArguments().values().stream().anyMatch(argument -> hasValidation(argument, visited));
     }
 
     private boolean parametersRequireValidation(MethodElement element, boolean requireOnConstraint) {
@@ -150,25 +456,29 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
 
     private boolean returnTypeRequiresValidation(MethodElement e, boolean requireOnConstraint) {
         MutableAnnotationMetadataDelegate<AnnotationMetadata> methodAnnotationMetadata = e.getMethodAnnotationMetadata();
-        return methodAnnotationMetadata.hasStereotype(ANN_VALID) || (requireOnConstraint && methodAnnotationMetadata.hasStereotype(ANN_CONSTRAINT));
+        return methodAnnotationMetadata.hasStereotype(ANN_VALID)
+            || (requireOnConstraint && (methodAnnotationMetadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(methodAnnotationMetadata.getAnnotationMetadata())));
     }
 
     private boolean visitElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
         boolean requiresTypeValidation = visitTypedElementValidationAndMarkForValidationIfNeeded(e, requireOnConstraint);
 
         AnnotationMetadata annotationMetadata = e instanceof ClassElement ce ? ce.getTypeAnnotationMetadata() : e.getAnnotationMetadata();
-        boolean requiresValidation = (requireOnConstraint && annotationMetadata.hasStereotype(ANN_CONSTRAINT))
+        boolean requiresValidation = (requireOnConstraint && (annotationMetadata.hasStereotype(ANN_CONSTRAINT) || hasContainerConstraint(annotationMetadata)))
             || annotationMetadata.hasStereotype(ANN_VALID)
             || requiresTypeValidation;
         if (requiresValidation) {
-            try {
-                e.annotate(ANN_CASCADE);
-                e.annotate(RequiresValidation.class);
-            } catch (IllegalStateException ex) {
-                // workaround Groovy bug
-            }
+            recordGroups(annotationMetadata);
+            e.annotate(ANN_CASCADE);
+            e.annotate(RequiresValidation.class);
         }
         return requiresValidation;
+    }
+
+    private static boolean hasContainerConstraint(AnnotationMetadata metadata) {
+        return metadata.getAnnotationNames().stream().flatMap(name -> metadata.getAnnotationValuesByName(name).stream())
+            .flatMap(value -> value.getAnnotations(AnnotationMetadata.VALUE_MEMBER).stream())
+            .anyMatch(value -> value.contains(ValidationAnnotationUtil.CONSTRAINT_TYPE));
     }
 
     private boolean visitTypedElementValidationAndMarkForValidationIfNeeded(TypedElement e, boolean requireOnConstraint) {
@@ -179,10 +489,44 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             boolean requiresForType = visitElementValidationAndMarkForValidationIfNeeded(typeArgument, requireOnConstraint);
             requires |= requiresForType;
         }
+        if (requires) {
+            importContainerHierarchy(genericType);
+        }
         if (!genericType.equals(e)) {
             requires |= visitElementValidationAndMarkForValidationIfNeeded(genericType, requireOnConstraint);
         }
         return requires;
+    }
+
+    /**
+     * Records the generic hierarchy of a container whose type arguments are validated, so that the validator maps the
+     * type argument a value extractor extracts onto the container's own without reading the class, a container of the
+     * JDK included. The standard collections pass their variables in order and need no record, an introspected
+     * container has its hierarchy recorded with its introspection, and one no record can describe is left to the
+     * reflection module.
+     */
+    private void importContainerHierarchy(ClassElement container) {
+        String name = container.getName();
+        if (visitorContext == null || classElement == null || container.isPrimitive() || container.isArray()
+            || ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(name)
+            || container.hasStereotype(Introspected.class)
+            || !importedTypes.add(originKey(classElement, name))) {
+            return;
+        }
+        visitorContext.tryRecordTypeHierarchy(container, classElement);
+    }
+
+    /**
+     * The key of a recorded hierarchy: core writes a record per top-level origin class, so each origin asks for its
+     * own and none depends on a record another origin wrote.
+     */
+    private static String originKey(ClassElement origin, String type) {
+        ClassElement topLevel = origin;
+        for (ClassElement enclosing = origin.getEnclosingType().orElse(null); enclosing != null;
+             enclosing = enclosing.getEnclosingType().orElse(null)) {
+            topLevel = enclosing;
+        }
+        return topLevel.getName() + ":" + type;
     }
 
     /**
@@ -196,7 +540,15 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         for (int i = 0; i < methodParameters.length; ++i) {
             inheritAnnotationsForParameter(methodParameters[i], parentParameters[i]);
         }
-        inheritAnnotationsForParameter(method.getReturnType(), parent.getReturnType());
+        // core merges method annotations; copying the return declaration would make it local to the override
+        Map<String, ClassElement> local = method.getGenericReturnType().getTypeArguments();
+        Map<String, ClassElement> inherited = parent.getGenericReturnType().getTypeArguments();
+        for (var entry : local.entrySet()) {
+            ClassElement argument = inherited.get(entry.getKey());
+            if (argument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), argument);
+            }
+        }
     }
 
     /**
@@ -222,7 +574,22 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
             return;
         }
         for (var entry : typeArguments.entrySet()) {
-            inheritAnnotationsForParameter(entry.getValue(), parentTypeArguments.get(entry.getKey()));
+            ClassElement parentTypeArgument = parentTypeArguments.get(entry.getKey());
+            if (parentTypeArgument != null) {
+                inheritAnnotationsForParameter(entry.getValue(), parentTypeArgument);
+            }
         }
+    }
+
+    private static AnnotationValue<?> declaredTypeUse(TypedElement element, Set<Object> visited) {
+        AnnotationMetadata metadata = element instanceof ClassElement type ? type.getTypeAnnotationMetadata() : element.getAnnotationMetadata();
+        var result = AnnotationValue.builder(ValidationMetadataSupport.TYPE_USE)
+            .member("annotations", metadata.getDeclaredAnnotationNames().stream()
+                .flatMap(name -> metadata.getDeclaredAnnotationValuesByName(name).stream()).toArray(AnnotationValue<?>[]::new));
+        if (visited.add(element.getNativeType())) {
+            result.member("arguments", element.getGenericType().getTypeArguments().values().stream()
+                .map(argument -> declaredTypeUse(argument, new HashSet<>(visited))).toArray(AnnotationValue<?>[]::new));
+        }
+        return result.build();
     }
 }

@@ -1,0 +1,224 @@
+/*
+ * Copyright 2017-2020 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.validator;
+
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.validation.validator.constraints.ConstraintValidator;
+import io.micronaut.validation.validator.constraints.InternalConstraintValidatorFactory;
+
+import jakarta.validation.ConstraintTarget;
+import jakarta.validation.ValidationException;
+
+import org.jspecify.annotations.Nullable;
+
+import java.lang.annotation.Annotation;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.LongAdder;
+
+/**
+ * Owns initialized instances and prevents release while validation is in progress.
+ *
+ * @since 5.3.0
+ */
+@Internal
+final class ConstraintValidatorInstances implements AutoCloseable {
+    private final InternalConstraintValidatorFactory factory;
+    private final BeanIntrospector introspector;
+    private final Map<InitializedValidatorKey, jakarta.validation.ConstraintValidator<?, ?>>
+            initializedValidators = new ConcurrentHashMap<>();
+    // the validations running, on every thread, and how deep the current thread runs: a closing thread waits for
+    // the former, and the latter tells a close from a running validator
+    private final LongAdder active = new LongAdder();
+    private final ThreadLocal<int[]> running = ThreadLocal.withInitial(() -> new int[1]);
+    private final Object lifecycle = new Object();
+    private volatile boolean closed;
+    private volatile boolean released;
+
+    ConstraintValidatorInstances(InternalConstraintValidatorFactory factory, BeanIntrospector introspector) {
+        this.factory = factory;
+        this.introspector = introspector;
+    }
+
+    /**
+     * Whether a Jakarta validator implements {@code initialize}. The processor records it on the validator's
+     * introspection; a validator it never saw is initialized, as the specification has it.
+     */
+    private boolean initializes(Class<?> validatorType) {
+        return introspector.findIntrospection(validatorType)
+            .flatMap(introspection -> introspection.getAnnotationMetadata()
+                .booleanValue(ValidationAnnotationUtil.VALIDATOR_INITIALIZATION, "value"))
+            .orElse(true);
+    }
+
+    void checkOpen() {
+        if (closed) {
+            throw new ValidationException("Validator factory is closed");
+        }
+    }
+
+    void beginValidation() {
+        // counted before the closed flag is read, and close sets the flag before it reads the count: either the
+        // validation sees the factory closed or the close waits for it
+        active.increment();
+        running.get()[0]++;
+        if (closed) {
+            endValidation();
+            throw new ValidationException("Validator factory is closed");
+        }
+    }
+
+    void endValidation() {
+        running.get()[0]--;
+        active.decrement();
+        if (closed) {
+            synchronized (lifecycle) {
+                lifecycle.notifyAll();
+            }
+        }
+    }
+
+    void checkCloseAllowed() {
+        if (running.get()[0] != 0) {
+            throw new ValidationException(
+                    "Cannot close a validator factory from a running constraint validator");
+        }
+    }
+
+    @Override
+    public void close() {
+        checkCloseAllowed();
+        synchronized (lifecycle) {
+            if (released) {
+                return;
+            }
+            closed = true;
+            boolean interrupted = false;
+            // the validations running on other threads end before their instances are released
+            while (active.sum() != 0) {
+                try {
+                    lifecycle.wait(10);
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                }
+            }
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
+            released = true;
+            releaseValidators();
+        }
+    }
+
+    private void releaseValidators() {
+        RuntimeException failure = null;
+        Set<jakarta.validation.ConstraintValidator<?, ?>> released =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        for (jakarta.validation.ConstraintValidator<?, ?> instance :
+                initializedValidators.values()) {
+            if (released.add(instance)) {
+                try {
+                    factory.releaseInstance(instance);
+                } catch (RuntimeException e) {
+                    if (failure == null) {
+                        failure = e;
+                    } else {
+                        failure.addSuppressed(e);
+                    }
+                }
+            }
+        }
+        initializedValidators.clear();
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    <E> jakarta.validation.@Nullable ConstraintValidator<Annotation, E> get(
+            Class<jakarta.validation.ConstraintValidator<Annotation, E>> type,
+            Class<?> targetType,
+            ConstraintTarget target,
+            DefaultConstraintDescriptor<Annotation> constraint) {
+        // a validation the close waits for still reads its validators: only a released factory has none
+        if (released) {
+            throw new ValidationException("Validator factory is closed");
+        }
+        InitializedValidatorKey key =
+                new InitializedValidatorKey(
+                        type, targetType, target, constraint.getAnnotationValue());
+        // an initialized validator is read without the monitor: only creating one is serialized
+        var found = initializedValidators.get(key);
+        if (found != null) {
+            return (jakarta.validation.ConstraintValidator<Annotation, E>) found;
+        }
+        return create(key, type, targetType, target, constraint);
+    }
+
+    @SuppressWarnings("unchecked")
+    private synchronized <E> jakarta.validation.@Nullable ConstraintValidator<Annotation, E> create(
+            InitializedValidatorKey key,
+            Class<jakarta.validation.ConstraintValidator<Annotation, E>> type,
+            Class<?> targetType,
+            ConstraintTarget target,
+            DefaultConstraintDescriptor<Annotation> constraint) {
+        if (released) {
+            throw new ValidationException("Validator factory is closed");
+        }
+        var found = initializedValidators.get(key);
+        if (found != null) {
+            return (jakarta.validation.ConstraintValidator<Annotation, E>) found;
+        }
+        var instance = factory.getInstance(type, targetType, target);
+        if (instance == null) {
+            return null;
+        }
+        // a validator without an initialize method keeps no state of a constraint: one instance may serve several
+        if (!(instance instanceof ConstraintValidator<?, ?>)
+            && initializes(type)
+            && initializedValidators.values().stream().anyMatch(existing -> existing == instance)) {
+            throw new ValidationException("ConstraintValidatorFactory reused an initialized instance for a different constraint: "
+                + type.getName());
+        }
+        try {
+            if (!(instance instanceof ConstraintValidator<?, ?>) && initializes(type)) {
+                instance.initialize(constraint.getAnnotation());
+            }
+        } catch (RuntimeException e) {
+            try {
+                factory.releaseInstance(instance);
+            } catch (RuntimeException release) {
+                e.addSuppressed(release);
+            }
+            throw e instanceof ValidationException
+                    ? e
+                    : new ValidationException("Cannot initialize validator " + type.getName(), e);
+        }
+        initializedValidators.put(key, instance);
+        return instance;
+    }
+
+    private record InitializedValidatorKey(
+            Class<?> type,
+            Class<?> targetType,
+            ConstraintTarget target,
+            AnnotationValue<?> annotation) { }
+}

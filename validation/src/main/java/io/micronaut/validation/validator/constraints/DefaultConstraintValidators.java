@@ -18,7 +18,6 @@ package io.micronaut.validation.validator.constraints;
 import io.micronaut.context.BeanContext;
 import io.micronaut.context.Qualifier;
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.core.reflect.ReflectionUtils;
 import io.micronaut.core.type.Argument;
@@ -26,6 +25,7 @@ import io.micronaut.core.util.ArgumentUtils;
 import io.micronaut.core.util.ArrayUtils;
 import io.micronaut.core.util.CollectionUtils;
 import io.micronaut.core.util.CopyOnWriteMap;
+import io.micronaut.inject.BeanDefinition;
 import io.micronaut.inject.qualifiers.Qualifiers;
 import io.micronaut.inject.qualifiers.TypeArgumentQualifier;
 import jakarta.inject.Inject;
@@ -55,15 +55,13 @@ import java.util.Optional;
 @Introspected
 public class DefaultConstraintValidators implements ConstraintValidatorRegistry {
 
-    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = new CopyOnWriteMap<>(16 * 1024);
+    private final Map<DefaultConstraintValidators.ValidatorKey, ConstraintValidator<?, ?>> validatorCache = CopyOnWriteMap.create(16 * 1024);
 
     @Nullable
     private final BeanContext beanContext;
     private final Map<ValidatorKey, ConstraintValidator<?, ?>> internalValidators;
 
-    /**
-     * Default constructor.
-     */
+    /** Default constructor. */
     public DefaultConstraintValidators() {
         this(null);
     }
@@ -121,9 +119,8 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
     }
 
     @SuppressWarnings("unchecked")
-    @NonNull
     @Override
-    public <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidator(@NonNull Class<A> constraintType, @NonNull Class<T> targetType) {
+    public <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findConstraintValidator(Class<A> constraintType, Class<T> targetType) {
         ArgumentUtils.requireNonNull("constraintType", constraintType);
         ArgumentUtils.requireNonNull("targetType", targetType);
         final var key = new ValidatorKey(constraintType, targetType);
@@ -131,7 +128,8 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
 
         ConstraintValidator<?, ?> constraintValidator = validatorCache.get(key);
         if (constraintValidator != null) {
-            return Optional.of((ConstraintValidator<A, T>) constraintValidator);
+            // a miss is kept as the valid validator: it is answered as the first lookup answered it
+            return constraintValidator == ConstraintValidator.VALID ? Optional.empty() : Optional.of((ConstraintValidator<A, T>) constraintValidator);
         }
 
         constraintValidator = internalValidators.get(key);
@@ -151,10 +149,14 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
                     constraintType,
                     targetType
             );
-            Optional<ConstraintValidator<A, T>> bean = beanContext.findBean(argument, qualifier);
-            if (bean.isPresent()) {
-                validatorCache.put(key, bean.get());
-                return bean;
+            Optional<BeanDefinition<ConstraintValidator<A, T>>> definition = beanContext.findBeanDefinition(argument, qualifier);
+            if (definition.isPresent()) {
+                ConstraintValidator<A, T> bean = beanContext.getBean(definition.get());
+                // a validator of another scope is the context's to hand out each time
+                if (definition.get().isSingleton()) {
+                    validatorCache.put(key, bean);
+                }
+                return Optional.of(bean);
             }
 
         } else {
@@ -192,8 +194,8 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
      * @param <T>            The target type
      * @return The validator if present
      */
-    protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(@NonNull Class<A> constraintType,
-                                                                                                         @NonNull Class<T> targetType) {
+    protected <A extends Annotation, T> Optional<ConstraintValidator<A, T>> findLocalConstraintValidator(Class<A> constraintType,
+                                                                                                         Class<T> targetType) {
         return Optional.empty();
     }
 
@@ -203,8 +205,8 @@ public class DefaultConstraintValidators implements ConstraintValidatorRegistry 
      * @param constraintType The constraint type
      * @param targetType     The target type
      */
-    public record ValidatorKey(@NonNull Class<?> constraintType,
-                               @NonNull Class<?> targetType) {
+    public record ValidatorKey(Class<?> constraintType,
+                               Class<?> targetType) {
     }
 
 }

@@ -16,7 +16,7 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
+import org.jspecify.annotations.Nullable;
 
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.Pattern;
@@ -34,34 +34,52 @@ import java.util.regex.PatternSyntaxException;
  * @since 1.2
  */
 abstract class AbstractPatternValidator<A extends Annotation> implements ConstraintValidator<A, CharSequence> {
-    private static final Pattern.Flag[] ZERO_FLAGS = new Pattern.Flag[0];
+    // the patterns of every constraint compiled, dropped whole past the bound: messages of XML mappings or of
+    // factories built over and over cannot grow it without end
+    private static final int MAX_COMPUTED_PATTERNS = 1024;
     private static final Map<PatternKey, java.util.regex.Pattern> COMPUTED_PATTERNS = new ConcurrentHashMap<>(10);
+    // the pattern of each occurrence, compiled once: an element is validated with the same occurrence every time
+    private static final AnnotationValueCache<java.util.regex.Pattern> PATTERNS = new AnnotationValueCache<>(AbstractPatternValidator::readPattern);
+    private static final AnnotationValueCache<Optional<java.util.regex.Pattern>> OPTIONAL_PATTERNS =
+        new AnnotationValueCache<>(value -> Optional.ofNullable(readOptionalPattern(value)));
 
     /**
-     * Gets the pattern for the given annotation metadata.
+     * Gets the pattern the given annotation metadata requires.
      *
      * @param annotationMetadata The metadata
-     * @param isOptional         Whether the pattern is required to be returned
      * @return The pattern
+     * @throws ValidationException When the metadata specifies no pattern
      */
-    java.util.regex.Pattern getPattern(
-        @NonNull AnnotationValue<?> annotationMetadata,
-        boolean isOptional) {
-        final Optional<String> regexp = annotationMetadata.get("regexp", String.class);
-        final String pattern;
+    java.util.regex.Pattern getPattern(AnnotationValue<?> annotationMetadata) {
+        return PATTERNS.get(annotationMetadata);
+    }
 
-        if (isOptional) {
-            pattern = regexp.orElse(".*");
-        } else {
-            pattern = regexp
-                .orElseThrow(() -> new ValidationException("No pattern specified"));
-        }
+    private static java.util.regex.Pattern readPattern(AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.stringValue("regexp")
+            .orElseThrow(() -> new ValidationException("No pattern specified"));
+        return compile(pattern, annotationMetadata.enumValues("flags", Pattern.Flag.class));
+    }
 
-        final Pattern.Flag[] flags = annotationMetadata.get("flags", Pattern.Flag[].class).orElse(ZERO_FLAGS);
-        if (isOptional && pattern.equals(".*") && flags.length == 0) {
+    /**
+     * Gets the pattern the given annotation metadata may specify.
+     *
+     * @param annotationMetadata The metadata
+     * @return The pattern, {@code null} when the metadata specifies none that restricts the value
+     */
+    java.util.regex.@Nullable Pattern getOptionalPattern(AnnotationValue<?> annotationMetadata) {
+        return OPTIONAL_PATTERNS.get(annotationMetadata).orElse(null);
+    }
+
+    private static java.util.regex.@Nullable Pattern readOptionalPattern(AnnotationValue<?> annotationMetadata) {
+        final String pattern = annotationMetadata.stringValue("regexp").orElse(".*");
+        final Pattern.Flag[] flags = annotationMetadata.enumValues("flags", Pattern.Flag.class);
+        if (pattern.equals(".*") && flags.length == 0) {
             return null;
         }
+        return compile(pattern, flags);
+    }
 
+    private static java.util.regex.Pattern compile(String pattern, Pattern.Flag[] flags) {
         int computedFlag = 0;
         for (Pattern.Flag flag : flags) {
             computedFlag = computedFlag | flag.getValue();
@@ -78,6 +96,9 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
                 }
             } catch (PatternSyntaxException e) {
                 throw new IllegalArgumentException("Invalid regular expression", e);
+            }
+            if (COMPUTED_PATTERNS.size() >= MAX_COMPUTED_PATTERNS) {
+                COMPUTED_PATTERNS.clear();
             }
             COMPUTED_PATTERNS.put(key, regex);
         }

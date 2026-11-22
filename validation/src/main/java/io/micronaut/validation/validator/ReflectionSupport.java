@@ -1,0 +1,744 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.validator;
+
+import io.micronaut.context.ExecutionHandleLocator;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.annotation.Introspected;
+import io.micronaut.core.beans.BeanConstructor;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanProperty;
+import io.micronaut.core.beans.BeanPropertyMember;
+import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.TypeHierarchies;
+import io.micronaut.core.type.TypeHierarchy;
+import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.MethodReference;
+import io.micronaut.validation.validator.metadata.ValidationDeclaration;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.ValidationException;
+import jakarta.validation.ConstraintDefinitionException;
+import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.groups.Default;
+import org.jspecify.annotations.Nullable;
+
+import java.lang.annotation.Annotation;
+import java.lang.annotation.ElementType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * What the validator reads through reflection when the {@code micronaut-validation-reflection}
+ * module is present, and through the generated metadata alone when it is not.
+ *
+ * <p>The validator describes a bean, a constraint and an executable through the metadata the
+ * annotation processors generate. The Jakarta Validation API also names an executable by its {@link
+ * Method} or {@link Constructor}, hands over a value extractor as an instance and composes a
+ * constraint from the annotations of its type: where the generated metadata does not describe what
+ * such a call names, the reflection module reads it from the class itself. This is the seam between
+ * the two, loaded as a service; without an implementation the validator answers from the generated
+ * metadata and nothing else.
+ *
+ * @author Denis Stepanov
+ * @since 5.3.0
+ */
+@Internal
+public interface ReflectionSupport extends RuntimeValidationAccess {
+
+    /**
+     * What {@link #describedExtractedTypeArgumentIndex} answers for a type that binds the type argument rather than
+     * passing one of its own on.
+     *
+     * @since 5.3.0
+     */
+    int BOUND_TYPE_ARGUMENT = -1;
+
+    /**
+     * What {@link #describedExtractedTypeArgumentIndex} answers when nothing here reads the type argument.
+     *
+     * @since 5.3.0
+     */
+    int UNDESCRIBED_TYPE_ARGUMENT = -2;
+
+    /**
+     * Creates access to generated metadata without runtime discovery.
+     * @param introspector The generated introspector
+     * @param loader The application loader
+     * @return The generated metadata provider
+     */
+    static ReflectionSupport generated(BeanIntrospector introspector, ClassLoader loader) {
+        return new CompileTimeSupport(introspector, loader);
+    }
+
+    /**
+     * The support in force: the first one registered as a service, else the one reading the
+     * generated metadata only.
+     *
+     * @return The support
+     */
+    static ReflectionSupport get() {
+        ClassLoader loader = Thread.currentThread().getContextClassLoader();
+        return forClassLoader(loader == null ? ReflectionSupport.class.getClassLoader() : loader);
+    }
+
+    /**
+     * The exception reporting that the generated metadata does not describe what a call needs: reading it from the
+     * class is what the {@code micronaut-validation-reflection} module is for.
+     *
+     * @param what What the generated metadata does not describe
+     * @return The exception
+     * @since 5.3.0
+     */
+    static ValidationException reflectionRequired(String what) {
+        return new ValidationException("No generated metadata describes " + what
+            + ": reading it from the class requires micronaut-validation-reflection");
+    }
+
+    /**
+     * Resolves the access provider once for an application loader.
+     * @param loader The application loader
+     * @return The access provider
+     */
+    static ReflectionSupport forClassLoader(ClassLoader loader) {
+        return ReflectionSupportServiceDiscovery.get(loader);
+    }
+
+    /** @return The application loader captured during provider discovery. */
+    default ClassLoader classLoader() {
+        return ReflectionSupport.class.getClassLoader();
+    }
+
+    /**
+     * Binds a discovered provider to its application loader.
+     * @param loader The application loader
+     * @return The bound provider
+     */
+    default ReflectionSupport withClassLoader(ClassLoader loader) {
+        return withIntrospector(BeanIntrospector.forClassLoader(loader));
+    }
+
+    /** @return The generated introspector associated with this provider. */
+    default BeanIntrospector introspector() {
+        return BeanIntrospector.forClassLoader(classLoader());
+    }
+
+    /**
+     * Binds a provider to the factory's generated metadata.
+     * @param introspector The configured introspector
+     * @return The bound provider
+     */
+    default ReflectionSupport withIntrospector(BeanIntrospector introspector) {
+        return this;
+    }
+
+    /**
+     * Supplements generated introspections when the optional provider permits it.
+     *
+     * @param introspector The generated introspector
+     * @return The introspector used by bootstrap
+     * @since 5.3.0
+     */
+    default BeanIntrospector supplemented(BeanIntrospector introspector) {
+        return introspector;
+    }
+
+    /**
+     * @return Whether optional reflection is enabled
+     * @since 5.3.0
+     */
+    default boolean isReflectionEnabled() {
+        return false;
+    }
+
+    /**
+     * Normalizes metadata loaded by the optional provider before validation traversal.
+     *
+     * @param argument The described argument
+     * @return The argument carrying the standard validation markers
+     */
+    default Argument<?> prepareArgument(Argument<?> argument) {
+        return argument;
+    }
+
+    /**
+     * Reads a declaration through generated access. Inaccessible fields require the reflection provider.
+     *
+     * @param member The declaration
+     * @param bean The instance
+     * @param <T> The bean type
+     * @return The declared value
+     * @since 5.3.0
+     */
+    default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, T bean) {
+        if (member.isReflectionRequired()) {
+            throw reflectionRequired("an accessor of the field " + member.getDeclaringType().getName() + "." + member.getName());
+        }
+        return member.read(bean);
+    }
+
+    /**
+     * Reads through the generated property accessor when property access was selected for a field generated code
+     * cannot reach. A field it reaches is read itself, and a differently typed getter cannot supply the value of a
+     * field declaration.
+     *
+     * @param member The declaration
+     * @param property The generated property
+     * @param bean The instance
+     * @param <T> The bean type
+     * @return The value for the configured access mode
+     * @since 5.3.0
+     */
+    default <T> @Nullable Object readMember(BeanPropertyMember<T, ?> member, BeanProperty<T, ?> property, T bean) {
+        if (member.isReflectionRequired()
+            && member.getElementType() == ElementType.FIELD
+            && hasGeneratedGetter(property)
+            && member.asArgument().equalsStructure(property.asArgument())) {
+            return property.get(bean);
+        }
+        return readMember(member, bean);
+    }
+
+    /**
+     * How a member of a property is read, decided once: {@link #readMember(BeanPropertyMember, BeanProperty, Object)}
+     * answers each read the same way for the same member and property.
+     *
+     * @param member   The declaration
+     * @param property The generated property
+     * @return The reader
+     * @since 5.3.0
+     */
+    default MemberReader memberReader(BeanPropertyMember<Object, ?> member, BeanProperty<Object, ?> property) {
+        if (member.isReflectionRequired()
+            && member.getElementType() == ElementType.FIELD
+            && hasGeneratedGetter(property)
+            && member.asArgument().equalsStructure(property.asArgument())) {
+            return property::get;
+        }
+        return bean -> readMember(member, bean);
+    }
+
+    /**
+     * Whether a property lists a getter the generated dispatch reads without reflection.
+     */
+    private static boolean hasGeneratedGetter(BeanProperty<?, ?> property) {
+        if (property.isWriteOnly()) {
+            return false;
+        }
+        for (BeanPropertyMember<?, ?> candidate : property.getMembers()) {
+            if (candidate.getElementType() == ElementType.METHOD && candidate.isReadable()) {
+                return !candidate.isReflectionRequired();
+            }
+        }
+        // an unannotated getter is not listed as a member: the property reads it when the introspection reads
+        // properties through methods, a record or the default access kind
+        BeanIntrospection<?> introspection = property.getDeclaringBean();
+        if (introspection.getBeanType().isRecord()) {
+            return true;
+        }
+        Introspected.AccessKind[] kinds = introspection.getAnnotationMetadata()
+            .enumValues(Introspected.class, "accessKind", Introspected.AccessKind.class);
+        return kinds.length == 0 || Arrays.asList(kinds).contains(Introspected.AccessKind.METHOD);
+    }
+
+    /**
+     * Resolves metadata named by XML without granting runtime lookup to XML itself.
+     *
+     * @param type The bean type
+     * @param kind The declaration kind
+     * @param name The declared name
+     * @param parameters The erased signature
+     * @return The declaration, or null when absent
+     */
+    default @Nullable ValidationDeclaration declaration(
+            Class<?> type, ValidationDeclaration.Kind kind, String name, List<Class<?>> parameters) {
+        var introspection = introspector().findIntrospection(type).orElse(null);
+        if (introspection == null) {
+            throw reflectionRequired("the declaration " + type.getName() + "." + name);
+        }
+        return ValidationDeclaration.generated(this, introspection, kind, name, parameters);
+    }
+
+    /**
+     * @param type The type
+     * @return Its generated interfaces
+     * @since 5.3.0
+     */
+    default List<Class<?>> interfaces(Class<?> type) {
+        if (type == Object.class || type == Default.class) {
+            return List.of();
+        }
+        var hierarchy = ValidationMetadataSupport.hierarchy(introspector(), type);
+        // a type the processor never described (a library compiled without it, a type introspected through
+        // @Introspected(classes = ...)) has no validated super types: the constraints core merges into its
+        // introspection are all the validator reads, as before 5.3
+        if (hierarchy != null) {
+            return hierarchy.getInterfaces(type);
+        }
+        // a type recorded by its generic hierarchy alone: a group, a validator, a value extractor the processor saw
+        return recordedHierarchy(type).map(recorded -> recorded.getGenericInterfaces().stream()
+            .<Class<?>>map(Argument::getType).toList()).orElse(List.of());
+    }
+
+    /**
+     * @param type The hierarchy to resolve
+     * @return Whether generated metadata or the optional provider can describe it
+     */
+    default boolean canResolveHierarchy(Class<?> type) {
+        return ValidationMetadataSupport.hierarchy(introspector(), type) != null || recordedHierarchy(type).isPresent();
+    }
+
+    /**
+     * @param type The type
+     * @return Its superclass
+     * @since 5.3.0
+     */
+    default @Nullable Class<?> superType(Class<?> type) {
+        if (type == Object.class) {
+            return null;
+        }
+        var hierarchy = ValidationMetadataSupport.hierarchy(introspector(), type);
+        // see interfaces(Class): no generated hierarchy, no validated super type
+        if (hierarchy != null) {
+            return hierarchy.getSuperclass(type).orElse(null);
+        }
+        return recordedHierarchy(type).flatMap(TypeHierarchy::getGenericSuperclass).<Class<?>>map(Argument::getType).orElse(null);
+    }
+
+    /**
+     * The generic hierarchy core recorded for a type at compile time (micronaut-core#13926), found through the
+     * loader of the factory; core finds a record once per loader (micronaut-core#14064).
+     *
+     * @param type The type
+     * @return The record, empty when none was recorded
+     * @since 5.3.0
+     */
+    default Optional<TypeHierarchy> recordedHierarchy(Class<?> type) {
+        Optional<TypeHierarchy> hierarchy = TypeHierarchies.find(type);
+        // a JDK type or one of another loader can have its record in the application loader of the factory only
+        return hierarchy.isPresent() ? hierarchy
+            : TypeHierarchies.find(type.getName(), classLoader());
+    }
+
+    /**
+     * Rejects a reference that stands for no Java method - a lifecycle interception of a bean declaring no
+     * callback, a route to a handler function - which no reflection can name by its {@link Method} either.
+     *
+     * @param executable The generated executable
+     * @since 5.3.0
+     */
+    static void checkTargetMethod(MethodReference<?, ?> executable) {
+        if (!executable.hasTargetMethod()) {
+            throw new ValidationException("No Java method stands for "
+                + executable.getDeclaringType().getName() + "." + executable.getMethodName()
+                + ": a Jakarta Validation API naming a method by its Method cannot validate it");
+        }
+    }
+
+    /**
+     * The Java method a type declares by a name and parameter types, as a parameter name provider of the
+     * application reads it.
+     *
+     * @param declaringType The type
+     * @param name The name of the method
+     * @param parameterTypes Its parameter types
+     * @return The method, or null where no reflection reads it
+     */
+    default @Nullable Method declaredMethod(Class<?> declaringType, String name, Class<?>[] parameterTypes) {
+        return null;
+    }
+
+    /**
+     * The Java constructor a type declares by its parameter types, as a parameter name provider of the
+     * application reads it.
+     *
+     * @param declaringType The type
+     * @param parameterTypes Its parameter types
+     * @return The constructor, or null where no reflection reads it
+     * @since 5.3.0
+     */
+    default @Nullable Constructor<?> declaredConstructor(Class<?> declaringType, Class<?>[] parameterTypes) {
+        return null;
+    }
+
+    default Method targetMethod(MethodReference<?, ?> executable) {
+        if (executable instanceof CallerSuppliedExecutable<?, ?> supplied) {
+            return supplied.suppliedMethod();
+        }
+        if (executable instanceof IntrospectedExecutable<?, ?> supplied) {
+            return supplied.suppliedMethod();
+        }
+        checkTargetMethod(executable);
+        throw reflectionRequired("the Java method " + executable.getDeclaringType().getName() + "." + executable.getMethodName());
+    }
+
+    /**
+     * The executable method of the method a caller names: the one of the bean definition when the
+     * declaring type is a bean, else the one of the bean introspection, else what the
+     * implementation can read from the method itself.
+     *
+     * @param locator The locator of the executable methods of the beans
+     * @param introspector The introspector
+     * @param method The method
+     * @param <T> The declaring type
+     * @return The executable method
+     * @throws jakarta.validation.ValidationException When nothing describes the method
+     */
+    <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method);
+
+    /**
+     * The executable method the generated metadata describes, without the error {@link #executableMethod} raises
+     * where it describes none: an implementation reading the method otherwise asks this first.
+     *
+     * @param locator The locator of the executable methods of the beans
+     * @param introspector The introspector
+     * @param method The method
+     * @param <T> The declaring type
+     * @return The executable method, null when nothing generated describes it
+     * @since 5.3.0
+     */
+    <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method);
+
+    /**
+     * The constructor a caller names, with its arguments and annotation metadata: one the
+     * introspection describes, else what the implementation can read from the constructor itself.
+     *
+     * @param introspection The introspection of the declaring type, can be {@code null}
+     * @param constructor The constructor
+     * @param <T> The declaring type
+     * @return The bean constructor
+     * @throws jakarta.validation.ValidationException When nothing describes the constructor
+     */
+    <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor);
+
+    /**
+     * The bean constructor the introspection describes, without the error {@link #beanConstructor} raises where it
+     * describes none.
+     *
+     * @param introspection The introspection of the declaring type, can be {@code null}
+     * @param constructor The constructor
+     * @param <T> The declaring type
+     * @return The bean constructor, null when the introspection does not list it
+     * @since 5.3.0
+     */
+    <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor);
+
+    /**
+     * The hierarchy of an executable: the declarations it overrides or implements, read from the
+     * introspections of the super types, and the local one merged with them.
+     *
+     * @param introspector The introspector of the super types
+     * @param local The executable as validated
+     * @param name Its name
+     * @return The resolved hierarchy
+     */
+    ExecutableHierarchy.Resolved resolveHierarchy(
+            BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name);
+
+    /**
+     * Whether an introspection tells the declarations of a type apart from the ones it inherits:
+     * which annotations a method declares itself, and the field and the getters of a property by
+     * the type declaring each. Core declaration metadata separates these owners when the introspection exposes members;
+     * older or incomplete descriptions may still merge them.
+     *
+     * @param introspection The introspection
+     * @return Whether the declarations are separated
+     */
+    boolean separatesDeclarations(BeanIntrospection<?> introspection);
+
+    /**
+     * The constraints a constraint type composes, read from the annotations of the type where the
+     * generated metadata retains no tree of them: each with the attributes the composed constraint
+     * overrides, its groups and payload, and the validators of the constraint.
+     *
+     * @param constraintType The composed constraint type
+     * @param parentAnnotationValue The occurrence of the composed constraint
+     * @return The composing constraints, empty when they cannot be read
+     */
+    List<ComposingConstraint> composingConstraints(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue);
+
+    /**
+     * Checks the rules of a composition that only the declared form of the constraint annotation
+     * type can answer: a constraint composed both directly and inside its repeatable container,
+     * which the retained tree of the generated metadata flattens into repeated occurrences; an
+     * override naming a member the composing constraint does not declare, or an occurrence it does
+     * not have, which the tree cannot tell from a member without a default or from the occurrence
+     * it does have.
+     *
+     * @param constraintType The composed constraint type
+     * @param parentAnnotationValue The occurrence of the composed constraint
+     * @throws jakarta.validation.ConstraintDeclarationException When the declared composition
+     * breaks a declaration rule
+     * @throws jakarta.validation.ConstraintDefinitionException When it breaks a definition rule
+     */
+    void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue);
+
+    /**
+     * The type a type binds a generic super type's type argument to, with the annotations declared
+     * on it: the {@code String} of a {@code class Names implements Iterable<@NotBlank String>} read
+     * as an {@code Iterable}. Generated introspection type arguments describe these bindings, with retained type-use
+     * annotations. The optional companion resolves types without generated metadata.
+     *
+     * @param declaredType The type as declared
+     * @param containerType The generic super type it is read as
+     * @param typeArgumentIndex The index of the type argument of that super type
+     * @return The argument, {@code null} when the type binds no such argument
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.3.0
+     */
+    @Nullable
+    Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
+
+    /**
+     * Which of a type's own type arguments carries the one a value extractor extracts: a pair
+     * declaring {@code implements Map} with its own two arguments the other way round binds them in
+     * reverse, so the value a {@code Map} extractor extracts is the first argument of the pair
+     * rather than the second.
+     *
+     * @param declaredType The type as declared
+     * @param containerType The container type the extractor is written for
+     * @param typeArgumentIndex The index of the type argument the extractor extracts
+     * @return The index among the type arguments of the declared type
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.3.0
+     */
+    @Nullable
+    Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
+
+    /**
+     * {@link #extractedTypeArgumentIndex} where it can be read without reflection.
+     *
+     * @param declaredType The type as declared
+     * @param containerType The container type the extractor is written for
+     * @param typeArgumentIndex The index of the type argument the extractor extracts
+     * @return The index, {@link #BOUND_TYPE_ARGUMENT} when the type binds the argument,
+     * {@link #UNDESCRIBED_TYPE_ARGUMENT} when nothing here reads it
+     * @since 5.3.0
+     */
+    int describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex);
+
+    /**
+     * The argument of a super type as a type binds it: {@code ConstraintValidator<Size,
+     * CharSequence>} for a validator declaring {@code implements ConstraintValidator<Size,
+     * CharSequence>}. Generated introspections retain these bindings, including intermediate super types.
+     * The optional companion resolves signatures for types without an introspection.
+     *
+     * @param type The type
+     * @param superType The super class or interface to resolve
+     * @param <T> The super type
+     * @return The argument, {@code null} when the type does not extend or implement the super type
+     * @throws jakarta.validation.ValidationException When nothing can read it
+     * @since 5.3.0
+     */
+    @Nullable
+    <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType);
+
+    /**
+     * {@link #genericSuperArgument} where it can be read without reflection.
+     *
+     * @param type The type
+     * @param superType The super class or interface to resolve
+     * @param <T> The super type
+     * @return The argument, null when nothing here reads it or the type does not extend the super type
+     * @since 5.3.0
+     */
+    <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType);
+
+    /**
+     * Checks a constraint annotation type against the constraint definition rules of the
+     * specification: the names and the types of the members it declares, and what its validators
+     * support. The processor retains definition results on compiled occurrences. This type-only operation
+     * supplies the optional fallback for constraints without those results.
+     *
+     * @param constraintType The constraint annotation type
+     * @throws jakarta.validation.ConstraintDefinitionException When the type breaks a rule
+     * @throws jakarta.validation.ValidationException When nothing can read the type
+     * @since 5.3.0
+     */
+    void checkConstraintDefinition(Class<? extends Annotation> constraintType);
+
+    /**
+     * Checks a definition retained by the processor, with runtime discovery only for missing metadata.
+     * @param constraintType The constraint annotation
+     * @param occurrence The compiled occurrence
+     */
+    default void checkConstraintDefinition(Class<? extends Annotation> constraintType, AnnotationValue<?> occurrence) {
+        if (occurrence.booleanValue(ValidationAnnotationUtil.DEFINITION_CHECKED).orElse(false)) {
+            occurrence.stringValue(ValidationAnnotationUtil.DEFINITION_ERROR).ifPresent(error -> {
+                throw new ConstraintDefinitionException(error);
+            });
+        } else {
+            checkConstraintDefinition(constraintType);
+        }
+    }
+
+    /**
+     * Instantiates a type the container does not build, through the no-argument constructor it
+     * declares: the specification asks the default constraint validator factory to call that
+     * constructor for a validator it knows nothing else about, whatever its visibility.
+     *
+     * @param type The type
+     * @param <T> The type
+     * @return The instance, {@code null} when the type declares no such constructor
+     * @throws jakarta.validation.ValidationException When the constructor fails, or nothing can
+     * call it
+     * @since 5.3.0
+     */
+    @Nullable <T> T instantiate(Class<T> type);
+
+    /**
+     * The argument describing a value extractor the specification API hands over as an instance:
+     * the {@code ValueExtractor} signature its class declares, with the annotations of that
+     * signature and of the class. An introspected implementation supplies the signature even when its instance is
+     * registered at runtime; other implementations require the optional companion.
+     *
+     * @param extractorType The class of the extractor instance
+     * @return The argument
+     * @throws jakarta.validation.ValidationException When the class declares no single extractor
+     * signature, or nothing can read it
+     * @since 5.3.0
+     */
+    Argument<?> valueExtractorArgument(Class<?> extractorType);
+
+    /**
+     * {@link #valueExtractorArgument} where it can be read without reflection.
+     *
+     * @param extractorType The class of the extractor instance
+     * @return The argument, null when nothing here reads it
+     * @since 5.3.0
+     */
+    @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType);
+
+    /**
+     * The names of the parameters of an executable the specification API names by its {@link
+     * java.lang.reflect.Executable}. Generated executable metadata supplies the names; the optional companion reads
+     * class-file parameter information when generated metadata is unavailable.
+     *
+     * @param executable The executable
+     * @return The names, one per parameter
+     * @throws jakarta.validation.ValidationException When nothing can read them
+     * @since 5.3.0
+     */
+    List<String> parameterNames(Executable executable);
+
+    /**
+     * The parameter names the generated metadata records, without the error {@link #parameterNames} raises where
+     * it records none.
+     *
+     * @param executable The executable
+     * @return The names, null when nothing generated records them
+     * @since 5.3.0
+     */
+    @Nullable List<String> describedParameterNames(Executable executable);
+
+    /**
+     * The occurrence of a constraint with the validators its annotation type declares, for an
+     * occurrence whose metadata does not carry them. The annotation processor records the
+     * validators of every constraint it compiles, so this is reached only for a constraint compiled
+     * without it.
+     *
+     * @param value The occurrence
+     * @param constraintType The constraint annotation type
+     * @return The occurrence, with the declared validators where the type declares any
+     * @since 5.3.0
+     */
+    AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
+                                                                 Class<? extends Annotation> constraintType);
+
+    /**
+     * Whether a constraint annotation type is marked {@link
+     * jakarta.validation.ReportAsSingleViolation}, for an occurrence whose metadata does not record
+     * the marker.
+     *
+     * @param constraintType The constraint annotation type
+     * @return Whether the type is marked
+     * @since 5.3.0
+     */
+    boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType);
+
+    /**
+     * The validator classes a constraint annotation type declares, for a constraint whose
+     * occurrences carry none: the annotation processor records them on every occurrence it
+     * compiles.
+     *
+     * @param constraintType The constraint annotation type
+     * @return The validator classes, empty where the type declares none
+     * @since 5.3.0
+     */
+    List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType);
+
+    /**
+     * The validation targets a validator class declares through {@link
+     * jakarta.validation.constraintvalidation.SupportedValidationTarget}, for a validator the
+     * archive holds no introspection of.
+     *
+     * @param validatorType The validator class
+     * @return The targets, empty where the class declares none
+     * @since 5.3.0
+     */
+    Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType);
+
+    /**
+     * Whether a group is a group sequence, for a group the archive holds no introspection of. A
+     * group conversion may not name one as its source, which is the rule this answers.
+     *
+     * @param group The group
+     * @return Whether the group declares {@link jakarta.validation.GroupSequence}
+     * @since 5.3.0
+     */
+    boolean isGroupSequence(Class<?> group);
+
+    /**
+     * Whether an annotation type is a constraint, for an occurrence that does not say so itself.
+     * The annotation processor retains the contract on every occurrence it compiles, so this is
+     * reached only for metadata described reflectively, where no stereotype was recorded.
+     *
+     * @param annotationType The annotation type
+     * @return Whether the type declares {@link jakarta.validation.Constraint}
+     * @since 5.3.0
+     */
+    boolean isConstraintAnnotation(Class<?> annotationType);
+
+    /**
+     * One constraint a constraint type composes.
+     *
+     * @param type The composing constraint type
+     * @param value The occurrence of the composing constraint, with the overrides, the groups and
+     * the payload of the composed one applied and the validators of the constraint resolved
+     */
+    record ComposingConstraint(
+            Class<? extends Annotation> type, AnnotationValue<Annotation> value) { }
+
+    /**
+     * Reads the value of a member of a bean.
+     *
+     * @since 5.3.0
+     */
+    @FunctionalInterface
+    interface MemberReader {
+        /**
+         * @param bean The instance
+         * @return The value
+         */
+        @Nullable Object read(Object bean);
+    }
+}

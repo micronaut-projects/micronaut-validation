@@ -16,6 +16,7 @@ dependencies {
     testImplementation(mn.micronaut.inject)
 
     testImplementation(libs.kotlin.test)
+    testImplementation(mn.kotlinx.coroutines.core)
     testImplementation(mnTest.micronaut.test.junit5)
     testImplementation(libs.kotlin.kotest.junit5)
     testImplementation(mn.micronaut.http.client)

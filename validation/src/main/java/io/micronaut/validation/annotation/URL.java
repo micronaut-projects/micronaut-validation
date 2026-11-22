@@ -30,7 +30,7 @@ import java.lang.annotation.Target;
 /**
  * Constraint that validates that a character sequence is a URL.
  *
- * @since 5.1.0
+ * @since 5.3.0
  */
 @Documented
 @Constraint(validatedBy = URLValidator.class)
@@ -82,7 +82,7 @@ public @interface URL {
     /**
      * Defines several {@link URL} annotations on the same element.
      *
-     * @since 5.1.0
+     * @since 5.3.0
      */
     @Documented
     @Target({ElementType.METHOD, ElementType.FIELD, ElementType.ANNOTATION_TYPE, ElementType.CONSTRUCTOR, ElementType.PARAMETER, ElementType.TYPE_USE})

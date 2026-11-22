@@ -17,8 +17,8 @@ package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import io.micronaut.core.annotation.Introspected;
 import io.micronaut.validation.annotation.InList;
 import jakarta.inject.Singleton;
 
@@ -26,12 +26,13 @@ import jakarta.inject.Singleton;
  * Validator for the {@link InList} constraint.
  */
 @Singleton
+@Introspected
 public class InListValidator implements ConstraintValidator<InList, Object> {
 
     @Override
     public boolean isValid(@Nullable Object value,
-                           @NonNull AnnotationValue<InList> annotationMetadata,
-                           @NonNull ConstraintValidatorContext context) {
+                           AnnotationValue<InList> annotationMetadata,
+                           ConstraintValidatorContext context) {
         if (value == null) {
             return true;
         }

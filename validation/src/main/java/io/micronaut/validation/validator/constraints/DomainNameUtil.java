@@ -91,19 +91,20 @@ public final class DomainNameUtil {
             return false;
         }
 
-        Matcher matcher = pattern.matcher(domain);
-        if (!matcher.matches()) {
-            return false;
-        }
-
+        // the pattern recurses per character, so it matches the converted domain, whose length is bounded: the
+        // original can be any length, since the conversion drops characters such as the soft hyphen
         String asciiString;
         try {
             asciiString = IDN.toASCII(domain);
         } catch (IllegalArgumentException e) {
             return false;
         }
+        if (asciiString.length() > MAX_DOMAIN_PART_LENGTH) {
+            return false;
+        }
 
-        return asciiString.length() <= MAX_DOMAIN_PART_LENGTH;
+        Matcher matcher = pattern.matcher(asciiString);
+        return matcher.matches();
     }
 
 }

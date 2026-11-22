@@ -1,0 +1,405 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.validator;
+
+import io.micronaut.context.ExecutionHandleLocator;
+import io.micronaut.core.annotation.AnnotationBuilder;
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanConstructor;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.type.Argument;
+import io.micronaut.inject.ExecutableMethod;
+import jakarta.validation.GroupSequence;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
+import jakarta.validation.ConstraintDefinitionException;
+import jakarta.validation.constraintvalidation.ValidationTarget;
+import jakarta.validation.valueextraction.ValueExtractor;
+import org.jspecify.annotations.Nullable;
+
+import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Executable;
+import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * The {@link ReflectionSupport} reading the generated metadata and nothing else: an executable a
+ * caller names is the one of a bean definition or of a bean introspection, the hierarchy of an
+ * executable is the one the introspections of the super types describe, and what only reflection
+ * could read is not read.
+ *
+ * @author Denis Stepanov
+ * @since 5.3.0
+ */
+@Internal
+final class CompileTimeSupport implements ReflectionSupport {
+    private final BeanIntrospector introspector;
+    private final ClassLoader classLoader;
+    private final boolean generatedOnly;
+    // the generated annotation builders found, misses included: a lookup reads the registry of the loader
+    private final Map<Class<?>, Optional<AnnotationBuilder<?>>> annotationBuilders = new ConcurrentHashMap<>();
+
+    /**
+     * The support of a validator without the reflection module: whatever introspector it is given, it reads
+     * the generated introspections of it only.
+     */
+    CompileTimeSupport() {
+        this(BeanIntrospector.forClassLoader(CompileTimeSupport.class.getClassLoader()), CompileTimeSupport.class.getClassLoader(), true);
+    }
+
+    /**
+     * The support the reflection module answers through for what the generated metadata describes: the
+     * introspector is the one that module chose, reflective introspections included.
+     *
+     * @param introspector The introspector
+     * @param classLoader  The application class loader
+     */
+    CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader) {
+        this(introspector, classLoader, false);
+    }
+
+    private CompileTimeSupport(BeanIntrospector introspector, ClassLoader classLoader, boolean generatedOnly) {
+        this.introspector = generatedOnly ? introspector.withoutFallbacks() : introspector;
+        this.classLoader = classLoader;
+        this.generatedOnly = generatedOnly;
+    }
+
+    @Override
+    public ClassLoader classLoader() {
+        return classLoader;
+    }
+
+    @Override
+    public ReflectionSupport withClassLoader(ClassLoader loader) {
+        return new CompileTimeSupport(BeanIntrospector.forClassLoader(loader), loader, generatedOnly);
+    }
+
+    @Override
+    public BeanIntrospector introspector() {
+        return introspector;
+    }
+
+    @Override
+    public ReflectionSupport withIntrospector(BeanIntrospector introspector) {
+        return new CompileTimeSupport(introspector, classLoader, generatedOnly);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> ExecutableMethod<T, Object> executableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
+        ExecutableMethod<T, Object> described = describedExecutableMethod(locator, introspector, method);
+        if (described != null) {
+            return described;
+        }
+        throw ReflectionSupport.reflectionRequired("the method " + method.getName() + Arrays.toString(method.getParameterTypes())
+            + " of " + method.getDeclaringClass().getName() + ", which is neither a bean nor introspected with the method listed as executable");
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T> @Nullable ExecutableMethod<T, Object> describedExecutableMethod(ExecutionHandleLocator locator, BeanIntrospector introspector, Method method) {
+        Class<T> declaringType = (Class<T>) method.getDeclaringClass();
+        Optional<ExecutableMethod<T, Object>> found = locator.findExecutableMethod(declaringType, method.getName(), method.getParameterTypes());
+        // the locator answers for any bean of the type, a sub type overriding the method included, and falls
+        // back to a match on the name alone: only the method the declaring type declares is the one named
+        if (found.isPresent()
+            && found.get().getDeclaringType() == declaringType
+            && Arrays.equals(found.get().getArgumentTypes(), method.getParameterTypes())) {
+            return new CallerSuppliedExecutable<>(found.get(), method);
+        }
+        BeanIntrospection<T> introspection = introspector.findIntrospection(declaringType).orElse(null);
+        if (introspection != null) {
+            for (BeanMethod<T, Object> beanMethod : introspection.getBeanMethods()) {
+                if (beanMethod.getName().equals(method.getName())
+                    && Arrays.equals(Argument.toClassArray(beanMethod.getArguments()), method.getParameterTypes())) {
+                    return new IntrospectedExecutable<>(declaringType, beanMethod, method);
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public <T> BeanConstructor<T> beanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
+        BeanConstructor<T> described = describedBeanConstructor(introspection, constructor);
+        if (described != null) {
+            return described;
+        }
+        throw ReflectionSupport.reflectionRequired("the constructor " + constructor.getDeclaringClass().getName()
+            + Arrays.toString(constructor.getParameterTypes()) + ", which the introspection of the type does not list");
+    }
+
+    @Override
+    public <T> @Nullable BeanConstructor<T> describedBeanConstructor(@Nullable BeanIntrospection<T> introspection, Constructor<T> constructor) {
+        if (introspection != null) {
+            Class<?>[] parameterTypes = constructor.getParameterTypes();
+            for (BeanConstructor<T> candidate : introspection.getConstructors()) {
+                if (Arrays.equals(Argument.toClassArray(candidate.getArguments()), parameterTypes)) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public ExecutableHierarchy.Resolved resolveHierarchy(BeanIntrospector introspector, ExecutableHierarchy.Declaration local, String name) {
+        if (introspector.findIntrospection(local.declaringType()).isEmpty()) {
+            return ExecutableHierarchy.merge(local, local, List.of());
+        }
+        return ExecutableHierarchy.resolve(this, introspector, local, name);
+    }
+
+    @Override
+    public boolean separatesDeclarations(BeanIntrospection<?> introspection) {
+        return introspection.separatesDeclarations();
+    }
+
+    @Override
+    public List<ComposingConstraint> composingConstraints(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
+        return List.of();
+    }
+
+    @Override
+    public void checkComposition(Class<? extends Annotation> constraintType, AnnotationValue<? extends Annotation> parentAnnotationValue) {
+        parentAnnotationValue.stringValue(ValidationAnnotationUtil.COMPOSITION_DEFINITION_ERROR).ifPresent(error -> {
+            throw new ConstraintDefinitionException(error);
+        });
+    }
+
+    /**
+     * The builder registered where the application is, then where this module and the annotation type are.
+     */
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends Annotation> @Nullable AnnotationBuilder<T> annotationBuilder(Class<T> type) {
+        return (AnnotationBuilder<T>) annotationBuilders.computeIfAbsent(type, annotationType -> {
+            Optional<AnnotationBuilder<T>> builder = AnnotationBuilder.find(type, classLoader);
+            return builder.isPresent()
+                ? builder.<AnnotationBuilder<?>>map(found -> found)
+                : Optional.ofNullable(ReflectionSupport.super.annotationBuilder(type));
+        }).orElse(null);
+    }
+
+    @Override
+    public @Nullable Argument<?> boundTypeArgument(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
+        if (introspection == null) {
+            return null;
+        }
+        List<Argument<?>> arguments = introspection.getTypeArguments(containerType);
+        return typeArgumentIndex >= 0 && typeArgumentIndex < arguments.size() ? arguments.get(typeArgumentIndex) : null;
+    }
+
+    /**
+     * Uses the processor's variable mappings for renamed or reordered container arguments, and the
+     * introspection for the arguments a container binds.
+     * Fixed JDK collection contracts preserve their known argument order. Other containers
+     * without generated mappings require the optional reflection provider.
+     */
+    @Override
+    public @Nullable Integer extractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        int index = describedExtractedTypeArgumentIndex(declaredType, containerType, typeArgumentIndex);
+        if (index == UNDESCRIBED_TYPE_ARGUMENT) {
+            throw ReflectionSupport.reflectionRequired("container-variable mappings from " + declaredType.getName()
+                + " to " + containerType.getName());
+        }
+        return index == BOUND_TYPE_ARGUMENT ? null : index;
+    }
+
+    @Override
+    public int describedExtractedTypeArgumentIndex(Class<?> declaredType, Class<?> containerType, int typeArgumentIndex) {
+        if (declaredType == containerType) {
+            return typeArgumentIndex;
+        }
+        BeanIntrospection<?> introspection = introspector.findIntrospection(declaredType).orElse(null);
+        if (introspection != null) {
+            int index = ContainerTypeArguments.generatedIndex(introspection, containerType, typeArgumentIndex);
+            if (index != ContainerTypeArguments.UNKNOWN) {
+                return index;
+            }
+        }
+        int recorded = ContainerTypeArguments.recordedIndex(this, declaredType, containerType, typeArgumentIndex);
+        if (recorded != ContainerTypeArguments.UNKNOWN) {
+            return recorded;
+        }
+        // these JDK contracts have a specified, unchanged variable order
+        if (ValidationAnnotationUtil.POSITIONAL_JDK_CONTAINERS.contains(declaredType.getName())) {
+            return typeArgumentIndex;
+        }
+        return UNDESCRIBED_TYPE_ARGUMENT;
+    }
+
+    @Override
+    public <T> T instantiate(Class<T> type) {
+        throw ReflectionSupport.reflectionRequired("a constructor of " + type.getName() + ", which is neither introspected nor a bean");
+    }
+
+    @Override
+    public void checkConstraintDefinition(Class<? extends Annotation> constraintType) {
+        if (constraintType.getName().startsWith("jakarta.validation.constraints.")) {
+            // a constraint of the specification is a valid definition: one an XML mapping declares, which the
+            // processor never checked, needs no reading of its class
+            return;
+        }
+        throw ReflectionSupport.reflectionRequired("the members " + constraintType.getName() + " declares, which the constraint definition"
+            + " rules are checked against");
+    }
+
+    @Override
+    public <T> @Nullable Argument<T> describedGenericSuperArgument(Class<?> type, Class<T> superType) {
+        BeanIntrospection<?> introspection = introspector.findIntrospection(type).orElse(null);
+        if (introspection != null) {
+            List<Argument<?>> arguments = introspection.getTypeArguments(superType);
+            if (!arguments.isEmpty()) {
+                return Argument.of(superType, arguments.toArray(Argument.ZERO_ARGUMENTS));
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public <T> Argument<T> genericSuperArgument(Class<?> type, Class<T> superType) {
+        Argument<T> argument = describedGenericSuperArgument(type, superType);
+        if (argument != null) {
+            return argument;
+        }
+        throw ReflectionSupport.reflectionRequired("what " + type.getName() + " binds the type arguments of " + superType.getName() + " to");
+    }
+
+    /**
+     * The annotation processor records the validators a constraint declares on every occurrence it
+     * compiles, so an occurrence carrying none is one of a constraint that declares none. A
+     * constraint compiled without the processor is the case this cannot tell apart, and the
+     * reflection module reads the type for it.
+     */
+    @Override
+    public AnnotationValue<? extends Annotation> withDeclaredValidators(AnnotationValue<? extends Annotation> value,
+                                                                        Class<? extends Annotation> constraintType) {
+        return value;
+    }
+
+    /**
+     * The processor retains the marker on the occurrence of a constraint that carries it, so an
+     * occurrence without it is of a constraint that is not marked. The one case this cannot tell is
+     * a marker on a constraint composed inside another composed constraint, which the retained tree
+     * does not reach: the reflection module reads the type for it.
+     */
+    @Override
+    public boolean reportsAsSingleViolation(Class<? extends Annotation> constraintType) {
+        return false;
+    }
+
+    /**
+     * The processor records the validators a constraint declares on every occurrence it compiles,
+     * so a constraint the metadata says nothing about declares none.
+     */
+    @Override
+    public List<Class<?>> declaredValidators(Class<? extends Annotation> constraintType) {
+        return List.of();
+    }
+
+    /**
+     * The targets are read from the introspection of a validator; a validator without one is
+     * described by nothing here.
+     */
+    @Override
+    public Set<ValidationTarget> supportedValidationTargets(Class<?> validatorType) {
+        return Set.of();
+    }
+
+    /**
+     * A group sequence is read from the introspection of the group; a group the archive never
+     * introspected is not known to be one, and the rule that a conversion may not name one goes
+     * unchecked rather than wrong.
+     */
+    @Override
+    public boolean isGroupSequence(Class<?> group) {
+        return introspector.findIntrospection(group)
+            .map(introspection -> introspection.hasAnnotation(GroupSequence.class)).orElse(false);
+    }
+
+    /**
+     * The contract is retained on every occurrence the processor compiles, so an occurrence that
+     * does not carry it is not one of a constraint as far as the generated metadata goes.
+     */
+    @Override
+    public boolean isConstraintAnnotation(Class<?> annotationType) {
+        return false;
+    }
+
+    @Override
+    public List<String> parameterNames(Executable executable) {
+        List<String> described = describedParameterNames(executable);
+        if (described != null) {
+            return described;
+        }
+        throw ReflectionSupport.reflectionRequired("the parameter names of " + executable.getName() + " of "
+            + executable.getDeclaringClass().getName());
+    }
+
+    @Override
+    public @Nullable List<String> describedParameterNames(Executable executable) {
+        BeanIntrospection<?> introspection = introspector.findIntrospection(executable.getDeclaringClass()).orElse(null);
+        if (introspection == null) {
+            return null;
+        }
+        if (executable instanceof Method method) {
+            for (var candidate : introspection.getBeanMethods()) {
+                if (candidate.getName().equals(method.getName())
+                    && Arrays.equals(Argument.toClassArray(candidate.getArguments()), method.getParameterTypes())) {
+                    return Arrays.stream(candidate.getArguments()).map(Argument::getName).toList();
+                }
+            }
+        } else {
+            for (var candidate : introspection.getConstructors()) {
+                if (Arrays.equals(Argument.toClassArray(candidate.getArguments()), executable.getParameterTypes())) {
+                    return Arrays.stream(candidate.getArguments()).map(Argument::getName).toList();
+                }
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public @Nullable Argument<?> describedValueExtractorArgument(Class<?> extractorType) {
+        Argument<?> argument = describedGenericSuperArgument(extractorType, ValueExtractor.class);
+        if (argument == null) {
+            return null;
+        }
+        AnnotationMetadata declared = introspector.getIntrospection(extractorType).getAnnotationMetadata();
+        return argument.withAnnotationMetadata(ConfiguredMetadata.merge(List.of(argument.getAnnotationMetadata(), declared)));
+    }
+
+    @Override
+    public Argument<?> valueExtractorArgument(Class<?> extractorType) {
+        Argument<?> argument = describedValueExtractorArgument(extractorType);
+        if (argument != null) {
+            return argument;
+        }
+        throw ReflectionSupport.reflectionRequired("the extractor signature " + extractorType.getName()
+            + " declares, for an instance registered through the configuration API");
+    }
+}

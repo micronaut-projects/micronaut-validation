@@ -19,7 +19,9 @@
  * @since 4.9.0
  */
 @Requires(property = ValidatorConfiguration.ENABLED, value = StringUtils.TRUE, defaultValue = StringUtils.TRUE)
+@NullMarked
 package io.micronaut.validation.validator;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.core.util.StringUtils;
+import org.jspecify.annotations.NullMarked;

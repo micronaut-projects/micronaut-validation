@@ -1,0 +1,635 @@
+/*
+ * Copyright 2017-2026 original authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.micronaut.validation.validator;
+
+import io.micronaut.core.annotation.AnnotationMetadata;
+import io.micronaut.core.annotation.AnnotationValue;
+import io.micronaut.core.annotation.Internal;
+import io.micronaut.core.beans.BeanIntrospection;
+import io.micronaut.core.beans.BeanIntrospector;
+import io.micronaut.core.beans.BeanMethod;
+import io.micronaut.core.beans.BeanTypeHierarchy;
+import io.micronaut.core.type.Argument;
+import io.micronaut.core.type.ReturnType;
+import io.micronaut.inject.ExecutableMethod;
+import io.micronaut.inject.annotation.AnnotationMetadataHierarchy;
+import io.micronaut.validation.validator.constraints.ConstraintContainers;
+import io.micronaut.validation.validator.metadata.ConfiguredMetadata;
+import io.micronaut.validation.validator.metadata.ValidationMetadataSupport;
+import jakarta.validation.ConstraintDeclarationException;
+import jakarta.validation.Valid;
+import jakarta.validation.groups.ConvertGroup;
+import jakarta.validation.groups.Default;
+import org.jspecify.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+
+/**
+ * The declarations of an executable across the type hierarchy: the constraints a method inherits from the methods
+ * it overrides or implements, and the rules the specification sets for such hierarchies.
+ *
+ * <p>The hierarchy is read from the bean introspections of the super types, so it is as complete as the
+ * introspections are. A generated introspection reports the metadata of a method with the annotations of the
+ * methods it overrides merged in, so what a type declares itself is not told apart; an introspection that
+ * separates the declarations - the reflection module provides one - marks its declarations
+ * {@link Declaration#exact() exact}, and resolves the hierarchy through {@link ReflectionSupport}.</p>
+ *
+ * @since 5.3.0
+ */
+@Internal
+public final class ExecutableHierarchy {
+
+    private ExecutableHierarchy() {
+    }
+
+    /**
+     * Resolves the hierarchy of an executable from the introspections of the super types: the declaration a
+     * super type or an interface lists for the executable, by name and parameter types, and the local one
+     * merged with them.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param introspector The introspector of the super types
+     * @param local        The executable as validated
+     * @param name         Its name
+     * @return The executable with what it inherits merged in
+     */
+    public static Resolved resolve(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Declaration local, String name) {
+        Class<?>[] parameterTypes = Argument.toClassArray(local.arguments());
+        BeanTypeHierarchy hierarchy = ValidationMetadataSupport.hierarchy(introspector, local.declaringType());
+        BeanMethod<?, ?> method = hierarchy == null ? null : ValidationMetadataSupport.declaredMethod(hierarchy, name, parameterTypes);
+        if (hierarchy == null || method == null) {
+            // the super types walked when the introspection does not describe the hierarchy
+            List<Declaration> inherited = inherited(reflectionSupport, introspector, local.declaringType(), name, parameterTypes);
+            Declaration declared = declaredBy(introspector, null, local.declaringType(), name, parameterTypes).orElse(local);
+            return merge(local, declared, inherited);
+        }
+        // the declaring levels the introspection lists, an unconstrained one included, each declaration read by core
+        List<Class<?>> levels = hierarchy.getDeclaringTypes(method);
+        Declaration declared = declaredBy(introspector, hierarchy, local.declaringType(), name, parameterTypes).orElse(local);
+        return merge(local, declared, inherited(introspector, hierarchy, local, levels, name, parameterTypes));
+    }
+
+    /**
+     * Merges the levels of a hierarchy into one view, the local one winning.
+     *
+     * @param local     The executable as validated
+     * @param declared  What its declaring type itself declares, the local one when unknown
+     * @param inherited The declarations it overrides or implements, the nearest first
+     * @return The resolved hierarchy
+     */
+    public static Resolved merge(Declaration local, Declaration declared, List<Declaration> inherited) {
+        if (inherited.isEmpty()) {
+            return new Resolved(local, declared, inherited, declared.annotationMetadata(), declared.arguments(), declared.returnArgument());
+        }
+        // the farthest declaration first, the validated one last: it wins where the same annotation is repeated
+        List<Declaration> levels = new ArrayList<>(inherited);
+        Collections.reverse(levels);
+        levels.add(declared);
+        Argument<?>[] arguments = new Argument[local.arguments().length];
+        for (int i = 0; i < arguments.length; i++) {
+            int index = i;
+            arguments[i] = mergeArgument(levels.stream().map(level -> level.arguments()[index]).toList());
+        }
+        return new Resolved(local,
+            declared,
+            List.copyOf(inherited),
+            ConfiguredMetadata.merge(levels.stream().map(Declaration::annotationMetadata).toList()),
+            arguments,
+            mergeArgument(levels.stream().map(Declaration::returnArgument).toList()));
+    }
+
+    /**
+     * The declarations of the levels an introspection lists for a method, the type declaring it aside: a level
+     * without a bean method of it declares it unconstrained.
+     */
+    private static List<Declaration> inherited(BeanIntrospector introspector, BeanTypeHierarchy hierarchy, Declaration local,
+                                               List<Class<?>> levels, String name, Class<?>[] parameterTypes) {
+        List<Declaration> declarations = new ArrayList<>(levels.size());
+        for (Class<?> level : levels.subList(Math.min(1, levels.size()), levels.size())) {
+            String typeName = level.getName();
+            if (ValidationAnnotationUtil.isPlatformType(typeName)) {
+                continue;
+            }
+            Optional<Declaration> declared = declaredBy(introspector, hierarchy, level, name, parameterTypes);
+            if (declared.isPresent()) {
+                declarations.add(declared.get());
+            } else if (!local.exact() && introspector.findIntrospection(level).isEmpty()) {
+                // a level the introspector cannot read, compiled without the processor: what it declares is only
+                // known merged into the metadata of the local executable, which the compiler built from it
+                declarations.add(new Declaration(level, local.annotationMetadata(), local.arguments(), local.returnArgument(), false));
+            } else {
+                declarations.add(new Declaration(level,
+                    AnnotationMetadata.EMPTY_METADATA,
+                    Arrays.stream(parameterTypes).map(Argument::of).toArray(Argument<?>[]::new),
+                    Argument.of(local.returnArgument().getType()), true));
+            }
+        }
+        return declarations;
+    }
+
+    /**
+     * The declarations an executable overrides or implements: the ones of the super classes, then of all the
+     * interfaces, each interface visited once.
+     */
+    private static List<Declaration> inherited(ReflectionSupport reflectionSupport, BeanIntrospector introspector, Class<?> declaringType, String name, Class<?>[] parameterTypes) {
+        List<Declaration> declarations = new ArrayList<>();
+        Set<Class<?>> visitedInterfaces = new HashSet<>();
+        for (Class<?> current = reflectionSupport.superType(declaringType); current != null && current != Object.class; current = reflectionSupport.superType(current)) {
+            declaredBy(introspector, null, current, name, parameterTypes).ifPresent(declarations::add);
+            collectInterfaceDeclarations(reflectionSupport, introspector, current, name, parameterTypes, visitedInterfaces, declarations);
+        }
+        collectInterfaceDeclarations(reflectionSupport, introspector, declaringType, name, parameterTypes, visitedInterfaces, declarations);
+        return declarations;
+    }
+
+    private static void collectInterfaceDeclarations(ReflectionSupport reflectionSupport, BeanIntrospector introspector,
+                                                     Class<?> type,
+                                                     String name,
+                                                     Class<?>[] parameterTypes,
+                                                     Set<Class<?>> visitedInterfaces,
+                                                     List<Declaration> declarations) {
+        for (Class<?> interfaceType : reflectionSupport.interfaces(type)) {
+            if (visitedInterfaces.add(interfaceType)) {
+                declaredBy(introspector, null, interfaceType, name, parameterTypes).ifPresent(declarations::add);
+                collectInterfaceDeclarations(reflectionSupport, introspector, interfaceType, name, parameterTypes, visitedInterfaces, declarations);
+            }
+        }
+    }
+
+    /**
+     * The declaration of a method by a type itself, read from the introspection of the type: the bean method
+     * of that name and those parameter types the type declares.
+     */
+    @SuppressWarnings("unchecked")
+    private static Optional<Declaration> declaredBy(BeanIntrospector introspector, @Nullable BeanTypeHierarchy root,
+                                                    Class<?> type, String name, Class<?>[] parameterTypes) {
+        String typeName = type.getName();
+        if (ValidationAnnotationUtil.isPlatformType(typeName)) {
+            return Optional.empty();
+        }
+        BeanIntrospection<Object> introspection = introspector.findIntrospection((Class<Object>) type).orElse(null);
+        if (introspection == null) {
+            return Optional.empty();
+        }
+        // core matches the signature as declared first, else the one a generic declaration erases to, a type
+        // variable bound by the validated type standing for its binding
+        BeanTypeHierarchy hierarchy = root != null && root.contains(type) ? root : introspection.getTypeHierarchy().orElse(null);
+        if (hierarchy != null) {
+            return hierarchy.findOverridden(introspector, type, name, parameterTypes)
+                .filter(method -> method.getDeclaringType() == type)
+                .map(method -> Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
+        }
+        for (BeanMethod<Object, Object> method : introspection.getBeanMethods()) {
+            if (method.getName().equals(name) && method.getDeclaringType() == type
+                && Arrays.equals(Argument.toClassArray(method.getArguments()), parameterTypes)) {
+                return Optional.of(Declaration.of(method, method.getDeclaringBean().separatesDeclarations()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Merges the annotations of the levels of an argument, type arguments included, the last level winning.
+     *
+     * @param levels The levels, the validated one last
+     * @return The merged argument
+     */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public static Argument<?> mergeArgument(List<Argument<?>> levels) {
+        Argument<?> local = levels.get(levels.size() - 1);
+        Argument<?>[] localTypeParameters = local.getTypeParameters();
+        Argument<?>[] typeParameters = new Argument[localTypeParameters.length];
+        for (int i = 0; i < typeParameters.length; i++) {
+            int index = i;
+            typeParameters[i] = mergeArgument(levels.stream()
+                .filter(level -> level.getTypeParameters().length == localTypeParameters.length)
+                .map(level -> level.getTypeParameters()[index])
+                .toList());
+        }
+        AnnotationMetadata metadata = ConfiguredMetadata.merge(levels.stream().map(Argument::getAnnotationMetadata).toList());
+        return local.withTypeParameters(typeParameters).withAnnotationMetadata(metadata);
+    }
+
+    /**
+     * The annotations declared on an executable, without the ones of its class: the executable methods of
+     * beans carry both. A metadata that is not a hierarchy is returned as is, {@code getDeclaredMetadata()}
+     * would drop the repeated annotations.
+     *
+     * @param annotationMetadata The metadata
+     * @return The metadata of the executable alone
+     */
+    public static AnnotationMetadata declaredOf(AnnotationMetadata annotationMetadata) {
+        if (annotationMetadata instanceof AnnotationMetadataHierarchy hierarchy) {
+            AnnotationMetadata declared = hierarchy.getDeclaredMetadata();
+            return declared instanceof AnnotationMetadataHierarchy
+                ? new AnnotationMetadataHierarchy(hierarchy.getRootMetadata(), declared.getDeclaredMetadata())
+                : declared;
+        }
+        return annotationMetadata;
+    }
+
+    /**
+     * Parameter constraints, cascades and group conversions are declared once, at the root of the hierarchy.
+     *
+     * <p>When the declaring type is not introspected reflectively, the validated metadata may already merge
+     * what the executable inherits: only what none of the inherited declarations carries counts as added.</p>
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param hierarchy The hierarchy of the executable
+     */
+    static void checkParameterDeclarations(ReflectionSupport reflectionSupport, Resolved hierarchy) {
+        Declaration declared = hierarchy.declared();
+        List<Declaration> inherited = hierarchy.inherited();
+        for (Argument<?> argument : declared.arguments()) {
+            checkGroupConversions(reflectionSupport, argument);
+        }
+        if (inherited.isEmpty()) {
+            return;
+        }
+        if (declared.exact() ? hasParameterConstraintsOrCascades(reflectionSupport, declared) : addsParameterConstraints(reflectionSupport, hierarchy)) {
+            throw new ConstraintDeclarationException("Parameter constraints cannot be added in overriding or implementing methods: " + describe(declared));
+        }
+        if (hierarchy.parallel() && inherited.stream().anyMatch(declaration -> hasParameterConstraintsOrCascades(reflectionSupport, declaration))) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter constraints: " + describe(declared));
+        }
+        if (declared.exact() ? hasParameterGroupConversions(declared) : addsParameterGroupConversions(reflectionSupport, hierarchy)) {
+            throw new ConstraintDeclarationException("Group conversions on parameters cannot be added in overriding or implementing methods: " + describe(declared));
+        }
+        if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasParameterGroupConversions)) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare parameter group conversions: " + describe(declared));
+        }
+    }
+
+    /**
+     * A return value is marked cascaded once in the hierarchy, and its group conversions are not declared in parallel.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param hierarchy The hierarchy of the executable
+     */
+    static void checkReturnValueDeclarations(ReflectionSupport reflectionSupport, Resolved hierarchy) {
+        Declaration declared = hierarchy.declared();
+        List<Declaration> inherited = hierarchy.inherited();
+        checkGroupConversions(reflectionSupport, declared.annotationMetadata(), isCascaded(declared.annotationMetadata()));
+        for (Argument<?> typeArgument : declared.returnArgument().getTypeParameters()) {
+            checkGroupConversions(reflectionSupport, typeArgument);
+        }
+        if (inherited.isEmpty()) {
+            return;
+        }
+        long inheritedCascaded = inherited.stream().filter(ExecutableHierarchy::hasCascadedReturnValue).count();
+        if (declared.exact() && hasCascadedReturnValue(declared) && inheritedCascaded > 0
+            || inheritedCascaded > 1 && hasCascadedReturnConflict(inherited)) {
+            throw new ConstraintDeclarationException("Return value cannot be marked cascaded more than once in a method hierarchy: " + describe(declared));
+        }
+        if (hierarchy.parallel() && inherited.stream().anyMatch(ExecutableHierarchy::hasReturnValueGroupConversions)) {
+            throw new ConstraintDeclarationException("Parallel method declarations cannot declare return value group conversions: " + describe(declared));
+        }
+    }
+
+    /**
+     * Checks the group conversions of an element and of its type arguments.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param argument The element
+     */
+    static void checkGroupConversions(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        checkGroupConversions(reflectionSupport, argument.getAnnotationMetadata(), isCascaded(argument.getAnnotationMetadata()));
+        for (Argument<?> typeArgument : argument.getTypeParameters()) {
+            checkGroupConversions(reflectionSupport, typeArgument);
+        }
+    }
+
+    /**
+     * Group conversions are declared on cascaded elements, from a group that is not a sequence, once per source group.
+     *
+     * @param reflectionSupport The access provider captured by the validator factory
+     * @param annotationMetadata The element annotations
+     * @param cascaded           Whether the element is cascaded
+     */
+    static void checkGroupConversions(ReflectionSupport reflectionSupport, AnnotationMetadata annotationMetadata, boolean cascaded) {
+        List<AnnotationValue<ConvertGroup>> conversions = annotationMetadata.getAnnotationValuesByType(ConvertGroup.class);
+        if (conversions.isEmpty()) {
+            return;
+        }
+        if (!cascaded) {
+            throw new ConstraintDeclarationException("Group conversions can only be declared on cascaded elements");
+        }
+        Map<Class<?>, Class<?>> seen = new HashMap<>();
+        for (AnnotationValue<ConvertGroup> conversion : conversions) {
+            GroupConversion groupConversion = GroupConversion.of(conversion);
+            Class<?> from = groupConversion.from();
+            Class<?> to = groupConversion.requireTo();
+            if (reflectionSupport.isGroupSequence(from)) {
+                throw new ConstraintDeclarationException("Group conversion source cannot be a group sequence: " + from.getName());
+            }
+            if (seen.putIfAbsent(from, to) != null) {
+                throw new ConstraintDeclarationException("Multiple group conversions declare the same source group: " + from.getName());
+            }
+        }
+    }
+
+    private static boolean addsParameterConstraints(ReflectionSupport reflectionSupport, Resolved hierarchy) {
+        Argument<?>[] local = hierarchy.local().arguments();
+        for (int i = 0; i < local.length; i++) {
+            int index = i;
+            // the occurrences, attributes included: an override redeclaring a constraint with other attributes
+            // strengthens it as much as one adding a constraint
+            Set<Object> added = new HashSet<>(constraintOccurrences(reflectionSupport, local[i]));
+            hierarchy.inherited().forEach(declaration -> added.removeAll(constraintOccurrences(reflectionSupport, declaration.arguments()[index])));
+            if (!added.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean addsParameterGroupConversions(ReflectionSupport reflectionSupport, Resolved hierarchy) {
+        Argument<?>[] local = hierarchy.local().arguments();
+        for (int i = 0; i < local.length; i++) {
+            int index = i;
+            Set<String> added = new HashSet<>(groupConversions(local[i]));
+            hierarchy.inherited().forEach(declaration -> added.removeAll(groupConversions(declaration.arguments()[index])));
+            if (!added.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** The constraints and cascades of an argument and of its type arguments, by name. */
+    private static Set<Object> constraintOccurrences(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        Set<Object> occurrences = new HashSet<>();
+        collectConstraintOccurrences(reflectionSupport, argument, "", occurrences);
+        return occurrences;
+    }
+
+    private static void collectConstraintOccurrences(ReflectionSupport reflectionSupport, Argument<?> argument, String prefix, Set<Object> occurrences) {
+        AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
+        for (String name : ConstraintContainers.constraintNames(reflectionSupport, annotationMetadata, reflectionSupport.classLoader())) {
+            List<? extends AnnotationValue<?>> values = annotationMetadata.getAnnotationValuesByName(name);
+            if (values.isEmpty()) {
+                occurrences.add(prefix + name);
+            } else {
+                for (AnnotationValue<?> value : values) {
+                    occurrences.add(List.of(prefix, value));
+                }
+            }
+        }
+        if (isCascaded(annotationMetadata)) {
+            occurrences.add(prefix + Valid.class.getName());
+        }
+        Argument<?>[] typeParameters = argument.getTypeParameters();
+        for (int i = 0; i < typeParameters.length; i++) {
+            collectConstraintOccurrences(reflectionSupport, typeParameters[i], prefix + i + ":", occurrences);
+        }
+    }
+
+    /** The group conversions of an argument and of its type arguments, as {@code from->to} pairs. */
+    private static Set<String> groupConversions(Argument<?> argument) {
+        Set<String> conversions = new HashSet<>();
+        collectGroupConversions(argument, "", conversions);
+        return conversions;
+    }
+
+    private static void collectGroupConversions(Argument<?> argument, String prefix, Set<String> conversions) {
+        for (AnnotationValue<ConvertGroup> conversion : argument.getAnnotationMetadata().getAnnotationValuesByType(ConvertGroup.class)) {
+            conversions.add(prefix + conversion.stringValue("from").orElse(Default.class.getName()) + "->" + conversion.stringValue("to").orElse(""));
+        }
+        Argument<?>[] typeParameters = argument.getTypeParameters();
+        for (int i = 0; i < typeParameters.length; i++) {
+            collectGroupConversions(typeParameters[i], prefix + i + ":", conversions);
+        }
+    }
+
+    private static boolean hasCascadedReturnConflict(List<Declaration> declarations) {
+        List<Class<?>> cascadedTypes = declarations.stream()
+            .filter(ExecutableHierarchy::hasCascadedReturnValue)
+            .map(Declaration::declaringType)
+            .toList();
+        for (int i = 0; i < cascadedTypes.size(); i++) {
+            for (int j = i + 1; j < cascadedTypes.size(); j++) {
+                if (cascadedTypes.get(i).isAssignableFrom(cascadedTypes.get(j)) || cascadedTypes.get(j).isAssignableFrom(cascadedTypes.get(i))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static boolean hasParameterConstraintsOrCascades(ReflectionSupport reflectionSupport, Declaration declaration) {
+        return Arrays.stream(declaration.arguments()).anyMatch(parameter -> isConstrainedOrCascaded(reflectionSupport, parameter));
+    }
+
+    private static boolean hasCascadedReturnValue(Declaration declaration) {
+        return isCascaded(declaration.annotationMetadata())
+            || isCascaded(declaration.returnArgument())
+            || Arrays.stream(declaration.returnArgument().getTypeParameters()).anyMatch(ExecutableHierarchy::isCascaded);
+    }
+
+    private static boolean hasParameterGroupConversions(Declaration declaration) {
+        return Arrays.stream(declaration.arguments()).anyMatch(ExecutableHierarchy::hasGroupConversions);
+    }
+
+    private static boolean hasReturnValueGroupConversions(Declaration declaration) {
+        return hasGroupConversions(declaration.annotationMetadata())
+            || Arrays.stream(declaration.returnArgument().getTypeParameters()).anyMatch(ExecutableHierarchy::hasGroupConversions);
+    }
+
+    private static boolean isConstrainedOrCascaded(ReflectionSupport reflectionSupport, Argument<?> argument) {
+        AnnotationMetadata annotationMetadata = argument.getAnnotationMetadata();
+        if (ConstraintContainers.hasConstraints(reflectionSupport, annotationMetadata, reflectionSupport.classLoader()) || isCascaded(annotationMetadata)) {
+            return true;
+        }
+        return Arrays.stream(argument.getTypeParameters()).anyMatch(parameter -> isConstrainedOrCascaded(reflectionSupport, parameter));
+    }
+
+    private static boolean isCascaded(Argument<?> argument) {
+        return isCascaded(argument.getAnnotationMetadata()) || Arrays.stream(argument.getTypeParameters()).anyMatch(ExecutableHierarchy::isCascaded);
+    }
+
+    private static boolean isCascaded(AnnotationMetadata annotationMetadata) {
+        return annotationMetadata.hasStereotype(Valid.class);
+    }
+
+    private static boolean hasGroupConversions(Argument<?> argument) {
+        return hasGroupConversions(argument.getAnnotationMetadata()) || Arrays.stream(argument.getTypeParameters()).anyMatch(ExecutableHierarchy::hasGroupConversions);
+    }
+
+    private static boolean hasGroupConversions(AnnotationMetadata annotationMetadata) {
+        return !annotationMetadata.getAnnotationValuesByType(ConvertGroup.class).isEmpty();
+    }
+
+    private static String describe(Declaration declaration) {
+        return declaration.declaringType().getName();
+    }
+
+    /**
+     * The identity of an executable, stable across the executable method instances created for it.
+     *
+     * @param declaringType  The declaring type
+     * @param name           The name
+     * @param parameterTypes The parameter types
+     */
+    record Key(Class<?> declaringType, String name, List<Class<?>> parameterTypes) {
+
+        static Key of(ExecutableMethod<?, ?> method) {
+            return new Key(method.getDeclaringType(), method.getMethodName(), List.of(Argument.toClassArray(method.getArguments())));
+        }
+    }
+
+    /**
+     * One declaration of an executable in the hierarchy.
+     *
+     * @param declaringType      The type declaring it
+     * @param annotationMetadata The executable annotations, without the ones of its declaring type
+     * @param arguments          The parameters
+     * @param returnArgument     The return value
+     * @param exact              Whether the annotations are the ones of this declaration only: a generated
+     * introspection merges the annotations of the overridden methods into them
+     */
+    @SuppressWarnings("ArrayRecordComponent")
+    public record Declaration(Class<?> declaringType,
+                              AnnotationMetadata annotationMetadata,
+                              Argument<?>[] arguments,
+                              Argument<?> returnArgument,
+                              boolean exact) {
+
+        /**
+         * The constraints of a return value are declared on the method, so the return argument carries the
+         * annotations of the method next to the ones of the return type itself. A generated introspection and
+         * a bean definition build the return argument that way already; a reflective description carries the
+         * type-use annotations of the return type only, and would leave a method-level constraint declared
+         * nowhere on the return value of the merged hierarchy.
+         *
+         * @param declaringType      The type declaring it
+         * @param annotationMetadata The executable annotations, without the ones of its declaring type
+         * @param arguments          The parameters
+         * @param returnArgument     The return value
+         * @param exact              Whether the annotations are the ones of this declaration only
+         */
+        public Declaration {
+            returnArgument = withMethodAnnotations(returnArgument, annotationMetadata);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static Argument<?> withMethodAnnotations(Argument<?> returnArgument, AnnotationMetadata methodMetadata) {
+            AnnotationMetadata returnMetadata = returnArgument.getAnnotationMetadata();
+            if (methodMetadata.isEmpty() || returnMetadata.equals(methodMetadata)
+                || methodMetadata.getAnnotationNames().stream().allMatch(returnMetadata::hasAnnotation)) {
+                return returnArgument;
+            }
+            AnnotationMetadata metadata = ConfiguredMetadata.merge(List.of(methodMetadata, returnMetadata));
+            return returnArgument.withAnnotationMetadata(metadata);
+        }
+
+        /**
+         * The declaration an executable method reports. Its metadata merges the annotations of the methods it
+         * overrides, so the declaration is not exact.
+         *
+         * @param method The method
+         * @return The declaration
+         */
+        public static Declaration of(ExecutableMethod<?, ?> method) {
+            return new Declaration(method.getDeclaringType(),
+                declaredOf(method.getAnnotationMetadata()),
+                method.getArguments(),
+                returnArgumentOf(method.getReturnType()),
+                false);
+        }
+
+        /**
+         * The declaration a bean method reports.
+         *
+         * @param method The method
+         * @param exact  Whether the introspection reporting it tells the annotations of this declaration apart
+         * from the ones of the methods it overrides
+         * @return The declaration
+         */
+        public static Declaration of(BeanMethod<?, ?> method, boolean exact) {
+            return new Declaration(method.getDeclaringType(),
+                exact ? method.getDeclaredMethodAnnotationMetadata() : declaredOf(method.getAnnotationMetadata()),
+                exact ? ValidationMetadataSupport.declaredArguments(method.getArguments(), method.getDeclaredMethodAnnotationMetadata()) : method.getArguments(),
+                exact ? returnArgumentOf(method.getReturnType()).withAnnotationMetadata(method.getDeclaredMethodAnnotationMetadata())
+                    : returnArgumentOf(method.getReturnType()),
+                exact);
+        }
+
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        private static Argument<?> returnArgumentOf(ReturnType<?> returnType) {
+            Argument<?> argument = returnType.asArgument();
+            AnnotationMetadata declared = declaredOf(argument.getAnnotationMetadata());
+            return argument.withAnnotationMetadata(declared);
+        }
+
+        @Override
+        public String toString() {
+            return declaringType.getName() + (exact ? " (declared)" : "");
+        }
+    }
+
+    /**
+     * An executable with the declarations it inherits merged in.
+     *
+     * @param local              The executable as validated
+     * @param declared           What its declaring type itself declares, the local one when unknown
+     * @param inherited          The declarations it overrides or implements, the nearest first
+     * @param annotationMetadata The merged executable annotations
+     * @param arguments          The merged parameters
+     * @param returnArgument     The merged return value
+     */
+    @SuppressWarnings("ArrayRecordComponent")
+    public record Resolved(Declaration local,
+                           Declaration declared,
+                           List<Declaration> inherited,
+                           AnnotationMetadata annotationMetadata,
+                           Argument<?>[] arguments,
+                           Argument<?> returnArgument) {
+
+        /**
+         * Whether the executable is declared in parallel branches of the hierarchy: by two types neither of
+         * which extends or implements the other, as a class implementing two interfaces that both declare it.
+         * Each declaration is read from the introspection of the type declaring it, so a type that merely
+         * inherits the method does not count as a declaration of its own.
+         *
+         * @return Whether two unrelated types of the hierarchy declare the executable
+         */
+        public boolean parallel() {
+            for (int i = 0; i < inherited.size(); i++) {
+                Class<?> first = inherited.get(i).declaringType();
+                for (int j = i + 1; j < inherited.size(); j++) {
+                    Class<?> second = inherited.get(j).declaringType();
+                    if (!first.isAssignableFrom(second) && !second.isAssignableFrom(first)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        @Override
+        public String toString() {
+            return "Resolved{local=" + local + ", inherited=" + inherited + "}";
+        }
+    }
+}

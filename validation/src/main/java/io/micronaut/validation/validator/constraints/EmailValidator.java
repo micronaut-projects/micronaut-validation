@@ -22,7 +22,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import jakarta.inject.Singleton;
 
@@ -58,8 +57,8 @@ public class EmailValidator extends AbstractPatternValidator<Email> {
     @Override
     public boolean isValid(
             @Nullable CharSequence value,
-            @NonNull AnnotationValue<Email> annotationMetadata,
-            @NonNull ConstraintValidatorContext context) {
+            AnnotationValue<Email> annotationMetadata,
+            ConstraintValidatorContext context) {
         if (value == null) {
             return true;
         }
@@ -82,7 +81,7 @@ public class EmailValidator extends AbstractPatternValidator<Email> {
             isValid = DomainNameUtil.isValidEmailDomainAddress(domainPart);
         }
 
-        final Pattern pattern = getPattern(annotationMetadata, true);
+        final Pattern pattern = getOptionalPattern(annotationMetadata);
         if (pattern == null || !isValid) {
             return isValid;
         }

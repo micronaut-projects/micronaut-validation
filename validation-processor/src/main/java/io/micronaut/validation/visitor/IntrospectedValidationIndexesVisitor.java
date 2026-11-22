@@ -15,18 +15,25 @@
  */
 package io.micronaut.validation.visitor;
 
-
+import io.micronaut.context.annotation.Executable;
 import io.micronaut.core.annotation.AnnotationClassValue;
-import io.micronaut.core.annotation.AnnotationMetadata;
 import io.micronaut.core.annotation.AnnotationValue;
 import io.micronaut.core.annotation.Internal;
 import io.micronaut.core.annotation.Introspected;
-import org.jspecify.annotations.NonNull;
 import io.micronaut.inject.ast.ClassElement;
+import io.micronaut.inject.ast.ConstructorElement;
+import io.micronaut.inject.ast.ElementQuery;
+import io.micronaut.inject.ast.FieldElement;
+import io.micronaut.inject.ast.MethodElement;
 import io.micronaut.inject.beans.visitor.IntrospectedTypeElementVisitor;
+import io.micronaut.inject.validation.RequiresValidation;
 import io.micronaut.inject.visitor.TypeElementVisitor;
 import io.micronaut.inject.visitor.VisitorContext;
 
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -39,6 +46,12 @@ import java.util.stream.Stream;
 @Internal
 public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<Object, Object> {
 
+    /**
+     * The annotation processor option describing every introspected type for validation, the ones without a
+     * constraint included: what an XML constraint mapping of a type declaring none needs.
+     */
+    public static final String DESCRIBE_ALL_OPTION = "micronaut.validation.describeAllIntrospections";
+
     private static final String ANN_CONSTRAINT = "jakarta.validation.Constraint";
     private static final String ANN_VALID = "jakarta.validation.Valid";
 
@@ -49,8 +62,6 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
         .member("annotation", new AnnotationClassValue<>(ANN_VALID))
         .build();
 
-    private ClassElement classElement;
-
     @Override
     public int getOrder() {
         return IntrospectedTypeElementVisitor.POSITION + 10; // Should just before the introspected visitor
@@ -58,10 +69,14 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
 
     @Override
     public Set<String> getSupportedAnnotationNames() {
-        return Set.of("jakarta.validation.*");
+        return Set.of("jakarta.validation.*", "io.micronaut.core.annotation.Introspected");
     }
 
-    @NonNull
+    @Override
+    public Set<String> getSupportedOptions() {
+        return Set.of(DESCRIBE_ALL_OPTION);
+    }
+
     @Override
     public VisitorKind getVisitorKind() {
         return VisitorKind.ISOLATING;
@@ -69,17 +84,118 @@ public class IntrospectedValidationIndexesVisitor implements TypeElementVisitor<
 
     @Override
     public void visitClass(ClassElement element, VisitorContext context) {
-        classElement = element;
-        if (classElement.hasStereotype(Introspected.class)) {
-            AnnotationMetadata annotationMetadata = classElement.getAnnotationMetadata();
-            AnnotationValue<Introspected> introspectedAnnotation = annotationMetadata.getAnnotation(Introspected.class);
-            classElement.annotate(Introspected.class, builder -> {
-                AnnotationValue<?>[] indexed = Stream.concat(
-                    introspectedAnnotation.getAnnotations("indexed", Introspected.IndexedAnnotation.class).stream(),
-                    Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID)
-                ).toArray(AnnotationValue<?>[]::new);
-                builder.member("indexed", indexed);
-            });
+        if (!element.hasStereotype(Introspected.class) || element.isAssignable("io.micronaut.core.type.TypeHierarchy")) {
+            // core keeps its @Generated hierarchy records away from visitors, except one a @ClassImport brings in:
+            // describing it would ask core for the hierarchy of the record
+            return;
         }
+        // the types an @Introspected(classes = ...) introspects with the members of its annotation: they are
+        // judged and described themselves, not the type holding the annotation
+        List<ClassElement> targets = Stream.of(element.getAnnotationMetadata().stringValues(Introspected.class, "classes"))
+            .map(context::getClassElement)
+            .flatMap(Optional::stream)
+            .filter(target -> !target.hasStereotype(Introspected.class))
+            .toList();
+        boolean describeAll = Boolean.parseBoolean(context.getOptions().get(DESCRIBE_ALL_OPTION));
+        if (!participates(element) && !describeAll && targets.stream().noneMatch(IntrospectedValidationIndexesVisitor::participates)) {
+            // other modules read the introspection of a type validation ignores: it is left as declared. A type
+            // constrained only by an XML mapping asks for the option
+            return;
+        }
+        markExecutable(element);
+        for (ClassElement target : targets) {
+            if (describeAll || participates(target)) {
+                markExecutable(target);
+            }
+        }
+        configureIntrospection(element, context);
+    }
+
+    private static void markExecutable(ClassElement element) {
+        element.getMethods().stream()
+            .filter(method -> !method.isStatic() && !method.isPrivate() && method.isAccessible())
+            .filter(method -> ValidationVisitor.requiresValidation(method)
+                || method.getOverriddenMethods().stream().anyMatch(ValidationVisitor::requiresValidation))
+            .forEach(method -> method.annotate(Executable.class));
+    }
+
+    /**
+     * Whether a type takes part in validation: it or a super type declares a constraint, a cascade or a
+     * group sequence on the type or on a field, method or constructor, or it is an interface, which a group
+     * or a constrained contract can be, or a validator or value extractor.
+     */
+    static boolean participates(ClassElement element) {
+        if (element.isInterface()
+            || element.isAssignable("jakarta.validation.ConstraintValidator")
+            || element.isAssignable("jakarta.validation.valueextraction.ValueExtractor")) {
+            return true;
+        }
+        return declaresValidation(element, new HashSet<>());
+    }
+
+    private static boolean declaresValidation(ClassElement type, Set<String> visited) {
+        if (type.getName().equals(Object.class.getName()) || !visited.add(type.getName())) {
+            return false;
+        }
+        if (type.hasStereotype(ANN_CONSTRAINT) || type.hasStereotype(ANN_VALID)
+            || type.hasAnnotation("jakarta.validation.GroupSequence")
+            || type.hasAnnotation(RequiresValidation.class)) {
+            return true;
+        }
+        for (FieldElement field : type.getEnclosedElements(ElementQuery.ALL_FIELDS.onlyDeclared())) {
+            if (ValidationVisitor.hasValidation(field, new HashSet<>())) {
+                return true;
+            }
+        }
+        for (MethodElement method : type.getEnclosedElements(ElementQuery.ALL_METHODS.onlyDeclared())) {
+            if (ValidationVisitor.requiresValidation(method)) {
+                return true;
+            }
+        }
+        for (ConstructorElement constructor : type.getEnclosedElements(ElementQuery.CONSTRUCTORS)) {
+            if (ValidationVisitor.requiresValidation(constructor)) {
+                return true;
+            }
+        }
+        if (type.getSuperType().filter(parent -> declaresValidation(parent, visited)).isPresent()) {
+            return true;
+        }
+        for (ClassElement anInterface : type.getInterfaces()) {
+            if (declaresValidation(anInterface, visited)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static void configureIntrospection(ClassElement element, VisitorContext context) {
+        AnnotationValue<Introspected> introspected = element.getAnnotationMetadata().getAnnotation(Introspected.class);
+        List<AnnotationValue<Introspected.IndexedAnnotation>> indexes = introspected == null
+            ? List.of() : introspected.getAnnotations("indexed", Introspected.IndexedAnnotation.class);
+        boolean constrainedConstructors = element.getEnclosedElements(ElementQuery.CONSTRUCTORS).stream()
+            .anyMatch(ValidationVisitor::requiresValidation);
+        // annotating over the existing @Introspected keeps the members it already has: replace it to append the
+        // indexes and to override its members
+        element.removeAnnotation(Introspected.class);
+        element.annotate(Introspected.class, builder -> {
+            if (introspected != null) {
+                builder.members(new LinkedHashMap<>(introspected.getValues()));
+            }
+            if (context.getLanguage() == VisitorContext.Language.KOTLIN) {
+                // KSP exposes backing fields through native properties.
+                builder.member("accessKind", new Introspected.AccessKind[]{
+                    Introspected.AccessKind.FIELD, Introspected.AccessKind.METHOD
+                });
+            }
+            builder.member("indexed", Stream.concat(indexes.stream(),
+                Stream.of(INTROSPECTION_INDEXED_CONSTRAINT, INTROSPECTION_INDEXED_VALID))
+                .toArray(AnnotationValue<?>[]::new));
+            builder.member("members", true);
+            // the super types and the declaring levels of the methods, which Jakarta Validation applies apart
+            builder.member("hierarchy", true);
+            if (constrainedConstructors) {
+                builder.member("constructors", true);
+            }
+        });
     }
 }

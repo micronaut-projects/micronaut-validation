@@ -16,7 +16,6 @@
 package io.micronaut.validation.validator.constraints;
 
 import io.micronaut.core.annotation.AnnotationValue;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 import jakarta.inject.Singleton;
 
@@ -32,12 +31,12 @@ import jakarta.validation.constraints.Pattern;
 public class PatternValidator extends AbstractPatternValidator<Pattern> {
 
     @Override
-    public boolean isValid(@Nullable CharSequence value, @NonNull AnnotationValue<Pattern> annotationMetadata, @NonNull ConstraintValidatorContext context) {
+    public boolean isValid(@Nullable CharSequence value, AnnotationValue<Pattern> annotationMetadata, ConstraintValidatorContext context) {
         if (value == null) {
             // null valid according to spec
             return true;
         }
-        java.util.regex.Pattern regex = getPattern(annotationMetadata, false);
+        java.util.regex.Pattern regex = getPattern(annotationMetadata);
         return regex.matcher(value).matches();
     }
 }

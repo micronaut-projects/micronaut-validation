@@ -16,6 +16,7 @@
 package io.micronaut.validation.validator;
 
 import io.micronaut.core.annotation.Internal;
+import io.micronaut.inject.MethodReference;
 import org.jspecify.annotations.Nullable;
 import io.micronaut.validation.validator.messages.DefaultMessageInterpolatorContext;
 import jakarta.validation.ConstraintValidatorContext;
@@ -99,13 +100,17 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
     @Override
     public NodeBuilderDefinedContext addParameterNode(int index) {
         Path.Node node = validationPath.peekLast();
-        if (node == null || node.getKind() != ElementKind.METHOD) {
+        // a cross-parameter constraint of a constructor names its parameters as one of a method does
+        if (node == null || (node.getKind() != ElementKind.METHOD && node.getKind() != ElementKind.CONSTRUCTOR)) {
             throw new IllegalStateException("Cannot add parameter at path kind: " + (node == null ? "null" : node.getKind()));
         }
         String name = null;
         if (index != -1) {
-            if (node instanceof ValidationPath.DefaultMethodNode methodNode) {
-                name = methodNode.getMethodReference().getArguments()[index].getName();
+            if (node instanceof ValidationPath.DefaultConstructorNode constructorNode) {
+                name = constraintValidatorContext.defaultValidator().constructorParameterName(constructorNode.getMethodReference(), index);
+            } else if (node instanceof ValidationPath.DefaultMethodNode methodNode) {
+                MethodReference<?, ?> methodReference = methodNode.getMethodReference();
+                name = constraintValidatorContext.defaultValidator().parameterName(methodReference, index);
             }
         }
         validationPath.addParameterNode(name, index);
@@ -117,18 +122,21 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         constraintValidatorContext.addViolation(new DefaultConstraintViolation<>(
             constraintValidatorContext.getRootBean(),
             constraintValidatorContext.getRootClass(),
-            null,
-            null,
+            constraintValidatorContext.leafBean(),
+            constraintValidatorContext.validatedValue(),
             messageInterpolator.interpolate(messageTemplate, new DefaultMessageInterpolatorContext(
                 constraintValidatorContext,
-                constraintValidatorContext.constraint,
-                null
+                constraintValidatorContext.currentConstraint(),
+                constraintValidatorContext.validatedValue(),
+                true
             )),
             messageTemplate,
-            validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
-            constraintValidatorContext.constraint,
-            null,
-            null)
+            // the bean node is left out only for a node added in its place: a class-level violation reported
+            // as is keeps it, the one of a cascaded bean included
+            next == null && validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
+            constraintValidatorContext.currentConstraint(),
+            constraintValidatorContext.getExecutableParameterValues(),
+            constraintValidatorContext.getExecutableReturnValue())
         );
         return constraintValidatorContext;
     }

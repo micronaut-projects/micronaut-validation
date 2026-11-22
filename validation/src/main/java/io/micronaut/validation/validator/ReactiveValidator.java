@@ -15,11 +15,14 @@
  */
 package io.micronaut.validation.validator;
 
-import org.jspecify.annotations.NonNull;
 import io.micronaut.core.type.Argument;
 import io.micronaut.core.type.ReturnType;
+import io.micronaut.inject.ExecutableMethod;
+import jakarta.validation.ConstraintViolation;
+import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Publisher;
 
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 
 /**
@@ -40,7 +43,7 @@ public interface ReactiveValidator {
      * @param <T> The generic type
      * @return The publisher
      */
-    @NonNull <T> Publisher<T> validatePublisher(@NonNull ReturnType<?> returnType, @NonNull Publisher<T> publisher, Class<?>... groups);
+    <T> Publisher<T> validatePublisher(ReturnType<?> returnType, Publisher<T> publisher, Class<?>... groups);
 
 
     /**
@@ -53,5 +56,65 @@ public interface ReactiveValidator {
      * @param <T> The generic type
      * @return The publisher
      */
-    @NonNull <T> CompletionStage<T> validateCompletionStage(@NonNull CompletionStage<T> completionStage, @NonNull Argument<T> argument, Class<?>... groups);
+    <T> CompletionStage<T> validateCompletionStage(CompletionStage<T> completionStage, Argument<T> argument, Class<?>... groups);
+
+    /**
+     * Validates the constraints declared on a reactive container a method returned, apart from the values it
+     * emits or completes with, which are validated as they arrive.
+     *
+     * @param bean The bean the method was invoked on
+     * @param executableMethod The method
+     * @param container The returned container
+     * @param groups The groups
+     * @param <T> The bean type
+     * @return The violations of the container, none by default
+     * @since 5.3.0
+     */
+    default <T> Set<ConstraintViolation<T>> validateReturnedContainer(T bean,
+                                                                     ExecutableMethod<?, Object> executableMethod,
+                                                                     @Nullable Object container,
+                                                                     Class<?>... groups) {
+        return Set.of();
+    }
+
+    /**
+     * Validates the values a publisher a method returned emits, each as an element of the return value of the
+     * method invoked on the bean.
+     *
+     * @param bean The bean the method was invoked on
+     * @param executableMethod The method
+     * @param publisher The returned publisher
+     * @param groups The groups
+     * @param <T> The bean type
+     * @return The publisher validating its values, by default {@link #validatePublisher} for the return type
+     * @since 5.3.0
+     */
+    default <T> Publisher<Object> validateReturnedPublisher(T bean,
+                                                            ExecutableMethod<?, Object> executableMethod,
+                                                            Publisher<Object> publisher,
+                                                            Class<?>... groups) {
+        return validatePublisher(executableMethod.getReturnType(), publisher, groups);
+    }
+
+    /**
+     * Validates the value a completion stage a method returned completes with, as the return value of the method
+     * invoked on the bean.
+     *
+     * @param bean The bean the method was invoked on
+     * @param executableMethod The method
+     * @param completionStage The returned completion stage
+     * @param groups The groups
+     * @param <T> The bean type
+     * @return The completion stage validating its value, by default {@link #validateCompletionStage} for the
+     * first type argument of the return type
+     * @since 5.3.0
+     */
+    @SuppressWarnings("unchecked")
+    default <T> CompletionStage<Object> validateReturnedCompletionStage(T bean,
+                                                                        ExecutableMethod<?, Object> executableMethod,
+                                                                        CompletionStage<Object> completionStage,
+                                                                        Class<?>... groups) {
+        Argument<Object> valueArgument = (Argument<Object>) executableMethod.getReturnType().getFirstTypeVariable().orElse(Argument.OBJECT_ARGUMENT);
+        return validateCompletionStage(completionStage, valueArgument, groups);
+    }
 }
