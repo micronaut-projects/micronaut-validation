@@ -66,6 +66,7 @@ public interface MicronautValidatorContext extends ValidatorContext {
      * @param definition The extractor and what it extracts
      * @param <T>        The container type
      * @return This context
+     * @since 5.3.0
      */
     <T> MicronautValidatorContext addValueExtractor(ValueExtractorDefinition<T> definition);
 }
