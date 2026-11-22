@@ -302,4 +302,56 @@ class DefaultValidatorFactoryTest {
             // The tests do not allocate external resources for validators.
         }
     }
+
+    @Test
+    void aContextComponentSetToNullRestoresTheComponentOfTheFactory() {
+        var configuration = new DefaultValidatorConfiguration();
+        // the factory's clock is set in 1990, before the validated instant
+        configuration.setClockProvider(() -> java.time.Clock.fixed(java.time.Instant.parse("1990-01-01T00:00:00Z"), java.time.ZoneOffset.UTC));
+        configuration.setMessageInterpolator(new MessageInterpolator() {
+            @Override
+            public String interpolate(String messageTemplate, Context context) {
+                return "factory";
+            }
+
+            @Override
+            public String interpolate(String messageTemplate, Context context, Locale locale) {
+                return "factory";
+            }
+        });
+        try (var factory = new DefaultValidatorFactory(configuration)) {
+            Validator validator = factory.usingContext()
+                .clockProvider(null)
+                .messageInterpolator(null)
+                .traversableResolver(null)
+                .parameterNameProvider(null)
+                .constraintValidatorFactory(null)
+                .getValidator();
+            Set<ConstraintViolation<PastBean>> violations = validator.validate(new PastBean());
+            assertEquals(1, violations.size());
+            assertEquals("factory", violations.iterator().next().getMessage());
+        }
+        var unreachable = new DefaultValidatorConfiguration();
+        unreachable.setTraversableResolver(new jakarta.validation.TraversableResolver() {
+            @Override
+            public boolean isReachable(Object traversableObject, jakarta.validation.Path.Node traversableProperty, Class<?> rootBeanType,
+                                       jakarta.validation.Path pathToTraversableObject, java.lang.annotation.ElementType elementType) {
+                return false;
+            }
+
+            @Override
+            public boolean isCascadable(Object traversableObject, jakarta.validation.Path.Node traversableProperty, Class<?> rootBeanType,
+                                        jakarta.validation.Path pathToTraversableObject, java.lang.annotation.ElementType elementType) {
+                return false;
+            }
+        });
+        try (var factory = new DefaultValidatorFactory(unreachable)) {
+            assertTrue(factory.usingContext().traversableResolver(null).getValidator().validate(new ProviderBean()).isEmpty());
+        }
+    }
+
+    @Introspected(accessKind = Introspected.AccessKind.FIELD)
+    static final class PastBean {
+        @jakarta.validation.constraints.Past public java.time.Instant when = java.time.Instant.parse("2000-01-01T00:00:00Z");
+    }
 }

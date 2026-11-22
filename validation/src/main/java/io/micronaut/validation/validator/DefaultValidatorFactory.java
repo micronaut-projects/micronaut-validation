@@ -243,32 +243,33 @@ public class DefaultValidatorFactory implements ValidatorFactory {
         }
 
         @Override
-        public MicronautValidatorContext messageInterpolator(MessageInterpolator messageInterpolator) {
-            validatorConfiguration.messageInterpolator(messageInterpolator);
+        public MicronautValidatorContext messageInterpolator(@Nullable MessageInterpolator messageInterpolator) {
+            // null restores the component of the factory, as the ValidatorContext contract has it
+            validatorConfiguration.messageInterpolator(messageInterpolator == null ? configuration.getMessageInterpolator() : messageInterpolator);
             return this;
         }
 
         @Override
-        public MicronautValidatorContext traversableResolver(TraversableResolver traversableResolver) {
-            validatorConfiguration.traversableResolver(traversableResolver);
+        public MicronautValidatorContext traversableResolver(@Nullable TraversableResolver traversableResolver) {
+            validatorConfiguration.traversableResolver(traversableResolver == null ? configuration.getTraversableResolver() : traversableResolver);
             return this;
         }
 
         @Override
-        public MicronautValidatorContext constraintValidatorFactory(ConstraintValidatorFactory factory) {
-            validatorConfiguration.constraintValidatorFactory(factory);
+        public MicronautValidatorContext constraintValidatorFactory(@Nullable ConstraintValidatorFactory factory) {
+            validatorConfiguration.constraintValidatorFactory(factory == null ? configuration.getConstraintValidatorFactory() : factory);
             return this;
         }
 
         @Override
-        public MicronautValidatorContext parameterNameProvider(ParameterNameProvider parameterNameProvider) {
-            validatorConfiguration.parameterNameProvider(parameterNameProvider);
+        public MicronautValidatorContext parameterNameProvider(@Nullable ParameterNameProvider parameterNameProvider) {
+            validatorConfiguration.parameterNameProvider(parameterNameProvider == null ? configuration.getParameterNameProvider() : parameterNameProvider);
             return this;
         }
 
         @Override
-        public MicronautValidatorContext clockProvider(ClockProvider clockProvider) {
-            validatorConfiguration.clockProvider(clockProvider);
+        public MicronautValidatorContext clockProvider(@Nullable ClockProvider clockProvider) {
+            validatorConfiguration.clockProvider(clockProvider == null ? configuration.getClockProvider() : clockProvider);
             return this;
         }
 
