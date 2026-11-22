@@ -33,6 +33,7 @@ include 'test-suite-kotlin'
 include 'test-suite-python'
 
 include 'tests:jakarta-validation-tck'
+include 'tests:validation-differential'
 
 micronautBuild {
     addSnapshotRepository()
