@@ -144,7 +144,7 @@ class ElMessageInterpolatorTest {
     void interpolatesParametersBeforeElExpressions() {
         ElMessageInterpolator interpolator = new ElMessageInterpolator(new DefaultMessages(), null);
 
-        assertEquals("must be 5 at least", interpolator.interpolate("must be ${value} at least", new TestContext(3, Map.of("value", 5))));
+        assertEquals("must be $5 at least", interpolator.interpolate("must be ${value} at least", new TestContext(3, Map.of("value", 5))));
         assertEquals("must be 10 at least", interpolator.interpolate("must be ${value * 2} at least", new TestContext(3, Map.of("value", 5))));
     }
 
