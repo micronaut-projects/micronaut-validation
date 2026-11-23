@@ -299,11 +299,8 @@ public class DefaultValidator
             if (traversal.isNotReachable(constraintContext, null)) {
                 return Collections.unmodifiableSet(constraintContext.getOverallViolations());
             }
-            AnnotationMetadata annotationMetadata = beanProperty.getAnnotationMetadata();
-            Argument<Object> declared = beanProperty.asArgument();
-            Argument<Object> propertyArgument = Argument.of(declared.getType(), annotationMetadata, declared.getTypeParameters());
             constraintContext.validateInGroups(constraintContext.findGroupSequences(introspection), firstStep ->
-                traversal.visitElement(constraintContext, null, propertyArgument, value, false));
+                traversal.visitPropertyValue(constraintContext, introspection, beanProperty, value));
         }
         return Collections.unmodifiableSet(constraintContext.getOverallViolations());
     }

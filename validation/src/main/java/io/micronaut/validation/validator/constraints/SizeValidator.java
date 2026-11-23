@@ -31,11 +31,12 @@ import jakarta.validation.constraints.Size;
 public interface SizeValidator<T> extends ConstraintValidator<Size, T> {
     @Override
     default boolean isValid(@Nullable T value, AnnotationValue<Size> annotationMetadata, ConstraintValidatorContext context) {
+        // the members are checked whatever the value, as an invalid definition fails on initialization
+        final ConstraintMembers.Size size = ConstraintMembers.size(annotationMetadata);
         if (value == null) {
             return true; // null considered valid according to spec
         }
         final int len = getSize(value);
-        final ConstraintMembers.Size size = ConstraintMembers.size(annotationMetadata);
         return len <= size.max() && len >= size.min();
     }
 

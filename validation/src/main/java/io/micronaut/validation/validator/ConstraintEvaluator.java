@@ -229,10 +229,12 @@ final class ConstraintEvaluator {
         List<DefaultConstraintDescriptor<Annotation>> composingConstraints = constraint.composingConstraintList();
         if (constraint.isReportAsSingleViolation()) {
             // violations keep their report order: the composing ones, past the size before, give way to the composed one
+            // a composing violation equal to one reported before adds nothing to the set: the reports are counted
             Set<ConstraintViolation<R>> violations = context.getOverallViolations();
             int before = violations.size();
+            int reportedBefore = context.reportedViolations();
             validateConstraints(context, leftBean, elementArgument, elementValue, composingConstraints);
-            if (violations.size() > before) {
+            if (context.reportedViolations() > reportedBefore) {
                 Iterator<ConstraintViolation<R>> iterator = violations.iterator();
                 for (int i = 0; iterator.hasNext(); i++) {
                     iterator.next();

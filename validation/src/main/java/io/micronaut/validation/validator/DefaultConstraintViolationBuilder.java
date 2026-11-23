@@ -40,6 +40,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
     private final ContainerElementNodeBuilderDefinedContext nodeBuilderDefinedContext = new DefaultContainerElementNodeBuilderDefinedContext();
 
     private ValidationPath.@Nullable MutableContainerContext next;
+    // the bean node of a class-level constraint, left out for a node added in its place
+    private Path.@Nullable Node removedBeanNode;
+    // the executable node a cross-parameter violation adds its parameter nodes to: the violation of a validator
+    // adding no node keeps the cross-parameter node
+    private boolean crossParameter;
+    private Path.@Nullable Node executableNode;
 
     DefaultConstraintViolationBuilder(String messageTemplate,
                                       DefaultConstraintValidatorContext<R> constraintValidatorContext,
@@ -52,9 +58,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
         ElementKind kind = last == null ? null : last.getKind();
         if (kind == ElementKind.CROSS_PARAMETER) {
             validationPath.removeLast();
+            crossParameter = true;
+            executableNode = validationPath.peekLast();
         }
         if (kind == ElementKind.BEAN) {
             Path.Node node = validationPath.removeLast();
+            removedBeanNode = node;
             ValidationPath.DefaultNode defaultNode = (ValidationPath.DefaultNode) node;
             next = new ValidationPath.MutableContainerContext(defaultNode.containerContext);
         }
@@ -84,6 +93,12 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
 
     @Override
     public LeafNodeBuilderCustomizableContext addBeanNode() {
+        if (next != null && removedBeanNode != null) {
+            // a bean node added to a class-level violation follows the bean node of the constraint, as the
+            // reference implementation reports it
+            validationPath.add(removedBeanNode);
+            next = null;
+        }
         ValidationPath.MutableContainerContext containerContext = newMutableContainerContext();
         validationPath.addBeanNode(containerContext);
         return new DefaultLeafNodeBuilderCustomizableContext(containerContext);
@@ -133,7 +148,8 @@ final class DefaultConstraintViolationBuilder<R> implements ConstraintValidatorC
             messageTemplate,
             // the bean node is left out only for a node added in its place: a class-level violation reported
             // as is keeps it, the one of a cascaded bean included
-            next == null && validationPath.iterator().hasNext() ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
+            next == null && validationPath.iterator().hasNext() && !(crossParameter && validationPath.peekLast() == executableNode)
+                ? validationPath : new ValidationPath(constraintValidatorContext.getCurrentPath()),
             constraintValidatorContext.currentConstraint(),
             constraintValidatorContext.getExecutableParameterValues(),
             constraintValidatorContext.getExecutableReturnValue())

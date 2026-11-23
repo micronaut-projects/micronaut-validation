@@ -95,7 +95,7 @@ abstract class AbstractPatternValidator<A extends Annotation> implements Constra
                     regex = java.util.regex.Pattern.compile(pattern);
                 }
             } catch (PatternSyntaxException e) {
-                throw new IllegalArgumentException("Invalid regular expression", e);
+                throw new ValidationException("Invalid regular expression: " + pattern, e);
             }
             if (COMPUTED_PATTERNS.size() >= MAX_COMPUTED_PATTERNS) {
                 COMPUTED_PATTERNS.clear();

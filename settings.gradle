@@ -34,6 +34,7 @@ include 'test-suite-python'
 
 include 'tests:jakarta-validation-tck'
 include 'tests:validation-differential'
+include 'tests:validation-fuzzer'
 
 micronautBuild {
     addSnapshotRepository()

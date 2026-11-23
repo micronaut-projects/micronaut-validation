@@ -277,6 +277,8 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!visited.add(element)) {
             return;
         }
+        // the cross-parameter constraints declared on the constructor
+        recordGroups(element.getMethodAnnotationMetadata());
         boolean parametersRequireValidation = parametersRequireValidation(element, true);
         boolean returnTypeRequiresValidation = visitElementValidationAndMarkForValidationIfNeeded(element.getReturnType(), true);
         if (returnTypeRequiresValidation || parametersRequireValidation) {
@@ -302,9 +304,19 @@ public class ValidationVisitor implements TypeElementVisitor<Object, Object> {
         if (!overridden.isEmpty() && (requiresValidation(element) || overridden.stream().anyMatch(ValidationVisitor::requiresValidation))) {
             var declared = Stream.of(element.getParameters()).map(parameter -> declaredTypeUse(parameter, new HashSet<>()))
                 .toArray(AnnotationValue<?>[]::new);
-            element.annotate(ValidationMetadataSupport.DECLARED_PARAMETERS, builder -> builder.member("arguments", declared));
+            // the type arguments of the return type as well: a cascade an override inherits is not its own
+            ClassElement returnType = element.getGenericReturnType();
+            AnnotationValue<?> declaredReturnType = returnType.isPrimitive() || returnType.isVoid() ? null : declaredTypeUse(returnType, new HashSet<>());
+            element.annotate(ValidationMetadataSupport.DECLARED_PARAMETERS, builder -> {
+                builder.member("arguments", declared);
+                if (declaredReturnType != null) {
+                    builder.member("returnType", declaredReturnType);
+                }
+            });
         }
         overridden.forEach(parent -> inheritAnnotationsForMethod(element, parent));
+        // the return value and cross-parameter constraints declared on the method, its own and inherited ones
+        recordGroups(element.getMethodAnnotationMetadata());
 
         boolean isPrivate = element.isPrivate();
         boolean isAbstract = element.getOwningType().isInterface() || element.getOwningType().isAbstract();

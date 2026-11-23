@@ -64,7 +64,7 @@ class RxJava3MethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxSimple.title[]<publisher element>: must not be blank"
+        e.message == "rxSimple.title[].<publisher element>: must not be blank"
         def path = e.getConstraintViolations().first().propertyPath.iterator()
         path.next().getName() == 'rxSimple'
         path.next().getName() == 'title'
@@ -119,7 +119,7 @@ class RxJava3MethodValidationSpec extends Specification {
 
         then:
         def e = thrown(ConstraintViolationException)
-        e.message == "rxValidWithTypeParameter.books[][1].title: must not be blank"
+        e.message == "rxValidWithTypeParameter.books[].<publisher element>[1].title: must not be blank"
         e.getConstraintViolations().first().propertyPath.toString().startsWith('rxValidWithTypeParameter.books')
     }
 

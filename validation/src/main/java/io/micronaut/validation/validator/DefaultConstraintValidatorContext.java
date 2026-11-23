@@ -267,7 +267,7 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * @param containerType The declared container type
      * @return The closeable restoring the previous state
      */
-    public ValidationCloseable withUnwrappedContainer(Class<?> containerType) {
+    public ValidationCloseable withUnwrappedContainer(@Nullable Class<?> containerType) {
         Class<?> previous = this.unwrappedContainerType;
         this.unwrappedContainerType = containerType;
         return () -> this.unwrappedContainerType = previous;
@@ -346,13 +346,20 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
      * @return Whether a step failed
      */
     boolean validateInGroups(List<ValidationGroup> steps, GroupStep validation) {
+        // a requested sequence cascades in each step, in the groups of the step, as a bean validates its
+        // properties: a cascaded element no longer fails the first step with the violations of the later ones
+        boolean cascadePerStep = cascadesPerStep(steps);
         boolean canCascade = true;
         FailedSequences failed = new FailedSequences();
         for (ValidationGroup step : steps) {
             if (failed.skips(step)) {
                 continue;
             }
-            try (GroupsValidation groups = withGroupSequence(step)) {
+            if (cascadePerStep) {
+                canCascade = true;
+            }
+            try (GroupsValidation groups = withGroupSequence(step);
+                 ValidationCloseable ignored = cascadePerStep ? cascadingIn(step) : () -> { }) {
                 validation.validate(canCascade);
                 if (groups.isFailed()) {
                     failed.fail(step);
@@ -361,6 +368,24 @@ public final class DefaultConstraintValidatorContext<R> implements ConstraintVal
             canCascade = false;
         }
         return failed.any();
+    }
+
+    /**
+     * Whether the steps cascade each in its own groups: those of a requested sequence do, unless it includes the
+     * default group; a redefined default sequence cascades once, in the default group.
+     *
+     * @param steps The steps
+     * @return Whether each step cascades
+     */
+    static boolean cascadesPerStep(List<ValidationGroup> steps) {
+        boolean cascadePerStep = false;
+        for (ValidationGroup step : steps) {
+            if (step.isSequence() && step.requested().contains(Default.class)) {
+                return false;
+            }
+            cascadePerStep |= step.isSequence();
+        }
+        return cascadePerStep;
     }
 
     /**

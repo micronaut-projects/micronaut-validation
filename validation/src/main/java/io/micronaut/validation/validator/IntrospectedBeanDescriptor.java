@@ -265,7 +265,24 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
 
     @Override
     public Set<ConstraintDescriptor<?>> getConstraintDescriptors() {
-        return constraintDescriptors(beanAnnotationMetadata);
+        return hierarchyClassConstraintDescriptors();
+    }
+
+    /**
+     * The class-level constraints of the bean and of its super types: a super type declaring a constraint of a type
+     * the bean declares too keeps its own, which the inherited metadata of the bean hides.
+     */
+    private Set<ConstraintDescriptor<?>> hierarchyClassConstraintDescriptors() {
+        if (declarations == null) {
+            return constraintDescriptors(beanAnnotationMetadata);
+        }
+        // what the bean declares itself: its inherited metadata merges the members of a super type constraint of the
+        // same type into its own
+        Map<String, ConstraintDescriptor<?>> descriptors = constraintDescriptorsByKey(declaredMetadata(beanAnnotationMetadata));
+        for (BeanIntrospection<?> superIntrospection : declarations.superIntrospections(beanIntrospection)) {
+            constraintDescriptorsByKey(declaredMetadata(superIntrospection.getAnnotationMetadata())).forEach(descriptors::putIfAbsent);
+        }
+        return new LinkedHashSet<>(descriptors.values());
     }
 
     @Override
@@ -699,9 +716,9 @@ public class IntrospectedBeanDescriptor implements BeanDescriptor, ElementDescri
             if (!declaredOn.isEmpty() && !declaredOn.contains(ElementType.TYPE)) {
                 return Set.of();
             }
-            Set<ConstraintDescriptor<?>> descriptors = constraintDescriptors(scope == Scope.LOCAL_ELEMENT
-                ? declaredMetadata(beanAnnotationMetadata)
-                : beanAnnotationMetadata);
+            Set<ConstraintDescriptor<?>> descriptors = scope == Scope.LOCAL_ELEMENT
+                ? constraintDescriptors(declaredMetadata(beanAnnotationMetadata))
+                : hierarchyClassConstraintDescriptors();
             if (groups.isEmpty()) {
                 return descriptors;
             }

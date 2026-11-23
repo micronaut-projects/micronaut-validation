@@ -130,14 +130,7 @@ final class ValidationTraversal {
             List<DefaultConstraintValidatorContext.ValidationGroup> steps = context.findGroupSequences(introspection);
             // a requested sequence cascades in each step, in the groups of the step; a redefined default sequence
             // cascades once, in the default group
-            boolean cascadePerStep = false;
-            for (DefaultConstraintValidatorContext.ValidationGroup step : steps) {
-                if (step.isSequence() && step.requested().contains(Default.class)) {
-                    cascadePerStep = false;
-                    break;
-                }
-                cascadePerStep |= step.isSequence();
-            }
+            boolean cascadePerStep = DefaultConstraintValidatorContext.cascadesPerStep(steps);
             // what the type and its super types declare, read once per type
             ValidatorDeclarations.BeanPlan beanPlan = declarations.beanPlan(introspection);
             AnnotationMetadata annotationMetadata = introspection.getAnnotationMetadata();
@@ -328,6 +321,27 @@ final class ValidationTraversal {
     }
 
     /**
+     * Validates a value against the constraints of a property, as {@code validateValue} does: against the
+     * constraints of each member declaring some, a field of a super type included, else of the property.
+     */
+    @SuppressWarnings("unchecked")
+    <R, T> void visitPropertyValue(DefaultConstraintValidatorContext<R> context,
+                                   BeanIntrospection<T> introspection,
+                                   BeanProperty<T, Object> property,
+                                   @Nullable Object value) {
+        PropertyPlan plan = propertyPlan(introspection, property);
+        if (plan.members().isEmpty()) {
+            visitElement(context, null, plan.argument(), property.getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            return;
+        }
+        for (MemberPlan member : plan.members()) {
+            try (DefaultConstraintValidatorContext.ValidationCloseable ignore = context.withMember(member.member().getElementType(), member.implicitGroup())) {
+                visitElement(context, null, member.argument(), member.member().getAnnotationMetadata(), value, false, Cascade.CHECKED);
+            }
+        }
+    }
+
+    /**
      * What validating a property reads from its metadata, prepared once per property. The arguments are the same
      * instances on every call, which is what lets the constraints of their metadata be cached.
      */
@@ -507,7 +521,11 @@ final class ValidationTraversal {
                                           @Nullable E containerValue,
                                           List<DefaultConstraintDescriptor<Annotation>> elementConstraints,
                                           boolean canCascade) {
-        if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument) && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)) {
+        if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument)
+            && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)
+            // the processor marks the type of a cascaded getter returning an array, not the getter, nor the return type
+            // of a method marked @Valid: the elements of such a container are cascaded all the same
+            && !(annotationMetadata.hasStereotype(Valid.class) && isLegacyContainer(containerArgument.getType()))) {
             return false;
         }
         boolean isLegacyValid = annotationMetadata.hasAnnotation(Valid.class)
@@ -663,6 +681,11 @@ final class ValidationTraversal {
         return true;
     }
 
+    private static boolean isLegacyContainer(Class<?> type) {
+        return Object[].class.isAssignableFrom(type) || Iterable.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)
+            || Optional.class == type;
+    }
+
     private boolean hasConstrainedTypeArgument(DefaultConstraintValidatorContext<?> context, Argument<?> argument) {
         for (Argument<?> typeParameter : argument.getTypeParameters()) {
             if (!constraints.getConstraints(context, typeParameter.getAnnotationMetadata()).isEmpty()
@@ -711,8 +734,10 @@ final class ValidationTraversal {
             return;
         }
         if (!checkCascadable || isCascadable(context, leftBean)) {
+            // the containers of the cascaded bean report their own types, not one unwrapped around the bean
             try (ValidationPath.ContextualPath ignore = context.getCurrentPath().cascaded();
-                 DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.enteringCascadedBean()) {
+                 DefaultConstraintValidatorContext.ValidationCloseable ignore2 = context.enteringCascadedBean();
+                 DefaultConstraintValidatorContext.ValidationCloseable ignore3 = context.withUnwrappedContainer(null)) {
                 doValidate(context, beanIntrospection, elementValue);
             }
         }
@@ -781,7 +806,9 @@ final class ValidationTraversal {
         }
 
         private void validateContainerValue(@Nullable String name, ValidationPath.ContainerContext containerContext, Object value) {
-            if (name != null && !legacy) {
+            // an element of a container cascaded the legacy way has its node too: its own constraints report on it,
+            // and a cascade into it drops the node again
+            if (name != null) {
                 try (ValidationPath.ContextualPath ignored = context.getCurrentPath().addContainerElementNode(name, containerContext)) {
                     validateContainerValue(value);
                 }

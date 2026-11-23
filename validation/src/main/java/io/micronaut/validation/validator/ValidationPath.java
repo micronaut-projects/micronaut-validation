@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -74,15 +75,18 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
 
     @Override
     public String toString() {
+        // the format of the reference implementation: a node in a container appends the type parameter of a
+        // container with several ones and its index or key to the text before it, then its name follows a dot
         StringBuilder builder = new StringBuilder();
         final Iterator<Node> i = iterator();
-        boolean dontAddDot = true;
         while (i.hasNext()) {
             final Node node = i.next();
-            if (node.getKind() == ElementKind.BEAN && i.hasNext()) {
+            if (node.getKind() == ElementKind.BEAN && i.hasNext() && !node.isInIterable()) {
+                // a bean node in a container still prints its index or key, a bean node added after it nothing
                 continue;
             }
             if (node.isInIterable()) {
+                appendTypeParameter(builder, node);
                 builder.append('[');
                 if (node.getIndex() != null) {
                     builder.append(node.getIndex());
@@ -91,18 +95,40 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
                 }
                 builder.append(']');
             }
-            if (node.getKind() == ElementKind.CONTAINER_ELEMENT) {
-                if (!i.hasNext()) {
-                    builder.append(node.getName());
+            String name = node.getName();
+            if (name != null && !name.isEmpty()) {
+                if (!builder.isEmpty()) {
+                    builder.append('.');
                 }
-            } else if (node.getName() != null) {
-                builder.append(dontAddDot ? "" : ".");
-                builder.append(node.getName());
+                builder.append(name);
             }
-
-            dontAddDot = false;
         }
         return builder.toString();
+    }
+
+    private static void appendTypeParameter(StringBuilder builder, Node node) {
+        Class<?> containerClass;
+        Integer typeArgumentIndex;
+        if (node.getKind() == ElementKind.CONTAINER_ELEMENT) {
+            Path.ContainerElementNode element = node.as(Path.ContainerElementNode.class);
+            containerClass = element.getContainerClass();
+            typeArgumentIndex = element.getTypeArgumentIndex();
+        } else if (node.getKind() == ElementKind.PROPERTY) {
+            Path.PropertyNode property = node.as(Path.PropertyNode.class);
+            containerClass = property.getContainerClass();
+            typeArgumentIndex = property.getTypeArgumentIndex();
+        } else if (node.getKind() == ElementKind.BEAN) {
+            Path.BeanNode bean = node.as(Path.BeanNode.class);
+            containerClass = bean.getContainerClass();
+            typeArgumentIndex = bean.getTypeArgumentIndex();
+        } else {
+            return;
+        }
+        // the reference implementation names the type parameter of a container with several ones but the value of
+        // a map; without reflection on generic signatures only the key of a map, K, is named
+        if (containerClass != null && typeArgumentIndex != null && typeArgumentIndex == 0 && Map.class.isAssignableFrom(containerClass)) {
+            builder.append("<K>");
+        }
     }
 
     ContextualPath withContainerContext(ContainerContext containerContext) {
