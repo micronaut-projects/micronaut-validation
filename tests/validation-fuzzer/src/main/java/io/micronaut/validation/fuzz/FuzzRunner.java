@@ -21,7 +21,9 @@ import io.micronaut.validation.fuzz.Canonical.Violation;
 import io.micronaut.validation.fuzz.Model.Anno;
 import io.micronaut.validation.fuzz.Model.BeanSpec;
 import io.micronaut.validation.fuzz.Model.CaseSpec;
+import io.micronaut.validation.fuzz.Model.MethodSpec;
 import io.micronaut.validation.fuzz.Model.PropertySpec;
+import io.micronaut.validation.fuzz.Model.ServiceSpec;
 import io.micronaut.validation.fuzz.Model.TypeNode;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;
@@ -31,12 +33,15 @@ import jakarta.validation.groups.Default;
 import org.hibernate.validator.HibernateValidator;
 
 import java.io.IOException;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -224,8 +229,8 @@ public final class FuzzRunner {
         List<String> fixtureLines = fixtures.lines().toList();
         for (Map.Entry<String, List<CorpusCompiler.Diag>> e : result.errors().entrySet()) {
             String file = e.getKey();
-            if (file.startsWith("C") && file.contains("_B")) {
-                failing.add(Integer.parseInt(file.substring(1, file.indexOf("_B"))));
+            if (file.matches("C\\d+_[BSI].*")) {
+                failing.add(Integer.parseInt(file.substring(1, file.indexOf('_'))));
             } else if (file.equals("Fixtures.java")) {
                 for (CorpusCompiler.Diag d : e.getValue()) {
                     for (int line = (int) d.line() - 1; line >= 0 && line < fixtureLines.size(); line--) {
@@ -233,6 +238,12 @@ public final class FuzzRunner {
                         int at = text.indexOf("static Object instance");
                         if (at >= 0) {
                             String id = text.substring(at + "static Object instance".length(), text.indexOf('_', at));
+                            failing.add(Integer.parseInt(id));
+                            break;
+                        }
+                        at = text.indexOf("static Object[] call");
+                        if (at >= 0) {
+                            String id = text.substring(at + "static Object[] call".length(), text.indexOf('_', at));
                             failing.add(Integer.parseInt(id));
                             break;
                         }
@@ -282,6 +293,13 @@ public final class FuzzRunner {
                         Class<?> type = loader.loadClass(pkg + "." + bean.name);
                         compareMetadata(ctx, spec, type, mn, hv);
                     }
+                    for (ServiceSpec service : spec.services) {
+                        if (!service.isInterface) {
+                            Class<?> type = loader.loadClass(pkg + "." + service.name);
+                            compareMetadata(ctx, spec, type, mn, hv);
+                            compareExecutableMetadata(ctx, spec, type, mn, hv);
+                        }
+                    }
                 }
                 @SuppressWarnings("unchecked")
                 List<Object[]> instances = (List<Object[]>) loader.loadClass(pkg + ".Fixtures").getMethod("cases").invoke(null);
@@ -305,10 +323,118 @@ public final class FuzzRunner {
                             () -> mn.validateValue(type, property.name, value), () -> hv.validateValue(type, property.name, value));
                     }
                 }
+                @SuppressWarnings("unchecked")
+                List<Object[]> calls = (List<Object[]>) loader.loadClass(pkg + ".Fixtures").getMethod("calls").invoke(null);
+                List<Class<?>[]> executableGroups = List.of(new Class<?>[0], new Class<?>[] {g1}, new Class<?>[] {seq});
+                for (Object[] row : calls) {
+                    CaseSpec spec = cases.get((Integer) row[0]);
+                    int callIndex = (Integer) row[1];
+                    Object[] call = (Object[]) row[2];
+                    Class<?> declaring = loader.loadClass(pkg + "." + call[0]);
+                    String name = (String) call[1];
+                    int arity = (Integer) call[2];
+                    Object receiver = call[3];
+                    Object[] args = (Object[]) call[4];
+                    Object returnValue = call[5];
+                    report.instances++;
+                    if (name.equals("<init>")) {
+                        @SuppressWarnings("unchecked")
+                        Constructor<Object> constructor = (Constructor<Object>) declaring.getConstructors()[0];
+                        for (Class<?>[] groups : executableGroups) {
+                            compareViolations(ctx, spec, -2 - callIndex, "validateConstructorParameters(" + call[0] + ")" + Canonical.groups(groups),
+                                () -> mn.forExecutables().validateConstructorParameters(constructor, args, groups),
+                                () -> hv.forExecutables().validateConstructorParameters(constructor, args, groups));
+                        }
+                        continue;
+                    }
+                    Method method = Arrays.stream(declaring.getDeclaredMethods())
+                        .filter(m -> m.getName().equals(name) && m.getParameterCount() == arity && !m.isBridge())
+                        .findFirst().orElseThrow(() -> new IllegalStateException("No method " + name + "/" + arity + " in " + declaring));
+                    String where = call[0] + "." + name + "/" + arity + (receiver.getClass() != declaring ? " on " + receiver.getClass().getSimpleName() : "");
+                    for (Class<?>[] groups : executableGroups) {
+                        compareViolations(ctx, spec, -2 - callIndex, "validateParameters(" + where + ")" + Canonical.groups(groups),
+                            () -> mn.forExecutables().validateParameters(receiver, method, args, groups),
+                            () -> hv.forExecutables().validateParameters(receiver, method, args, groups));
+                    }
+                    if (method.getReturnType() != void.class) {
+                        for (Class<?>[] groups : executableGroups.subList(0, 2)) {
+                            compareViolations(ctx, spec, -2 - callIndex, "validateReturnValue(" + where + ")" + Canonical.groups(groups),
+                                () -> mn.forExecutables().validateReturnValue(receiver, method, returnValue, groups),
+                                () -> hv.forExecutables().validateReturnValue(receiver, method, returnValue, groups));
+                        }
+                    }
+                }
             }
         } finally {
             Thread.currentThread().setContextClassLoader(previous);
         }
+    }
+
+    private void compareExecutableMetadata(Context ctx, CaseSpec spec, Class<?> type, Validator mn, Validator hv) {
+        String sources = sourcesOf(spec, ctx.pkg);
+        List<java.lang.reflect.Executable> executables = new ArrayList<>(Arrays.asList(type.getConstructors()));
+        Arrays.stream(type.getMethods()).filter(m -> m.getName().matches("m\\d+") && !m.isBridge())
+            .sorted(Comparator.comparing(Method::toGenericString)).forEach(executables::add);
+        for (java.lang.reflect.Executable executable : executables) {
+            report.checks++;
+            String signature = (executable instanceof Constructor<?> ? "<init>" : executable.getName()) + "/" + executable.getParameterCount();
+            String check = "getConstraintsFor" + (executable instanceof Constructor<?> ? "Constructor" : "Method") + "(" + type.getSimpleName() + "." + signature + ")";
+            Class<?>[] parameterTypes = executable.getParameterTypes();
+            Outcome<Map<String, String>> m = Outcome.of(() -> Canonical.executable(executable instanceof Constructor<?>
+                ? mn.getConstraintsForClass(type).getConstraintsForConstructor(parameterTypes)
+                : mn.getConstraintsForClass(type).getConstraintsForMethod(executable.getName(), parameterTypes)));
+            Outcome<Map<String, String>> h = Outcome.of(() -> Canonical.executable(executable instanceof Constructor<?>
+                ? hv.getConstraintsForClass(type).getConstraintsForConstructor(parameterTypes)
+                : hv.getConstraintsForClass(type).getConstraintsForMethod(executable.getName(), parameterTypes)));
+            if (exceptionDiff(ctx, spec, -1, check, "executable metadata", m, h)) {
+                continue;
+            }
+            if (m.value.equals(h.value)) {
+                continue;
+            }
+            Set<String> keys = new LinkedHashSet<>(h.value.keySet());
+            keys.addAll(m.value.keySet());
+            List<String> differing = new ArrayList<>();
+            StringBuilder detail = new StringBuilder();
+            for (String key : keys) {
+                String a = m.value.get(key);
+                String b = h.value.get(key);
+                if (!Objects.equals(a, b)) {
+                    differing.add(key.replaceAll(" \\d+$", ""));
+                    detail.append(key).append(":\n    Micronaut: ").append(a).append("\n    Hibernate: ").append(b).append('\n');
+                }
+            }
+            if (withoutInterfaceGroups(m.value.toString()).equals(withoutInterfaceGroups(h.value.toString()))) {
+                report.add(new Report.Difference("METADATA", "METADATA executable without the implicit group of the interface declaring a constraint (section 5.4.2)",
+                    ctx.batch, spec.id, -1, check, detail.toString(), sources, null));
+                continue;
+            }
+            String what = differing.contains("descriptor") ? (m.value.containsKey("descriptor") ? "Micronaut has no descriptor" : "Hibernate has no descriptor")
+                : String.join("+", new LinkedHashSet<>(differing));
+            report.add(new Report.Difference("METADATA", "METADATA executable " + what + " " + executableFlavor(spec, type.getSimpleName(), executable) + flags(spec),
+                ctx.batch, spec.id, -1, check, detail.toString(), sources, null));
+        }
+    }
+
+    /** Describes where an executable comes from: declared, inherited, overriding or implementing, and how. */
+    private static String executableFlavor(CaseSpec spec, String typeName, java.lang.reflect.Executable executable) {
+        if (executable instanceof Constructor<?>) {
+            return "constructor";
+        }
+        ServiceSpec service = spec.services.stream().filter(s -> s.name.equals(typeName)).findFirst().orElse(null);
+        if (service == null) {
+            return "method";
+        }
+        for (MethodSpec m : service.callable()) {
+            if (m.name.equals(executable.getName()) && m.params.size() == executable.getParameterCount()) {
+                if (m.overridden == null) {
+                    return service.methods.contains(m) ? "method" : "inherited method";
+                }
+                return (service.implemented != null && service.implemented.methods.contains(m.overridden) ? "implementing" : "overriding")
+                    + "(" + m.overrideMode + ")";
+            }
+        }
+        return "method";
     }
 
     private static Object read(Object bean, String name) {
@@ -518,7 +644,10 @@ public final class FuzzRunner {
         report.checks++;
         Outcome<List<Violation>> m = Outcome.of(() -> mnCall.get().stream().map(Canonical::violation).toList());
         Outcome<List<Violation>> h = Outcome.of(() -> hvCall.get().stream().map(Canonical::violation).toList());
-        String checkKind = check.startsWith("validateProperty") ? "validateProperty" : check.startsWith("validateValue") ? "validateValue" : "validate";
+        String checkKind = check.substring(0, check.indexOf('(') < 0 ? check.length() : check.indexOf('('));
+        if (checkKind.startsWith("validate[") || checkKind.equals("validate")) {
+            checkKind = "validate";
+        }
         if (exceptionDiff(ctx, spec, instance, check, checkKind, m, h)) {
             return;
         }
@@ -530,7 +659,7 @@ public final class FuzzRunner {
         Set<String> ids = new LinkedHashSet<>(hvById.keySet());
         ids.addAll(mnById.keySet());
         String both = "Micronaut:\n" + list(m.value) + "Hibernate:\n" + list(h.value);
-        String instanceSource = spec.instances.get(instance);
+        String instanceSource = instanceSource(spec, instance);
         for (String id : ids) {
             List<Violation> a = new ArrayList<>(mnById.getOrDefault(id, List.of()));
             List<Violation> b = new ArrayList<>(hvById.getOrDefault(id, List.of()));
@@ -560,6 +689,12 @@ public final class FuzzRunner {
                         + " vs Hibernate " + pathShape(vb.details().get("pathString")),
                         ctx.batch, spec.id, instance, check, "Micronaut: " + va.details().get("pathString") + "\nHibernate: "
                         + vb.details().get("pathString") + "\n\n" + both, sourcesOf(spec, ctx.pkg), instanceSource));
+                    differing.clear();
+                }
+                if (differing.equals(List.of("descriptor")) && withoutInterfaceGroups(va.details().get("descriptor")).equals(withoutInterfaceGroups(vb.details().get("descriptor")))) {
+                    report.add(new Report.Difference("DETAIL", "DETAIL descriptor without the implicit group of the interface declaring the constraint (section 5.4.2)",
+                        ctx.batch, spec.id, instance, check, id + "\nMicronaut: " + va.details().get("descriptor") + "\nHibernate: " + vb.details().get("descriptor"),
+                        sourcesOf(spec, ctx.pkg), instanceSource));
                     differing.clear();
                 }
                 if (!differing.isEmpty()) {
@@ -593,18 +728,55 @@ public final class FuzzRunner {
                     + " : " + normalize(Canonical.exceptionMessage(h.error)) + flags(spec),
                     ctx.batch, spec.id, instance, check, "Micronaut: " + Canonical.exception(m.error) + ": " + Canonical.exceptionMessage(m.error)
                     + "\nHibernate: " + Canonical.exception(h.error) + ": " + Canonical.exceptionMessage(h.error) + "\n" + trace(m.error),
-                    sourcesOf(spec, ctx.pkg), instance < 0 ? null : spec.instances.get(instance)));
+                    sourcesOf(spec, ctx.pkg), instanceSource(spec, instance)));
             }
             return true;
         }
         Throwable t = m.error != null ? m.error : h.error;
         String who = m.error != null ? "ONLY_MICRONAUT_THROWS" : "ONLY_HIBERNATE_THROWS";
+        if (h.error instanceof jakarta.validation.ConstraintDeclarationException) {
+            // Hibernate Validator checks the declarations of a whole type the first time it is used, Micronaut
+            // those of an executable the first time it is validated: only a check of the executable itself counts
+            String method = check.replaceAll("^[a-zA-Z]+\\([^.]*\\.([^/)]*).*$", "$1");
+            boolean same = !method.equals(check) && Canonical.exceptionMessage(h.error).contains("#" + method + "(")
+                && !check.startsWith("getConstraintsFor");
+            who += same ? " [this executable" + overrideMode(spec, check) + "]" : " [another executable]";
+        }
         String other = m.error != null ? "Hibernate result: " + h.value : "Micronaut result: " + m.value;
         report.add(new Report.Difference(who, who + " " + checkKind + " " + simple(t.getClass().getName()) + " : "
             + normalize(Canonical.exceptionMessage(t)) + flags(spec),
             ctx.batch, spec.id, instance, check, Canonical.exception(t) + ": " + Canonical.exceptionMessage(t) + "\n" + other + "\n" + trace(t),
-            sourcesOf(spec, ctx.pkg), instance < 0 ? null : spec.instances.get(instance)));
+            sourcesOf(spec, ctx.pkg), instanceSource(spec, instance)));
         return true;
+    }
+
+    /** The way the method a check targets overrides another one, if it does. */
+    private static String overrideMode(CaseSpec spec, String check) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("^[a-zA-Z]+\\((C\\d+_S\\d+)\\.([^/]+)/(\\d+)").matcher(check);
+        if (!m.find()) {
+            return "";
+        }
+        for (ServiceSpec service : spec.services) {
+            if (service.name.equals(m.group(1))) {
+                for (MethodSpec method : service.callable()) {
+                    if (method.name.equals(m.group(2)) && method.params.size() == Integer.parseInt(m.group(3)) && method.overrideMode != null) {
+                        return ", " + method.overrideMode;
+                    }
+                }
+            }
+        }
+        return "";
+    }
+
+    private static String withoutInterfaceGroups(String s) {
+        return s == null ? null : s.replaceAll("C\\d+_I, ", "").replaceAll(", C\\d+_I\\b", "");
+    }
+
+    private static String instanceSource(CaseSpec spec, int instance) {
+        if (instance >= 0) {
+            return spec.instances.get(instance);
+        }
+        return instance == -1 ? null : "call: " + spec.calls.get(-2 - instance);
     }
 
     private static String pathShape(String path) {
@@ -640,6 +812,8 @@ public final class FuzzRunner {
         return message
             .replaceAll("fuzz\\.b\\d+\\.", "")
             .replaceAll("C\\d+_B\\d+", "C_B")
+            .replaceAll("C\\d+_([SI])\\d*", "C_$1")
+            .replaceAll("#m\\d+\\([^)]*\\)", "#m(..)")
             .replaceAll("\\bp\\d+\\b", "p")
             .replaceAll("HV\\d+", "HV")
             .replaceAll("\\d+", "N")
@@ -658,6 +832,9 @@ public final class FuzzRunner {
     private String location(Context ctx, Violation v) {
         String shape = v.identity().replaceAll("\\(([^)]*)\\)", "").replaceAll("\\[i=\\d+]", "[i]").replaceAll("\\[k=[^]]*]", "[k]");
         BeanSpec bean = v.leafBeanType() == null ? null : ctx.beans.get(v.leafBeanType());
+        if (bean == null && v.leafBeanType() != null && v.leafBeanType().matches("C\\d+_S\\d+")) {
+            return shape + " on service" + serviceFlavor(ctx, v);
+        }
         if (bean == null) {
             return shape + " leaf=" + v.leafBeanType();
         }
@@ -673,6 +850,28 @@ public final class FuzzRunner {
             : "type-argument";
         return shape + " " + where + " on " + flavor(bean) + " " + p.type.describe() + (p.valid ? " @Valid" : "")
             + (p.convertGroup != null ? " @ConvertGroup" : "");
+    }
+
+    private static String serviceFlavor(Context ctx, Violation v) {
+        String method = v.identity().replaceAll("^(METHOD|CONSTRUCTOR)\\(([^)]*)\\).*", "$2");
+        if (method.equals(v.identity())) {
+            return "";
+        }
+        for (CaseSpec spec : ctx.cases.values()) {
+            for (ServiceSpec service : spec.services) {
+                if (!service.name.equals(v.leafBeanType())) {
+                    continue;
+                }
+                for (MethodSpec m : service.callable()) {
+                    if (m.name.equals(method) && m.overridden != null) {
+                        return " " + (service.implemented != null && service.implemented.methods.contains(m.overridden) ? "implementing" : "overriding")
+                            + "(" + m.overrideMode + ")";
+                    }
+                }
+                return service.parent != null && service.methods.stream().noneMatch(m -> m.name.equals(method)) ? " inherited" : "";
+            }
+        }
+        return "";
     }
 
     private static String classAnnoHint(BeanSpec bean, String constraint) {
@@ -717,6 +916,27 @@ public final class FuzzRunner {
                 unsupported |= a.unsupportedType();
             }
         }
+        for (ServiceSpec service : spec.services) {
+            List<MethodSpec> executables = new ArrayList<>(service.methods);
+            if (service.constructor != null) {
+                executables.add(service.constructor);
+            }
+            for (MethodSpec m : executables) {
+                definitionError |= m.definitionError;
+                List<PropertySpec> elements = new ArrayList<>(m.params);
+                if (m.ret != null) {
+                    elements.add(m.ret);
+                }
+                for (PropertySpec p : elements) {
+                    List<Anno> all = new ArrayList<>(p.annos);
+                    collect(p.type, all);
+                    for (Anno a : all) {
+                        definitionError |= a.definitionError();
+                        unsupported |= a.unsupportedType();
+                    }
+                }
+            }
+        }
         return (definitionError ? " [invalid-definition]" : "") + (unsupported ? " [unsupported-type]" : "");
     }
 
@@ -734,6 +954,9 @@ public final class FuzzRunner {
             if (seen.add(bean.name)) {
                 sb.append(SourceWriter.bean(bean)).append('\n');
             }
+        }
+        for (ServiceSpec service : spec.services) {
+            sb.append(SourceWriter.service(service)).append('\n');
         }
         return sb.toString();
     }

@@ -124,6 +124,25 @@ public final class ValidationMetadataSupport {
         return result;
     }
 
+    /**
+     * @param returnArgument The merged return argument, with the annotations the method itself declares
+     * @param declaration The owning method's metadata
+     * @return The return argument with the type arguments carrying only declaration-owned annotations
+     */
+    public static Argument<?> declaredReturnArgument(Argument<?> returnArgument, AnnotationMetadata declaration) {
+        var snapshot = declaration.getAnnotation(DECLARED_PARAMETERS);
+        var returnType = snapshot == null ? null : snapshot.getAnnotation("returnType").orElse(null);
+        if (returnType == null) {
+            return returnArgument;
+        }
+        Argument<?>[] parameters = returnArgument.getTypeParameters().clone();
+        var nested = returnType.getAnnotations("arguments");
+        for (int i = 0; i < parameters.length && i < nested.size(); i++) {
+            parameters[i] = typeUse(withoutAnnotations(parameters[i]), nested.get(i));
+        }
+        return returnArgument.withTypeParameters(parameters);
+    }
+
     private static Argument<?> withoutAnnotations(Argument<?> argument) {
         return argument.withTypeParameters(
             Arrays.stream(argument.getTypeParameters()).map(ValidationMetadataSupport::withoutAnnotations).toArray(Argument<?>[]::new)).withAnnotationMetadata(AnnotationMetadata.EMPTY_METADATA);

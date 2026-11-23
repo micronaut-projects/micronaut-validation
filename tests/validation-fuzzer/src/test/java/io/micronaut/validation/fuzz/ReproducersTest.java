@@ -440,4 +440,25 @@ class ReproducersTest {
             super(String.join(" | ", Canonical.beanDescriptor(descriptor, false)));
         }
     }
+
+    @Test
+    void pathOfABeanNodeAddedToAViolationOfABeanInASet() throws Exception {
+        // the bean node of a bean in a set, followed by a bean node a class-level validator adds, lost its "[]"
+        Differential.Result result = Differential.run("""
+            @Introspected
+            public class Subject {
+                private Set<@Valid Item> items = new LinkedHashSet<>(List.of(new Item()));
+                public Set<Item> getItems() { return items; }
+                public static Object instance() { return new Subject(); }
+            }
+
+            @Introspected
+            @FuzzClassCheck(mode = 5)
+            class Item {
+            }
+            """, (v, bean) -> {
+            throw new IllegalStateException(v.validate(bean).stream().map(c -> c.getPropertyPath().toString()).sorted().toList().toString());
+        });
+        assertAgree(result);
+    }
 }

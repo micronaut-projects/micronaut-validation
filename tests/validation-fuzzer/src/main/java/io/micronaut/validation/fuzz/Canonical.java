@@ -96,6 +96,11 @@ final class Canonical {
         details.put("nodes", nodeDetails.toString());
         details.put("descriptor", descriptor(descriptor));
         details.put("attributeOrder", rawAttributes(descriptor));
+        if (v.getExecutableParameters() != null || v.getExecutableReturnValue() != null) {
+            details.put("executableParameters", render(v.getExecutableParameters()));
+            details.put("executableReturnValue", render(v.getExecutableReturnValue()));
+        }
+        details.put("rootBean", v.getRootBean() == null ? "null" : v.getRootBean().getClass().getSimpleName());
         String leafType = v.getLeafBean() != null ? v.getLeafBean().getClass().getSimpleName()
             : v.getRootBeanClass() == null ? null : v.getRootBeanClass().getSimpleName();
         return new Violation(identity.toString(), details, leafType, lastProperty, constraint);
@@ -120,6 +125,8 @@ final class Canonical {
                 containerClass = n.getContainerClass();
                 typeArgumentIndex = n.getTypeArgumentIndex();
             }
+            case PARAMETER -> sb.append(",index=").append(node.as(Path.ParameterNode.class).getParameterIndex());
+            case CROSS_PARAMETER, RETURN_VALUE, METHOD, CONSTRUCTOR -> sb.append(",name=").append(node.getName());
             default -> { }
         }
         if (containerClass != null || typeArgumentIndex != null) {
@@ -257,6 +264,34 @@ final class Canonical {
 
     private static String constraints(Set<ConstraintDescriptor<?>> descriptors) {
         return descriptors.stream().map(d -> descriptor(d, SORT.get())).sorted().collect(Collectors.toList()).toString();
+    }
+
+    /**
+     * An executable descriptor, its parts keyed by name so that the differing ones can be named.
+     */
+    static Map<String, String> executable(jakarta.validation.metadata.ExecutableDescriptor d) {
+        Map<String, String> parts = new LinkedHashMap<>();
+        if (d == null) {
+            parts.put("descriptor", "null");
+            return parts;
+        }
+        parts.put("name", d.getName());
+        parts.put("constrainedParameters", String.valueOf(d.hasConstrainedParameters()));
+        parts.put("constrainedReturnValue", String.valueOf(d.hasConstrainedReturnValue()));
+        parts.put("constraints", constraints(d.getConstraintDescriptors()));
+        for (jakarta.validation.metadata.ParameterDescriptor p : d.getParameterDescriptors()) {
+            parts.put("parameter " + p.getIndex(), p.getName() + " type=" + simpleName(p.getElementClass()) + " cascaded=" + p.isCascaded()
+                + " conversions=" + conversions(p.getGroupConversions()) + " constraints=" + constraints(p.getConstraintDescriptors())
+                + " containers=" + containers(p.getConstrainedContainerElementTypes()));
+        }
+        jakarta.validation.metadata.CrossParameterDescriptor cross = d.getCrossParameterDescriptor();
+        parts.put("crossParameter", cross == null ? "null" : "type=" + simpleName(cross.getElementClass())
+            + " constraints=" + constraints(cross.getConstraintDescriptors()));
+        jakarta.validation.metadata.ReturnValueDescriptor ret = d.getReturnValueDescriptor();
+        parts.put("returnValue", ret == null ? "null" : "type=" + simpleName(ret.getElementClass()) + " cascaded=" + ret.isCascaded()
+            + " conversions=" + conversions(ret.getGroupConversions()) + " constraints=" + constraints(ret.getConstraintDescriptors())
+            + " containers=" + containers(ret.getConstrainedContainerElementTypes()));
+        return parts;
     }
 
     static String exception(Throwable t) {

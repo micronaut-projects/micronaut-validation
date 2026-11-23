@@ -130,14 +130,7 @@ final class ValidationTraversal {
             List<DefaultConstraintValidatorContext.ValidationGroup> steps = context.findGroupSequences(introspection);
             // a requested sequence cascades in each step, in the groups of the step; a redefined default sequence
             // cascades once, in the default group
-            boolean cascadePerStep = false;
-            for (DefaultConstraintValidatorContext.ValidationGroup step : steps) {
-                if (step.isSequence() && step.requested().contains(Default.class)) {
-                    cascadePerStep = false;
-                    break;
-                }
-                cascadePerStep |= step.isSequence();
-            }
+            boolean cascadePerStep = DefaultConstraintValidatorContext.cascadesPerStep(steps);
             // what the type and its super types declare, read once per type
             ValidatorDeclarations.BeanPlan beanPlan = declarations.beanPlan(introspection);
             AnnotationMetadata annotationMetadata = introspection.getAnnotationMetadata();
@@ -530,9 +523,9 @@ final class ValidationTraversal {
                                           boolean canCascade) {
         if (!ArgumentValidationMetadata.isValidated(reflectionSupport, containerArgument)
             && !ArgumentValidationMetadata.hasValidatedTypeArgument(reflectionSupport, containerArgument)
-            // the processor marks the type of a cascaded getter returning an array, not the getter: its elements
-            // are cascaded all the same
-            && !(annotationMetadata.hasStereotype(Valid.class) && Object[].class.isAssignableFrom(containerArgument.getType()))) {
+            // the processor marks the type of a cascaded getter returning an array, not the getter, nor the return type
+            // of a method marked @Valid: the elements of such a container are cascaded all the same
+            && !(annotationMetadata.hasStereotype(Valid.class) && isLegacyContainer(containerArgument.getType()))) {
             return false;
         }
         boolean isLegacyValid = annotationMetadata.hasAnnotation(Valid.class)
@@ -686,6 +679,11 @@ final class ValidationTraversal {
         }
 
         return true;
+    }
+
+    private static boolean isLegacyContainer(Class<?> type) {
+        return Object[].class.isAssignableFrom(type) || Iterable.class.isAssignableFrom(type) || Map.class.isAssignableFrom(type)
+            || Optional.class == type;
     }
 
     private boolean hasConstrainedTypeArgument(DefaultConstraintValidatorContext<?> context, Argument<?> argument) {

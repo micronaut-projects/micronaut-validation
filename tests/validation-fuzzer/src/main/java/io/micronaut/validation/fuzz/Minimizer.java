@@ -88,7 +88,11 @@ final class Minimizer {
         for (BeanSpec bean : spec.beans) {
             sources.append(SourceWriter.bean(bean)).append('\n');
         }
-        return new Minimized(sources.toString().strip(), Report.stripMarkers(spec.instances.get(0)), last, attempts);
+        for (Model.ServiceSpec service : spec.services) {
+            sources.append(SourceWriter.service(service)).append('\n');
+        }
+        String instance = example.instance() <= -2 && !spec.calls.isEmpty() ? "call: " + spec.calls.get(0) : spec.instances.get(0);
+        return new Minimized(sources.toString().strip(), Report.stripMarkers(instance), last, attempts);
     }
 
     private Report.Difference reproduces(CaseSpec spec, int batch, String target) throws Exception {
@@ -110,6 +114,17 @@ final class Minimizer {
         String instance = spec.instances.get(Math.max(0, example.instance()));
         spec.instances.clear();
         spec.instances.add(instance);
+        if (example.instance() <= -2) {
+            // an executable call: keep it alone
+            String call = spec.calls.get(-2 - example.instance());
+            spec.calls.clear();
+            spec.calls.add(call);
+        } else {
+            spec.calls.clear();
+            if (!example.check().matches(".*\\(C\\d+_S\\d+.*")) {
+                spec.services.clear();
+            }
+        }
         for (String reduction : reductions) {
             if (!apply(spec, reduction)) {
                 return null;
@@ -126,6 +141,20 @@ final class Minimizer {
             return result;
         }
         // whole properties first, then the details
+        for (Model.ServiceSpec service : spec.services) {
+            for (Model.MethodSpec m : executables(service)) {
+                String key = service.name + "|" + m.name + "#" + m.params.size();
+                for (Anno a : m.cross) {
+                    result.add("scross|" + key + "|" + a.render());
+                }
+                for (int i = 0; i < m.params.size(); i++) {
+                    elementCandidates(key + "|p" + i, m.params.get(i), result);
+                }
+                if (m.ret != null) {
+                    elementCandidates(key + "|r", m.ret, result);
+                }
+            }
+        }
         for (BeanSpec bean : spec.beans) {
             for (PropertySpec p : bean.properties) {
                 result.add("prop|" + bean.name + "|" + p.name);
@@ -182,8 +211,84 @@ final class Minimizer {
         }
     }
 
+    private static void elementCandidates(String key, PropertySpec p, List<String> result) {
+        for (Anno a : p.annos) {
+            result.add("sanno|" + key + "|" + a.render());
+        }
+        if (p.valid) {
+            result.add("svalid|" + key);
+        }
+        if (p.convertGroup != null) {
+            result.add("sconvert|" + key);
+        }
+        collectTypeArgs(p.type, "", "sarg|" + key + "|", result);
+    }
+
+    private static void collectTypeArgs(TypeNode type, String path, String prefix, List<String> result) {
+        for (int i = 0; i < type.args.size(); i++) {
+            TypeNode arg = type.args.get(i);
+            String argPath = path + "/" + i;
+            for (Anno a : arg.annos) {
+                result.add(prefix + argPath + "|" + a.render());
+            }
+            collectTypeArgs(arg, argPath, prefix, result);
+        }
+    }
+
+    private static List<Model.MethodSpec> executables(Model.ServiceSpec service) {
+        List<Model.MethodSpec> all = new ArrayList<>(service.methods);
+        if (service.constructor != null) {
+            all.add(service.constructor);
+        }
+        return all;
+    }
+
+    private static boolean applyService(CaseSpec spec, String[] r) {
+        Model.ServiceSpec service = spec.services.stream().filter(s -> s.name.equals(r[1])).findFirst().orElse(null);
+        if (service == null) {
+            return false;
+        }
+        Model.MethodSpec method = executables(service).stream().filter(m -> (m.name + "#" + m.params.size()).equals(r[2])).findFirst().orElse(null);
+        if (method == null) {
+            return false;
+        }
+        if (r[0].equals("scross")) {
+            return method.cross.removeIf(a -> a.render().equals(r[3]));
+        }
+        PropertySpec element = r[3].equals("r") ? method.ret : method.params.get(Integer.parseInt(r[3].substring(1)));
+        if (element == null) {
+            return false;
+        }
+        switch (r[0]) {
+            case "sanno" -> {
+                return element.annos.removeIf(a -> a.render().equals(r[4]));
+            }
+            case "svalid" -> {
+                boolean was = element.valid;
+                element.valid = false;
+                element.convertGroup = null;
+                return was;
+            }
+            case "sconvert" -> {
+                boolean was = element.convertGroup != null;
+                element.convertGroup = null;
+                return was;
+            }
+            case "sarg" -> {
+                TypeNode node = node(element.type, r[4]);
+                return node != null && node.annos.removeIf(a -> a.render().equals(r[5]));
+            }
+            default -> {
+                return false;
+            }
+        }
+    }
+
     private static boolean apply(CaseSpec spec, String reduction) {
         String[] r = reduction.split("\\|", -1);
+        if (r[0].startsWith("s")) {
+            return applyService(spec, r);
+        }
         BeanSpec bean = spec.beans.stream().filter(b -> b.name.equals(r[1])).findFirst().orElse(null);
         if (bean == null) {
             return false;
@@ -200,6 +305,7 @@ final class Minimizer {
                     other.overrides.removeIf(o -> o.name.equals(p.name) && other.parent == bean);
                 }
                 spec.instances.replaceAll(i -> Generator.withoutProperty(i, bean.name, p.name));
+                spec.calls.replaceAll(i -> Generator.withoutProperty(i, bean.name, p.name));
                 prune(spec);
                 return true;
             }
@@ -286,6 +392,20 @@ final class Minimizer {
     private static void prune(CaseSpec spec) {
         Set<BeanSpec> reachable = new LinkedHashSet<>();
         reach(spec.root, reachable);
+        for (Model.ServiceSpec service : spec.services) {
+            List<Model.MethodSpec> executables = new ArrayList<>(service.methods);
+            if (service.constructor != null) {
+                executables.add(service.constructor);
+            }
+            for (Model.MethodSpec m : executables) {
+                for (PropertySpec p : m.params) {
+                    reachType(p.type, reachable);
+                }
+                if (m.ret != null) {
+                    reachType(m.ret.type, reachable);
+                }
+            }
+        }
         spec.beans.removeIf(b -> !reachable.contains(b));
     }
 

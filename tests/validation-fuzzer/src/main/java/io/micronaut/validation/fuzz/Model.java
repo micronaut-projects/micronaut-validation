@@ -269,6 +269,73 @@ final class Model {
     }
 
     /**
+     * A method or constructor of a generated service. Parameters and the return value reuse {@link PropertySpec}:
+     * its declaration constraints, cascade and group conversion.
+     */
+    static final class MethodSpec {
+        final String name;
+        final List<PropertySpec> params = new ArrayList<>();
+        /** The return value, null for void and for constructors. */
+        PropertySpec ret;
+        /** Cross-parameter constraints. */
+        final List<Anno> cross = new ArrayList<>();
+        /** The method this one overrides or implements, if any. */
+        MethodSpec overridden;
+        /** How an overriding method differs from the overridden one. */
+        String overrideMode;
+        /** Whether the generator knowingly broke a rule of the specification (Liskov rules of section 5.6.5). */
+        boolean definitionError;
+
+        MethodSpec(String name) {
+            this.name = name;
+        }
+
+        boolean isConstructor() {
+            return name.equals("<init>");
+        }
+    }
+
+    /**
+     * A generated service type, an introspected class with executable methods, or an interface it implements.
+     */
+    static final class ServiceSpec {
+        final String name;
+        final boolean isInterface;
+        final ServiceSpec parent;
+        final ServiceSpec implemented;
+        /** The constructor, null for an interface. */
+        MethodSpec constructor;
+        final List<MethodSpec> methods = new ArrayList<>();
+
+        ServiceSpec(String name, boolean isInterface, ServiceSpec parent, ServiceSpec implemented) {
+            this.name = name;
+            this.isInterface = isInterface;
+            this.parent = parent;
+            this.implemented = implemented;
+        }
+
+        /** The methods a call can target: its own, then the inherited ones it does not override. */
+        List<MethodSpec> callable() {
+            List<MethodSpec> all = new ArrayList<>(methods);
+            if (parent != null) {
+                for (MethodSpec m : parent.callable()) {
+                    if (methods.stream().noneMatch(o -> o.overridden == m)) {
+                        all.add(m);
+                    }
+                }
+            }
+            return all;
+        }
+
+        ServiceSpec declaring(MethodSpec method) {
+            if (methods.contains(method)) {
+                return this;
+            }
+            return parent == null ? null : parent.declaring(method);
+        }
+    }
+
+    /**
      * A case: a root bean with the types it reaches, and the instances to validate.
      */
     static final class CaseSpec {
@@ -276,6 +343,12 @@ final class Model {
         final List<BeanSpec> beans = new ArrayList<>();
         BeanSpec root;
         final List<String> instances = new ArrayList<>();
+        final List<ServiceSpec> services = new ArrayList<>();
+        /**
+         * The executable calls: the source of an {@code Object[]} of the declaring service name, the method name
+         * ({@code <init>} for the constructor), the arity, the receiver, the arguments and the return value.
+         */
+        final List<String> calls = new ArrayList<>();
 
         CaseSpec(int id) {
             this.id = id;

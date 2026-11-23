@@ -19,6 +19,9 @@ import io.micronaut.validation.fuzz.Model.Anno;
 import io.micronaut.validation.fuzz.Model.BeanSpec;
 import io.micronaut.validation.fuzz.Model.CaseSpec;
 import io.micronaut.validation.fuzz.Model.PropertySpec;
+import io.micronaut.validation.fuzz.Model.MethodSpec;
+import io.micronaut.validation.fuzz.Model.ServiceSpec;
+import io.micronaut.validation.fuzz.Model.TypeNode;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,7 +34,9 @@ import java.util.stream.Collectors;
 final class SourceWriter {
 
     static final String IMPORTS = """
+        import io.micronaut.context.annotation.Executable;
         import io.micronaut.core.annotation.Introspected;
+        import jakarta.validation.constraintvalidation.*;
         import jakarta.validation.*;
         import jakarta.validation.constraints.*;
         import jakarta.validation.groups.*;
@@ -192,6 +197,59 @@ final class SourceWriter {
                 int max() default 5;
             }
             """);
+        put(files, pkg, "FuzzParams", """
+            @Target({ElementType.METHOD, ElementType.CONSTRUCTOR, ElementType.ANNOTATION_TYPE})
+            @Retention(RetentionPolicy.RUNTIME)
+            @Documented
+            @Constraint(validatedBy = FuzzParamsValidator.class)
+            public @interface FuzzParams {
+                String message() default "fuzz params {mode}";
+            """ + MEMBERS + """
+                int mode() default 0;
+            }
+            """);
+        put(files, pkg, "FuzzParamsValidator", """
+            @Introspected
+            @SupportedValidationTarget(ValidationTarget.PARAMETERS)
+            public class FuzzParamsValidator implements ConstraintValidator<FuzzParams, Object[]> {
+                private int mode;
+
+                @Override
+                public void initialize(FuzzParams annotation) {
+                    mode = annotation.mode();
+                }
+
+                @Override
+                public boolean isValid(Object[] value, ConstraintValidatorContext context) {
+                    if (value == null) {
+                        return true;
+                    }
+                    switch (mode) {
+                        case 0: // no argument is null
+                            for (Object o : value) {
+                                if (o == null) {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        case 1: // the first argument is set
+                            return value.length == 0 || value[0] != null;
+                        case 2: // a custom violation on the first parameter
+                            if (value.length > 0 && value[0] == null) {
+                                context.disableDefaultConstraintViolation();
+                                context.buildConstraintViolationWithTemplate("first parameter {mode}")
+                                    .addParameterNode(0).addConstraintViolation();
+                                return false;
+                            }
+                            return true;
+                        default: // always invalid, with the default violation and a custom one
+                            context.buildConstraintViolationWithTemplate("custom cross")
+                                .addConstraintViolation();
+                            return false;
+                    }
+                }
+            }
+            """);
         return files;
     }
 
@@ -215,7 +273,81 @@ final class SourceWriter {
         for (BeanSpec bean : spec.beans) {
             put(files, pkg, bean.name, bean(bean));
         }
+        for (ServiceSpec service : spec.services) {
+            put(files, pkg, service.name, service(service));
+        }
         return files;
+    }
+
+    static String service(ServiceSpec service) {
+        StringBuilder sb = new StringBuilder();
+        if (service.isInterface) {
+            sb.append("public interface ").append(service.name).append(" {\n");
+        } else {
+            sb.append("@Introspected\npublic class ").append(service.name);
+            if (service.parent != null) {
+                sb.append(" extends ").append(service.parent.name);
+            }
+            if (service.implemented != null) {
+                sb.append(" implements ").append(service.implemented.name);
+            }
+            sb.append(" {\n");
+            MethodSpec ctor = service.constructor;
+            sb.append("\n    ");
+            for (Anno a : ctor.cross) {
+                sb.append(a.render()).append(' ');
+            }
+            sb.append("public ").append(service.name).append('(').append(parameters(ctor)).append(") {\n");
+            if (service.parent != null) {
+                sb.append("        super(").append(service.parent.constructor.params.stream().map(p -> defaultValue(p.type))
+                    .collect(Collectors.joining(", "))).append(");\n");
+            }
+            sb.append("    }\n");
+        }
+        for (MethodSpec m : service.methods) {
+            sb.append("\n    ");
+            if (m.overridden != null) {
+                sb.append("@Override\n    ");
+            }
+            if (!service.isInterface) {
+                sb.append("@Executable\n    ");
+            }
+            for (Anno a : m.cross) {
+                sb.append(a.render()).append(' ');
+            }
+            if (m.ret != null) {
+                sb.append(declarationAnnotations(m.ret));
+            }
+            sb.append(service.isInterface ? "" : "public ").append(m.ret == null ? "void" : m.ret.type.render(false, m.overridden == null))
+                .append(' ').append(m.name).append('(').append(parameters(m)).append(')');
+            if (service.isInterface) {
+                sb.append(";\n");
+            } else {
+                sb.append(" {\n");
+                if (m.ret != null) {
+                    sb.append("        return ").append(defaultValue(m.ret.type)).append(";\n");
+                }
+                sb.append("    }\n");
+            }
+        }
+        sb.append("}\n");
+        return sb.toString();
+    }
+
+    private static String parameters(MethodSpec m) {
+        // an overriding method repeats the types without the type argument constraints of the overridden one
+        return m.params.stream().map(p -> declarationAnnotations(p) + p.type.render(false, m.overridden == null) + " " + p.name)
+            .collect(Collectors.joining(", "));
+    }
+
+    private static String defaultValue(TypeNode type) {
+        return switch (type.kind) {
+            case INT -> "0";
+            case LONG -> "0L";
+            case DOUBLE -> "0.0";
+            case BOOLEAN -> "false";
+            default -> "null";
+        };
     }
 
     static String bean(BeanSpec bean) {
@@ -321,6 +453,20 @@ final class SourceWriter {
             }
         }
         sb.append("        return cases;\n    }\n");
+        sb.append("\n    public static List<Object[]> calls() {\n        List<Object[]> calls = new ArrayList<>();\n");
+        for (CaseSpec spec : cases) {
+            for (int i = 0; i < spec.calls.size(); i++) {
+                sb.append("        calls.add(new Object[] {").append(spec.id).append(", ").append(i).append(", call")
+                    .append(spec.id).append('_').append(i).append("()});\n");
+            }
+        }
+        sb.append("        return calls;\n    }\n");
+        for (CaseSpec spec : cases) {
+            for (int i = 0; i < spec.calls.size(); i++) {
+                sb.append("\n    static Object[] call").append(spec.id).append('_').append(i).append("() {\n        return ")
+                    .append(spec.calls.get(i)).append(";\n    }\n");
+            }
+        }
         for (CaseSpec spec : cases) {
             for (int i = 0; i < spec.instances.size(); i++) {
                 sb.append("\n    static Object instance").append(spec.id).append('_').append(i).append("() {\n        return ")

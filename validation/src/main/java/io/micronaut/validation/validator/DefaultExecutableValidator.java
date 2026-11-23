@@ -177,7 +177,10 @@ final class DefaultExecutableValidator {
 
         try (DefaultConstraintValidatorContext.ValidationCloseable ignored1 = context.withExecutableReturnValue(returnValue);
              ValidationPath.ContextualPath ignored2 = context.getCurrentPath().addMethodNode(executableMethod);
-             ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode()) {
+             ValidationPath.ContextualPath ignored3 = context.getCurrentPath().addReturnValueNode();
+             // the conversions of the return value apply to the beans cascaded through its type arguments too,
+             // as the ones of a property and of a parameter do
+             DefaultConstraintValidatorContext.ValidationCloseable ignored4 = context.convertGroups(returnArgument.getAnnotationMetadata())) {
             context.validateInGroups(context.findGroupSequences(bean), canCascade ->
                 traversal.visitElement(context, bean, returnArgument, returnArgument.getAnnotationMetadata(), returnValue, canCascade, ValidationTraversal.Cascade.UNCHECKED));
         }

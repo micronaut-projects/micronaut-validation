@@ -16,6 +16,20 @@ a bundle, and composed constraints with `@OverridesAttribute`, with and without 
 A few cases knowingly carry an invalid definition or a constraint on an unsupported type; their signatures are
 tagged `[invalid-definition]` / `[unsupported-type]`.
 
+Most cases also carry services for executable validation: an optional interface, a base class with a
+constrained constructor and methods (overloads, parameter, return value and type-argument constraints, cascades,
+`@ConvertGroup` and a cross-parameter constraint `@FuzzParams` that builds custom violations with and without a
+parameter node) and an optional subclass overriding methods. An override either inherits the declaration or
+breaks or keeps the Liskov rules of section 5.6.5, so some cases expect a `ConstraintDeclarationException`.
+Each call is checked with `validateParameters` (groups `[]`, `[G1]`, `[Seq]`), `validateReturnValue` and
+`validateConstructorParameters`, and each executable with `getConstraintsForMethod` / `getConstraintsForConstructor`.
+
+Known remaining executable differences: Micronaut checks the Liskov rules lazily for the executable being
+validated, so `validateReturnValue` does not fail for a parameter redefinition and `validateParameters` does not
+fail when an implementation adds a cross-parameter constraint (disabled reproducer); constraints of an interface
+method do not belong to the implicit interface group (disabled reproducer); Micronaut rejects an identical
+redeclaration of a parameter constraint that Hibernate Validator accepts.
+
 The sources are compiled in process with the Micronaut annotation processors. Each instance is checked with
 `validate` for several group combinations, `validateProperty` and `validateValue` for each root property, and
 each bean type with `getConstraintsForClass`. Violations are compared by path (node kinds, names, indexes,

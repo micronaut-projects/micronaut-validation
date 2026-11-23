@@ -19,7 +19,9 @@ import io.micronaut.validation.fuzz.Model.Anno;
 import io.micronaut.validation.fuzz.Model.BeanSpec;
 import io.micronaut.validation.fuzz.Model.CaseSpec;
 import io.micronaut.validation.fuzz.Model.Kind;
+import io.micronaut.validation.fuzz.Model.MethodSpec;
 import io.micronaut.validation.fuzz.Model.PropertySpec;
+import io.micronaut.validation.fuzz.Model.ServiceSpec;
 import io.micronaut.validation.fuzz.Model.TypeNode;
 
 import java.util.ArrayList;
@@ -99,7 +101,219 @@ final class Generator {
         for (int i = 0; i < instanceCount; i++) {
             spec.instances.add(instance(spec.root, 0));
         }
+        generateServices(spec);
         return spec;
+    }
+
+    // ---------------------------------------------------------------- services (executable validation)
+
+    private int methodCounter;
+
+    private void generateServices(CaseSpec spec) {
+        if (!chance(0.6)) {
+            return;
+        }
+        methodCounter = 0;
+        ServiceSpec implemented = null;
+        if (chance(0.25)) {
+            implemented = new ServiceSpec("C" + spec.id + "_I", true, null, null);
+            int count = 1 + random.nextInt(2);
+            for (int i = 0; i < count; i++) {
+                implemented.methods.add(method(spec));
+            }
+            spec.services.add(implemented);
+        }
+        ServiceSpec base = new ServiceSpec("C" + spec.id + "_S0", false, null, implemented);
+        base.constructor = constructor(spec);
+        int count = 1 + random.nextInt(3);
+        for (int i = 0; i < count; i++) {
+            MethodSpec m = method(spec);
+            base.methods.add(m);
+            if (chance(0.1)) {
+                // an overload with another arity
+                MethodSpec overload = method(spec, m.name);
+                if (overload.params.size() != m.params.size()) {
+                    base.methods.add(overload);
+                }
+            }
+        }
+        if (implemented != null) {
+            for (MethodSpec m : implemented.methods) {
+                base.methods.add(override(m));
+            }
+        }
+        spec.services.add(base);
+        if (chance(0.35)) {
+            ServiceSpec sub = new ServiceSpec("C" + spec.id + "_S1", false, base, null);
+            sub.constructor = constructor(spec);
+            List<MethodSpec> candidates = base.methods;
+            int overrides = 1 + random.nextInt(Math.min(2, candidates.size()));
+            for (int i = 0; i < overrides; i++) {
+                MethodSpec target = candidates.get(random.nextInt(candidates.size()));
+                if (sub.methods.stream().noneMatch(o -> o.overridden == target)) {
+                    sub.methods.add(override(target));
+                }
+            }
+            if (chance(0.3)) {
+                sub.methods.add(method(spec));
+            }
+            spec.services.add(sub);
+        }
+        for (ServiceSpec service : spec.services) {
+            if (service.isInterface) {
+                continue;
+            }
+            String receiver = receiver(spec, service);
+            MethodSpec ctor = service.constructor;
+            for (int i = 0; i < 2; i++) {
+                spec.calls.add(call(service.name, ctor, "null", spec));
+            }
+            for (MethodSpec m : service.callable()) {
+                int n = 2 + random.nextInt(2);
+                for (int i = 0; i < n; i++) {
+                    spec.calls.add(call(service.declaring(m).name, m, receiver, spec));
+                }
+            }
+        }
+    }
+
+    private String receiver(CaseSpec spec, ServiceSpec service) {
+        return "new " + service.name + "(" + service.constructor.params.stream().map(p -> value(p.type, 1, p))
+            .collect(Collectors.joining(", ")) + ")";
+    }
+
+    private String call(String declaring, MethodSpec m, String receiver, CaseSpec spec) {
+        String args = m.params.stream().map(p -> value(p.type, 1, p)).collect(Collectors.joining(", "));
+        String ret = m.ret == null ? "null" : value(m.ret.type, 1, m.ret);
+        return "new Object[] {\"" + declaring + "\", \"" + m.name + "\", " + m.params.size() + ", " + receiver
+            + ", new Object[] {" + args + "}, " + ret + "}";
+    }
+
+    private MethodSpec constructor(CaseSpec spec) {
+        MethodSpec ctor = new MethodSpec("<init>");
+        int n = chance(0.4) ? 0 : 1 + random.nextInt(3);
+        for (int i = 0; i < n; i++) {
+            ctor.params.add(parameter(spec, "c" + i));
+        }
+        maybeCross(ctor);
+        return ctor;
+    }
+
+    private MethodSpec method(CaseSpec spec) {
+        return method(spec, "m" + (methodCounter++));
+    }
+
+    private MethodSpec method(CaseSpec spec, String name) {
+        MethodSpec m = new MethodSpec(name);
+        int n = random.nextInt(4);
+        for (int i = 0; i < n; i++) {
+            m.params.add(parameter(spec, "a" + i));
+        }
+        if (chance(0.75)) {
+            TypeNode type = parameterType(spec);
+            PropertySpec ret = new PropertySpec("<return>", type);
+            ret.annos.addAll(declarationConstraints(type, false));
+            cascade(ret);
+            m.ret = ret;
+        }
+        maybeCross(m);
+        return m;
+    }
+
+    private void maybeCross(MethodSpec m) {
+        if (!m.params.isEmpty() && chance(0.2)) {
+            Anno cross = new Anno("FuzzParams").with("mode", String.valueOf(random.nextInt(4)));
+            maybeMessage(cross);
+            maybeGroups(cross);
+            m.cross.add(cross);
+        }
+    }
+
+    private PropertySpec parameter(CaseSpec spec, String name) {
+        TypeNode type = parameterType(spec);
+        PropertySpec p = new PropertySpec(name, type);
+        p.annos.addAll(declarationConstraints(type, false));
+        cascade(p);
+        return p;
+    }
+
+    private void cascade(PropertySpec p) {
+        TypeNode type = p.type;
+        boolean cascadable = type.kind == Kind.BEAN || (type.kind == Kind.LIST && type.args.get(0).kind == Kind.BEAN);
+        if (cascadable && chance(0.7)) {
+            p.valid = true;
+            if (chance(0.15)) {
+                p.convertGroup = chance(0.5) ? "from = Default.class, to = G1.class" : "from = G2.class, to = G3.class";
+            }
+        }
+    }
+
+    /** A scalar or container type, or one of the beans of the case: no new bean types. */
+    private TypeNode parameterType(CaseSpec spec) {
+        if (!spec.beans.isEmpty() && chance(0.25)) {
+            TypeNode bean = TypeNode.bean(spec.beans.get(random.nextInt(spec.beans.size())));
+            if (chance(0.3)) {
+                TypeNode list = TypeNode.of(Kind.LIST, bean);
+                bean.annos.addAll(typeUseConstraints(bean));
+                maybeCascadeArg(bean);
+                return list;
+            }
+            return bean;
+        }
+        return generateType(spec, 2, 0);
+    }
+
+    /**
+     * A method overriding or implementing another one, with the same signature. The modes adding parameter
+     * constraints or a second cascade break the rules of section 5.6.5 of the specification.
+     */
+    private MethodSpec override(MethodSpec target) {
+        MethodSpec m = new MethodSpec(target.name);
+        m.overridden = target;
+        for (PropertySpec p : target.params) {
+            m.params.add(new PropertySpec(p.name, p.type));
+        }
+        if (target.ret != null) {
+            m.ret = new PropertySpec("<return>", target.ret.type);
+        }
+        List<String> modes = new ArrayList<>(List.of("inherit", "inherit", "inherit"));
+        if (m.ret != null) {
+            modes.addAll(List.of("return-constraint", "return-constraint"));
+            if (target.ret.valid) {
+                modes.add("return-cascade-again");
+            }
+        }
+        if (!m.params.isEmpty()) {
+            modes.addAll(List.of("parameter-constraint", "parameter-cascade"));
+            if (target.cross.isEmpty()) {
+                modes.add("cross-parameter");
+            }
+        }
+        String mode = modes.get(random.nextInt(modes.size()));
+        m.overrideMode = mode;
+        switch (mode) {
+            case "return-constraint" -> m.ret.annos.addAll(constraintsFor(m.ret.type, 1, false));
+            case "return-cascade-again" -> {
+                m.ret.valid = true;
+                m.definitionError = true;
+            }
+            case "parameter-constraint" -> {
+                PropertySpec p = m.params.get(random.nextInt(m.params.size()));
+                p.annos.addAll(constraintsFor(p.type, 1, false));
+                m.definitionError = !p.annos.isEmpty();
+            }
+            case "parameter-cascade" -> {
+                PropertySpec p = m.params.get(random.nextInt(m.params.size()));
+                p.valid = true;
+                m.definitionError = true;
+            }
+            case "cross-parameter" -> {
+                m.cross.add(new Anno("FuzzParams").with("mode", String.valueOf(random.nextInt(4))));
+                m.definitionError = true;
+            }
+            default -> { }
+        }
+        return m;
     }
 
     // ---------------------------------------------------------------- beans

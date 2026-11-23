@@ -81,7 +81,8 @@ final class ValidationPath extends ArrayList<Path.Node> implements Path {
         final Iterator<Node> i = iterator();
         while (i.hasNext()) {
             final Node node = i.next();
-            if (node.getKind() == ElementKind.BEAN && i.hasNext()) {
+            if (node.getKind() == ElementKind.BEAN && i.hasNext() && !node.isInIterable()) {
+                // a bean node in a container still prints its index or key, a bean node added after it nothing
                 continue;
             }
             if (node.isInIterable()) {
