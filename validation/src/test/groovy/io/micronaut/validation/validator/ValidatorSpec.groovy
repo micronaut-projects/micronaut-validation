@@ -757,6 +757,23 @@ class ValidatorSpec extends Specification {
         violations[0].message == "must not be null"
     }
 
+    void "test cascade to container of Object elements does not require an introspection" () {
+        when:
+        def bean = new ValidatorSpecClasses.ListOfObjects(["a", 1.0d, ["k": "v"]])
+        def violations = validator.validate(bean)
+
+        then:
+        violations.isEmpty()
+
+        when:
+        bean = new ValidatorSpecClasses.ListOfObjects([null])
+        violations = validator.validate(bean)
+
+        then:
+        violations.size() == 1
+        violations[0].message == "must not be null"
+    }
+
     void "test cascade to map of non-introspected value class" () {
         when:
         def notIntrospected = new ValidatorSpecClasses.Bee("")

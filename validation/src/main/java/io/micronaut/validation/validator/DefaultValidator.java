@@ -1380,6 +1380,10 @@ public class DefaultValidator implements
 
         final BeanIntrospection<E> beanIntrospection = getBeanIntrospection(elementValue, elementType.getType());
         if (beanIntrospection == null) {
+            if (elementType.getType() == Object.class && !elementType.isTypeVariable()) {
+                // A declared Object has nothing to cascade into, unlike an erased type variable, whose missing introspection is still worth reporting
+                return;
+            }
             // Error if not introspected
             ConstraintDescriptor<Annotation> constraintDescriptor = notIntrospectedConstraint(elementType, elementValue);
             DefaultConstraintViolation<R> violation = createConstraintViolation(context, leftBean, elementValue, constraintDescriptor);

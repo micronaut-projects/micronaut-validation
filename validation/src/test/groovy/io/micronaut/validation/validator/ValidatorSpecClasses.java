@@ -283,6 +283,12 @@ public class ValidatorSpecClasses {
         List<@NotNull @Valid Bee> bees
     ) {}
 
+    // test cascade to container whose element type is Object
+    @Introspected
+    public record ListOfObjects(
+        List<@NotNull @Valid Object> values
+    ) {}
+
     // test cascade to bean - enum
     @Introspected
     public record EnumList(
